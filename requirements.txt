@@ -1,0 +1,27 @@
+# Core dependencies for Infinito - Evolutionary Artificial Consciousness Simulator
+# GPU acceleration and neural networks
+torch>=2.0.0
+torchvision>=0.15.0
+
+# Scientific computing
+numpy>=1.21.0
+scipy>=1.7.0
+
+# Visualization and plotting
+matplotlib>=3.5.0
+
+# Optional but recommended for advanced visualizations
+Pillow>=8.3.0
+
+# Development and testing (optional)
+pytest>=6.2.0
+black>=21.0.0
+flake8>=3.9.0
+
+# For Jupyter notebook experiments (optional)
+jupyter>=1.0.0
+ipywidgets>=7.6.0
+
+# Performance monitoring (optional)
+psutil>=5.8.0
+nvidia-ml-py3>=7.352.0
