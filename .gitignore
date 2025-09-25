@@ -1,12 +1,12 @@
-# Byte-compiled / optimized / DLL files
+# 🧠 INFINITO - ARTIFICIAL CONSCIOUSNESS SYSTEM
+# ===============================================
+# Comprehensive .gitignore for consciousness research project
+
+# 🐍 Python
 __pycache__/
 *.py[cod]
 *$py.class
-
-# C extensions
 *.so
-
-# Distribution / packaging
 .Python
 build/
 develop-eggs/
@@ -27,17 +27,11 @@ share/python-wheels/
 *.egg
 MANIFEST
 
-# PyInstaller
-#  Usually these files are written by a python script from a template
-#  before PyInstaller builds the exe, so as to inject date/other infos into it.
+# 🧪 PyInstaller
 *.manifest
 *.spec
 
-# Installer logs
-pip-log.txt
-pip-delete-this-directory.txt
-
-# Unit test / coverage reports
+# 📊 Unit test / coverage reports
 htmlcov/
 .tox/
 .nox/
@@ -51,57 +45,54 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 
-# Translations
+# 📋 Translations
 *.mo
 *.pot
 
-# Django stuff:
+# 🌐 Django/Flask
 *.log
 local_settings.py
 db.sqlite3
 db.sqlite3-journal
 
-# Flask stuff:
+# 🔥 Flask
 instance/
 .webassets-cache
 
-# Scrapy stuff:
+# 📝 Scrapy
 .scrapy
 
-# Sphinx documentation
+# 📑 Sphinx
 docs/_build/
 
-# PyBuilder
+# 📊 PyBuilder
 target/
 
-# Jupyter Notebook
+# 🪐 Jupyter Notebook
 .ipynb_checkpoints
+*.ipynb
 
-# IPython
+# 📈 IPython
 profile_default/
 ipython_config.py
 
-# pyenv
+# 🐍 pyenv
 .python-version
 
-# pipenv
-#   According to pypa/pipenv#598, it is recommended to include Pipfile.lock in version control.
-#   However, in case of collaboration, if having platform-specific dependencies or dependencies
-#   having no cross-platform support, pipenv may install dependencies that don't work, or not
-#   install all needed dependencies.
-#Pipfile.lock
+# 🍻 pipenv
+Pipfile.lock
 
-# PEP 582; used by e.g. github.com/David-OConnor/pyflow
+# 🌟 PEP 582
 __pypackages__/
 
-# Celery stuff
+# ⚡ Celery
 celerybeat-schedule
 celerybeat.pid
 
-# SageMath parsed files
+# 🔄 SageMath
 *.sage.py
 
-# Environments
+# 🏢 Environments
 .env
 .venv
 env/
@@ -110,83 +101,160 @@ ENV/
 env.bak/
 venv.bak/
 
-# Spyder project settings
+# 🕷️ Spyder
 .spyderproject
 .spyproject
 
-# Rope project settings
+# 🔧 Rope
 .ropeproject
 
-# mkdocs documentation
+# 📖 mkdocs
 /site
 
-# mypy
+# 🎯 mypy
 .mypy_cache/
 .dmypy.json
 dmypy.json
 
-# Pyre type checker
+# 🐻 Pyre
 .pyre/
 
-# Infinito-specific files
-# =====================
+# 🧠 INFINITO SPECIFIC
+# ====================
 
-# Generated animations and visualizations
+# 🤖 AI/ML Models and Checkpoints
+*.pt
+*.pth
+*.pkl
+*.pickle
+*.ckpt
+*.h5
+*.hdf5
+checkpoints/
+saved_models/
+model_checkpoints/
+
+# 📊 Experimental Data  
+experiment_data/
+experimental_results/
+data/experiments/
+data/raw/
+outputs/*/
+results/*/
+sessions/*/
+*.json
+!config/*.json
+!examples/*.json
+
+# 📈 Visualizations and Media
 *.gif
 *.mp4
 *.avi
-despertar_evolution.*
-evolution_*.gif
+*.png
+*.jpg
+*.jpeg
+*.svg
+!docs/images/
+!README_assets/
 
-# Experimental data and logs
-experiments/
-results/
-logs/
+# 🔊 Audio/Sound files
+*.wav
+*.mp3
+*.ogg
+
+# 📝 Logs and Debug Files
 *.log
+debug.txt
+infinito_debug.log
+infinito_enhanced.log
+pyphi.log
 
-# Large model checkpoints
-checkpoints/
-models/
-*.pth
-*.pt
-*.ckpt
-
-# Data files
-data/
-datasets/
-*.npy
-*.npz
-*.h5
-*.hdf5
-
-# Temporary files
+# 💾 Temporary Files
 temp/
 tmp/
 *.tmp
-
-# IDE and editor files
-.vscode/
-.idea/
+*.bak
 *.swp
 *.swo
 *~
 
-# OS generated files
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
+# 🧠 Consciousness Analysis Cache
+__pyphi_cache__/
+consciousness_cache/
+phi_cache/
+
+# 🎮 IDE and Editor Files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+.atom/
+
+# 🏢 OS Generated Files
+# Windows
 Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
 
-# CUDA cache
-.nv/
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
 
-# Matplotlib cache
-.matplotlib/
+# Linux
+*~
+.directory
+.Trash-*
 
-# Custom configuration files (keep examples)
-config_personal.py
-my_config.py
-secret_config.py
+# 📊 Large Data Files (use Git LFS if needed)
+*.hdf5
+*.h5
+*.npy
+*.npz
+*.mat
+
+# 🔐 Sensitive Information
+secrets/
+private/
+credentials/
+*.key
+*.pem
+.env.local
+.env.production
+
+# 📦 Package Files
+*.tar.gz
+*.zip
+*.rar
+*.7z
+
+# 🔄 Version Control
+.git/
+!.gitignore
+!.gitattributes
+
+# 🚀 Deployment
+deploy/
+deployment/
+
+# 📊 Analytics and Metrics
+analytics/
+metrics/
+benchmarks/
+
+# 🧪 Testing Artifacts
+test_results/
+test_outputs/
+.coverage*
+
+# Keep essential config files
+!requirements.txt
+!requirements-dev.txt
+!setup.py
+!setup.cfg
+!pyproject.toml
+!pytest.ini
+!.github/

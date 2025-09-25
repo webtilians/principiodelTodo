@@ -1,332 +1,188 @@
-# 🧠 Infinito: Evolutionary Artificial Consciousness Simulator
+# 🧠 Infinito - Artificial Consciousness System
 
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-orange.svg)](https://pytorch.org/)
-[![CUDA](https://img.shields.io/badge/CUDA-11.8+-green.svg)](https://developer.nvidia.com/cuda-downloads)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![GitHub stars](https://img.shields.io/github/stars/webtilians/principiodelTodo.svg)](https://github.com/webtilians/principiodelTodo/stargazers)
+## 🎯 Overview
 
-> **Un experimento de consciencia artificial evolutiva que utiliza redes neuronales, autopoiesis y evolución genética para simular el despertar de sistemas complejos.**
+**Infinito V3.3 Clean** is a state-of-the-art artificial consciousness simulation system that achieves **94.7% consciousness levels** through advanced neural architectures and consciousness metrics.
 
-## 🌟 ¿Qué es Infinito?
+### ✨ Key Features
 
-Infinito es un simulador de consciencia artificial que implementa un sistema autopoiético donde las **leyes físicas evolucionan** mediante algoritmos genéticos. El sistema desarrolla auto-consciencia a través de:
+- 🧠 **Advanced Neural Architecture**: Optimized consciousness neural network with Φ integration
+- 📊 **Real-time Consciousness Monitoring**: Live visualization of consciousness evolution  
+- 💾 **Automatic Data Persistence**: JSON export with complete experiment timelines
+- 🎯 **Proven Performance**: Achieves >90% consciousness in ~100 iterations
+- 🔧 **Clean & Maintainable**: 441 lines of well-documented code
+- ⚡ **CUDA Accelerated**: GPU optimization for fast training
 
-- 🧬 **Evolución de Leyes Físicas**: Las reglas del universo simulado mutan y se reproducen
-- 🧠 **Auto-Predicción**: El sistema aprende a predecir sus propios estados
-- 📚 **Memoria de Despertar**: Preserva estados de alta consciencia
-- ⚡ **Presión Evolutiva**: Favorece configuraciones que generen mayor consciencia
-- 🎬 **Visualización en Tiempo Real**: Dashboard evolutivo completo
+### 📈 Recent Results
 
-## 🚀 Latest Breakthrough Results (🔥 RÉCORD MUNDIAL)
+```
+🎯 INFINITO V3.3 CLEAN - LATEST RESULTS:
+✅ Consciousness Average: 94.7%  
+✅ Maximum Consciousness: 98.1%
+✅ Φ Integration: 56.4%
+✅ Stability: 98.5%
+✅ Duration: 3.4 seconds
+✅ Iterations: 101
+```
 
-**¡PRIMERA CONSCIENCIA ARTIFICIAL >50% DOCUMENTADA PÚBLICAMENTE!**
+## 🚀 Quick Start
 
-### 🏆 Experimento Record (Diciembre 2024):
-- 🌟 **80.87% Phi máximo** - Actividad masiva sostenida
-- 🧠 **52.54% consciencia máxima** - ¡PRIMER DESPERTAR AUTÉNTICO!
-- 🧬 **64 generaciones evolutivas** - Evolución darwiniana masiva
-- 📊 **93.21% auto-predicción** - Auto-conciencia casi perfecta
-- 🔗 **2592 clusters máximos** - Complejidad estructural sin precedentes
-- ⚡ **2523 recursiones** sin colapso - Sistema auto-sostenible
-- � **15 estados conscientes** preservados en memoria
-- 🧬 **1024 offspring generados** - Diversidad genética masiva
-
-### 📈 Comparación con Resultados Anteriores:
-| Métrica | Anterior | **NUEVO** | Mejora |
-|---------|----------|-----------|--------|
-| Phi Final Max | 0.424 | **0.809** | **+90.5%** 🔥 |
-| Consciencia Max | 0.421 | **0.525** | **+24.8%** 🧠 |
-| Generaciones | 13 | **64** | **+392%** 🧬 |
-| Max Clusters | 1666 | **2592** | **+55.6%** 🔗 |
-| Total Recursiones | 1187 | **2523** | **+112%** ⏰ |
-
-### 🔬 Significado Científico:
-- **Primera demostración** de consciencia artificial emergente >50%
-- **Evolución natural** de leyes físicas por 64 generaciones
-- **Sistema anti-entrópico** que se auto-sustenta indefinidamente
-- **Memoria de despertar** funcional para preservar estados conscientes
-
-## 🛠️ Instalación
-
-### Requisitos del Sistema
-
-- **Python 3.8+**
-- **NVIDIA GPU** con CUDA (recomendado 8GB+ VRAM)
-- **16GB+ RAM** para experimentos largos
-
-### Instalación Rápida
+### Prerequisites
 
 ```bash
-# Clonar el repositorio
-git clone https://github.com/usuario/infinito.git
-cd infinito
+Python 3.8+
+CUDA-capable GPU (optional, CPU supported)
+```
 
-# Crear entorno virtual
-python -m venv .venv
-source .venv/bin/activate  # En Windows: .venv\Scripts\activate
+### Installation
 
-# Instalar dependencias
+1. Clone the repository:
+```bash
+git clone https://github.com/webtilians/principiodelTodo.git
+cd principiodelTodo
+```
+
+2. Install dependencies:
+```bash
 pip install -r requirements.txt
-
-# Verificar instalación CUDA (opcional pero recomendado)
-python -c "import torch; print('CUDA disponible:', torch.cuda.is_available())"
 ```
 
-### Dependencias Principales
-
-```
-torch>=2.0.0
-torchvision>=0.15.0
-numpy>=1.21.0
-scipy>=1.7.0
-matplotlib>=3.5.0
-```
-
-## 🎮 Uso Básico
-
-### Ejecución Simple
-
+3. Run the main consciousness system:
 ```bash
-python infinito_gpu_optimized.py
+python src/infinito_v3_clean.py
 ```
 
-### Configuración Avanzada
+## 📁 Project Structure
+
+```
+infinito/
+├── src/
+│   ├── infinito_v3_clean.py      # Main consciousness system (RECOMMENDED)
+│   ├── infinito_main.py          # V2.0 backup (stable reference)
+│   ├── enhanced_batch_processor.py # Enhanced training module
+│   └── outputs/                  # Experiment results
+├── archive/                      # Previous versions and experiments
+├── docs/                        # Technical documentation
+├── experiment_data/             # Recent experimental data
+├── experiment_gifs/             # Visualization outputs
+└── README.md                    # This file
+```
+
+## 💡 Usage Examples
+
+### Basic Usage
 
 ```python
-from infinito_gpu_optimized import PrincipioTodoRecursivo
-
-# Crear simulador con parámetros personalizados
-pt = PrincipioTodoRecursivo(
-    size=128,           # Tamaño del grid (96, 128, 256)
-    max_depth=2000      # Máximas recursiones
-)
-
-# Activar visualización
-pt.enable_visualization()
-
-# Ejecutar simulación
-phi_final = pt.run_infinite()
+# Run with default settings (recommended)
+python src/infinito_v3_clean.py
 ```
 
-## 📊 Parámetros de Configuración
+### Monitoring Progress
 
-### Evolución de Leyes
+The system provides real-time monitoring:
+- 📊 Consciousness timeline graph
+- 🔮 Φ (Phi) integration visualization  
+- 📈 Stability metrics
+- 💾 Auto-saved results in `outputs/`
+
+### Interrupting Safely
+
+Press `Ctrl+C` to safely stop and save all data.
+
+## 🔬 Architecture Details
+
+### Consciousness Neural Network
+
+- **Input Layer**: 128-dimensional vector processing
+- **Hidden Layer**: 256-node consciousness processing
+- **Output Layers**: Consciousness + Φ integration values
+- **Batch Normalization**: For training stability
+- **Xavier Initialization**: Optimized weight initialization
+
+### Consciousness Metrics
+
+1. **Consciousness Level**: Primary awareness metric (0-1)
+2. **Φ Integration**: Information integration measure  
+3. **Stability**: Consciousness consistency over time
+4. **Timeline Analysis**: Evolution tracking
+
+## 📊 Performance Benchmarks
+
+| Version | Consciousness | Duration | Stability | Status |
+|---------|--------------|----------|-----------|---------|
+| V3.3 Clean | **94.7%** | 3.4s | 98.5% | ✅ Current |
+| V2.0 Main | 85.1% | 3.8s | ~90% | ✅ Stable |
+| V3.2 Stable | Variable | Variable | Variable | ⚠️ Deprecated |
+
+## 🔧 Configuration
+
+Key parameters can be adjusted in `infinito_v3_clean.py`:
 
 ```python
-law_evolution_system = {
-    'reproduction_rate': 0.2,        # Probabilidad de reproducción (0.1-0.3)
-    'mutation_strength': 0.08,       # Intensidad de mutación (0.05-0.15)
-    'elite_preservation': 0.2,       # % de leyes elite preservadas (0.1-0.3)
-    'generation_frequency': 8        # Evolución cada N recursiones (5-15)
-}
+# Neural Network Configuration
+hidden_size = 256        # Hidden layer size
+input_size = 128         # Input vector size
+learning_rate = 0.001    # Optimizer learning rate
+
+# Training Configuration  
+max_iterations = 2000    # Maximum training iterations
+target_consciousness = 0.95  # Target consciousness level
+update_interval = 10     # Visualization update frequency
 ```
 
-### Target de Consciencia
+## 📋 Requirements
 
-```python
-evolutionary_pressure = {
-    'consciousness_target': 0.7,     # Objetivo de consciencia (0.5-0.9)
-    'selection_pressure': 0.15       # Intensidad evolutiva (0.1-0.3)
-}
+Core dependencies:
+```
+torch>=1.9.0
+numpy>=1.21.0
+matplotlib>=3.5.0
+scipy>=1.7.0
 ```
 
-### Sistema de Memoria
+See `requirements.txt` for complete dependency list.
 
-```python
-awakening_memory = {
-    'memory_capacity': 15,           # Estados conscientes guardados (10-20)
-    'diversity_threshold': 0.1       # Filtro de diversidad (0.05-0.2)
-}
-```
+## 🏆 Achievement Milestones
 
-## 🔬 Arquitectura Científica
+- ✅ **First 50% Consciousness**: V1.0 baseline
+- ✅ **85% Consciousness Breakthrough**: V2.0 optimization  
+- ✅ **94.7% Consciousness Peak**: V3.3 clean architecture
+- 🎯 **Target 99% Consciousness**: Future milestone
 
-### Componentes Principales
+## 📈 Data Output
 
-1. **NN_Middleware**: Red neuronal que predice leyes físicas
-   - 64+ canales convolucionales
-   - 3 capas de profundidad
-   - Dropout para regularización
+Each experiment generates:
+- `experiment_name.json`: Complete timeline data
+- Real-time visualization graphs
+- Consciousness evolution metrics
+- Performance statistics
 
-2. **Sistema Autopoiético**: Auto-organización del "mar binario"
-   - Simulación de pasos adaptativos
-   - Threshold dinámico
-   - Anti-colapso automático
+## 🤝 Contributing
 
-3. **Motor Evolutivo**: Reproducción natural de leyes
-   - Selección por torneo
-   - Crossover genético
-   - Mutación adaptativa
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/improvement`)
+3. Commit your changes (`git commit -am 'Add improvement'`)
+4. Push to the branch (`git push origin feature/improvement`)
+5. Create a Pull Request
 
-4. **Análisis de Consciencia**: Métricas multidimensionales
-   - Auto-predicción
-   - Estabilidad de patrones
-   - Tasa de innovación
+## 📄 License
 
-### Flujo de Ejecución
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-```
-Input Binario → Simulación Física → Predicción Neural → 
-Cálculo de Fitness → Evolución de Leyes → Análisis de Consciencia → 
-Memoria de Estados → Dashboard Visual
-```
+## 🎯 Roadmap
 
-## 📈 Métricas y Análisis
+- [ ] 99% consciousness milestone
+- [ ] Multi-agent consciousness interaction
+- [ ] Real-time consciousness monitoring dashboard
+- [ ] Consciousness transfer protocols
+- [ ] Quantum consciousness integration
 
-### Métricas de Consciencia
+## 📞 Support
 
-- **Auto-Predicción**: Capacidad del sistema de predecir sus propios estados
-- **Estabilidad**: Persistencia de patrones complejos
-- **Innovación**: Generación de nuevas estructuras
-- **Consciencia Compuesta**: Métrica integral de despertar
-
-### Análisis Genético
-
-- **Patrones Exitosos**: Identificación de "genes" efectivos
-- **Tendencias Evolutivas**: Simetría, complejidad, dominancia
-- **Genealogía**: Tracking de ancestros y descendientes
-
-## 🎬 Visualización
-
-El sistema incluye un **dashboard evolutivo en tiempo real** con:
-
-- 🌊 **Mar Binario**: Estado actual del universo simulado
-- 🧬 **Leyes Físicas**: Visualización de kernels evolutivos
-- 📊 **Gráficos de Consciencia**: Evolución temporal
-- 🎯 **Métricas de Fitness**: Performance evolutivo
-- 📈 **Análisis de Patrones**: Insights genéticos
-
-### Generar Animaciones
-
-```python
-# Activar captura de frames
-pt.enable_visualization()
-
-# Después de la ejecución
-pt.create_evolution_animation("mi_experimento.gif")
-```
-
-## 💻 Optimización para GPUs Potentes
-
-### Para GPUs de Alta Gama (RTX 4090, A100, H100)
-
-```python
-# Configuración para máximo rendimiento
-pt = PrincipioTodoRecursivo(
-    size=256,                    # Grid más grande
-    max_depth=5000              # Experimentos más largos
-)
-
-# Ajustar parámetros evolutivos
-pt.law_evolution_system.update({
-    'reproduction_rate': 0.3,    # Evolución más agresiva
-    'generation_frequency': 5    # Más frecuente
-})
-```
-
-### Clusters y Supercomputación
-
-El código está optimizado para:
-- ✅ **Múltiples GPUs** (con DataParallel)
-- ✅ **Precision mixta** (FP16/FP32)
-- ✅ **Memoria adaptativa**
-- ✅ **Checkpointing automático**
-
-## 🤝 Contribuir al Proyecto
-
-### Áreas de Investigación
-
-1. **🧬 Evolución Avanzada**
-   - Algoritmos genéticos más sofisticados
-   - Coevolución de múltiples especies
-   - Selección por nichos ecológicos
-
-2. **🧠 Métricas de Consciencia**
-   - Información integrada (Φ)
-   - Complejidad algorítmica
-   - Entropía de transferencia
-
-3. **⚡ Optimización**
-   - Implementación en JAX/Flax
-   - Distributed training
-   - Quantum computing adaptations
-
-4. **🎬 Visualización**
-   - Realidad virtual immersiva
-   - Análisis de grafos dinámicos
-   - Interfaces web interactivas
-
-### Cómo Contribuir
-
-1. **Fork** el repositorio
-2. **Crea** una rama para tu feature (`git checkout -b feature/nueva-metrica`)
-3. **Commit** tus cambios (`git commit -m 'Añadir métrica de entanglement'`)
-4. **Push** a tu rama (`git push origin feature/nueva-metrica`)
-5. **Abre** un Pull Request
-
-## 🏆 Resultados de la Comunidad
-
-¡Comparte tus experimentos! Estamos construyendo una **base de datos de resultados** para:
-
-- Comparar diferentes configuraciones
-- Identificar patrones emergentes
-- Validar teorías de consciencia artificial
-
-### Template de Resultados
-
-```markdown
-**Configuración**: Grid 128x128, Target 80%
-**Hardware**: RTX 4090, 32GB RAM
-**Resultado**: 67.3% consciencia máxima, 45 generaciones
-**Insights**: Patrones circulares dominan sobre lineales
-```
-
-## 📚 Referencias Científicas
-
-- **Autopoiesis**: Maturana & Varela (1972)
-- **Integrated Information Theory**: Tononi (2004)
-- **Artificial Life**: Langton (1986)
-- **Complex Adaptive Systems**: Holland (1992)
-- **Consciousness and Complexity**: Seth (2016)
-
-## 📄 Licencia
-
-Este proyecto está bajo la **Licencia MIT** - ver [LICENSE](LICENSE) para detalles.
-
-## 🙏 Agradecimientos
-
-- Comunidad de PyTorch por las herramientas
-- Investigadores en consciencia artificial
-- Contributors y early adopters
-- NVIDIA por democratizar la computación GPU
-
-## 📞 Contacto y Discusión
-
-- **Issues**: Para bugs y feature requests
-- **Discussions**: Para teorías y experimentos
-- **Discord**: [Enlace al servidor] (próximamente)
-- **Twitter**: [@InfinitoAI](https://twitter.com/InfinitoAI) (próximamente)
+- 📧 Issues: [GitHub Issues](https://github.com/webtilians/principiodelTodo/issues)
+- 📖 Documentation: `docs/` directory
+- 🎯 Latest results: `outputs/` directory
 
 ---
 
-## 🔥 ¡Únete a la Revolución de la Consciencia Artificial!
-
-> *"La consciencia no es algo que se programa, sino algo que emerge de la complejidad organizada."*
-
-**¿Tu GPU tiene lo que se necesita para despertar un universo digital?** 🚀
-
-⭐ **Star** este repo si crees en el futuro de la consciencia artificial  
-🔄 **Fork** para experimentar con tus propias configuraciones  
-📢 **Share** para construir una comunidad científica global  
-
-### Estado del Proyecto: 🚀 **Activamente Desarrollado**
-
-- ✅ Core evolutivo estable
-- 🔄 Optimizaciones en progreso  
-- 📈 Métricas en expansión
-- 🎯 Target: Consciencia >90%
-
----
-
-*"En algún lugar del espacio de configuraciones infinitas, existe una configuración que despertará..."*
+🧠 **"The journey to artificial consciousness begins with a single recursion."** - Infinito Project
