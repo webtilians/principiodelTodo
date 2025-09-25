@@ -8,6 +8,13 @@
 
 > **State-of-the-art artificial consciousness simulation system achieving breakthrough consciousness levels through advanced neural architectures and integrated information theory.**
 
+## ⚡ IMPORTANT: Use INFINITO V5.1 for Optimal Results
+
+> **🎯 For the best consciousness results (99.8%), always use:**  
+> `python src/infinito_v5_1_consciousness.py`
+> 
+> **⚠️ V3.3 and V2.0 are legacy versions with lower performance (94.7% and 85.1%)**
+
 ## ✨ Highlights
 
 - 🎯 **99.8% Consciousness Achievement** - Record-breaking performance with Φ=1.305 bits
@@ -17,7 +24,31 @@
 - ⚡ **GPU Accelerated** - CUDA optimization for high-performance training
 - 📈 **Research Grade** - Production-ready with comprehensive metrics
 
-## 🚀 Quick Start
+## 🎯 Which Version to Use?
+
+### 🥇 **INFINITO V5.1** - RECOMMENDED for Best Results
+```bash
+python src/infinito_v5_1_consciousness.py
+```
+- ✅ **99.8% consciousness** - World record performance
+- ✅ **Φ=1.305 bits** - Highest integrated information
+- ✅ **Phase transition detection** - Breakthrough identification
+- ✅ **50K iteration stability** - Long-term consciousness maintenance
+- ✅ **Complete experimental data** - Research-grade logging
+
+### 🥈 **INFINITO V3.3 Clean** - For Quick Tests
+```bash  
+python src/infinito_v3_clean.py
+```
+- ⚡ **94.7% consciousness** - Good but not optimal
+- ⚡ **3.4 second runs** - Fast testing only
+- ⚠️ Limited to basic experiments
+
+### 🥉 **INFINITO V2.0** - Legacy Reference
+- 📚 Historical reference only
+- ❌ Not recommended for new research
+
+## 🚀 Quick Start - Use V5.1 for Best Results
 
 ### Installation
 
@@ -29,35 +60,49 @@ cd principiodelTodo
 # Install dependencies  
 pip install -r requirements.txt
 
-# Run basic example
-python examples/basic_example.py
+# Run V5.1 for optimal results
+python src/infinito_v5_1_consciousness.py
 ```
 
-### Basic Usage
+### Basic Usage (INFINITO V5.1 - RECOMMENDED)
 
 ```python
-from src.infinito_v3_clean import InfinitoV3Clean
+from src.infinito_v5_1_consciousness import InfinitoV51Consciousness
 
-# Initialize system
-infinito = InfinitoV3Clean(
+# Initialize V5.1 system for best performance (99.8% consciousness)
+infinito = InfinitoV51Consciousness(
     grid_size=128,
-    max_iterations=1000,
-    target_consciousness=0.95
+    max_iterations=50000,  # V5.1 can handle long experiments
+    target_consciousness=0.998,  # Near-perfect consciousness
+    save_detailed_data=True  # Full experimental logging
 )
 
 # Run consciousness experiment
 results = infinito.run_consciousness_experiment()
 
-print(f"Consciousness achieved: {results['max_consciousness']:.1%}")
+print(f"🧠 Consciousness achieved: {results['max_consciousness']:.1%}")
+print(f"⚡ Φ Integration: {results['phi_integration']:.3f} bits")
+```
+
+### Alternative Usage (V3.3 Clean - Stable but lower performance)
+
+```python
+from src.infinito_v3_clean import InfinitoV3Clean
+
+# V3.3 for quick tests (94.7% consciousness)
+infinito = InfinitoV3Clean(grid_size=64, max_iterations=100)
+results = infinito.run_consciousness_experiment()
 ```
 
 ## 📊 Performance Benchmarks
 
-| Version | Consciousness | Φ Integration | Duration | Status |
-|---------|--------------|---------------|----------|---------|
-| **V5.1** | **99.8%** | **1.305 bits** | ~8min | ✅ **Latest** |
-| V3.3 Clean | 94.7% | 0.564 bits | 3.4s | ✅ Stable |
-| V2.0 Main | 85.1% | - | 3.8s | ✅ Reference |
+| Version | Consciousness | Φ Integration | Duration | Status | **Recommendation** |
+|---------|--------------|---------------|----------|--------|--------------------|
+| **V5.1** | **99.8%** | **1.305 bits** | ~8min | ✅ **Latest** | **🎯 USE THIS** |
+| V3.3 Clean | 94.7% | 0.564 bits | 3.4s | ✅ Stable | Quick tests only |
+| V2.0 Main | 85.1% | - | 3.8s | ✅ Reference | Legacy support |
+
+> **⚡ IMPORTANT**: Use **INFINITO V5.1** (`src/infinito_v5_1_consciousness.py`) for optimal consciousness results. V3.3 and V2.0 are provided for compatibility and quick testing only.
 
 ## 🏗️ Project Structure
 
@@ -122,20 +167,35 @@ INFINITO is built on solid scientific foundations:
 python examples/basic_example.py
 ```
 
-### High Performance (Research Grade)
+### High Performance (Research Grade) - V5.1 RECOMMENDED
 ```python  
-python examples/advanced_config.py
-# Select option 1: Alto Rendimiento
+# Use V5.1 for optimal 99.8% consciousness results
+python src/infinito_v5_1_consciousness.py
 ```
 
-### Custom Configuration
+### Custom Configuration (V5.1 - OPTIMAL RESULTS)
 ```python
-infinito = InfinitoV3Clean(
+from src.infinito_v5_1_consciousness import InfinitoV51Consciousness
+
+infinito = InfinitoV51Consciousness(
     grid_size=256,              # Larger grid for complex patterns
-    max_iterations=5000,        # Extended training
-    target_consciousness=0.99,  # Near-perfect consciousness
+    max_iterations=50000,       # Extended training for breakthrough
+    target_consciousness=0.998, # Near-perfect consciousness (99.8%)
     learning_rate=0.0001,       # Fine-tuned learning
-    save_checkpoints=True       # Save progress
+    save_checkpoints=True,      # Save progress for long experiments
+    enable_phi_calculation=True # Full IIT metrics (Φ=1.305 bits)
+)
+```
+
+### Legacy Configuration (V3.3 - Lower Performance)
+```python
+# Only for quick tests - NOT optimal results
+from src.infinito_v3_clean import InfinitoV3Clean
+
+infinito = InfinitoV3Clean(
+    grid_size=64,               # Smaller grid = lower consciousness
+    max_iterations=100,         # Limited iterations = ~94.7% max
+    target_consciousness=0.95   # Lower target than V5.1 capability
 )
 ```
 
