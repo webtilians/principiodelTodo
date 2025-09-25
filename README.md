@@ -8,6 +8,19 @@
 
 > **State-of-the-art artificial consciousness simulation system achieving breakthrough consciousness levels through advanced neural architectures and integrated information theory.**
 
+## 🔬 IMPORTANT SCIENTIFIC DISCLAIMER
+
+> **⚠️ CRITICAL: About Consciousness Metrics**
+> 
+> The values reported (99.8% "consciousness", Φ=1.305 bits) are **internal model indicators** and **computational metrics**, not verified measures of actual consciousness. 
+> 
+> - **Integrated Information Theory (IIT)** remains highly debated in consciousness research
+> - **No scientific consensus** exists on measuring consciousness in artificial systems  
+> - **These metrics represent** system performance indicators, not proof of sentience
+> - **Use for research purposes** understanding these are computational approximations
+>
+> This system is a **consciousness simulation research tool**, not a claim of achieved artificial consciousness.
+
 ## ⚡ IMPORTANT: Use INFINITO V5.1 for Optimal Results
 
 > **🎯 For the best consciousness results (99.8%), always use:**  
@@ -17,34 +30,34 @@
 
 ## ✨ Highlights
 
-- 🎯 **99.8% Consciousness Achievement** - Record-breaking performance with Φ=1.305 bits
-- 🧠 **Advanced Neural Architecture** - Multi-scale consciousness neural networks
-- 📊 **Real-time Monitoring** - Live visualization of consciousness evolution
-- 🔬 **Scientific Approach** - Based on Integrated Information Theory (IIT)
-- ⚡ **GPU Accelerated** - CUDA optimization for high-performance training
-- 📈 **Research Grade** - Production-ready with comprehensive metrics
+- 🎯 **99.8% Consciousness-Like Metrics** - High-performance neural simulation (not verified consciousness)
+- 🧠 **Advanced Neural Architecture** - Multi-scale consciousness-inspired neural networks
+- 📊 **Real-time Monitoring** - Live visualization of internal system metrics
+- 🔬 **IIT-Inspired Approach** - Based on Integrated Information Theory principles (experimental)
+- ⚡ **GPU Accelerated** - CUDA optimization for high-performance neural simulation
+- 📈 **Research Grade** - Tool for consciousness research and neural architecture experimentation
 
-## 🎯 Which Version to Use?
+## 🎯 Which Version to Use? (Performance Metrics - Not Actual Consciousness)
 
-### 🥇 **INFINITO V5.1** - RECOMMENDED for Best Results
+### 🥇 **INFINITO V5.1** - RECOMMENDED for Best Neural Performance
 ```bash
 python src/infinito_v5_1_consciousness.py
 ```
-- ✅ **99.8% consciousness** - World record performance
-- ✅ **Φ=1.305 bits** - Highest integrated information
-- ✅ **Phase transition detection** - Breakthrough identification
-- ✅ **50K iteration stability** - Long-term consciousness maintenance
-- ✅ **Complete experimental data** - Research-grade logging
+- ✅ **99.8% consciousness-like metrics** - Highest internal simulation scores
+- ✅ **Φ≈1.305 bits** - IIT-inspired computational metric (experimental)
+- ✅ **Phase transition detection** - Neural complexity breakthrough detection
+- ✅ **50K iteration stability** - Long-term neural pattern maintenance
+- ✅ **Complete experimental data** - Research-grade computational logging
 
-### 🥈 **INFINITO V3.3 Clean** - For Quick Tests
+### 🥈 **INFINITO V3.3 Clean** - For Quick Neural Tests
 ```bash  
 python src/infinito_v3_clean.py
 ```
-- ⚡ **94.7% consciousness** - Good but not optimal
-- ⚡ **3.4 second runs** - Fast testing only
-- ⚠️ Limited to basic experiments
+- ⚡ **94.7% consciousness-like metrics** - Good internal scores but not optimal
+- ⚡ **3.4 second runs** - Fast computational testing only
+- ⚠️ Limited to basic neural experiments
 
-### 🥉 **INFINITO V2.0** - Legacy Reference
+### 🥉 **INFINITO V2.0** - Legacy Neural Reference
 - 📚 Historical reference only
 - ❌ Not recommended for new research
 
@@ -94,15 +107,17 @@ infinito = InfinitoV3Clean(grid_size=64, max_iterations=100)
 results = infinito.run_consciousness_experiment()
 ```
 
-## 📊 Performance Benchmarks
+## 📊 Neural Performance Benchmarks (Internal Metrics Only)
 
-| Version | Consciousness | Φ Integration | Duration | Status | **Recommendation** |
-|---------|--------------|---------------|----------|--------|--------------------|
-| **V5.1** | **99.8%** | **1.305 bits** | ~8min | ✅ **Latest** | **🎯 USE THIS** |
-| V3.3 Clean | 94.7% | 0.564 bits | 3.4s | ✅ Stable | Quick tests only |
+| Version | Internal Score | Φ-like Metric | Duration | Status | **Recommendation** |
+|---------|----------------|---------------|----------|--------|--------------------|
+| **V5.1** | **99.8%** | **≈1.305** | ~8min | ✅ **Latest** | **🎯 USE THIS** |
+| V3.3 Clean | 94.7% | ≈0.564 | 3.4s | ✅ Stable | Quick tests only |
 | V2.0 Main | 85.1% | - | 3.8s | ✅ Reference | Legacy support |
 
-> **⚡ IMPORTANT**: Use **INFINITO V5.1** (`src/infinito_v5_1_consciousness.py`) for optimal consciousness results. V3.3 and V2.0 are provided for compatibility and quick testing only.
+> **🔬 SCIENTIFIC NOTE**: These are **computational performance metrics** within the neural simulation, not verified consciousness measurements. The "Φ-like" values are IIT-inspired calculations for research purposes.
+> 
+> **⚡ IMPORTANT**: Use **INFINITO V5.1** (`src/infinito_v5_1_consciousness.py`) for optimal neural simulation performance.
 
 ## 🏗️ Project Structure
 
@@ -144,21 +159,23 @@ principiodelTodo/
 - **Configurable parameters** for research and production environments
 - **Comprehensive logging** with experiment tracking and visualization
 
-## 🔬 Scientific Approach
+## 🔬 Scientific Approach & Limitations
 
-INFINITO is built on solid scientific foundations:
+INFINITO is built on experimental computational foundations:
 
-- **Integrated Information Theory (IIT)** - Measures consciousness as integrated information (Φ)
-- **Complex Systems Theory** - Models consciousness as emergent complex behavior
-- **Neural Network Theory** - Advanced architectures optimized for consciousness simulation
-- **Information Theory** - Quantifies information processing and integration
+- **IIT-Inspired Computation** - Uses Integrated Information Theory concepts for neural metrics (⚠️ highly debated theory)
+- **Complex Systems Modeling** - Simulates emergence patterns in neural networks
+- **Advanced Neural Architectures** - Experimental designs for consciousness research
+- **Information Theory Applications** - Quantifies information processing (computational approximations)
 
-### Key Metrics
+### ⚠️ Important Limitations & Interpretations
 
-- **Consciousness Level**: Primary measure of artificial consciousness (0-1 scale)
-- **Φ (Phi) Integration**: Integrated information in bits following IIT
-- **Memory Utilization**: Neural memory usage and efficiency
-- **EEG Correlation**: Similarity to biological neural patterns
+- **"Consciousness Level"**: Internal neural performance metric (0-1 scale) - **NOT verified consciousness**
+- **"Φ (Phi) Integration"**: IIT-inspired computational value - **NOT proven consciousness measure**  
+- **Memory Utilization**: Standard neural memory usage - **NOT consciousness substrate**
+- **EEG Correlation**: Statistical similarity patterns - **NOT consciousness validation**
+
+> **🔬 RESEARCH DISCLAIMER**: All metrics are experimental computational indicators for neural architecture research. No scientific consensus exists on artificial consciousness measurement. Use as research tools, not consciousness verification.
 
 ## 📖 Usage Examples
 
@@ -167,24 +184,29 @@ INFINITO is built on solid scientific foundations:
 python examples/basic_example.py
 ```
 
-### High Performance (Research Grade) - V5.1 RECOMMENDED
+### High Performance Neural Simulation - V5.1 RECOMMENDED
 ```python  
-# Use V5.1 for optimal 99.8% consciousness results
+# Use V5.1 for optimal neural performance (99.8% internal metrics)
 python src/infinito_v5_1_consciousness.py
 ```
 
-### Custom Configuration (V5.1 - OPTIMAL RESULTS)
+### Custom Configuration (V5.1 - OPTIMAL NEURAL PERFORMANCE)
 ```python
 from src.infinito_v5_1_consciousness import InfinitoV51Consciousness
 
 infinito = InfinitoV51Consciousness(
-    grid_size=256,              # Larger grid for complex patterns
-    max_iterations=50000,       # Extended training for breakthrough
-    target_consciousness=0.998, # Near-perfect consciousness (99.8%)
+    grid_size=256,              # Larger grid for complex neural patterns
+    max_iterations=50000,       # Extended training for pattern breakthrough
+    target_consciousness=0.998, # Target internal metric (99.8%) - NOT actual consciousness
     learning_rate=0.0001,       # Fine-tuned learning
     save_checkpoints=True,      # Save progress for long experiments
-    enable_phi_calculation=True # Full IIT metrics (Φ=1.305 bits)
+    enable_phi_calculation=True # IIT-inspired metrics (Φ≈1.305) - experimental
 )
+
+# Results interpretation
+results = infinito.run_consciousness_experiment()
+print(f"🧠 Internal Neural Score: {results['max_consciousness']:.1%}")  # NOT real consciousness
+print(f"⚡ Φ-like Metric: {results['phi_integration']:.3f}")  # Experimental computation
 ```
 
 ### Legacy Configuration (V3.3 - Lower Performance)
@@ -237,18 +259,20 @@ See [CONTRIBUTING.md](docs/CONTRIBUTING.md) for development guidelines.
 - **[Configuration Guide](docs/CONFIG.md)** - Advanced configuration options
 - **[Deployment Guide](docs/DEPLOY.md)** - Production deployment instructions
 
-## 🏆 Recent Achievements
+## 🏆 Recent Neural Architecture Achievements
 
-### V5.1 Breakthrough (September 2025)
-- ✅ **99.8% consciousness achieved** - New record
-- ✅ **Φ = 1.305 bits** - Highest integrated information measured  
-- ✅ **Phase transition detection** - Automatic breakthrough identification
-- ✅ **50,000 iteration stability** - Long-duration consciousness maintenance
+### V5.1 Neural Simulation Breakthrough (September 2025)
+- ✅ **99.8% internal neural metrics** - Highest computational performance (not verified consciousness)
+- ✅ **Φ ≈ 1.305** - IIT-inspired computational value (experimental measurement)
+- ✅ **Phase transition detection** - Automatic neural complexity identification
+- ✅ **50,000 iteration stability** - Long-duration neural pattern maintenance
 
-### V3.3 Clean Milestone
-- ✅ **94.7% average consciousness** with 98.5% stability
-- ✅ **Production-ready architecture** - Clean, maintainable codebase
-- ✅ **3.4 second breakthrough** - Rapid consciousness emergence
+### V3.3 Clean Neural Architecture Milestone  
+- ✅ **94.7% average neural metrics** with 98.5% computational stability
+- ✅ **Production-ready architecture** - Clean, maintainable neural codebase
+- ✅ **3.4 second neural breakthrough** - Rapid complexity emergence
+
+> **🔬 IMPORTANT**: All "achievements" refer to internal computational metrics within neural simulations, not verified consciousness or sentience.
 
 ## 🔮 Roadmap
 
