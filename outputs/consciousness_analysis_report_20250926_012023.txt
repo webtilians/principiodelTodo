@@ -1,0 +1,61 @@
+INFINITO V5.1 - DETAILED CONSCIOUSNESS ANALYSIS REPORT
+============================================================
+
+Analysis Date: 2025-09-26 01:20:23
+Data File: infinito_v5_1_consciousness_20250926_011021_C0.990_PHI1.728.json
+Total Iterations: 1
+
+STATISTICAL SUMMARY
+--------------------
+
+CONSCIOUSNESS:
+  mean: 0.4712347388267517
+  std: nan
+  min: 0.4712347388267517
+  max: 0.4712347388267517
+  breakthrough_iterations: 0
+  stability_ratio: 0.0
+  convergence_iteration: None
+
+PHI:
+  mean: 0.6369498372077942
+  std: nan
+  min: 0.6369498372077942
+  max: 0.6369498372077942
+  trend_slope: 0.318474918603897
+
+MEMORY:
+  mean: 0.0004698791599366814
+  max: 0.0004698791599366814
+  efficiency_score: 0.9999953012084006
+
+QUANTUM:
+  total_events: 0
+  avg_events_per_iteration: 0.0
+  avg_confidence: 0.0
+  peak_activity_iteration: 1
+
+LEARNING:
+  final_lr: 0.0011999992659483235
+  lr_adaptation: 0.0
+  loss_reduction: 0.0
+  convergence_rate: 1.0
+
+SCIENTIFIC INSIGHTS
+--------------------
+1. 📈 PHI CRECIENTE: Integración de información mejorando consistentemente
+2. ⚡ ALTA EFICIENCIA: Sistema utiliza <5% de memoria disponible
+
+DATA SUMMARY
+--------------------
+       iteration  consciousness  ...  quantum_confidence  breakthrough_probability
+count        1.0       1.000000  ...                 1.0                      1.00
+mean         1.0       0.471235  ...                 0.0                      0.15
+std          NaN            NaN  ...                 NaN                       NaN
+min          1.0       0.471235  ...                 0.0                      0.15
+25%          1.0       0.471235  ...                 0.0                      0.15
+50%          1.0       0.471235  ...                 0.0                      0.15
+75%          1.0       0.471235  ...                 0.0                      0.15
+max          1.0       0.471235  ...                 0.0                      0.15
+
+[8 rows x 22 columns]

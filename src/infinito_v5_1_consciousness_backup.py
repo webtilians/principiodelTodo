@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# MEJORA NOETHER: Simulación de simetrías y conservaciones para emergencias eficientes (2025-09-26)
 """
 🧠 INFINITO V5.1 - CONSCIOUSNESS CEILING BREAKTHROUGH 🧠
 ========================================================
@@ -69,8 +68,6 @@ from torch.nn import MultiheadAttention, LSTM, GRU
 from torch.nn.utils.rnn import pad_sequence
 import torch.cuda.amp as amp
 from scipy import stats  # Mejora 8: For advanced pattern recognition
-from sympy import symbols, diff, Eq  # Para modelado simbólico de conservaciones (opcional, para análisis post-run)
-import torch.autograd as autograd  # Para checks de invariancia vía gradients
 
 # MEJORA 3: Quantum Simulation for Sustained Evolution
 try:
@@ -548,7 +545,6 @@ class ConsciousnessBoostNet(nn.Module):
         
         # 🔬 V5.1: Enhanced FactDecoder (Global Workspace inspired)
         self.fact_decoder = FactDecoder(hidden_dim=hidden_dim, fact_dim=64)
-        self.noether_proxy = NoetherConservationProxy(tolerance=0.01)  # Proxy Noether para conservaciones
         
         # 🌊 Quantum availability flag
         self.quantum_available = QUTIP_AVAILABLE
@@ -664,14 +660,6 @@ class ConsciousnessBoostNet(nn.Module):
             visual_out, auditory_out, motor_out, executive_out,
             attention_weights, final_consciousness.squeeze(-1)
         )
-        
-        # Noether proxy: Check conservación (usa dtype float32)
-        states_curr = torch.cat([visual_out.mean(dim=1), auditory_out.mean(dim=1), motor_out.mean(dim=1), executive_out.mean(dim=1)], dim=-1).float()  # Dtype fix
-        if hasattr(self, 'states_prev'):
-            noether_msg = self.noether_proxy.check_conservation(phi_info['causal_density'], phi.mean(), self.states_prev, states_curr)
-            print(noether_msg)  # Log para debug
-        self.states_prev = states_curr.clone().detach()  # Update con clone para seguridad
-        self.noether_proxy.update_prev(phi_info['causal_density'], phi.mean())
         
         # V5.1: Track consciousness for progressive targeting with NaN protection
         consciousness_mean_val = final_consciousness.mean()
@@ -1087,64 +1075,6 @@ class EnhancedPhiCalculatorV51(nn.Module):
         final_phi = phi_enhanced * 1.5 + temporal_boost_tensor * 0.3
         
         return torch.clamp(final_phi, 0.0, 15.0)  # Permitir Φ > 10 para breakthrough
-
-
-class NoetherConservationProxy(nn.Module):
-    """
-    Proxy computacional del Teorema de Noether: Simula simetrías continuas (e.g., temporal) para conservar métricas como causal_density o Φ.
-    - Detecta si delta ~0 implica conservación (ley estable).
-    - Dtype: torch.float32 para compatibilidad.
-    """
-    def __init__(self, tolerance=0.01):
-        super().__init__()
-        self.tolerance = tolerance  # Umbral para "conservación"
-        self.prev_causal_density = None
-        self.prev_phi = None
-
-    def check_conservation(self, current_causal_density, current_phi, states_prev, states_curr):
-        # Simetría temporal proxy: Diff en estados bajo shift (invariancia aproximada)
-        temporal_diff = (states_curr - states_prev).abs().mean()
-        if temporal_diff < self.tolerance:
-            # Conservación si diffs bajas - Handle scalars and tensors
-            if self.prev_causal_density is not None:
-                if isinstance(current_causal_density, torch.Tensor) and isinstance(self.prev_causal_density, torch.Tensor):
-                    delta_causal = (current_causal_density - self.prev_causal_density).abs()
-                else:
-                    delta_causal = torch.tensor(abs(float(current_causal_density) - float(self.prev_causal_density)), dtype=torch.float32)
-            else:
-                delta_causal = torch.tensor(0.0, dtype=torch.float32)
-                
-            if self.prev_phi is not None:
-                if isinstance(current_phi, torch.Tensor) and isinstance(self.prev_phi, torch.Tensor):
-                    delta_phi = (current_phi - self.prev_phi).abs()
-                else:
-                    delta_phi = torch.tensor(abs(float(current_phi) - float(self.prev_phi)), dtype=torch.float32)
-            else:
-                delta_phi = torch.tensor(0.0, dtype=torch.float32)
-                
-            if delta_causal < self.tolerance and delta_phi < self.tolerance:
-                return "Ley conservada detectada (Noether proxy: simetría temporal ≈0, deltas bajos: causal={:.4f}, Φ={:.4f})".format(delta_causal.item(), delta_phi.item())
-            else:
-                return "Nueva ley emergente probada (simetría rota: deltas altos: causal={:.4f}, Φ={:.4f})".format(delta_causal.item(), delta_phi.item())
-        return "No simetría detectada (temporal_diff={:.4f} > tolerancia)".format(temporal_diff.item())
-
-    def update_prev(self, causal_density, phi):
-        # Handle both scalars and tensors
-        if isinstance(causal_density, torch.Tensor):
-            self.prev_causal_density = causal_density.clone().detach()
-        else:
-            self.prev_causal_density = torch.tensor(causal_density, dtype=torch.float32)
-        
-        if isinstance(phi, torch.Tensor):
-            self.prev_phi = phi.clone().detach()
-        else:
-            self.prev_phi = torch.tensor(phi, dtype=torch.float32)
-
-    def symbolic_noether(self):
-        # Opcional: Simbólico para post-análisis (e.g., conservación como eq=0)
-        cd = symbols('causal_density')
-        conservation_eq = Eq(diff(cd, symbols('time')), 0)  # Conservación: d/cd dt = 0
-        return str(conservation_eq)  # "Derivative(causal_density, time) = 0"
 
 
 class QuantumFactDecoder(nn.Module):
@@ -1960,9 +1890,6 @@ class InfinitoV51ConsciousnessBreakthrough:
             'consciousness_growth_rate': self.metrics_history['consciousness_growth_rate'][-1] if self.metrics_history['consciousness_growth_rate'] else 0.0,
             'lr': self.scheduler.get_last_lr()[0]
         }
-        
-        symbolic_eq = self.model.noether_proxy.symbolic_noether()
-        print(f"Symbolic Noether Eq: {symbolic_eq}")  # Ej: "Derivative(causal_density, time) = 0"
         
         # 🔬 V5.1: Add quantum fact metrics if available
         if 'quantum_facts' in debug_info and debug_info['quantum_facts'].get('significant_delta', False):
