@@ -1,0 +1,42 @@
+
+🧠 REPORTE AVANZADO DE ANÁLISIS DE CONSCIOUSNESS
+============================================================
+
+📁 ARCHIVO ANALIZADO: src/outputs/infinito_v5_1_consciousness_20250925_232831_C0.997_PHI1.307.json
+⏰ FECHA DE ANÁLISIS: 2025-09-27 12:05:46
+
+📊 ESTADÍSTICAS GENERALES:
+• Total de puntos analizados: 500
+• Consciousness promedio: 0.987371 ± 0.028908
+• Phi promedio: 1.111825 ± 0.060872
+• Rango Consciousness: [0.430727, 0.997191]
+• Rango Phi: [0.539787, 1.307475]
+
+🔗 ANÁLISIS DE CORRELACIONES C-Φ:
+• Correlación Spearman: 0.1170 (p=0.0088)
+• Correlación Pearson:  0.5617 (p=0.0000)
+• Correlación Kendall:  0.0812 (p=0.0066)
+• Correlación Deltas:   0.0289 (p=0.5193)
+
+🌊 ANÁLISIS DE TRANSICIONES:
+• Transiciones Φ detectadas: 8
+• Picos identificados: 1
+• Valles identificados: 3
+• Tendencia promedio: -0.000268
+• Varianza promedio: 0.002487
+
+🏆 ANÁLISIS PREDICTIVO:
+• Momentum Consciousness: 0.000010
+• Momentum Phi: -0.000055
+• Aceleración Consciousness: -0.000000
+• Aceleración Phi: -0.000869
+• Score Predictivo: 60.261
+• Breakthrough Alcanzado: ✅ SÍ
+
+💡 INSIGHTS Y CONCLUSIONES:
+• 📉 Correlación DÉBIL entre C y Φ
+• 🚀 Momentum POSITIVO en Consciousness detectado
+• 🔻 Momentum NEGATIVO en Phi
+• 🎯 ALTA probabilidad de breakthrough futuro
+
+============================================================

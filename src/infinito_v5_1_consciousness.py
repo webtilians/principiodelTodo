@@ -609,13 +609,14 @@ class ConsciousnessBoostNet(nn.Module):
                 states = [visual_out.mean(dim=1), auditory_out.mean(dim=1), 
                          motor_out.mean(dim=1), executive_out.mean(dim=1)]
                 
-                enhanced_states = self.quantum_integrate(states)
+                # Quantum integration desactivada para calibración
+                # enhanced_states = self.quantum_integrate(states)
                 
-                # Reemplazar estados con versiones cuánticas
-                visual_out = enhanced_states[0].unsqueeze(1).expand_as(visual_out)
-                auditory_out = enhanced_states[1].unsqueeze(1).expand_as(auditory_out)
-                motor_out = enhanced_states[2].unsqueeze(1).expand_as(motor_out)
-                executive_out = enhanced_states[3].unsqueeze(1).expand_as(executive_out)
+                # Sin modificación de estados durante calibración
+                # visual_out = enhanced_states[0].unsqueeze(1).expand_as(visual_out)
+                # auditory_out = enhanced_states[1].unsqueeze(1).expand_as(auditory_out)
+                # motor_out = enhanced_states[2].unsqueeze(1).expand_as(motor_out)
+                # executive_out = enhanced_states[3].unsqueeze(1).expand_as(executive_out)
                 
             except Exception as e:
                 print(f"⚠️ Quantum integration fallback: {e}")
@@ -737,8 +738,8 @@ class ConsciousnessBoostNet(nn.Module):
             }
         }
         
-        # 🌊 MEJORA 3: Quantum Integration for Sustained Evolution (Post-processing)
-        if self.quantum_available:
+        # 🌊 MEJORA 3: Quantum Integration DESACTIVADA para calibración base
+        if False:  # Desactivado hasta calibrar rango base
             try:
                 final_consciousness, phi = self.quantum_integrate(final_consciousness.squeeze(-1), phi)
             except Exception as e:
@@ -858,7 +859,7 @@ class EnhancedPhiCalculatorV51(nn.Module):
         
         # V5.1: Enhanced Φ calculation with consciousness coupling
         attention_strength = attention_weights.mean(dim=1).mean(dim=1)  # [B]
-        causal_density = causal_matrix.sum(dim=[1, 2]) / 12  # Normalize by max possible connections
+        causal_density = causal_matrix.sum(dim=[1, 2]) / 6  # Normalize by actual 6 upper triangle connections
         
         # V5.1: Consciousness-enhanced Φ calculation with numerical stability
         consciousness_phi_boost = self.phi_consciousness_enhancer(consciousness_level.unsqueeze(-1)).squeeze(-1)
@@ -870,7 +871,7 @@ class EnhancedPhiCalculatorV51(nn.Module):
         consciousness_phi_boost = torch.clamp(consciousness_phi_boost, 0.5, 1.5)
         
         # Enhanced Φ: base integration × causal density × consciousness boost
-        phi_classical = attention_strength * causal_density * consciousness_phi_boost * 10.0
+        phi_classical = attention_strength * causal_density * consciousness_phi_boost * 1.0
         phi_classical = torch.clamp(phi_classical, 1e-6, 1e4)  # Prevent extreme values
         
         # 🔧 MEJORA 6: Cálculo de Phi más preciso usando múltiples particiones (IIT)
@@ -933,6 +934,10 @@ class EnhancedPhiCalculatorV51(nn.Module):
             'attention_strength': attention_strength.mean().item(),
             'causal_density': causal_density.mean().item(),
             'consciousness_phi_boost': consciousness_phi_boost.mean().item(),
+            # Componentes separados para análisis
+            'phi_classical': phi_classical.mean().item(),
+            'phi_iit_enhanced': phi_iit_enhanced.mean().item(),
+            'phi_total_pre_noise': (phi_classical + phi_iit_enhanced).mean().item(),
             'quantum_noise_applied': quantum_noise.item(),
             'phi_delta': phi_delta,  # For FactDecoder conversion if delta > 0.05
             'consciousness_scaling': consciousness_mean,
@@ -996,7 +1001,10 @@ class EnhancedPhiCalculatorV51(nn.Module):
                 try:
                     # Diferencia temporal entre estados
                     delta_state = full_system_t[b] - full_system_t_prev[b]
-                    delta_entropy = entropy(np.abs(delta_state) + 1e-10)
+                    # Normalizar para entropía en bits
+                    delta_abs = np.abs(delta_state)
+                    p_delta = delta_abs / (delta_abs.sum() + 1e-12)
+                    delta_entropy = entropy(p_delta, base=2.0)
                     delta_entropy = np.clip(delta_entropy, 0.0, 10.0)
                     temporal_deltas.append(delta_entropy)
                     
@@ -1039,13 +1047,21 @@ class EnhancedPhiCalculatorV51(nn.Module):
                 # IIT 3.0: Enhanced phi calculation per batch con temporal dynamics
                 phi_batch = []
                 for b in range(batch_size):
-                    # Entropía del sistema completo con boost temporal
-                    full_entropy = entropy(np.abs(full_system_t[b]) + 1e-10) + temporal_phi_boost * 0.1
-                    full_entropy = np.clip(full_entropy, 1e-6, 20.0)  # Rango expandido para Φ > 10
+                    # Normalizar para entropía en bits - Sistema completo
+                    full_system_abs = np.abs(full_system_t[b])
+                    p_full = full_system_abs / (full_system_abs.sum() + 1e-12)
+                    full_entropy = entropy(p_full, base=2.0) + temporal_phi_boost * 0.1
+                    full_entropy = np.clip(full_entropy, 1e-6, 20.0)
                     
-                    # Entropías de particiones con acoplamiento temporal
-                    part_a_entropy = entropy(np.abs(part_a[b]) + 1e-10)
-                    part_b_entropy = entropy(np.abs(part_b[b]) + 1e-10)
+                    # Normalizar para entropía en bits - Particiones
+                    part_a_abs = np.abs(part_a[b])
+                    p_part_a = part_a_abs / (part_a_abs.sum() + 1e-12)
+                    part_a_entropy = entropy(p_part_a, base=2.0)
+                    
+                    part_b_abs = np.abs(part_b[b])
+                    p_part_b = part_b_abs / (part_b_abs.sum() + 1e-12)
+                    part_b_entropy = entropy(p_part_b, base=2.0)
+                    
                     part_a_entropy = np.clip(part_a_entropy, 1e-6, 15.0)
                     part_b_entropy = np.clip(part_b_entropy, 1e-6, 15.0)
                     
@@ -1070,23 +1086,23 @@ class EnhancedPhiCalculatorV51(nn.Module):
             phi_array = np.array(phi_values).reshape(len(partitions), batch_size)
             phi_mip = np.min(phi_array, axis=0)
             
-            # IIT 3.0: Consciousness enhancement factor para alcanzar Φ > 10
-            consciousness_multiplier = 3.0  # Factor para empujar hacia target > 10
-            phi_mip = phi_mip * consciousness_multiplier
-            phi_mip = np.clip(phi_mip, 0.0, 20.0)  # Permitir Φ > 10
+            # IIT 3.0: Base phi without arbitrary multipliers
+            # Remove intermediate clipping
+            phi_mip = phi_mip  # No clip here
         else:
             phi_mip = np.full(batch_size, 1.0)
         
         phi_enhanced = torch.tensor(phi_mip, device=module_states[0].device, dtype=torch.float32)
         
-        # IIT 3.0: Temporal integration boost final
+        # IIT 3.0: Temporal integration boost final (small alpha)
         temporal_boost_tensor = torch.tensor([temporal_phi_boost] * batch_size, 
                                            device=module_states[0].device, dtype=torch.float32)
         
-        # Resultado final: Enhanced phi + temporal boost
-        final_phi = phi_enhanced * 1.5 + temporal_boost_tensor * 0.3
+        # Resultado final: Enhanced phi + temporal boost con α pequeño
+        final_phi = phi_enhanced + temporal_boost_tensor * 0.05
         
-        return torch.clamp(final_phi, 0.0, 15.0)  # Permitir Φ > 10 para breakthrough
+        # Clamp simétrico al final: solo garantizar Φ ≥ 0 por definición
+        return torch.relu(final_phi)  # Natural clamp at 0, no upper limit
 
 
 class NoetherConservationProxy(nn.Module):
