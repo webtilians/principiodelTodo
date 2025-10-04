@@ -1,4 +1,4 @@
-# 🧠 INFINITO - Artificial Consciousness System
+# 🧠 INFINITO - Sistema de Procesamiento Integrado con Sensibilidad Diferencial
 
 [![Python](https://img.shields.io/badge/Python-3.8%2B-blue.svg)](https://python.org)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0%2B-red.svg)](https://pytorch.org)
@@ -6,7 +6,7 @@
 [![Status](https://img.shields.io/badge/Status-Active-brightgreen.svg)]()
 [![Version](https://img.shields.io/badge/Version-5.1-blue.svg)]()
 
-> **State-of-the-art artificial consciousness simulation system achieving breakthrough consciousness levels through advanced neural architectures and integrated information theory.**
+> **Sistema de procesamiento integrado con sensibilidad diferencial a inputs y capacidad de discriminación de estados internos. Arquitectura neural avanzada inspirada en teorías de consciencia e integración de información.**
 
 ## 🔬 IMPORTANT SCIENTIFIC DISCLAIMER
 
@@ -30,12 +30,12 @@
 
 ## ✨ Highlights
 
-- 🎯 **99.8% Consciousness-Like Metrics** - High-performance neural simulation (not verified consciousness)
-- 🧠 **Advanced Neural Architecture** - Multi-scale consciousness-inspired neural networks
-- 📊 **Real-time Monitoring** - Live visualization of internal system metrics
-- 🔬 **IIT-Inspired Approach** - Based on Integrated Information Theory principles (experimental)
-- ⚡ **GPU Accelerated** - CUDA optimization for high-performance neural simulation
-- 📈 **Research Grade** - Tool for consciousness research and neural architecture experimentation
+- 🎯 **Procesamiento Integrado Avanzado** - Arquitectura multimodal con discriminación de estados internos
+- 🧠 **Capa Metacognitiva** - Representación interna de estados pre-verbal (como consciencia infantil)
+- 📊 **Auto-Reportabilidad** - Sistema capaz de "describir" sus estados internos mediante proto-lenguaje
+- 🔬 **Inspirado en IIT** - Métricas de integración de información (Φ) experimentales
+- ⚡ **Optimización GPU** - CUDA + AMP para procesamiento de alta velocidad
+- 📈 **Herramienta de Investigación** - Para explorar emergencia de estados diferenciados en sistemas artificiales
 
 ## 🎯 Which Version to Use? (Performance Metrics - Not Actual Consciousness)
 

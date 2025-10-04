@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.1.3] - 2025-10-02 - 📊 Comparative Automation & Batch Tooling
+
+### ✨ Added
+- Comparative ON/OFF runner now spins up isolated model instances per condition to eliminate autograd cross-talk.
+- Lead/lag analyzer and Φ baseline locker with adaptive safeguards for long-duration experiments.
+- Batch runner supports aggregation-only workflows, artifact cleanup switches, and per-run metadata tracking.
+- Confidence interval (CI95) statistics and bootstrap-aware summaries exported with aggregated results.
+
+### 🔧 Improved
+- Comparative bootstrap pipeline hardened against missing data and baseline drift.
+- Cleanup routines remove JSON, checkpoints, and cache artifacts on demand while logging retained assets.
+- Aggregation summaries capture delta metrics for ON vs OFF states across large experiment batches.
+
+### ✅ Validation
+- Comparative focused smoke run (30 iterations), long-run stability check (120 iterations), and dual cleanup batch smoke runs.
+- Automated test suite: `pytest` → 3 passed, 59 skipped.
+
 ## [3.3.0] - 2024-09-24 - 🧠 Clean Stable Edition
 
 ### ✨ Added
