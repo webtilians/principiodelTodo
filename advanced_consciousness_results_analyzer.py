@@ -6,6 +6,7 @@ Correlaciona deltas de Φ con cambios en C usando análisis estadístico avanzad
 """
 
 import json
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -401,8 +402,9 @@ class AdvancedConsciousnessAnalyzer:
         
         report += f"\n{'='*60}\n"
         
-        # Guardar reporte
-        report_filename = f"advanced_report_{Path(self.json_file).stem}.txt"
+        # Guardar reporte en carpeta organizada
+        os.makedirs('reports', exist_ok=True)
+        report_filename = f"reports/advanced_report_{Path(self.json_file).stem}.txt"
         with open(report_filename, 'w', encoding='utf-8') as f:
             f.write(report)
         

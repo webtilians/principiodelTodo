@@ -32,7 +32,7 @@ from typing import Dict, Tuple, Optional
 class AntiHallucinationGuard:
     """Sistema de protección anti-alucinación basado en memoria de patrones"""
     
-    def __init__(self, memory_file='anti_hallucination_memory.json'):
+    def __init__(self, memory_file='results/continuous_learning/anti_hallucination_memory.json'):
         """
         Inicializar el sistema de protección
         
@@ -40,6 +40,8 @@ class AntiHallucinationGuard:
             memory_file: Archivo JSON para persistencia
         """
         self.memory_file = Path(memory_file)
+        # Asegurar que la carpeta existe
+        self.memory_file.parent.mkdir(parents=True, exist_ok=True)
         
         # Memoria de patrones: {pattern_hash: pattern_data}
         self.patterns = {}

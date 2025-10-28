@@ -10,6 +10,7 @@ Resultado esperado: Varianza < 0.05 → Lenguaje causal es determinista
 
 import subprocess
 import json
+import os
 import numpy as np
 from collections import Counter
 from datetime import datetime
@@ -195,7 +196,9 @@ def analyze_reproducibility(text, num_runs=10, iterations=50):
         'timestamp': timestamp
     }
     
-    output_file = f"reproducibility_results_{timestamp}.json"
+    # Guardar en carpeta de resultados organizados
+    os.makedirs('results/reproducibility', exist_ok=True)
+    output_file = f"results/reproducibility/reproducibility_results_{timestamp}.json"
     with open(output_file, 'w', encoding='utf-8') as f:
         json.dump(results, f, indent=2, ensure_ascii=False)
     

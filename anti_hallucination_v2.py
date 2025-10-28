@@ -327,12 +327,13 @@ class AntiHallucinationGuardV2:
         """Obtener estadísticas"""
         return self.stats.copy()
     
-    def save_memory(self, filepath: str = 'anti_hallucination_memory_v2.json'):
+    def save_memory(self, filepath: str = 'results/continuous_learning/anti_hallucination_memory_v2.json'):
         """Guardar memoria a disco"""
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
         with open(filepath, 'w', encoding='utf-8') as f:
             json.dump(self.verified_knowledge, f, ensure_ascii=False, indent=2)
     
-    def load_memory(self, filepath: str = 'anti_hallucination_memory_v2.json'):
+    def load_memory(self, filepath: str = 'results/continuous_learning/anti_hallucination_memory_v2.json'):
         """Cargar memoria desde disco"""
         if os.path.exists(filepath):
             with open(filepath, 'r', encoding='utf-8') as f:

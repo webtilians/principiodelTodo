@@ -2086,9 +2086,10 @@ class InfinitoV51ConsciousnessBreakthrough:
             'timestamp': datetime.now().isoformat()
         }
         
-        # Guardar archivo
+        # Guardar archivo en carpeta organizada
+        os.makedirs('results/comparative', exist_ok=True)
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        filename = f"comparative_ON_OFF_{timestamp}_deltaC{mean_delta_c:.3f}_deltaPhi{mean_delta_phi:.3f}.json"
+        filename = f"results/comparative/comparative_ON_OFF_{timestamp}_deltaC{mean_delta_c:.3f}_deltaPhi{mean_delta_phi:.3f}.json"
         
         try:
             import json

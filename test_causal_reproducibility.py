@@ -289,7 +289,9 @@ def analyze_reproducibility(input_text, num_runs=10, iterations_per_run=50):
         'timestamp': timestamp
     }
     
-    output_file = f"reproducibility_test_{timestamp}.json"
+    # Guardar en carpeta de resultados organizados
+    os.makedirs('results/reproducibility', exist_ok=True)
+    output_file = f"results/reproducibility/reproducibility_test_{timestamp}.json"
     with open(output_file, 'w', encoding='utf-8') as f:
         json.dump(results, f, indent=2, ensure_ascii=False)
     

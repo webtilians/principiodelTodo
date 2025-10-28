@@ -250,6 +250,24 @@ test_results/
 test_outputs/
 .coverage*
 
+# 🗂️ Organized Project Results (auto-generated)
+# Resultados de experimentos (no versionados)
+results/comparative/*.json
+results/reproducibility/*.json
+results/continuous_learning/*.json
+results/consciousness/causal_vocabulary_*.json
+
+# Modelos grandes (usar Git LFS o no versionar)
+models/*.pt
+models/checkpoints/*.pt
+models/snapshots/*.pt
+models/interrupted_states/*.pt
+
+# Mantener las carpetas y sus READMEs
+!results/**/README.md
+!models/**/README.md
+!reports/**/README.md
+
 # Keep essential config files
 !requirements.txt
 !requirements-dev.txt

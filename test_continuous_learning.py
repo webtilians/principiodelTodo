@@ -71,7 +71,8 @@ def test_memory_bank():
     print("🧪 TEST 2: PhiMemoryBank")
     print("="*70)
     
-    bank = PhiMemoryBank(similarity_threshold=0.90, filepath='test_memory.json')
+    os.makedirs('results/continuous_learning', exist_ok=True)
+    bank = PhiMemoryBank(similarity_threshold=0.90, filepath='results/continuous_learning/test_memory.json')
     
     # Crear patrones sintéticos
     pattern1 = np.array([0.85, 0.32, 0.67, 0.91, 0.45, 0.78])
@@ -105,17 +106,19 @@ def test_memory_bank():
     assert stats['total_patterns'] == 2, "Deberían haber 2 patrones únicos"
     assert stats['total_seen'] == 3, "Deberían haberse visto 3 veces en total"
     
-    # Guardar y cargar
-    bank.save_to_disk('test_memory.json')
+    # Guardar y cargar en carpeta organizada
+    os.makedirs('results/continuous_learning', exist_ok=True)
+    bank.save_to_disk('results/continuous_learning/test_memory.json')
     
-    bank2 = PhiMemoryBank(filepath='test_memory.json')
+    bank2 = PhiMemoryBank(filepath='results/continuous_learning/test_memory.json')
     assert len(bank2.patterns) == 2, "Patrones no se cargaron correctamente"
     
     print(f"\n✅ PhiMemoryBank funciona correctamente")
     
     # Limpiar
-    if os.path.exists('test_memory.json'):
-        os.remove('test_memory.json')
+    test_file = 'results/continuous_learning/test_memory.json'
+    if os.path.exists(test_file):
+        os.remove(test_file)
     
     return True
 

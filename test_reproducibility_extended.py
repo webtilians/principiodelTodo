@@ -267,7 +267,9 @@ def main():
         }
     }
     
-    filename = f"reproducibility_extended_{timestamp}.json"
+    # Guardar en carpeta de resultados organizados
+    os.makedirs('results/reproducibility', exist_ok=True)
+    filename = f"results/reproducibility/reproducibility_extended_{timestamp}.json"
     with open(filename, 'w', encoding='utf-8') as f:
         json.dump(output, f, indent=2, ensure_ascii=False)
     
