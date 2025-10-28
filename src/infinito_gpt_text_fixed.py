@@ -338,13 +338,30 @@ class EnhancedPhiCalculatorV51(nn.Module):
         m_with_c = torch.cat([m_mean, consciousness_expanded], dim=-1)
         e_with_c = torch.cat([e_mean, consciousness_expanded], dim=-1)
         
-        # Populate causal matrix
-        causal_matrix[:, 0, 1] = torch.sigmoid(self.causal_strength['visual_to_auditory'](v_with_c).squeeze())
-        causal_matrix[:, 0, 2] = torch.sigmoid(self.causal_strength['visual_to_motor'](v_with_c).squeeze())
-        causal_matrix[:, 0, 3] = torch.sigmoid(self.causal_strength['visual_to_executive'](v_with_c).squeeze())
-        causal_matrix[:, 1, 2] = torch.sigmoid(self.causal_strength['auditory_to_motor'](a_with_c).squeeze())
-        causal_matrix[:, 1, 3] = torch.sigmoid(self.causal_strength['auditory_to_executive'](a_with_c).squeeze())
-        causal_matrix[:, 2, 3] = torch.sigmoid(self.causal_strength['motor_to_executive'](m_with_c).squeeze())
+        # Populate causal matrix (GUARDAR LOGITS para continuous learning)
+        # Los logits RAW tienen variabilidad, el sigmoid satura a 0.999
+        logit_v_a = self.causal_strength['visual_to_auditory'](v_with_c).squeeze()
+        logit_v_m = self.causal_strength['visual_to_motor'](v_with_c).squeeze()
+        logit_v_e = self.causal_strength['visual_to_executive'](v_with_c).squeeze()
+        logit_a_m = self.causal_strength['auditory_to_motor'](a_with_c).squeeze()
+        logit_a_e = self.causal_strength['auditory_to_executive'](a_with_c).squeeze()
+        logit_m_e = self.causal_strength['motor_to_executive'](m_with_c).squeeze()
+        
+        causal_matrix[:, 0, 1] = torch.sigmoid(logit_v_a)
+        causal_matrix[:, 0, 2] = torch.sigmoid(logit_v_m)
+        causal_matrix[:, 0, 3] = torch.sigmoid(logit_v_e)
+        causal_matrix[:, 1, 2] = torch.sigmoid(logit_a_m)
+        causal_matrix[:, 1, 3] = torch.sigmoid(logit_a_e)
+        causal_matrix[:, 2, 3] = torch.sigmoid(logit_m_e)
+        
+        # Guardar logits RAW (estos SÍ tienen variabilidad entre textos)
+        causal_logits = torch.zeros(batch_size, 4, 4, device=visual_state.device)
+        causal_logits[:, 0, 1] = logit_v_a
+        causal_logits[:, 0, 2] = logit_v_m
+        causal_logits[:, 0, 3] = logit_v_e
+        causal_logits[:, 1, 2] = logit_a_m
+        causal_logits[:, 1, 3] = logit_a_e
+        causal_logits[:, 2, 3] = logit_m_e
         
         # Enhanced Φ calculation
         attention_strength = attention_weights.mean(dim=1).mean(dim=1)
@@ -381,6 +398,7 @@ class EnhancedPhiCalculatorV51(nn.Module):
         
         phi_info = {
             'causal_matrix': causal_matrix.mean(dim=0),
+            'causal_logits': causal_logits.mean(dim=0),  # ✨ LOGITS RAW - NO saturados
             'attention_strength': attention_strength.mean().item(),
             'causal_density': causal_density.mean().item(),
             'consciousness_phi_boost': consciousness_phi_boost.mean().item(),
