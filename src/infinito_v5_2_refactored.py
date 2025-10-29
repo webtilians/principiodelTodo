@@ -87,19 +87,34 @@ class InfinitoV52Refactored(nn.Module):
         num_heads: int = 8,
         memory_slots: int = 256,
         use_improved_memory: bool = True,  # 🆕 Usar PriorityExternalMemory
-        use_stochastic_exploration: bool = True  # 🆕 Usar exploración estocástica
+        use_stochastic_exploration: bool = True,  # 🆕 Usar exploración estocástica
+        seed: int = None  # 🆕 Seed para reproducibilidad
     ):
         super().__init__()
+        
+        # 🔒 Fijar seeds para reproducibilidad
+        if seed is not None:
+            torch.manual_seed(seed)
+            np.random.seed(seed)
+            if torch.cuda.is_available():
+                torch.cuda.manual_seed(seed)
+                torch.cuda.manual_seed_all(seed)
+            # Para reproducibilidad completa en GPU
+            torch.backends.cudnn.deterministic = True
+            torch.backends.cudnn.benchmark = False
         
         self.hidden_dim = hidden_dim
         self.use_improved_memory = use_improved_memory
         self.use_stochastic_exploration = use_stochastic_exploration
+        self.seed = seed
         
         print(f"\n{'='*70}")
         print(f"🚀 INFINITO V5.2 - REFACTORIZADO")
         print(f"{'='*70}")
         print(f"  Memoria mejorada: {use_improved_memory}")
         print(f"  Exploración estocástica: {use_stochastic_exploration}")
+        if seed is not None:
+            print(f"  🔒 Seed fijado: {seed} (reproducibilidad garantizada)")
         print(f"{'='*70}\n")
         
         # Embeddings
