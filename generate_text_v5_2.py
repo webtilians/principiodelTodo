@@ -28,6 +28,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 import torch
 import torch.nn.functional as F
 import numpy as np
+from transformers import GPT2Tokenizer
 from infinito_v5_2_refactored import InfinitoV52Refactored
 
 
@@ -76,41 +77,20 @@ class TextGenerator:
         print(f"  Val loss: {checkpoint.get('val_loss', 'N/A'):.4f}")
         print(f"{'='*70}\n")
         
-        # Vocabulario simple (simulado - en producción usar el mismo que en entrenamiento)
-        self.vocab = self._create_simple_vocab()
-        self.idx2word = {idx: word for word, idx in self.vocab.items()}
-    
-    def _create_simple_vocab(self):
-        """Crea vocabulario simple de ejemplo."""
-        words = [
-            'the', 'of', 'and', 'to', 'a', 'in', 'is', 'that', 'it', 'was',
-            'for', 'on', 'are', 'as', 'with', 'his', 'they', 'be', 'at', 'one',
-            'have', 'this', 'from', 'or', 'had', 'by', 'not', 'word', 'but', 'what',
-            'some', 'we', 'can', 'out', 'other', 'were', 'all', 'there', 'when', 'up',
-            'use', 'your', 'how', 'said', 'an', 'each', 'she', 'which', 'do', 'their',
-            'time', 'if', 'will', 'way', 'about', 'many', 'then', 'them', 'write', 'would',
-            'like', 'so', 'these', 'her', 'long', 'make', 'thing', 'see', 'him', 'two',
-            'has', 'look', 'more', 'day', 'could', 'go', 'come', 'did', 'number', 'sound',
-            'no', 'most', 'people', 'my', 'over', 'know', 'water', 'than', 'call', 'first',
-            'who', 'may', 'down', 'side', 'been', 'now', 'find', 'any', 'new', 'work'
-        ]
-        
-        vocab = {'<pad>': 0, '<unk>': 1, '<eos>': 2}
-        for word in words:
-            if word not in vocab:
-                vocab[word] = len(vocab)
-        
-        return vocab
+        # Usar GPT2Tokenizer real
+        print(f"Cargando GPT2Tokenizer...")
+        self.tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
+        self.vocab_size = len(self.tokenizer)
+        print(f"  Vocabulario: {self.vocab_size:,} tokens")
+        print(f"{'='*70}\n")
     
     def tokenize(self, text):
-        """Tokeniza texto a IDs."""
-        words = text.lower().split()
-        return [self.vocab.get(word, 1) for word in words]  # 1 = <unk>
+        """Tokeniza texto a IDs usando GPT2Tokenizer."""
+        return self.tokenizer.encode(text, add_special_tokens=False)
     
     def detokenize(self, ids):
-        """Convierte IDs a texto."""
-        words = [self.idx2word.get(idx, '<unk>') for idx in ids]
-        return ' '.join(words)
+        """Convierte IDs a texto usando GPT2Tokenizer."""
+        return self.tokenizer.decode(ids)
     
     @torch.no_grad()
     def generate(
