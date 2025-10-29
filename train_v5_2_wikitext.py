@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
-🎓 ENTRENAMIENTO: INFINITO V5.2 con WikiText-2
+ENTRENAMIENTO: INFINITO V5.2 con WikiText-2
 ==============================================
 
 Script completo de entrenamiento para INFINITO V5.2 usando el dataset WikiText-2.
@@ -17,6 +18,13 @@ Características:
 
 import sys
 import os
+
+# Configurar encoding UTF-8 para Windows
+if sys.platform == 'win32':
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
 import torch
@@ -232,7 +240,13 @@ class InfinitoTrainer:
             
             # Forward pass
             self.optimizer.zero_grad()
-            logits = self.model(input_ids)
+            output = self.model(input_ids)
+            
+            # El modelo puede retornar tupla (logits, metrics) o solo logits
+            if isinstance(output, tuple):
+                logits = output[0]
+            else:
+                logits = output
             
             # Calcular loss
             batch_size, seq_len, vocab_size = logits.shape
@@ -281,7 +295,13 @@ class InfinitoTrainer:
                 target_ids = target_ids.to(self.device)
                 
                 # Forward pass
-                logits = self.model(input_ids)
+                output = self.model(input_ids)
+                
+                # El modelo puede retornar tupla o solo logits
+                if isinstance(output, tuple):
+                    logits = output[0]
+                else:
+                    logits = output
                 
                 # Calcular loss
                 batch_size, seq_len, vocab_size = logits.shape

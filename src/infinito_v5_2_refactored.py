@@ -61,10 +61,10 @@ from core import (
 try:
     import gensim.downloader as api
     GLOVE_AVAILABLE = True
-    print("🌐 GloVe embeddings available")
+    print("[INFO] GloVe embeddings available")
 except ImportError:
     GLOVE_AVAILABLE = False
-    print("⚠️  GloVe not available, using TF-IDF only")
+    print("[WARNING] GloVe not available, using TF-IDF only")
 
 
 # =============================================================================
@@ -109,40 +109,40 @@ class InfinitoV52Refactored(nn.Module):
         self.seed = seed
         
         print(f"\n{'='*70}")
-        print(f"🚀 INFINITO V5.2 - REFACTORIZADO")
+        print(f"INFINITO V5.2 - REFACTORIZADO")
         print(f"{'='*70}")
         print(f"  Memoria mejorada: {use_improved_memory}")
         print(f"  Exploración estocástica: {use_stochastic_exploration}")
         if seed is not None:
-            print(f"  🔒 Seed fijado: {seed} (reproducibilidad garantizada)")
+            print(f"  [SEED] Fijado: {seed} (reproducibilidad garantizada)")
         print(f"{'='*70}\n")
         
         # Embeddings
         self.token_embedding = nn.Embedding(vocab_size, hidden_dim)
         self.position_embedding = nn.Parameter(torch.randn(1, 1000, hidden_dim) * 0.02)
         
-        # 🆕 Memoria usando módulo refactorizado
+        # Memoria usando módulo refactorizado
         if use_improved_memory:
-            print("  ✓ Usando PriorityExternalMemory (priorización inteligente)")
+            print("  [OK] Usando PriorityExternalMemory (priorizacion inteligente)")
             self.memory = PriorityExternalMemory(
                 memory_slots=memory_slots,
                 slot_size=64,
                 hidden_dim=hidden_dim
             )
         else:
-            print("  ✓ Usando LegacyExternalMemory (compatibilidad V5.1)")
+            print("  [OK] Usando LegacyExternalMemory (compatibilidad V5.1)")
             self.memory = LegacyExternalMemory(
                 memory_slots=memory_slots,
                 slot_size=64,
                 hidden_dim=hidden_dim
             )
         
-        # 🆕 Métricas de integración (antes "consciencia")
+        # Métricas de integración (antes "consciencia")
         self.iit_metrics = InformationIntegrationMetrics(hidden_dim=hidden_dim)
         
-        # 🆕 Exploración estocástica (antes "quantum noise")
+        # Exploración estocástica (antes "quantum noise")
         if use_stochastic_exploration:
-            print("  ✓ Usando StochasticExploration (ruido gaussiano)")
+            print("  [OK] Usando StochasticExploration (ruido gaussiano)")
             self.explorer = StochasticExploration(
                 noise_scale=0.1,
                 noise_type='gaussian'
@@ -179,10 +179,10 @@ class InfinitoV52Refactored(nn.Module):
         # Output projection
         self.output_projection = nn.Linear(hidden_dim, vocab_size)
         
-        # 🆕 Métricas estándar para validación
+        # Métricas estándar para validación
         self.nlp_metrics = StandardNLPMetrics()
         
-        print("✅ Modelo inicializado correctamente\n")
+        print("[OK] Modelo inicializado correctamente\n")
     
     def forward(
         self,
