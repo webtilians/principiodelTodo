@@ -46,8 +46,8 @@ class StandardNLPMetrics:
         """
         # Reshape para calcular loss
         batch_size, seq_len, vocab_size = logits.shape
-        logits_flat = logits.view(-1, vocab_size)
-        targets_flat = targets.view(-1)
+        logits_flat = logits.reshape(-1, vocab_size)
+        targets_flat = targets.reshape(-1)
         
         # Calcular cross entropy (ignorando padding)
         loss = F.cross_entropy(
