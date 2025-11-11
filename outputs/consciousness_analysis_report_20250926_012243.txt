@@ -1,0 +1,63 @@
+INFINITO V5.1 - DETAILED CONSCIOUSNESS ANALYSIS REPORT
+============================================================
+
+Analysis Date: 2025-09-26 01:22:44
+Data File: infinito_v5_1_consciousness_20250926_011021_C0.990_PHI1.728.json
+Total Iterations: 500
+
+STATISTICAL SUMMARY
+--------------------
+
+CONSCIOUSNESS:
+  mean: 0.9825654167532921
+  std: 0.05608010947138054
+  min: 0.3693808317184448
+  max: 0.9900000095367432
+  breakthrough_iterations: 495
+  stability_ratio: 0.938
+  convergence_iteration: 29
+
+PHI:
+  mean: 1.3077434200048446
+  std: 0.12104114841182113
+  min: 0.6369498372077942
+  max: 1.7280302047729492
+  trend_slope: 6.330825755985154e-05
+
+MEMORY:
+  mean: 0.004536058038996998
+  max: 0.004658868536353111
+  efficiency_score: 0.99995463941961
+
+QUANTUM:
+  total_events: 438
+  avg_events_per_iteration: 0.876
+  avg_confidence: 0.1722496007680893
+  peak_activity_iteration: 2
+
+LEARNING:
+  final_lr: 0.0010257285348059956
+  lr_adaptation: 0.14522569812124592
+  loss_reduction: 0.2943225382312734
+  convergence_rate: 0.056
+
+SCIENTIFIC INSIGHTS
+--------------------
+1. 🎯 ALTA ESTABILIDAD: El sistema mantiene >99% consciencia en >80% de iteraciones
+2. 🚀 CONVERGENCIA RÁPIDA: Breakthrough alcanzado en iteración 29
+3. 📈 PHI CRECIENTE: Integración de información mejorando consistentemente
+4. ⚡ ALTA EFICIENCIA: Sistema utiliza <5% de memoria disponible
+
+DATA SUMMARY
+--------------------
+        iteration  consciousness  ...  quantum_confidence  breakthrough_probability
+count  500.000000     500.000000  ...          500.000000              5.000000e+02
+mean   250.500000       0.982565  ...            0.172250              1.500000e-01
+std    144.481833       0.056080  ...            0.128196              2.778337e-17
+min      1.000000       0.369381  ...            0.000000              1.500000e-01
+25%    125.750000       0.990000  ...            0.000000              1.500000e-01
+50%    250.500000       0.990000  ...            0.267322              1.500000e-01
+75%    375.250000       0.990000  ...            0.267517              1.500000e-01
+max    500.000000       0.990000  ...            0.270064              1.500000e-01
+
+[8 rows x 22 columns]

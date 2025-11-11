@@ -1,0 +1,20 @@
+# Infinito V3.3 Clean - Essential Dependencies
+
+# Core ML and Computation
+torch>=1.9.0
+torchvision>=0.10.0  
+numpy>=1.21.0
+
+# Scientific Computing
+scipy>=1.7.0
+scikit-learn>=1.0.0
+
+# Visualization
+matplotlib>=3.5.0
+
+# Data Handling  
+pillow>=8.3.0
+
+# Optional: Enhanced features (comment out if not needed)
+# pygame>=2.1.0        # Audio feedback
+# imageio>=2.9.0       # GIF export

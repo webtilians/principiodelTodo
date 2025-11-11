@@ -1,0 +1,18 @@
+
+# Agregar estas líneas al .gitignore para mantener el repo limpio:
+
+# Resultados de experimentos (no versionados)
+results/comparative/*.json
+results/reproducibility/*.json
+results/continuous_learning/*.json
+results/consciousness/causal_vocabulary_*.json
+
+# Modelos grandes (usar Git LFS o no versionar)
+models/*.pt
+models/checkpoints/*.pt
+models/snapshots/*.pt
+models/interrupted_states/*.pt
+
+# Mantener las carpetas pero ignorar contenido
+!results/**/README.md
+!models/**/README.md
