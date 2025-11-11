@@ -71,17 +71,37 @@ class TextGenerator:
         self.model.load_state_dict(checkpoint['model_state_dict'], strict=False)
         self.model.eval()
         
-        self.vocab_size = config.get('vocab_size', 10000)
+        model_vocab_size = config.get('vocab_size', 10000)
         
         print(f"  Epoca entrenada: {checkpoint.get('epoch', 'N/A')}")
         print(f"  Val loss: {checkpoint.get('val_loss', 'N/A'):.4f}")
+        if 'val_ppl' in checkpoint:
+            print(f"  Val PPL: {checkpoint['val_ppl']:.2f}")
+        print(f"  Vocab size del modelo: {model_vocab_size:,}")
         print(f"{'='*70}\n")
         
         # Usar GPT2Tokenizer real
         print(f"Cargando GPT2Tokenizer...")
         self.tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
         self.vocab_size = len(self.tokenizer)
-        print(f"  Vocabulario: {self.vocab_size:,} tokens")
+        print(f"  Vocabulario tokenizer: {self.vocab_size:,} tokens")
+        
+        # Verificar compatibilidad
+        if model_vocab_size != self.vocab_size:
+            print(f"\n{'='*70}")
+            print(f"⚠️  ADVERTENCIA: INCOMPATIBILIDAD DE VOCABULARIO")
+            print(f"{'='*70}")
+            print(f"  Modelo entrenado con: {model_vocab_size:,} tokens")
+            print(f"  Tokenizer GPT-2 tiene: {self.vocab_size:,} tokens")
+            print(f"\n  Este modelo NO es compatible con GPT-2 tokenizer.")
+            print(f"  El texto generado será incoherente y tendrá muchos <unk>.")
+            print(f"\n  Solución: Usa un modelo entrenado con vocab_size=50257")
+            print(f"  Ejemplo: models/checkpoints/infinito_v5.2_real_best.pt")
+            print(f"{'='*70}\n")
+            raise ValueError(f"Vocabulario incompatible: modelo={model_vocab_size}, tokenizer={self.vocab_size}")
+        else:
+            print(f"  ✅ Vocabularios compatibles!")
+        
         print(f"{'='*70}\n")
     
     def tokenize(self, text):
@@ -100,7 +120,8 @@ class TextGenerator:
         temperature: float = 1.0,
         top_k: int = 0,
         top_p: float = 0.0,
-        strategy: str = 'greedy'
+        strategy: str = 'greedy',
+        repetition_penalty: float = 1.2
     ):
         """
         Genera texto a partir de un prompt.
@@ -112,6 +133,7 @@ class TextGenerator:
             top_k: Top-k sampling (0 = desactivado)
             top_p: Nucleus sampling (0 = desactivado)
             strategy: 'greedy', 'sample', 'top_k', 'top_p'
+            repetition_penalty: Penalización por repetición (>1.0 = menos repeticiones)
         
         Returns:
             Texto generado
@@ -124,6 +146,7 @@ class TextGenerator:
         
         print(f"\nPrompt: '{prompt}'")
         print(f"Estrategia: {strategy} (temp={temperature}, top_k={top_k}, top_p={top_p})")
+        print(f"Repetition penalty: {repetition_penalty}")
         print(f"\nGenerando...")
         
         for _ in range(max_length):
@@ -137,7 +160,19 @@ class TextGenerator:
                 logits = output
             
             # Obtener logits del último token
-            next_token_logits = logits[0, -1, :] / temperature
+            next_token_logits = logits[0, -1, :].clone()
+            
+            # APLICAR REPETITION PENALTY (tokens ya generados)
+            if repetition_penalty != 1.0:
+                for token_id in set(generated_ids[-20:]):  # últimos 20 tokens únicos
+                    # Si el logit es positivo, dividir; si negativo, multiplicar
+                    if next_token_logits[token_id] < 0:
+                        next_token_logits[token_id] *= repetition_penalty
+                    else:
+                        next_token_logits[token_id] /= repetition_penalty
+            
+            # Aplicar temperatura
+            next_token_logits = next_token_logits / temperature
             
             # Aplicar estrategia de muestreo
             if strategy == 'greedy':
@@ -360,8 +395,8 @@ def main():
     
     parser = argparse.ArgumentParser(description='Generador de texto INFINITO V5.2')
     parser.add_argument('--checkpoint', type=str, 
-                       default='models/checkpoints/infinito_v5.2_best.pt',
-                       help='Ruta al checkpoint del modelo')
+                       default='models/checkpoints/infinito_v5.2_real_best.pt',
+                       help='Ruta al checkpoint del modelo (vocab 50,257 tokens)')
     parser.add_argument('--prompt', type=str, default=None,
                        help='Prompt para generar texto')
     parser.add_argument('--max-length', type=int, default=50,
@@ -375,6 +410,8 @@ def main():
                        help='Top-k sampling')
     parser.add_argument('--top-p', type=float, default=0.0,
                        help='Nucleus (top-p) sampling')
+    parser.add_argument('--repetition-penalty', type=float, default=1.5,
+                       help='Penalizacion por repeticion (>1.0 = menos repeticiones)')
     parser.add_argument('--interactive', action='store_true',
                        help='Modo interactivo')
     parser.add_argument('--demo', action='store_true',
@@ -409,7 +446,8 @@ def main():
             temperature=args.temperature,
             top_k=args.top_k,
             top_p=args.top_p,
-            strategy=args.strategy
+            strategy=args.strategy,
+            repetition_penalty=args.repetition_penalty
         )
         print(f"\n[RESULTADO]:")
         print(f"{text}\n")

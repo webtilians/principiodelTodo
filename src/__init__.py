@@ -1,4 +1,2 @@
-# Infinito V3 Stable - Hypercritical Consciousness System
-# Vector 1-6 Complete Implementation
-
-from .infinito_v3_stable import *
+# Infinito - Package initialization
+# Imports are done explicitly in each script to avoid circular dependencies

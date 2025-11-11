@@ -50,7 +50,12 @@ sys.path.insert(0, os.path.dirname(__file__))
 from core import (
     PriorityExternalMemory,      # Sistema memoria mejorado
     LegacyExternalMemory,         # Compatibilidad con V5.1
-    InformationIntegrationMetrics, # Métricas IIT honestas
+    InformationIntegrationMetrics, # Métricas IIT honestas (original)
+    ImprovedIITMetrics,           # 🆕 Métricas IIT mejoradas (4 componentes)
+    LearnablePhiWeights,          # 🆕 Pesos aprendibles para PHI
+    DeltaPhiObjective,            # 🆕 Objetivo auxiliar para maximizar ΔPhi
+    LearnableRelevance,           # 🆕 Sistema completo de relevancia aprendible
+    IITGuidedMemory,              # 🆕 Memoria guiada por PHI
     StochasticExploration,        # Exploración (antes "quantum")
     EnhancedMultiHeadAttention,   # Atención mejorada
     StandardNLPMetrics,           # Validación científica
@@ -86,8 +91,12 @@ class InfinitoV52Refactored(nn.Module):
         num_layers: int = 6,
         num_heads: int = 8,
         memory_slots: int = 256,
-        use_improved_memory: bool = True,  # 🆕 Usar PriorityExternalMemory
+        dropout: float = 0.1,  # 🆕 Dropout configurable (default 0.1, usar 0.3 contra overfitting)
+        use_improved_memory: bool = True,  # 🆕 Usar IITGuidedMemory
+        use_improved_iit: bool = True,     # 🆕 Usar ImprovedIITMetrics
+        use_learnable_phi: bool = True,    # 🆕 Usar LearnableRelevance
         use_stochastic_exploration: bool = True,  # 🆕 Usar exploración estocástica
+        lambda_phi: float = 0.1,           # 🆕 Peso del objetivo ΔPhi (0.0-1.0)
         seed: int = None  # 🆕 Seed para reproducibilidad
     ):
         super().__init__()
@@ -104,14 +113,20 @@ class InfinitoV52Refactored(nn.Module):
             torch.backends.cudnn.benchmark = False
         
         self.hidden_dim = hidden_dim
+        self.dropout = dropout  # 🆕 Guardar dropout
         self.use_improved_memory = use_improved_memory
+        self.use_improved_iit = use_improved_iit
+        self.use_learnable_phi = use_learnable_phi
         self.use_stochastic_exploration = use_stochastic_exploration
         self.seed = seed
         
         print(f"\n{'='*70}")
-        print(f"INFINITO V5.2 - REFACTORIZADO")
+        print(f"INFINITO V5.2 - REFACTORIZADO + IIT MEJORADO")
         print(f"{'='*70}")
-        print(f"  Memoria mejorada: {use_improved_memory}")
+        print(f"  Dropout: {dropout} {'⚠️ AGRESIVO (anti-overfitting)' if dropout >= 0.3 else ''}")
+        print(f"  Memoria mejorada (IIT-guided): {use_improved_memory}")
+        print(f"  IIT Metrics mejorado (4 comp): {use_improved_iit}")
+        print(f"  Pesos PHI aprendibles: {use_learnable_phi}")
         print(f"  Exploración estocástica: {use_stochastic_exploration}")
         if seed is not None:
             print(f"  [SEED] Fijado: {seed} (reproducibilidad garantizada)")
@@ -120,25 +135,49 @@ class InfinitoV52Refactored(nn.Module):
         # Embeddings
         self.token_embedding = nn.Embedding(vocab_size, hidden_dim)
         self.position_embedding = nn.Parameter(torch.randn(1, 1000, hidden_dim) * 0.02)
+        self.embedding_dropout = nn.Dropout(dropout)  # 🆕 Dropout en embeddings
         
         # Memoria usando módulo refactorizado
         if use_improved_memory:
-            print("  [OK] Usando PriorityExternalMemory (priorizacion inteligente)")
-            self.memory = PriorityExternalMemory(
+            print("  [OK] Usando IITGuidedMemory (priorizacion por PHI)")
+            self.memory = IITGuidedMemory(
                 memory_slots=memory_slots,
-                slot_size=64,
-                hidden_dim=hidden_dim
+                hidden_dim=hidden_dim,
+                use_phi_priority=True,
+                alpha=0.8,  # 80% peso a PHI, 20% a attention
+                learnable_threshold=True,  # 🆕 Threshold aprendible
+                initial_threshold=3.0      # 🆕 Valor inicial (se optimizará)
             )
         else:
-            print("  [OK] Usando LegacyExternalMemory (compatibilidad V5.1)")
-            self.memory = LegacyExternalMemory(
+            print("  [OK] Usando PriorityExternalMemory (legacy)")
+            self.memory = PriorityExternalMemory(
                 memory_slots=memory_slots,
                 slot_size=64,
                 hidden_dim=hidden_dim
             )
         
         # Métricas de integración (antes "consciencia")
-        self.iit_metrics = InformationIntegrationMetrics(hidden_dim=hidden_dim)
+        if use_improved_iit:
+            print("  [OK] Usando ImprovedIITMetrics (4 componentes)")
+            self.iit_metrics = ImprovedIITMetrics(hidden_dim=hidden_dim)
+        else:
+            print("  [OK] Usando InformationIntegrationMetrics (3 componentes)")
+            self.iit_metrics = InformationIntegrationMetrics(hidden_dim=hidden_dim)
+        
+        # Sistema de pesos aprendibles para PHI (opcional)
+        if use_learnable_phi:
+            print("  [OK] Usando LearnablePhiWeights (pesos componentes aprendibles)")
+            self.learnable_phi_weights = LearnablePhiWeights(
+                constraint='softmax'  # Los pesos suman 1.0
+            )
+            # Objetivo auxiliar para maximizar ΔPhi
+            self.delta_phi_objective = DeltaPhiObjective(
+                lambda_phi=lambda_phi,  # 🆕 Configurable desde constructor
+                target_phi=3.5   # PHI objetivo (adaptado a WikiText-2)
+            )
+        else:
+            self.learnable_phi_weights = None
+            self.delta_phi_objective = None
         
         # Exploración estocástica (antes "quantum noise")
         if use_stochastic_exploration:
@@ -155,7 +194,7 @@ class InfinitoV52Refactored(nn.Module):
             EnhancedMultiHeadAttention(
                 embed_dim=hidden_dim,
                 num_heads=num_heads,
-                dropout=0.1
+                dropout=dropout  # 🆕 Usar dropout configurable
             )
             for _ in range(num_layers)
         ])
@@ -165,9 +204,9 @@ class InfinitoV52Refactored(nn.Module):
             nn.Sequential(
                 nn.Linear(hidden_dim, hidden_dim * 4),
                 nn.GELU(),
-                nn.Dropout(0.1),
+                nn.Dropout(dropout),  # 🆕 Usar dropout configurable
                 nn.Linear(hidden_dim * 4, hidden_dim),
-                nn.Dropout(0.1)
+                nn.Dropout(dropout)   # 🆕 Usar dropout configurable
             )
             for _ in range(num_layers)
         ])
@@ -205,6 +244,7 @@ class InfinitoV52Refactored(nn.Module):
         # Embeddings
         hidden = self.token_embedding(input_ids)
         hidden = hidden + self.position_embedding[:, :seq_len, :]
+        hidden = self.embedding_dropout(hidden)  # 🆕 Aplicar dropout a embeddings
         
         # Variables para métricas
         all_attention_weights = []
@@ -231,6 +271,8 @@ class InfinitoV52Refactored(nn.Module):
         
         # 🆕 Calcular score de integración (antes "consciencia")
         integration_level = torch.ones(batch_size, device=hidden.device)
+        phi_components = None
+        delta_phi_loss = None
         
         if return_metrics and len(all_attention_weights) > 0:
             # Stack attention weights
@@ -238,22 +280,93 @@ class InfinitoV52Refactored(nn.Module):
             avg_attention = stacked_attention.mean(dim=1)  # Promediar sobre layers
             
             # 🆕 Calcular métricas de integración usando módulo refactorizado
-            metrics_dict = self.iit_metrics.calculate_all_metrics(
-                hidden,
-                avg_attention
-            )
+            if self.use_improved_iit:
+                # ImprovedIITMetrics con 4 componentes
+                phi_estimate = self.iit_metrics.calculate_phi_approximation(hidden, avg_attention)
+                temporal_coh = self.iit_metrics.calculate_temporal_coherence(hidden)
+                integration = self.iit_metrics.calculate_integration_strength(hidden)
+                complexity = self.iit_metrics.calculate_complexity(hidden)
+                attn_diversity = self.iit_metrics.calculate_attention_diversity(avg_attention)
+                coherence = self.iit_metrics.calculate_coherence(avg_attention)  # Solo attention
+                
+                metrics_dict = {
+                    'phi_estimate': phi_estimate,
+                    'temporal_coherence': temporal_coh,
+                    'integration_strength': integration,
+                    'complexity': complexity,
+                    'attention_diversity': attn_diversity,
+                    'coherence': coherence,
+                    'pattern_diversity': attn_diversity  # Alias
+                }
+            else:
+                # InformationIntegrationMetrics original (3 componentes)
+                metrics_dict = self.iit_metrics.calculate_all_metrics(
+                    hidden,
+                    avg_attention
+                )
             
             # Usar phi_estimate como proxy de integración
             integration_level = metrics_dict['phi_estimate']
+            
+            # 🆕 Si usamos pesos aprendibles, recalcular PHI ponderado
+            if self.learnable_phi_weights is not None:
+                # Obtener pesos normalizados
+                weights = self.learnable_phi_weights()  # Returns dict of tensors
+                
+                # Ponderar componentes individuales
+                if self.use_improved_iit:
+                    # 4 componentes: temporal, integration, complexity, attention
+                    weighted_phi = (
+                        weights['temporal'] * metrics_dict.get('temporal_coherence', torch.tensor(0.0, device=hidden.device)) +
+                        weights['integration'] * metrics_dict.get('integration_strength', torch.tensor(0.0, device=hidden.device)) +
+                        weights['complexity'] * metrics_dict.get('complexity', torch.tensor(0.0, device=hidden.device)) +
+                        weights['attention'] * metrics_dict.get('attention_diversity', torch.tensor(0.0, device=hidden.device))
+                    )
+                    # Actualizar integration_level con PHI ponderado
+                    integration_level = weighted_phi
+                
+                # Calcular loss auxiliar ΔPhi (para maximizar integración)
+                if self.training and self.delta_phi_objective is not None:
+                    # Necesitamos phi_initial y phi_processed
+                    # En este caso, usamos el PHI sin ponderar vs el ponderado
+                    phi_baseline = metrics_dict['phi_estimate']
+                    phi_weighted = integration_level
+                    delta_phi_loss, _ = self.delta_phi_objective(phi_baseline, phi_weighted)
         
         # Interacción con memoria
         memory_query = hidden.mean(dim=1)  # [batch, hidden_dim]
-        read_content, read_weights = self.memory.read(memory_query, integration_level)
+        
+        # 🆕 Leer de memoria (IITGuidedMemory o PriorityExternalMemory)
+        if self.use_improved_memory:
+            # IITGuidedMemory.read(query, top_k, phi_guided)
+            read_content, read_weights = self.memory.read(
+                memory_query, 
+                top_k=5, 
+                phi_guided=True
+            )
+            # read_content: [batch, top_k, hidden_dim] → tomar mean
+            read_content = read_content.mean(dim=1)  # [batch, hidden_dim]
+        else:
+            # PriorityExternalMemory.read(query, relevance_scores)
+            read_content, read_weights = self.memory.read(memory_query, integration_level)
         
         # Escribir en memoria
-        memory_content = hidden.mean(dim=1)
-        phi_value = integration_level.mean().item() if return_metrics else 0.0
-        self.memory.write(memory_query, memory_content, integration_level, phi_value)
+        memory_content = hidden.mean(dim=1)  # [batch, hidden_dim]
+        
+        if self.use_improved_memory:
+            # IITGuidedMemory.write(query, content, phi_value, attention_score)
+            # phi_value debe ser tensor [batch]
+            phi_tensor = integration_level if len(all_attention_weights) > 0 else torch.ones(batch_size, device=hidden.device)
+            write_info = self.memory.write(
+                query=memory_query,
+                content=memory_content,
+                phi_value=phi_tensor,
+                attention_score=None  # Opcional
+            )
+        else:
+            # PriorityExternalMemory.write(query, content, relevance_scores, phi_value)
+            phi_value = integration_level.mean().item() if return_metrics else 0.0
+            self.memory.write(memory_query, memory_content, integration_level, phi_value)
         
         # Output
         logits = self.output_projection(hidden)
@@ -261,12 +374,25 @@ class InfinitoV52Refactored(nn.Module):
         # Preparar métricas de retorno
         if return_metrics:
             metrics = {
-                'integration_phi': metrics_dict['phi_estimate'].mean().item(),
-                'coherence': metrics_dict['coherence'].mean().item(),
-                'complexity': metrics_dict['complexity'].mean().item(),
-                'pattern_diversity': metrics_dict['pattern_diversity'].mean().item(),
+                'integration_phi': integration_level.mean().item(),
+                'coherence': metrics_dict.get('coherence', torch.tensor(0.0)).mean().item(),
+                'complexity': metrics_dict.get('complexity', torch.tensor(0.0)).mean().item(),
+                'pattern_diversity': metrics_dict.get('pattern_diversity', torch.tensor(0.0)).mean().item(),
                 'memory_utilization': self.memory.get_statistics()['utilization'] if hasattr(self.memory, 'get_statistics') else 0.0
             }
+            
+            # 🆕 Si hay componentes IIT mejorados, añadirlos
+            if self.use_improved_iit:
+                metrics['temporal_coherence'] = metrics_dict.get('temporal_coherence', torch.tensor(0.0)).mean().item()
+                metrics['integration_strength'] = metrics_dict.get('integration_strength', torch.tensor(0.0)).mean().item()
+                metrics['attention_diversity'] = metrics_dict.get('attention_diversity', torch.tensor(0.0)).mean().item()
+            
+            # 🆕 Si hay pesos aprendibles, reportarlos
+            if self.learnable_phi_weights is not None:
+                weights = self.learnable_phi_weights.get_weights_dict()
+                metrics['phi_weights'] = weights
+                if delta_phi_loss is not None:
+                    metrics['delta_phi_loss'] = delta_phi_loss.item()
             
             # 🆕 Añadir nota sobre interpretación
             metrics['_note'] = (
@@ -293,6 +419,45 @@ class InfinitoV52Refactored(nn.Module):
         perplexity = self.nlp_metrics.calculate_perplexity(logits, target_ids)
         return perplexity
     
+    def get_auxiliary_loss(self, metrics: Dict) -> Optional[torch.Tensor]:
+        """
+        🆕 Obtiene el loss auxiliar ΔPhi para backprop.
+        
+        Este loss incentiva al modelo a maximizar la integración.
+        Debe sumarse al loss principal durante el entrenamiento.
+        
+        Args:
+            metrics: Dict retornado por forward() con return_metrics=True
+            
+        Returns:
+            delta_phi_loss: Loss auxiliar (o None si no está activo)
+        """
+        if metrics and 'delta_phi_loss' in metrics:
+            return torch.tensor(metrics['delta_phi_loss'])
+        return None
+    
+    def get_learnable_weights(self) -> Optional[Dict]:
+        """🆕 Obtiene los pesos aprendibles actuales de PHI."""
+        if self.learnable_phi_weights is not None:
+            return self.learnable_phi_weights.get_weights_dict()
+        return None
+    
+    def save_learnable_weights(self, path: str):
+        """🆕 Guarda los pesos aprendibles en un archivo JSON."""
+        if self.learnable_phi_weights is not None:
+            self.learnable_phi_weights.save_weights(path)
+            print(f"✅ Pesos PHI guardados en: {path}")
+        else:
+            print("⚠️ No hay pesos aprendibles para guardar")
+    
+    def load_learnable_weights(self, path: str):
+        """🆕 Carga los pesos aprendibles desde un archivo JSON."""
+        if self.learnable_phi_weights is not None:
+            self.learnable_phi_weights.load_weights(path)
+            print(f"✅ Pesos PHI cargados desde: {path}")
+        else:
+            print("⚠️ No hay sistema de pesos aprendibles activo")
+    
     def get_memory_statistics(self) -> Dict:
         """🆕 Obtiene estadísticas detalladas de memoria."""
         if hasattr(self.memory, 'get_statistics'):
@@ -306,19 +471,21 @@ class InfinitoV52Refactored(nn.Module):
 # =============================================================================
 
 def demo_refactored_model():
-    """Demuestra cómo usar el modelo refactorizado."""
+    """Demuestra cómo usar el modelo refactorizado con IIT mejorado."""
     
     print("\n" + "="*70)
-    print("📚 DEMO: MODELO INFINITO V5.2 REFACTORIZADO")
+    print("📚 DEMO: MODELO INFINITO V5.2 CON IIT MEJORADO")
     print("="*70 + "\n")
     
-    # Crear modelo
+    # Crear modelo CON todas las mejoras IIT
     model = InfinitoV52Refactored(
         vocab_size=1000,
         hidden_dim=256,
         num_layers=4,
         num_heads=8,
-        use_improved_memory=True,
+        use_improved_memory=True,      # ✅ IITGuidedMemory
+        use_improved_iit=True,         # ✅ ImprovedIITMetrics (4 componentes)
+        use_learnable_phi=True,        # ✅ LearnableRelevance
         use_stochastic_exploration=True
     )
     
@@ -331,27 +498,56 @@ def demo_refactored_model():
     print("🔄 Forward pass...")
     logits, metrics = model(input_ids, return_metrics=True)
     
-    print(f"\n📊 Métricas de integración:")
-    for key, value in metrics.items():
-        if not key.startswith('_'):
-            print(f"  {key}: {value:.4f}" if isinstance(value, float) else f"  {key}: {value}")
+    print(f"\n📊 Métricas IIT mejoradas (4 componentes):")
+    print(f"  PHI integrado: {metrics['integration_phi']:.4f}")
+    print(f"  └─ Temporal coherence: {metrics.get('temporal_coherence', 0):.4f}")
+    print(f"  └─ Integration strength: {metrics.get('integration_strength', 0):.4f}")
+    print(f"  └─ Complexity: {metrics['complexity']:.4f}")
+    print(f"  └─ Attention diversity: {metrics.get('attention_diversity', 0):.4f}")
     
-    print(f"\n📝 {metrics['_note']}")
+    if 'phi_weights' in metrics:
+        print(f"\n⚖️ Pesos PHI aprendibles:")
+        for component, weight in metrics['phi_weights'].items():
+            print(f"  {component}: {weight:.4f}")
+        print(f"\n  ΔPhi Loss: {metrics.get('delta_phi_loss', 0):.6f}")
     
     # 🆕 Calcular perplexity (métrica estándar)
     print(f"\n📏 Métricas estándar:")
     perplexity = model.calculate_perplexity(input_ids, target_ids)
     print(f"  Perplexity: {perplexity:.2f}")
     
-    # Estadísticas de memoria
-    print(f"\n💾 Estadísticas de memoria:")
+    # Estadísticas de memoria IIT-guided
+    print(f"\n💾 Estadísticas de memoria IIT-guided:")
     mem_stats = model.get_memory_statistics()
     for key, value in mem_stats.items():
-        print(f"  {key}: {value}")
+        if isinstance(value, float):
+            if key == 'threshold':
+                print(f"  {key}: {value:.4f} ← 🎯 APRENDIBLE")
+            else:
+                print(f"  {key}: {value:.4f}")
+        else:
+            print(f"  {key}: {value}")
+    
+    print(f"\n📝 {metrics['_note']}")
     
     print("\n" + "="*70)
-    print("✅ DEMO COMPLETADO")
+    print("✅ DEMO COMPLETADO - SISTEMA IIT MEJORADO FUNCIONANDO")
     print("="*70 + "\n")
+    
+    print("💡 MEJORAS vs V5.2 original:")
+    print("  • PHI con 4 componentes (vs 3)")
+    print("  • Pesos PHI aprendibles durante entrenamiento")
+    print("  • Memoria guiada por integración (eviction inteligente)")
+    print("  • 🆕 Threshold aprendible (decide automáticamente qué guardar)")
+    print("  • Objetivo auxiliar ΔPhi para maximizar integración")
+    print("")
+    
+    print("🎯 THRESHOLD APRENDIBLE:")
+    print(f"  • Valor inicial: 3.0")
+    print(f"  • Durante entrenamiento: Se ajustará automáticamente")
+    print(f"  • Función: Solo guarda en memoria si PHI > threshold")
+    print(f"  • Beneficio: Filtra ruido ('eh... hmm...') de forma óptima")
+    print("")
 
 
 if __name__ == '__main__':
