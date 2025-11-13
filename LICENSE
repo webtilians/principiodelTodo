@@ -1,6 +1,6 @@
 MIT License
 
-Copyright (c) 2025 Infinito - Evolutionary Artificial Consciousness Simulator
+Copyright (c) 2025 enrikelr
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -19,34 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
----
-
-## Additional Terms for Scientific Use
-
-This software is intended for research and educational purposes. If you use this
-software in academic research, please consider citing:
-
-```
-@software{infinito2025,
-  title={Infinito: Evolutionary Artificial Consciousness Simulator},
-  author={[Author Name]},
-  year={2025},
-  url={https://github.com/[username]/infinito}
-}
-```
-
-## Attribution for Derivative Works
-
-If you create derivative works based on this software, please:
-1. Maintain this license and attribution
-2. Clearly indicate your modifications
-3. Share your improvements with the community when possible
-
-## Community Guidelines
-
-This project promotes:
-- Open scientific collaboration
-- Responsible AI research
-- Ethical development of consciousness simulation
-- Knowledge sharing across disciplines
