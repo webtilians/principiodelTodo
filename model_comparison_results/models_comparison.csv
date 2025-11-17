@@ -1,0 +1,15 @@
+Modelo,Época,PPL Final,Pérdida Final,Parámetros,Hidden Dim,Capas,Cabezas,IIT Memory,IIT Metrics,Learnable Phi,Mejora %
+infinito_base_improved_best.pt,1,1.0000180006027222,0.01753013677043008,166615059,unknown,unknown,unknown,False,False,False,N/A
+infinito_base_improved_epoch5.pt,5,1.0000218152999878,0.025525149798139614,166615059,unknown,unknown,unknown,False,False,False,N/A
+infinito_v5.2_best_epoch2.pt,2,1.030100703239441,inf,86559133,512,4,8,False,False,False,N/A
+infinito_v5.2_best_epoch1.pt,1,1.060479998588562,inf,86559133,512,4,8,False,False,False,N/A
+infinito_v5.2_validated_1epoch.pt,1,18.99306869506836,2.9440741490542406,86559133,512,4,8,False,False,False,N/A
+baseline_no_iit_epoch_5.pt,5,187.0805046838539,5.231539030544093,68542464,512,4,8,False,False,False,12.739103182949746
+infinito_v5.2_wikitext103_best.pt,5,207.14656166599042,5.333426570104173,86559133,512,4,8,False,False,False,N/A
+infinito_v5.2_real_epoch_10.pt,10,310.39657921160773,5.737850767667176,50845149,384,unknown,unknown,True,False,False,13.580134283595
+infinito_v5.2_real_best.pt,2,356.98072099166563,5.877681777496968,28454685,256,unknown,unknown,True,False,False,3.499831790215266
+infinito_v5.2_real_epoch_5.pt,5,397.7989339457914,5.985946686541448,50845149,384,unknown,unknown,True,False,False,9.843471051654642
+baseline_no_iit_best.pt,1,405.56760066830617,6.0052875690772884,45894528,384,3,6,False,False,False,N/A
+infinito_v5.2_optimized_best.pt,1,5792.3662109375,8.664296545633455,127412957,unknown,unknown,unknown,False,False,False,N/A
+infinito_gpt2_best.pt,2,inf,3.2742631239969224,167020563,unknown,unknown,unknown,False,False,False,0.8136566782385923
+infinito_phase2_best.pt,3,inf,0.11925355186227893,334865483,unknown,unknown,unknown,False,False,False,85.89776832940517

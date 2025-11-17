@@ -580,6 +580,32 @@ MODEL_CONFIGS = {
         "lambda_phi": 0.3,
         "vocab_size": None,  # Usar vocabulario completo para evitar problemas de indexing
         "description": "Configuración compacta para experimentación rápida"
+    },
+    "micro_iit": {
+        # 🆕 Configuración micro para reducir ratio parámetros/datos
+        "hidden_dim": 384,
+        "num_layers": 3,
+        "num_heads": 6,
+        "batch_size": 16,
+        "learning_rate": 1e-4,  # LR más conservador para modelo pequeño
+        "seq_len": 256,
+        "dropout": 0.2,  # Dropout ligeramente mayor para regularización
+        "lambda_phi": 0.1,  # Peso PHI reducido para no dominar
+        "vocab_size": None,
+        "description": "Configuración micro (~28M parámetros) para ratio óptimo parámetros/datos ~12:1"
+    },
+    "tiny_iit": {
+        # 🆕 Configuración ultra-pequeña para experimentación extrema
+        "hidden_dim": 256,
+        "num_layers": 2,
+        "num_heads": 4,
+        "batch_size": 16,
+        "learning_rate": 2e-4,
+        "seq_len": 256,
+        "dropout": 0.25,  # Dropout alto para forzar generalización
+        "lambda_phi": 0.05,  # Peso PHI muy bajo
+        "vocab_size": None,
+        "description": "Configuración tiny (~12M parámetros) para ratio extremo parámetros/datos ~5:1"
     }
 }
 
@@ -596,7 +622,7 @@ def main():
     
     # 🆕 PRESET DE CONFIGURACIÓN
     parser.add_argument('--model-size', type=str, default='large_iit',
-                       choices=['large_iit', 'small_iit'],
+                       choices=['large_iit', 'small_iit', 'micro_iit', 'tiny_iit'],
                        help='Preset de configuración del modelo (default: large_iit)')
     
     parser.add_argument('--epochs', type=int, default=5,
