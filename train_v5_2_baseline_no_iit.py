@@ -1,20 +1,31 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-🚀 ENTRENAMIENTO MEJORADO: INFINITO V5.2 con WikiText-2 REAL
-==============================================================
+🔬 BASELINE TRANSFORMER - COMPARACIÓN CIENTÍFICA CON INFINITO V5.2
+=================================================================
 
-Script de entrenamiento MEJORADO usando:
-- WikiText-2 REAL (HuggingFace datasets)
-- GPT2Tokenizer (50,257 tokens)
-- Optimizaciones de rendimiento
-- Mejor logging y checkpointing
+Script para entrenar transformer ESTÁNDAR sin características IIT
+usando EXACTAMENTE la misma configuración que train_v5_2_wikitext_real.py
 
-Mejoras vs versión anterior:
-✅ Vocabulario real (50k tokens vs 100)
-✅ Datos reales de Wikipedia (vs sintéticos)
-✅ Tokenización BPE profesional
-✅ Mejor perplexity esperado (50-80 vs 99)
+OBJETIVO:
+Comparación científica directa entre:
+- Model CON IIT: InfinitoV52Refactored (features IIT activas)
+- Model SIN IIT: TransformerBaseline (transformer estándar)
+
+CONFIGURACIÓN IDÉNTICA:
+✅ WikiText-2 REAL (HuggingFace datasets)  
+✅ GPT2Tokenizer (50,257 tokens)
+✅ hidden_dim=512, num_layers=4, num_heads=8
+✅ dropout=0.15, learning_rate=5e-4, batch_size=16
+✅ lambda_phi=0.3 (ignorado en baseline)
+✅ Early stopping, ReduceLROnPlateau, etc.
+
+DIFERENCIAS:
+❌ SIN IITGuidedMemory
+❌ SIN ImprovedIITMetrics  
+❌ SIN LearnablePhiWeights
+❌ SIN StochasticExploration
+❌ SIN DeltaPhiObjective
 """
 
 import sys
@@ -42,12 +53,160 @@ import math
 from datasets import load_dataset
 from transformers import GPT2Tokenizer
 
-# Import modelo V5.2
-from infinito_v5_2_refactored import InfinitoV52Refactored
+
+# =============================================================================
+# TRANSFORMER BASELINE (SIN IIT)
+# =============================================================================
+
+class TransformerBaseline(nn.Module):
+    """
+    Transformer Decoder estándar SIN características IIT.
+    
+    Arquitectura IDÉNTICA a InfinitoV52Refactored pero sin:
+    - IITGuidedMemory
+    - LearnablePhiWeights  
+    - StochasticExploration
+    - ImprovedIITMetrics
+    - DeltaPhiObjective
+    """
+    
+    def __init__(
+        self,
+        vocab_size=50257,
+        hidden_dim=512,
+        num_layers=4,
+        num_heads=8,
+        dropout=0.15,
+        max_seq_len=512,
+        seed=42
+    ):
+        super().__init__()
+        
+        # 🔒 Fijar seeds para reproducibilidad (IGUAL que InfinitoV52)
+        if seed is not None:
+            torch.manual_seed(seed)
+            np.random.seed(seed)
+            if torch.cuda.is_available():
+                torch.cuda.manual_seed(seed)
+                torch.cuda.manual_seed_all(seed)
+            torch.backends.cudnn.deterministic = True
+            torch.backends.cudnn.benchmark = False
+        
+        self.vocab_size = vocab_size
+        self.hidden_dim = hidden_dim
+        self.num_layers = num_layers
+        self.num_heads = num_heads
+        self.dropout = dropout
+        self.max_seq_len = max_seq_len
+        self.seed = seed
+        
+        print(f"\n{'='*70}")
+        print(f"TRANSFORMER BASELINE (SIN CARACTERÍSTICAS IIT)")
+        print(f"{'='*70}")
+        print(f"  Hidden dim: {hidden_dim}")
+        print(f"  Num layers: {num_layers}")
+        print(f"  Num heads: {num_heads}")
+        print(f"  Dropout: {dropout}")
+        print(f"  Vocab size: {vocab_size:,}")
+        print(f"  Max seq len: {max_seq_len}")
+        if seed is not None:
+            print(f"  [SEED] Fijado: {seed} (reproducibilidad garantizada)")
+        print(f"{'='*70}\n")
+        
+        # Embeddings
+        self.token_embedding = nn.Embedding(vocab_size, hidden_dim)
+        self.position_embedding = nn.Embedding(max_seq_len, hidden_dim)
+        
+        # Transformer decoder layers estándar
+        decoder_layer = nn.TransformerDecoderLayer(
+            d_model=hidden_dim,
+            nhead=num_heads,
+            dim_feedforward=hidden_dim * 4,
+            dropout=dropout,
+            activation='gelu',
+            batch_first=True,
+            norm_first=True  # Pre-LN como GPT-2
+        )
+        
+        self.transformer = nn.TransformerDecoder(
+            decoder_layer,
+            num_layers=num_layers
+        )
+        
+        # Output projection
+        self.ln_f = nn.LayerNorm(hidden_dim)
+        self.output_proj = nn.Linear(hidden_dim, vocab_size, bias=False)
+        
+        # Tie weights (compartir embeddings de entrada/salida)
+        self.output_proj.weight = self.token_embedding.weight
+        
+        # Inicialización estilo GPT-2
+        self.apply(self._init_weights)
+        
+        # Contar parámetros
+        self.num_parameters = sum(p.numel() for p in self.parameters() if p.requires_grad)
+        
+    def _init_weights(self, module):
+        """Inicialización estilo GPT-2 (IGUAL que InfinitoV52)"""
+        if isinstance(module, nn.Linear):
+            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
+            if module.bias is not None:
+                torch.nn.init.zeros_(module.bias)
+        elif isinstance(module, nn.Embedding):
+            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
+        elif isinstance(module, nn.LayerNorm):
+            torch.nn.init.zeros_(module.bias)
+            torch.nn.init.ones_(module.weight)
+    
+    def forward(self, input_ids, return_metrics=False):
+        """
+        Forward pass estándar.
+        
+        Args:
+            input_ids: [batch_size, seq_len]
+            return_metrics: Si True, retorna (logits, metrics) para compatibilidad
+            
+        Returns:
+            Si return_metrics=False: logits [batch_size, seq_len, vocab_size]
+            Si return_metrics=True: (logits, None) - sin métricas IIT
+        """
+        batch_size, seq_len = input_ids.shape
+        device = input_ids.device
+        
+        # Embeddings
+        token_emb = self.token_embedding(input_ids)
+        positions = torch.arange(0, seq_len, dtype=torch.long, device=device)
+        position_emb = self.position_embedding(positions).unsqueeze(0)
+        
+        x = token_emb + position_emb
+        
+        # Causal mask (evitar ver tokens futuros)
+        causal_mask = nn.Transformer.generate_square_subsequent_mask(
+            seq_len, device=device
+        )
+        
+        # Transformer decoder
+        # Como usamos decoder-only, memory=tgt (autoregresivo)
+        x = self.transformer(
+            tgt=x,
+            memory=x,
+            tgt_mask=causal_mask,
+            memory_mask=causal_mask
+        )
+        
+        # Output projection
+        x = self.ln_f(x)
+        logits = x @ self.output_proj.weight.T  # Usar tied weights
+        
+        if return_metrics:
+            # Compatibilidad con InfinitoTrainer - sin métricas IIT
+            return logits, None
+        
+        return logits
 
 
 # =============================================================================
-# EARLY STOPPING
+# EARLY STOPPING (COPIADO DE train_v5_2_wikitext_real.py)
 # =============================================================================
 
 class EarlyStopping:
@@ -94,68 +253,46 @@ class EarlyStopping:
 
 
 # =============================================================================
-# DATASET WIKITEXT-2 REAL CON LLAMA 3 TOKENIZER 🦙
+# DATASET (COPIADO EXACTO DE train_v5_2_wikitext_real.py)
 # =============================================================================
 
 class WikiText2RealDataset(Dataset):
     """
-    Dataset WikiText-2 REAL usando Llama 3 Tokenizer.
-    
-    🆕 MEJORAS vs GPT-2:
-    - Vocabulario: 128,256 tokens (vs 50,257 GPT-2) → +155% más grande
-    - Compresión: ~25% más eficiente (menos tokens por texto)
-    - Multilenguaje: Mejor cobertura internacional
-    - Modernidad: Tokenizer de 2024 (vs 2019)
+    Dataset WikiText-2 REAL - IDÉNTICO al usado en InfinitoV52.
     
     Características:
     - Datos reales de Wikipedia (HuggingFace datasets)
-    - Tokenización BPE moderna (Llama 3)
-    - Soporte de caching para velocidad
+    - Tokenización GPT-2 BPE (50,257 tokens)
+    - Secuencias de 256 tokens con shift correcto
     """
     
-    def __init__(self, split='train', seq_len=256, tokenizer=None, use_llama3=True):
+    def __init__(self, split='train', seq_len=256, tokenizer=None, use_llama3=False):
         """
         Args:
             split: 'train', 'validation', o 'test'
-            seq_len: Longitud de las secuencias
+            seq_len: Longitud de las secuencias  
             tokenizer: Tokenizer instance (si None, se crea uno nuevo)
-            use_llama3: Si True, usa Llama 3 tokenizer; si False, GPT-2
+            use_llama3: Si True, usa Llama 3; si False, GPT-2 (default False para baseline)
         """
         self.seq_len = seq_len
         self.use_llama3 = use_llama3
         
-        # Cargar tokenizer
+        # Cargar tokenizer (siempre GPT-2 para baseline, para comparación justa)
         if tokenizer is None:
-            if use_llama3:
-                print(f"\n🦙 Cargando Llama 3 Tokenizer...")
-                from transformers import AutoTokenizer
-                try:
-                    # Llama 3 tokenizer (128k vocab)
-                    self.tokenizer = AutoTokenizer.from_pretrained(
-                        'meta-llama/Meta-Llama-3-8B',
-                        use_fast=True
-                    )
-                except Exception as e:
-                    print(f"  ⚠️  Error cargando Llama 3, usando GPT-2 como fallback: {e}")
-                    from transformers import GPT2Tokenizer
-                    self.tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
-                    self.use_llama3 = False
-            else:
-                print(f"\n🔤 Cargando GPT-2 Tokenizer...")
-                from transformers import GPT2Tokenizer
-                self.tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
+            print(f"\n🔤 Cargando GPT-2 Tokenizer (BASELINE)...")
+            from transformers import GPT2Tokenizer
+            self.tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
+            self.use_llama3 = False  # Forzar GPT-2
         else:
             self.tokenizer = tokenizer
         
         self.vocab_size = len(self.tokenizer)
-        tokenizer_name = "Llama 3 (128k)" if self.use_llama3 else "GPT-2 (50k)"
-        print(f"  ✓ Vocabulario: {self.vocab_size:,} tokens ({tokenizer_name})")
+        print(f"  ✓ Vocabulario: {self.vocab_size:,} tokens (GPT-2 BPE)")
         
-        # Cargar WikiText-2 real
+        # Cargar WikiText-2 real (IDÉNTICO proceso)
         print(f"\n📚 Cargando WikiText-2 REAL ({split})...")
         try:
-            # Nuevo path del dataset (sin trust_remote_code que está deprecated)
-            dataset = load_dataset('wikitext', 'wikitext-2-raw-v1', split=split)
+            dataset = load_dataset('wikitext', 'wikitext-2-raw-v1', split=split, trust_remote_code=True)
             print(f"  ✓ Dataset cargado: {len(dataset):,} ejemplos")
             
             # Concatenar todo el texto
@@ -167,8 +304,7 @@ class WikiText2RealDataset(Dataset):
             raise
         
         # Tokenizar todo el texto
-        tokenizer_type = "Llama 3" if self.use_llama3 else "GPT-2 BPE"
-        print(f"  📝 Tokenizando con {tokenizer_type}...")
+        print(f"  📝 Tokenizando con GPT-2 BPE...")
         self.tokens = self.tokenizer.encode(text)
         print(f"  ✓ Total tokens: {len(self.tokens):,}")
         
@@ -205,40 +341,40 @@ class WikiText2RealDataset(Dataset):
 
 
 # =============================================================================
-# TRAINER
+# TRAINER (ADAPTADO DE InfinitoTrainer pero SIN MÉTRICAS IIT)
 # =============================================================================
 
-class InfinitoTrainer:
-    """Entrenador para INFINITO V5.2 con WikiText-2 real."""
+class BaselineTrainer:
+    """Entrenador para Transformer Baseline (SIN IIT) - API idéntica a InfinitoTrainer."""
     
     def __init__(
         self,
         model,
         train_dataset,
         val_dataset,
-        batch_size=32,
-        learning_rate=1e-4,
+        batch_size=16,
+        learning_rate=5e-4,
         device='cuda',
-        start_epoch=0,  # Parámetro para continuar entrenamiento
-        use_early_stopping=True,  # 🆕 Activar early stopping
-        patience=3,  # 🆕 Paciencia para early stopping
-        use_plateau_scheduler=True  # 🆕 Usar ReduceLROnPlateau
+        start_epoch=0,
+        use_early_stopping=True,
+        patience=5,
+        use_plateau_scheduler=True
     ):
         self.model = model
         self.train_dataset = train_dataset
         self.val_dataset = val_dataset
         self.batch_size = batch_size
         self.device = device
-        self.start_epoch = start_epoch  # Guardar época inicial
+        self.start_epoch = start_epoch
         self.use_early_stopping = use_early_stopping
         self.use_plateau_scheduler = use_plateau_scheduler
         
-        # DataLoaders
+        # DataLoaders (IDÉNTICOS)
         self.train_loader = DataLoader(
             train_dataset,
             batch_size=batch_size,
             shuffle=True,
-            num_workers=0,  # Windows compatibility
+            num_workers=0,
             pin_memory=True if device == 'cuda' else False
         )
         
@@ -250,7 +386,7 @@ class InfinitoTrainer:
             pin_memory=True if device == 'cuda' else False
         )
         
-        # Optimizer
+        # Optimizer (IDÉNTICO a InfinitoTrainer)
         self.optimizer = optim.AdamW(
             model.parameters(),
             lr=learning_rate,
@@ -262,14 +398,14 @@ class InfinitoTrainer:
         # Loss function
         self.criterion = nn.CrossEntropyLoss()
         
-        # Learning rate scheduler
+        # Learning rate scheduler (IDÉNTICO)
         if use_plateau_scheduler:
             print("  🔧 Usando ReduceLROnPlateau (adaptativo)")
             self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(
                 self.optimizer,
                 mode='min',
-                factor=0.5,  # Reducir LR a la mitad
-                patience=2,  # Esperar 2 épocas sin mejora
+                factor=0.5,
+                patience=2,
                 min_lr=1e-6,
                 verbose=True
             )
@@ -277,18 +413,18 @@ class InfinitoTrainer:
             print("  🔧 Usando CosineAnnealingLR (fijo)")
             self.scheduler = optim.lr_scheduler.CosineAnnealingLR(
                 self.optimizer,
-                T_max=20,  # epochs
+                T_max=20,
                 eta_min=1e-6
             )
         
-        # Early Stopping
+        # Early Stopping (IDÉNTICO)
         if use_early_stopping:
             print(f"  ⏹️  Early Stopping activado (patience={patience})")
             self.early_stopping = EarlyStopping(patience=patience, min_delta=0.01, mode='min')
         else:
             self.early_stopping = None
         
-        # History
+        # History (SIN métricas IIT)
         self.history = {
             'train_loss': [],
             'train_perplexity': [],
@@ -298,15 +434,10 @@ class InfinitoTrainer:
         }
     
     def train_epoch(self, epoch):
-        """Entrena una época con IIT mejorado."""
+        """Entrena una época SIN métricas IIT."""
         self.model.train()
         total_loss = 0
-        total_loss_lm = 0
-        total_loss_phi = 0
         num_batches = 0
-        
-        # Acumuladores para métricas IIT
-        phi_values = []
         
         pbar = tqdm(self.train_loader, desc=f'Época {epoch}')
         
@@ -314,32 +445,16 @@ class InfinitoTrainer:
             input_ids = input_ids.to(self.device)
             labels = labels.to(self.device)
             
-            # Forward pass con métricas IIT
             self.optimizer.zero_grad()
-            logits, metrics = self.model(input_ids, return_metrics=True)
             
-            # Loss de language modeling
-            loss_lm = self.criterion(
+            # Forward pass SIN métricas IIT
+            logits = self.model(input_ids, return_metrics=False)
+            
+            # Loss de language modeling únicamente
+            loss = self.criterion(
                 logits.reshape(-1, logits.size(-1)),
                 labels.reshape(-1)
             )
-            
-            # 🆕 Loss auxiliar ΔPhi (si está disponible)
-            loss_phi = 0.0
-            if metrics and 'delta_phi_loss' in metrics:
-                loss_phi = metrics['delta_phi_loss']
-                # Convertir a tensor si es float
-                if isinstance(loss_phi, float):
-                    loss_phi = torch.tensor(loss_phi, device=self.device)
-            
-            # Loss total (LM + lambda*ΔPhi)
-            # Obtener lambda_phi del modelo (puede estar como atributo o en config)
-            lambda_phi = getattr(self.model, 'lambda_phi', 0.3)
-            
-            if isinstance(loss_phi, torch.Tensor) and loss_phi.item() > 0:
-                loss = loss_lm + lambda_phi * loss_phi
-            else:
-                loss = loss_lm
             
             # Backward pass
             loss.backward()
@@ -348,35 +463,22 @@ class InfinitoTrainer:
             
             # Actualizar métricas
             total_loss += loss.item()
-            total_loss_lm += loss_lm.item()
-            if isinstance(loss_phi, torch.Tensor):
-                total_loss_phi += loss_phi.item()
             num_batches += 1
             
-            # Acumular PHI
-            if metrics and 'integration_phi' in metrics:
-                phi_values.append(metrics['integration_phi'])
-            
             # Actualizar progress bar
-            postfix = {
+            pbar.set_postfix({
                 'loss': f'{loss.item():.4f}',
-                'ppl': f'{math.exp(loss_lm.item()):.2f}',
+                'ppl': f'{math.exp(loss.item()):.2f}',
                 'lr': f'{self.optimizer.param_groups[0]["lr"]:.2e}'
-            }
-            if metrics and 'integration_phi' in metrics:
-                postfix['phi'] = f'{metrics["integration_phi"]:.3f}'
-            pbar.set_postfix(postfix)
+            })
         
         avg_loss = total_loss / num_batches
-        avg_loss_lm = total_loss_lm / num_batches
-        avg_loss_phi = total_loss_phi / num_batches if total_loss_phi > 0 else 0.0
-        avg_ppl = math.exp(avg_loss_lm)
-        avg_phi = sum(phi_values) / len(phi_values) if phi_values else 0.0
+        avg_ppl = math.exp(avg_loss)
         
-        return avg_loss, avg_ppl, avg_phi, avg_loss_phi
+        return avg_loss, avg_ppl
     
     def validate(self):
-        """Valida el modelo."""
+        """Valida el modelo SIN métricas IIT."""
         self.model.eval()
         total_loss = 0
         num_batches = 0
@@ -389,13 +491,7 @@ class InfinitoTrainer:
                 labels = labels.to(self.device)
                 
                 # Forward pass
-                output = self.model(input_ids)
-                
-                # Manejar tupla si es necesario
-                if isinstance(output, tuple):
-                    logits = output[0]
-                else:
-                    logits = output
+                logits = self.model(input_ids)
                 
                 # Calcular loss
                 loss = self.criterion(
@@ -416,7 +512,7 @@ class InfinitoTrainer:
     def train(self, num_epochs, save_dir='models/checkpoints'):
         """Ejecuta el entrenamiento completo."""
         print(f"\n{'='*70}")
-        print(f"INICIANDO ENTRENAMIENTO - INFINITO V5.2 (WikiText-2 REAL)")
+        print(f"INICIANDO ENTRENAMIENTO - BASELINE (SIN IIT)")
         print(f"{'='*70}")
         print(f"  Épocas: {num_epochs}")
         print(f"  Época inicial: {self.start_epoch + 1}")
@@ -432,13 +528,13 @@ class InfinitoTrainer:
         
         best_val_loss = float('inf')
         
-        for epoch in range(self.start_epoch + 1, num_epochs + 1):  # Continuar desde start_epoch
+        for epoch in range(self.start_epoch + 1, num_epochs + 1):
             print(f"\n{'='*70}")
             print(f"ÉPOCA {epoch}/{num_epochs}")
             print(f"{'='*70}")
             
             # Entrenar
-            train_loss, train_ppl, train_phi, train_loss_phi = self.train_epoch(epoch)
+            train_loss, train_ppl = self.train_epoch(epoch)
             
             # Validar
             val_loss, val_ppl = self.validate()
@@ -453,24 +549,11 @@ class InfinitoTrainer:
             self.history['val_perplexity'].append(val_ppl)
             self.history['learning_rate'].append(current_lr)
             
-            # 🆕 Guardar métricas IIT
-            if 'train_phi' not in self.history:
-                self.history['train_phi'] = []
-                self.history['train_loss_phi'] = []
-            self.history['train_phi'].append(train_phi)
-            self.history['train_loss_phi'].append(train_loss_phi)
-            
-            # Mostrar resultados
+            # Mostrar resultados (SIN métricas IIT)
             print(f"\n📊 Resultados Época {epoch}:")
             print(f"  Train Loss: {train_loss:.4f} | Train PPL: {train_ppl:,.2f}")
             print(f"  Val Loss:   {val_loss:.4f} | Val PPL:   {val_ppl:,.2f}")
             print(f"  Learning Rate: {current_lr:.2e}")
-            print(f"  🧠 Train PHI: {train_phi:.4f} | ΔPhi Loss: {train_loss_phi:.6f}")
-            
-            # 🆕 Mostrar threshold aprendible
-            if hasattr(self.model.memory, 'get_threshold'):
-                threshold = self.model.memory.get_threshold()
-                print(f"  🎯 Memory Threshold: {threshold:.4f} (aprendible)")
             
             # Guardar mejor modelo
             if val_loss < best_val_loss:
@@ -479,7 +562,7 @@ class InfinitoTrainer:
                     epoch,
                     val_loss,
                     val_ppl,
-                    os.path.join(save_dir, 'infinito_v5.2_real_best.pt')
+                    os.path.join(save_dir, 'baseline_no_iit_best.pt')
                 )
                 print(f"  ✅ MEJOR MODELO guardado (val_loss: {val_loss:.4f})")
             
@@ -489,16 +572,16 @@ class InfinitoTrainer:
                     epoch,
                     val_loss,
                     val_ppl,
-                    os.path.join(save_dir, f'infinito_v5.2_real_epoch_{epoch}.pt')
+                    os.path.join(save_dir, f'baseline_no_iit_epoch_{epoch}.pt')
                 )
             
             # Actualizar learning rate
             if self.use_plateau_scheduler:
-                self.scheduler.step(val_loss)  # ReduceLROnPlateau necesita la métrica
+                self.scheduler.step(val_loss)
             else:
                 self.scheduler.step()
             
-            # 🆕 Early Stopping
+            # Early Stopping
             if self.early_stopping is not None:
                 should_continue = self.early_stopping(val_loss)
                 if not should_continue:
@@ -511,11 +594,26 @@ class InfinitoTrainer:
         self.save_history()
         
         print(f"\n{'='*70}")
-        print(f"✅ ENTRENAMIENTO COMPLETADO")
+        print(f"✅ ENTRENAMIENTO BASELINE COMPLETADO")
         print(f"{'='*70}")
         print(f"  Mejor Val Loss: {best_val_loss:.4f}")
         print(f"  Mejor Val PPL: {math.exp(best_val_loss):,.2f}")
         print(f"{'='*70}\n")
+        
+        # Comparación con resultados conocidos de InfinitoV52
+        print(f"\n🔬 COMPARACIÓN CIENTÍFICA:")
+        print(f"  Baseline (SIN IIT):  {math.exp(best_val_loss):.2f} PPL")
+        print(f"  Model A (CON IIT):   216.46 PPL")
+        print(f"  Model B (CON IIT):   207.15 PPL")
+        print()
+        
+        baseline_ppl = math.exp(best_val_loss)
+        if baseline_ppl > 216.46:
+            print("✅ CONCLUSIÓN: IIT aporta beneficio significativo")
+        elif baseline_ppl > 207.15:
+            print("🟡 CONCLUSIÓN: IIT aporta beneficio moderado")
+        else:
+            print("❌ CONCLUSIÓN: IIT no mejora o perjudica performance")
     
     def save_checkpoint(self, epoch, val_loss, val_ppl, path):
         """Guarda un checkpoint del modelo."""
@@ -530,9 +628,11 @@ class InfinitoTrainer:
             'config': {
                 'vocab_size': self.train_dataset.vocab_size,
                 'hidden_dim': self.model.hidden_dim,
-                'use_improved_memory': self.model.use_improved_memory,
-                'use_stochastic_exploration': self.model.use_stochastic_exploration,
-                'seed': self.model.seed
+                'num_layers': self.model.num_layers,
+                'num_heads': self.model.num_heads,
+                'dropout': self.model.dropout,
+                'seed': self.model.seed,
+                'model_type': 'baseline_no_iit'
             }
         }
         torch.save(checkpoint, path)
@@ -542,7 +642,7 @@ class InfinitoTrainer:
         os.makedirs('results/training', exist_ok=True)
         
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        history_path = f'results/training/training_history_real_{timestamp}.json'
+        history_path = f'results/training/baseline_no_iit_history_{timestamp}.json'
         
         with open(history_path, 'w') as f:
             json.dump(self.history, f, indent=2)
@@ -551,53 +651,49 @@ class InfinitoTrainer:
 
 
 # =============================================================================
-# MODEL CONFIGURATIONS (PRESETS)
+# BASELINE MODEL CONFIGURATIONS (PRESETS)
 # =============================================================================
 
 MODEL_CONFIGS = {
-    "large_iit": {
-        # Configuración actual optimizada (Model A)
+    "large_baseline": {
+        # Configuración baseline equivalente a large_iit
         "hidden_dim": 512,
         "num_layers": 4,
         "num_heads": 8,
-        "batch_size": 16,
-        "learning_rate": 5e-4,
-        "seq_len": 256,
         "dropout": 0.15,
-        "lambda_phi": 0.3,
-        "vocab_size": None,  # Se calculará dinámicamente según el tokenizer
-        "description": "Configuración optimizada para rendimiento máximo con IIT features"
+        "seq_len": 256,
+        "batch_size": 16,
+        "lr": 5e-4,
+        "description": "Baseline transformer grande para comparación con large_iit"
     },
-    "small_iit": {
-        # Configuración más pequeña y eficiente
+    "small_baseline": {
+        # Configuración baseline equivalente a small_iit
         "hidden_dim": 384,
         "num_layers": 3,
         "num_heads": 6,
-        "batch_size": 16,
-        "learning_rate": 5e-4,
-        "seq_len": 256,
         "dropout": 0.15,
-        "lambda_phi": 0.3,
-        "vocab_size": None,  # Usar vocabulario completo para evitar problemas de indexing
-        "description": "Configuración compacta para experimentación rápida"
+        "seq_len": 256,
+        "batch_size": 16,
+        "lr": 5e-4,
+        "description": "Baseline transformer pequeño para comparación con small_iit"
     }
 }
 
 
 # =============================================================================
-# MAIN
+# MAIN (API IDÉNTICA A train_v5_2_wikitext_real.py)
 # =============================================================================
 
 def main():
     """Función principal de entrenamiento."""
     import argparse
     
-    parser = argparse.ArgumentParser(description='Entrenamiento INFINITO V5.2 con WikiText-2 REAL - CONFIGURACIÓN ÓPTIMA (Model A)')
+    parser = argparse.ArgumentParser(description='BASELINE Transformer (SIN IIT) - Comparación científica con INFINITO V5.2')
     
-    # 🆕 PRESET DE CONFIGURACIÓN
-    parser.add_argument('--model-size', type=str, default='large_iit',
-                       choices=['large_iit', 'small_iit'],
-                       help='Preset de configuración del modelo (default: large_iit)')
+    # 🆕 PRESET DE CONFIGURACIÓN BASELINE
+    parser.add_argument('--model-size', type=str, default='large_baseline',
+                       choices=['large_baseline', 'small_baseline'],
+                       help='Preset de configuración del modelo baseline (default: large_baseline)')
     
     parser.add_argument('--epochs', type=int, default=5,
                        help='Número de épocas (default: 5 para prueba rápida, luego 20)')
@@ -615,8 +711,6 @@ def main():
                        help='Número de capas (si no se especifica, usa el preset)')
     parser.add_argument('--num-heads', type=int, default=None,
                        help='Número de cabezas de atención (si no se especifica, usa el preset)')
-    parser.add_argument('--lambda-phi', type=float, default=None,
-                       help='Peso del objetivo ΔPhi (si no se especifica, usa el preset)')
     parser.add_argument('--seed', type=int, default=42,
                        help='Seed para reproducibilidad (default: 42)')
     parser.add_argument('--patience', type=int, default=5,
@@ -625,16 +719,14 @@ def main():
                        help='Desactivar early stopping')
     parser.add_argument('--no-plateau-scheduler', action='store_true',
                        help='Usar CosineAnnealingLR en vez de ReduceLROnPlateau')
-    parser.add_argument('--use-llama3', action='store_true',
-                       help='🦙 Usar Llama 3 tokenizer (128k vocab) en vez de GPT-2 (50k)')
     parser.add_argument('--resume', type=str, default=None,
                        help='Path al checkpoint para continuar entrenamiento')
     
     args = parser.parse_args()
     
-    # 🚀 CARGAR CONFIGURACIÓN DESDE PRESET
+    # 🚀 CARGAR CONFIGURACIÓN DESDE PRESET BASELINE
     config = MODEL_CONFIGS[args.model_size].copy()
-    print(f"\n🔧 Using preset: {args.model_size} -> {config['description']}")
+    print(f"\n🔧 Using baseline preset: {args.model_size} -> {config['description']}")
     print(f"📋 Configuration: {config}")
     
     # Permitir override manual de cualquier parámetro
@@ -642,8 +734,8 @@ def main():
         config['batch_size'] = args.batch_size
         print(f"  ⚠️  Override: batch_size = {args.batch_size}")
     if args.lr is not None:
-        config['learning_rate'] = args.lr
-        print(f"  ⚠️  Override: learning_rate = {args.lr}")
+        config['lr'] = args.lr
+        print(f"  ⚠️  Override: lr = {args.lr}")
     if args.dropout is not None:
         config['dropout'] = args.dropout
         print(f"  ⚠️  Override: dropout = {args.dropout}")
@@ -659,9 +751,6 @@ def main():
     if args.num_heads is not None:
         config['num_heads'] = args.num_heads
         print(f"  ⚠️  Override: num_heads = {args.num_heads}")
-    if args.lambda_phi is not None:
-        config['lambda_phi'] = args.lambda_phi
-        print(f"  ⚠️  Override: lambda_phi = {args.lambda_phi}")
     
     # Device
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -669,50 +758,36 @@ def main():
     if device == 'cuda':
         print(f"  GPU: {torch.cuda.get_device_name(0)}")
     
-    # Cargar datasets con tokenizer correspondiente
-    print(f"\n📚 Cargando datasets...")
+    # Cargar datasets (IDÉNTICOS a InfinitoV52)
+    print(f"\n📊 Cargando datasets...")
     
     train_dataset = WikiText2RealDataset(
         split='train',
         seq_len=config['seq_len'],
-        tokenizer=None,  # Se creará internamente
-        use_llama3=args.use_llama3
+        tokenizer=None,
+        use_llama3=False  # Siempre GPT-2 para baseline
     )
     
     val_dataset = WikiText2RealDataset(
         split='validation',
         seq_len=config['seq_len'],
-        tokenizer=train_dataset.tokenizer,  # Compartir tokenizer
-        use_llama3=args.use_llama3
+        tokenizer=train_dataset.tokenizer,
+        use_llama3=False
     )
     
-    # Determinar vocab_size (del dataset o del preset)
-    if config['vocab_size'] is None:
-        vocab_size = train_dataset.vocab_size
-        print(f"  ✓ Vocabulario dinámico: {vocab_size:,} tokens (desde tokenizer)")
-    else:
-        vocab_size = min(config['vocab_size'], train_dataset.vocab_size)
-        print(f"  ✓ Vocabulario limitado: {vocab_size:,} tokens (preset: {config['vocab_size']}, disponible: {train_dataset.vocab_size})")
+    vocab_size = train_dataset.vocab_size
     
-    # Actualizar config con vocab_size final
-    config['vocab_size'] = vocab_size
-    
-    # Crear modelo
-    print(f"\n🤖 Creando modelo INFINITO V5.2 CON IIT MEJORADO...")
+    # Crear modelo BASELINE (sin IIT)
+    print(f"\n🤖 Creando modelo BASELINE (SIN IIT)...")
     print(f"  📋 Configuración final: hidden_dim={config['hidden_dim']}, layers={config['num_layers']}, heads={config['num_heads']}, vocab={vocab_size:,}")
     
-    model = InfinitoV52Refactored(
+    model = TransformerBaseline(
         vocab_size=vocab_size,
         hidden_dim=config['hidden_dim'],
         num_layers=config['num_layers'],
         num_heads=config['num_heads'],
-        memory_slots=256,
-        dropout=config['dropout'],           # 🆕 Dropout desde config
-        use_improved_memory=True,      # ✅ IITGuidedMemory
-        use_improved_iit=True,         # ✅ ImprovedIITMetrics (4 componentes)
-        use_learnable_phi=True,        # ✅ LearnablePhiWeights
-        use_stochastic_exploration=True,
-        lambda_phi=config['lambda_phi'],    # 🆕 Peso desde config
+        dropout=config['dropout'],
+        max_seq_len=512,
         seed=args.seed
     ).to(device)
     
@@ -730,17 +805,17 @@ def main():
     print(f"  ✓ Parámetros: {num_params:,}")
     
     # Crear trainer
-    trainer = InfinitoTrainer(
+    trainer = BaselineTrainer(
         model=model,
         train_dataset=train_dataset,
         val_dataset=val_dataset,
         batch_size=config['batch_size'],
-        learning_rate=config['learning_rate'],
+        learning_rate=config['lr'],
         device=device,
         start_epoch=start_epoch,
-        use_early_stopping=not args.no_early_stopping,  # 🆕 Early stopping
-        patience=args.patience,                         # 🆕 Paciencia configurable
-        use_plateau_scheduler=not args.no_plateau_scheduler  # 🆕 ReduceLROnPlateau
+        use_early_stopping=not args.no_early_stopping,
+        patience=args.patience,
+        use_plateau_scheduler=not args.no_plateau_scheduler
     )
     
     # Entrenar

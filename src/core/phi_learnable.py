@@ -195,7 +195,7 @@ class DeltaPhiObjective(nn.Module):
     def __init__(
         self,
         lambda_phi: float = 0.01,
-        target_phi: float = 3.5
+        target_phi: float = 1.2  # ⚠️ FIX BUG #3: Cambiar de 3.5 a 1.2 (realista dado PHI actual ~0.9)
     ):
         super().__init__()
         
@@ -232,7 +232,8 @@ class DeltaPhiObjective(nn.Module):
         loss_delta = F.relu(-delta_phi).mean()  # Solo penaliza si delta < 0
         
         # Loss total
-        loss = self.lambda_phi * (loss_target + loss_delta)
+        # ⚠️ FIX BUG #1: Quitar lambda_phi - se aplicará externamente en training script
+        loss = loss_target + loss_delta
         
         # Métricas
         metrics = {

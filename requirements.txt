@@ -5,15 +5,30 @@ torch>=1.9.0
 torchvision>=0.10.0  
 numpy>=1.21.0
 
+# Transformers & NLP
+transformers>=4.30.0
+datasets>=2.12.0
+peft>=0.4.0  # LoRA adapters
+tokenizers>=0.13.0
+
 # Scientific Computing
 scipy>=1.7.0
 scikit-learn>=1.0.0
 
 # Visualization
 matplotlib>=3.5.0
+seaborn>=0.12.0
+
+# Progress bars
+tqdm>=4.65.0
 
 # Data Handling  
 pillow>=8.3.0
+
+# Reinforcement Learning (RL Scheduler Φ vs Texto)
+gymnasium>=0.29.0  # or gym>=0.26.0
+stable-baselines3>=2.0.0
+tensorboard>=2.13.0
 
 # Optional: Enhanced features (comment out if not needed)
 # pygame>=2.1.0        # Audio feedback

@@ -173,7 +173,7 @@ class InfinitoV52Refactored(nn.Module):
             # Objetivo auxiliar para maximizar ΔPhi
             self.delta_phi_objective = DeltaPhiObjective(
                 lambda_phi=lambda_phi,  # 🆕 Configurable desde constructor
-                target_phi=3.5   # PHI objetivo (adaptado a WikiText-2)
+                target_phi=1.2   # ⚠️ FIX BUG #3: Cambiar de 3.5 a 1.2 (realista, PHI actual ~0.9)
             )
         else:
             self.learnable_phi_weights = None
@@ -310,6 +310,9 @@ class InfinitoV52Refactored(nn.Module):
             
             # 🆕 Si usamos pesos aprendibles, recalcular PHI ponderado
             if self.learnable_phi_weights is not None:
+                # ⚠️ FIX BUG #2: Guardar PHI baseline ANTES de ponderar
+                phi_baseline_unweighted = integration_level.clone()
+                
                 # Obtener pesos normalizados
                 weights = self.learnable_phi_weights()  # Returns dict of tensors
                 
@@ -327,11 +330,8 @@ class InfinitoV52Refactored(nn.Module):
                 
                 # Calcular loss auxiliar ΔPhi (para maximizar integración)
                 if self.training and self.delta_phi_objective is not None:
-                    # Necesitamos phi_initial y phi_processed
-                    # En este caso, usamos el PHI sin ponderar vs el ponderado
-                    phi_baseline = metrics_dict['phi_estimate']
-                    phi_weighted = integration_level
-                    delta_phi_loss, _ = self.delta_phi_objective(phi_baseline, phi_weighted)
+                    # ⚠️ FIX BUG #2: Comparar PHI sin ponderar vs PHI ponderado (delta REAL)
+                    delta_phi_loss, _ = self.delta_phi_objective(phi_baseline_unweighted, integration_level)
         
         # Interacción con memoria
         memory_query = hidden.mean(dim=1)  # [batch, hidden_dim]
@@ -392,7 +392,8 @@ class InfinitoV52Refactored(nn.Module):
                 weights = self.learnable_phi_weights.get_weights_dict()
                 metrics['phi_weights'] = weights
                 if delta_phi_loss is not None:
-                    metrics['delta_phi_loss'] = delta_phi_loss.item()
+                    # ⚠️ FIX BUG #4: NO convertir a .item() - conservar tensor con gradientes
+                    metrics['delta_phi_loss'] = delta_phi_loss
             
             # 🆕 Añadir nota sobre interpretación
             metrics['_note'] = (
