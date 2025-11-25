@@ -91,8 +91,24 @@ class InfinitoGPT2Hybrid(nn.Module):
         self.lambda_phi = lambda_phi
         self.seed = seed
         
+        # RL: Pesos de loss dinámicos (para control por agente RL)
+        self.loss_weights = {
+            "text": 1.0,
+            "phi": lambda_phi,  # Inicializar con lambda_phi
+        }
+        
+        # Métricas actuales (para RL environment)
+        self.current_metrics = {
+            "consciousness": 0.0,
+            "phi": 0.0,
+            "loss_text": 0.0,
+            "loss_phi": 0.0,
+            "memory_utilization": 0.0,
+            "perplexity": 0.0,
+        }
+        
         print("\n" + "="*70)
-        print("INFINITO V5.2 + GPT-2 - ARQUITECTURA HÍBRIDA")
+        print("INFINITO V5.2 + GPT-2 - ARQUITECTURA HÍBRIDA (RL-Ready)")
         print("="*70)
         
         # 1. Cargar GPT-2 pre-entrenado
@@ -269,6 +285,64 @@ class InfinitoGPT2Hybrid(nn.Module):
         if return_metrics:
             return logits, metrics
         return logits
+    
+    # =========================================================================
+    # MÉTODOS PARA CONTROL RL
+    # =========================================================================
+    
+    def set_loss_weights(self, w_text: float, w_phi: float) -> None:
+        """
+        Actualiza los pesos de las componentes de loss.
+        Usado por el agente RL para cambiar entre modo TEXTO, PHI o MIXTO.
+        
+        Args:
+            w_text: Peso para loss de texto (típicamente 0.1-1.0)
+            w_phi: Peso para loss de PHI (típicamente 0.0-1.0)
+        """
+        self.loss_weights["text"] = float(w_text)
+        self.loss_weights["phi"] = float(w_phi)
+        # Actualizar lambda_phi para mantener compatibilidad
+        self.lambda_phi = float(w_phi)
+    
+    def get_current_metrics(self) -> dict:
+        """
+        Devuelve métricas actuales del sistema para observación del agente RL.
+        
+        Returns:
+            Dict con métricas: consciousness, phi, loss_text, loss_phi, memory_utilization, perplexity
+        """
+        return {
+            "consciousness": float(self.current_metrics.get("consciousness", 0.0)),
+            "phi": float(self.current_metrics.get("phi", 0.0)),
+            "loss_text": float(self.current_metrics.get("loss_text", 0.0)),
+            "loss_phi": float(self.current_metrics.get("loss_phi", 0.0)),
+            "memory_utilization": float(self.current_metrics.get("memory_utilization", 0.0)),
+            "perplexity": float(self.current_metrics.get("perplexity", 0.0)),
+        }
+    
+    def update_current_metrics(self, loss_text: float, loss_phi: float, phi: float, 
+                               memory_util: float, perplexity: float = 0.0):
+        """
+        Actualiza las métricas internas (llamado durante entrenamiento).
+        
+        Args:
+            loss_text: Loss de lenguaje actual
+            loss_phi: Loss de PHI actual
+            phi: Valor de PHI actual
+            memory_util: Utilización de memoria
+            perplexity: Perplejidad actual (opcional)
+        """
+        # Consciousness como proxy: PHI normalizado
+        consciousness = min(phi / 10.0, 1.0)  # Normalizar Φ≈10 → 1.0
+        
+        self.current_metrics.update({
+            "consciousness": float(consciousness),
+            "phi": float(phi),
+            "loss_text": float(loss_text),
+            "loss_phi": float(loss_phi),
+            "memory_utilization": float(memory_util),
+            "perplexity": float(perplexity),
+        })
 
 
 # =============================================================================
@@ -469,8 +543,21 @@ class HybridTrainer:
             else:
                 loss_phi = loss_phi_value
             
-            # Loss total
-            loss = loss_lm + loss_phi
+            # RL: Loss total con pesos dinámicos
+            w_text = self.model.loss_weights.get("text", 1.0)
+            w_phi = self.model.loss_weights.get("phi", 1.0)
+            loss = w_text * loss_lm + w_phi * loss_phi
+            
+            # Actualizar métricas internas del modelo (para RL)
+            memory_util = metrics.get('memory_util', 0.0)
+            perplexity = math.exp(loss_lm.item()) if loss_lm.item() < 10 else 1000.0
+            self.model.update_current_metrics(
+                loss_text=loss_lm.item(),
+                loss_phi=loss_phi.item() if isinstance(loss_phi, torch.Tensor) else loss_phi,
+                phi=metrics['integration_phi'],
+                memory_util=memory_util,
+                perplexity=perplexity
+            )
             
             # Backward
             loss.backward()

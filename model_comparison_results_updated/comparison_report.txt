@@ -1,0 +1,78 @@
+================================================================================
+REPORTE DE COMPARACION DE MODELOS INFINITO V5.2
+================================================================================
+Generado: 2025-11-17 20:42:39
+Modelos analizados: 14
+
+TABLA COMPARATIVA COMPLETA
+--------------------------------------------------
+                           Modelo  Época   PPL Final  Pérdida Final  Parámetros Hidden Dim   Capas Cabezas  IIT Memory  IIT Metrics  Learnable Phi   Mejora %  Puntuación General  Diversidad  Anti-Repetición  Coherencia
+   infinito_base_improved_best.pt      1    1.000018       0.017530   166615059    unknown unknown unknown       False        False          False        N/A                 NaN         NaN              NaN         NaN
+ infinito_base_improved_epoch5.pt      5    1.000022       0.025525   166615059    unknown unknown unknown       False        False          False        N/A                 NaN         NaN              NaN         NaN
+     infinito_v5.2_best_epoch2.pt      2    1.030101            inf    86559133        512       4       8       False        False          False        N/A            0.655654    0.017771          0.98441         1.0
+     infinito_v5.2_best_epoch1.pt      1    1.060480            inf    86559133        512       4       8       False        False          False        N/A                 NaN         NaN              NaN         NaN
+infinito_v5.2_validated_1epoch.pt      1   18.993069       2.944074    86559133        512       4       8       False        False          False        N/A                 NaN         NaN              NaN         NaN
+       baseline_no_iit_epoch_5.pt      5  187.080505       5.231539    68542464        512       4       8       False        False          False  12.739103                 NaN         NaN              NaN         NaN
+infinito_v5.2_wikitext103_best.pt      5  207.146562       5.333427    86559133        512       4       8       False        False          False        N/A                 NaN         NaN              NaN         NaN
+   infinito_v5.2_real_epoch_10.pt     10  310.396579       5.737851    50845149        384 unknown unknown        True        False          False  13.580134                 NaN         NaN              NaN         NaN
+       infinito_v5.2_real_best.pt      3  335.017247       5.814182    28454685        256 unknown unknown        True        False          False   4.542375                 NaN         NaN              NaN         NaN
+    infinito_v5.2_real_epoch_5.pt      5  397.798934       5.985947    50845149        384 unknown unknown        True        False          False   9.843471                 NaN         NaN              NaN         NaN
+          baseline_no_iit_best.pt      1  405.567601       6.005288    45894528        384       3       6       False        False          False        N/A                 NaN         NaN              NaN         NaN
+  infinito_v5.2_optimized_best.pt      1 5792.366211       8.664297   127412957    unknown unknown unknown       False        False          False        N/A                 NaN         NaN              NaN         NaN
+            infinito_gpt2_best.pt      2         inf       3.274263   167020563    unknown unknown unknown       False        False          False   0.813657                 NaN         NaN              NaN         NaN
+          infinito_phase2_best.pt      3         inf       0.119254   334865483    unknown unknown unknown       False        False          False  85.897768                 NaN         NaN              NaN         NaN
+
+TOP 3 MODELOS POR PERPLEXITY (Menor es mejor)
+--------------------------------------------------
+1. infinito_base_improved_best.pt
+   PPL: 1.0000180006027222
+   Parámetros: 166615059
+   Arquitectura: unknownd, unknown capas, unknown cabezas
+
+2. infinito_base_improved_epoch5.pt
+   PPL: 1.0000218152999878
+   Parámetros: 166615059
+   Arquitectura: unknownd, unknown capas, unknown cabezas
+
+3. infinito_v5.2_best_epoch2.pt
+   PPL: 1.030100703239441
+   Parámetros: 86559133
+   Arquitectura: 512d, 4 capas, 8 cabezas
+
+ANÁLISIS DE EFICIENCIA (Parámetros vs PPL)
+--------------------------------------------------
+Ranking de eficiencia (mayor es mejor):
+1. infinito_v5.2_best_epoch2.pt
+   Eficiencia: 0.011215
+   Parámetros: 86,559,133
+   PPL: 1.03
+
+2. infinito_v5.2_best_epoch1.pt
+   Eficiencia: 0.010894
+   Parámetros: 86,559,133
+   PPL: 1.06
+
+3. infinito_base_improved_best.pt
+   Eficiencia: 0.006002
+   Parámetros: 166,615,059
+   PPL: 1.00
+
+4. infinito_base_improved_epoch5.pt
+   Eficiencia: 0.006002
+   Parámetros: 166,615,059
+   PPL: 1.00
+
+5. infinito_v5.2_validated_1epoch.pt
+   Eficiencia: 0.000608
+   Parámetros: 86,559,133
+   PPL: 18.99
+
+RECOMENDACIONES
+--------------------------------------------------
+Mejor modelo general: infinito_base_improved_best.pt
+Razón: Mejor perplexity (1.0000180006027222)
+
+Recomendaciones por caso de uso:
+- Producción: Modelo con mejor PPL y características IIT completas
+- Experimentación: Modelos más pequeños para iteración rápida
+- Investigación: Modelos con todas las características IIT activadas

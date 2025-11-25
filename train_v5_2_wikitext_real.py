@@ -133,8 +133,7 @@ class WikiText2RealDataset(Dataset):
                     # Llama 3 tokenizer (128k vocab)
                     self.tokenizer = AutoTokenizer.from_pretrained(
                         'meta-llama/Meta-Llama-3-8B',
-                        use_fast=True,
-                        trust_remote_code=True
+                        use_fast=True
                     )
                 except Exception as e:
                     print(f"  ⚠️  Error cargando Llama 3, usando GPT-2 como fallback: {e}")
@@ -155,8 +154,8 @@ class WikiText2RealDataset(Dataset):
         # Cargar WikiText-2 real
         print(f"\n📚 Cargando WikiText-2 REAL ({split})...")
         try:
-            # Nuevo path del dataset (Salesforce movió el repo)
-            dataset = load_dataset('wikitext', 'wikitext-2-raw-v1', split=split, trust_remote_code=True)
+            # Nuevo path del dataset (sin trust_remote_code que está deprecated)
+            dataset = load_dataset('wikitext', 'wikitext-2-raw-v1', split=split)
             print(f"  ✓ Dataset cargado: {len(dataset):,} ejemplos")
             
             # Concatenar todo el texto
@@ -255,9 +254,9 @@ class InfinitoTrainer:
         self.optimizer = optim.AdamW(
             model.parameters(),
             lr=learning_rate,
-            betas=(0.9, 0.98),
+            betas=(0.9, 0.999),  # ✅ ÓPTIMO (match con Model A)
             eps=1e-9,
-            weight_decay=0.01  # Regularización L2
+            weight_decay=0.01  # ✅ ÓPTIMO (Regularización L2)
         )
         
         # Loss function
@@ -333,8 +332,14 @@ class InfinitoTrainer:
                 if isinstance(loss_phi, float):
                     loss_phi = torch.tensor(loss_phi, device=self.device)
             
-            # Loss total (LM + ΔPhi)
-            loss = loss_lm + loss_phi
+            # Loss total (LM + lambda*ΔPhi)
+            # Obtener lambda_phi del modelo (puede estar como atributo o en config)
+            lambda_phi = getattr(self.model, 'lambda_phi', 0.3)
+            
+            if isinstance(loss_phi, torch.Tensor) and loss_phi.item() > 0:
+                loss = loss_lm + lambda_phi * loss_phi
+            else:
+                loss = loss_lm
             
             # Backward pass
             loss.backward()
@@ -546,6 +551,66 @@ class InfinitoTrainer:
 
 
 # =============================================================================
+# MODEL CONFIGURATIONS (PRESETS)
+# =============================================================================
+
+MODEL_CONFIGS = {
+    "large_iit": {
+        # Configuración actual optimizada (Model A)
+        "hidden_dim": 512,
+        "num_layers": 4,
+        "num_heads": 8,
+        "batch_size": 16,
+        "learning_rate": 5e-4,
+        "seq_len": 256,
+        "dropout": 0.15,
+        "lambda_phi": 0.3,
+        "vocab_size": None,  # Se calculará dinámicamente según el tokenizer
+        "description": "Configuración optimizada para rendimiento máximo con IIT features"
+    },
+    "small_iit": {
+        # Configuración más pequeña y eficiente
+        "hidden_dim": 384,
+        "num_layers": 3,
+        "num_heads": 6,
+        "batch_size": 16,
+        "learning_rate": 5e-4,
+        "seq_len": 256,
+        "dropout": 0.15,
+        "lambda_phi": 0.3,
+        "vocab_size": None,  # Usar vocabulario completo para evitar problemas de indexing
+        "description": "Configuración compacta para experimentación rápida"
+    },
+    "micro_iit": {
+        # 🆕 Configuración micro para reducir ratio parámetros/datos
+        "hidden_dim": 384,
+        "num_layers": 3,
+        "num_heads": 6,
+        "batch_size": 16,
+        "learning_rate": 1e-4,  # LR más conservador para modelo pequeño
+        "seq_len": 256,
+        "dropout": 0.2,  # Dropout ligeramente mayor para regularización
+        "lambda_phi": 0.1,  # Peso PHI reducido para no dominar
+        "vocab_size": None,
+        "description": "Configuración micro (~28M parámetros) para ratio óptimo parámetros/datos ~12:1"
+    },
+    "tiny_iit": {
+        # 🆕 Configuración ultra-pequeña para experimentación extrema
+        "hidden_dim": 256,
+        "num_layers": 2,
+        "num_heads": 4,
+        "batch_size": 16,
+        "learning_rate": 2e-4,
+        "seq_len": 256,
+        "dropout": 0.25,  # Dropout alto para forzar generalización
+        "lambda_phi": 0.05,  # Peso PHI muy bajo
+        "vocab_size": None,
+        "description": "Configuración tiny (~12M parámetros) para ratio extremo parámetros/datos ~5:1"
+    }
+}
+
+
+# =============================================================================
 # MAIN
 # =============================================================================
 
@@ -553,29 +618,35 @@ def main():
     """Función principal de entrenamiento."""
     import argparse
     
-    parser = argparse.ArgumentParser(description='Entrenamiento INFINITO V5.2 con WikiText-2 REAL - ANTI-OVERFITTING')
-    parser.add_argument('--epochs', type=int, default=15,
-                       help='Número de épocas (default: 15)')
-    parser.add_argument('--batch-size', type=int, default=32,
-                       help='Tamaño del batch (default: 32)')
-    parser.add_argument('--lr', type=float, default=1e-4,
-                       help='Learning rate (default: 1e-4)')
-    parser.add_argument('--dropout', type=float, default=0.3,
-                       help='Dropout rate (default: 0.3 - AGRESIVO)')
-    parser.add_argument('--seq-len', type=int, default=256,
-                       help='Longitud de secuencia (default: 256)')
-    parser.add_argument('--hidden-dim', type=int, default=512,
-                       help='Dimensión oculta (default: 512)')
-    parser.add_argument('--num-layers', type=int, default=6,
-                       help='Número de capas (default: 6)')
-    parser.add_argument('--num-heads', type=int, default=8,
-                       help='Número de cabezas de atención (default: 8)')
+    parser = argparse.ArgumentParser(description='Entrenamiento INFINITO V5.2 con WikiText-2 REAL - CONFIGURACIÓN ÓPTIMA (Model A)')
+    
+    # 🆕 PRESET DE CONFIGURACIÓN
+    parser.add_argument('--model-size', type=str, default='large_iit',
+                       choices=['large_iit', 'small_iit', 'micro_iit', 'tiny_iit'],
+                       help='Preset de configuración del modelo (default: large_iit)')
+    
+    parser.add_argument('--epochs', type=int, default=5,
+                       help='Número de épocas (default: 5 para prueba rápida, luego 20)')
+    parser.add_argument('--batch-size', type=int, default=None,
+                       help='Tamaño del batch (si no se especifica, usa el preset)')
+    parser.add_argument('--lr', type=float, default=None,
+                       help='Learning rate (si no se especifica, usa el preset)')
+    parser.add_argument('--dropout', type=float, default=None,
+                       help='Dropout rate (si no se especifica, usa el preset)')
+    parser.add_argument('--seq-len', type=int, default=None,
+                       help='Longitud de secuencia (si no se especifica, usa el preset)')
+    parser.add_argument('--hidden-dim', type=int, default=None,
+                       help='Dimensión oculta (si no se especifica, usa el preset)')
+    parser.add_argument('--num-layers', type=int, default=None,
+                       help='Número de capas (si no se especifica, usa el preset)')
+    parser.add_argument('--num-heads', type=int, default=None,
+                       help='Número de cabezas de atención (si no se especifica, usa el preset)')
+    parser.add_argument('--lambda-phi', type=float, default=None,
+                       help='Peso del objetivo ΔPhi (si no se especifica, usa el preset)')
     parser.add_argument('--seed', type=int, default=42,
                        help='Seed para reproducibilidad (default: 42)')
-    parser.add_argument('--lambda-phi', type=float, default=0.1,
-                       help='Peso del objetivo ΔPhi (default: 0.1, rango: 0.0-1.0)')
-    parser.add_argument('--patience', type=int, default=3,
-                       help='Paciencia para early stopping (default: 3)')
+    parser.add_argument('--patience', type=int, default=5,
+                       help='Paciencia para early stopping (default: 5 - ÓPTIMO)')
     parser.add_argument('--no-early-stopping', action='store_true',
                        help='Desactivar early stopping')
     parser.add_argument('--no-plateau-scheduler', action='store_true',
@@ -587,6 +658,37 @@ def main():
     
     args = parser.parse_args()
     
+    # 🚀 CARGAR CONFIGURACIÓN DESDE PRESET
+    config = MODEL_CONFIGS[args.model_size].copy()
+    print(f"\n🔧 Using preset: {args.model_size} -> {config['description']}")
+    print(f"📋 Configuration: {config}")
+    
+    # Permitir override manual de cualquier parámetro
+    if args.batch_size is not None:
+        config['batch_size'] = args.batch_size
+        print(f"  ⚠️  Override: batch_size = {args.batch_size}")
+    if args.lr is not None:
+        config['learning_rate'] = args.lr
+        print(f"  ⚠️  Override: learning_rate = {args.lr}")
+    if args.dropout is not None:
+        config['dropout'] = args.dropout
+        print(f"  ⚠️  Override: dropout = {args.dropout}")
+    if args.seq_len is not None:
+        config['seq_len'] = args.seq_len
+        print(f"  ⚠️  Override: seq_len = {args.seq_len}")
+    if args.hidden_dim is not None:
+        config['hidden_dim'] = args.hidden_dim
+        print(f"  ⚠️  Override: hidden_dim = {args.hidden_dim}")
+    if args.num_layers is not None:
+        config['num_layers'] = args.num_layers
+        print(f"  ⚠️  Override: num_layers = {args.num_layers}")
+    if args.num_heads is not None:
+        config['num_heads'] = args.num_heads
+        print(f"  ⚠️  Override: num_heads = {args.num_heads}")
+    if args.lambda_phi is not None:
+        config['lambda_phi'] = args.lambda_phi
+        print(f"  ⚠️  Override: lambda_phi = {args.lambda_phi}")
+    
     # Device
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     print(f"\n🖥️  Device: {device}")
@@ -594,38 +696,49 @@ def main():
         print(f"  GPU: {torch.cuda.get_device_name(0)}")
     
     # Cargar datasets con tokenizer correspondiente
-    print(f"\n� Cargando datasets...")
+    print(f"\n📚 Cargando datasets...")
     
     train_dataset = WikiText2RealDataset(
         split='train',
-        seq_len=args.seq_len,
+        seq_len=config['seq_len'],
         tokenizer=None,  # Se creará internamente
         use_llama3=args.use_llama3
     )
     
     val_dataset = WikiText2RealDataset(
         split='validation',
-        seq_len=args.seq_len,
+        seq_len=config['seq_len'],
         tokenizer=train_dataset.tokenizer,  # Compartir tokenizer
         use_llama3=args.use_llama3
     )
     
-    vocab_size = train_dataset.vocab_size
+    # Determinar vocab_size (del dataset o del preset)
+    if config['vocab_size'] is None:
+        vocab_size = train_dataset.vocab_size
+        print(f"  ✓ Vocabulario dinámico: {vocab_size:,} tokens (desde tokenizer)")
+    else:
+        vocab_size = min(config['vocab_size'], train_dataset.vocab_size)
+        print(f"  ✓ Vocabulario limitado: {vocab_size:,} tokens (preset: {config['vocab_size']}, disponible: {train_dataset.vocab_size})")
+    
+    # Actualizar config con vocab_size final
+    config['vocab_size'] = vocab_size
     
     # Crear modelo
     print(f"\n🤖 Creando modelo INFINITO V5.2 CON IIT MEJORADO...")
+    print(f"  📋 Configuración final: hidden_dim={config['hidden_dim']}, layers={config['num_layers']}, heads={config['num_heads']}, vocab={vocab_size:,}")
+    
     model = InfinitoV52Refactored(
         vocab_size=vocab_size,
-        hidden_dim=args.hidden_dim,
-        num_layers=args.num_layers,
-        num_heads=args.num_heads,
+        hidden_dim=config['hidden_dim'],
+        num_layers=config['num_layers'],
+        num_heads=config['num_heads'],
         memory_slots=256,
-        dropout=args.dropout,           # 🆕 Dropout configurable
+        dropout=config['dropout'],           # 🆕 Dropout desde config
         use_improved_memory=True,      # ✅ IITGuidedMemory
         use_improved_iit=True,         # ✅ ImprovedIITMetrics (4 componentes)
         use_learnable_phi=True,        # ✅ LearnablePhiWeights
         use_stochastic_exploration=True,
-        lambda_phi=args.lambda_phi,    # 🆕 Peso configurable para ΔPhi
+        lambda_phi=config['lambda_phi'],    # 🆕 Peso desde config
         seed=args.seed
     ).to(device)
     
@@ -647,8 +760,8 @@ def main():
         model=model,
         train_dataset=train_dataset,
         val_dataset=val_dataset,
-        batch_size=args.batch_size,
-        learning_rate=args.lr,
+        batch_size=config['batch_size'],
+        learning_rate=config['learning_rate'],
         device=device,
         start_epoch=start_epoch,
         use_early_stopping=not args.no_early_stopping,  # 🆕 Early stopping

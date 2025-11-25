@@ -181,8 +181,10 @@ class RLTextGenerator:
         # Resetear entorno
         obs, info = self.env.reset()
         
-        # Tokenizar prompt
-        tokenizer = self.env.model.tokenizer
+        # Tokenizar prompt - usar el tokenizer del dataset
+        from transformers import GPT2Tokenizer
+        tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
+        tokenizer.pad_token = tokenizer.eos_token
         input_ids = tokenizer.encode(prompt, return_tensors='pt').to(self.device)
         
         if verbose:
@@ -227,9 +229,15 @@ class RLTextGenerator:
         if verbose:
             print(f"\n📖 Generando texto final...")
         
+        generated_ids = None
         try:
+            # Cargar tokenizer
+            from transformers import GPT2Tokenizer
+            tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
+            tokenizer.pad_token = tokenizer.eos_token
+            
             with torch.no_grad():
-                generated_ids = self.env.model.model.generate(
+                generated_ids = self.env.model.gpt2.generate(
                     input_ids,
                     max_length=max_length,
                     temperature=temperature,

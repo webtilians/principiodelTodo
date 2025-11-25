@@ -142,14 +142,15 @@ class PriorityExternalMemory(nn.Module):
             slot_to_replace = replacement_score.argmax().item()
             
             # Escribir en memoria (promediado sobre batch)
-            new_memory = processed_content.mean(dim=0)
-            self.memory[slot_to_replace] = new_memory
+            new_memory = processed_content.mean(dim=0).detach()
+            # FIX DEFINITIVO: Desconectar completamente el grafo de gradientes usando .data
+            self.memory.data[slot_to_replace] = new_memory
             
-            # Actualizar metadatos
-            self.memory_age += 1
-            self.memory_age[slot_to_replace] = 0
-            self.memory_importance[slot_to_replace] = new_importance
-            self.access_count[slot_to_replace] = 0  # Reset contador
+            # Actualizar metadatos (también usar .data para evitar in-place errors)
+            self.memory_age.data += 1
+            self.memory_age.data[slot_to_replace] = 0
+            self.memory_importance.data[slot_to_replace] = new_importance
+            self.access_count.data[slot_to_replace] = 0  # Reset contador
     
     def get_statistics(self) -> dict:
         """Retorna estadísticas de uso de memoria para debugging/análisis."""

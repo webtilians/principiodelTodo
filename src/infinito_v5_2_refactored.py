@@ -173,7 +173,7 @@ class InfinitoV52Refactored(nn.Module):
             # Objetivo auxiliar para maximizar ΔPhi
             self.delta_phi_objective = DeltaPhiObjective(
                 lambda_phi=lambda_phi,  # 🆕 Configurable desde constructor
-                target_phi=3.5   # PHI objetivo (adaptado a WikiText-2)
+                target_phi=1.2   # ⚠️ FIX BUG #3: Cambiar de 3.5 a 1.2 (realista, PHI actual ~0.9)
             )
         else:
             self.learnable_phi_weights = None
@@ -217,6 +217,18 @@ class InfinitoV52Refactored(nn.Module):
         
         # Output projection
         self.output_projection = nn.Linear(hidden_dim, vocab_size)
+        
+        # --- FIX: Mecanismo de Fusión de Memoria ---
+        # Un valor escalar aprendible que empieza en -5.0
+        # sigmoid(-5.0) ≈ 0.006 (0.6%) → Prácticamente CERRADO al inicio
+        # Al principio: Hidden + 0.006 * Memoria ≈ Hidden (casi igual que Baseline, sin ruido)
+        # Con el tiempo: El modelo aprenderá a ABRIR el gate si la memoria es útil
+        # CRÍTICO: Empezar cerrado evita que la memoria ruidosa al inicio corrompa el entrenamiento
+        self.memory_gate = nn.Parameter(torch.tensor(-5.0)) 
+        
+        # Una normalización extra para evitar que la suma explote los valores
+        self.memory_norm = nn.LayerNorm(hidden_dim)
+        # -------------------------------------------
         
         # Métricas estándar para validación
         self.nlp_metrics = StandardNLPMetrics()
@@ -310,6 +322,9 @@ class InfinitoV52Refactored(nn.Module):
             
             # 🆕 Si usamos pesos aprendibles, recalcular PHI ponderado
             if self.learnable_phi_weights is not None:
+                # ⚠️ FIX BUG #2: Guardar PHI baseline ANTES de ponderar
+                phi_baseline_unweighted = integration_level.clone()
+                
                 # Obtener pesos normalizados
                 weights = self.learnable_phi_weights()  # Returns dict of tensors
                 
@@ -327,11 +342,8 @@ class InfinitoV52Refactored(nn.Module):
                 
                 # Calcular loss auxiliar ΔPhi (para maximizar integración)
                 if self.training and self.delta_phi_objective is not None:
-                    # Necesitamos phi_initial y phi_processed
-                    # En este caso, usamos el PHI sin ponderar vs el ponderado
-                    phi_baseline = metrics_dict['phi_estimate']
-                    phi_weighted = integration_level
-                    delta_phi_loss, _ = self.delta_phi_objective(phi_baseline, phi_weighted)
+                    # ⚠️ FIX BUG #2: Comparar PHI sin ponderar vs PHI ponderado (delta REAL)
+                    delta_phi_loss, _ = self.delta_phi_objective(phi_baseline_unweighted, integration_level)
         
         # Interacción con memoria
         memory_query = hidden.mean(dim=1)  # [batch, hidden_dim]
@@ -368,7 +380,21 @@ class InfinitoV52Refactored(nn.Module):
             phi_value = integration_level.mean().item() if return_metrics else 0.0
             self.memory.write(memory_query, memory_content, integration_level, phi_value)
         
-        # Output
+        # --- FIX: FUSIÓN DE MEMORIA CON GATE APRENDIBLE ---
+        # Usamos sigmoid en el gate para mantenerlo entre 0 y 1
+        # Empieza en sigmoid(0.0) ≈ 0.5, pero inicializamos en 0.0 para empezar neutro
+        if read_content is not None:
+            # Aplicar gate: empieza cerca de 0, crece si la memoria es útil
+            gated_memory = torch.sigmoid(self.memory_gate) * read_content.unsqueeze(1)
+            
+            # Conexión Residual: Lo que sabías + Lo que recordaste
+            hidden = hidden + gated_memory
+            
+            # Estabilizar con LayerNorm
+            hidden = self.memory_norm(hidden)
+        # ------------------------------
+
+        # Output (AHORA SÍ CONTIENE LA MEMORIA CON GATE)
         logits = self.output_projection(hidden)
         
         # Preparar métricas de retorno
@@ -392,7 +418,8 @@ class InfinitoV52Refactored(nn.Module):
                 weights = self.learnable_phi_weights.get_weights_dict()
                 metrics['phi_weights'] = weights
                 if delta_phi_loss is not None:
-                    metrics['delta_phi_loss'] = delta_phi_loss.item()
+                    # ⚠️ FIX BUG #4: NO convertir a .item() - conservar tensor con gradientes
+                    metrics['delta_phi_loss'] = delta_phi_loss
             
             # 🆕 Añadir nota sobre interpretación
             metrics['_note'] = (
