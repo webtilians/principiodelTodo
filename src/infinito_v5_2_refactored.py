@@ -218,6 +218,18 @@ class InfinitoV52Refactored(nn.Module):
         # Output projection
         self.output_projection = nn.Linear(hidden_dim, vocab_size)
         
+        # --- FIX: Mecanismo de Fusión de Memoria ---
+        # Un valor escalar aprendible que empieza en -5.0
+        # sigmoid(-5.0) ≈ 0.006 (0.6%) → Prácticamente CERRADO al inicio
+        # Al principio: Hidden + 0.006 * Memoria ≈ Hidden (casi igual que Baseline, sin ruido)
+        # Con el tiempo: El modelo aprenderá a ABRIR el gate si la memoria es útil
+        # CRÍTICO: Empezar cerrado evita que la memoria ruidosa al inicio corrompa el entrenamiento
+        self.memory_gate = nn.Parameter(torch.tensor(-5.0)) 
+        
+        # Una normalización extra para evitar que la suma explote los valores
+        self.memory_norm = nn.LayerNorm(hidden_dim)
+        # -------------------------------------------
+        
         # Métricas estándar para validación
         self.nlp_metrics = StandardNLPMetrics()
         
@@ -368,7 +380,21 @@ class InfinitoV52Refactored(nn.Module):
             phi_value = integration_level.mean().item() if return_metrics else 0.0
             self.memory.write(memory_query, memory_content, integration_level, phi_value)
         
-        # Output
+        # --- FIX: FUSIÓN DE MEMORIA CON GATE APRENDIBLE ---
+        # Usamos sigmoid en el gate para mantenerlo entre 0 y 1
+        # Empieza en sigmoid(0.0) ≈ 0.5, pero inicializamos en 0.0 para empezar neutro
+        if read_content is not None:
+            # Aplicar gate: empieza cerca de 0, crece si la memoria es útil
+            gated_memory = torch.sigmoid(self.memory_gate) * read_content.unsqueeze(1)
+            
+            # Conexión Residual: Lo que sabías + Lo que recordaste
+            hidden = hidden + gated_memory
+            
+            # Estabilizar con LayerNorm
+            hidden = self.memory_norm(hidden)
+        # ------------------------------
+
+        # Output (AHORA SÍ CONTIENE LA MEMORIA CON GATE)
         logits = self.output_projection(hidden)
         
         # Preparar métricas de retorno
