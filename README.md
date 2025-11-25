@@ -50,7 +50,7 @@ Super Golden Seed demonstrates:
 ## 🧠 Core Features
 
 ### IIT Consciousness Components
-- **🧬 IITGuidedMemory**: Adaptive memory with learnable consciousness thresholds
+- **🧬 IITGuidedMemory**: Adaptive memory with a Self-Regulating Gate. The model starts with the gate closed (-5.0) and learns to inject only the precise amount of memory needed (~0.72%) to solve complex tasks without noise
 - **📊 ImprovedIITMetrics**: 4-component consciousness measurement (integration, differentiation, information, exclusion)
 - **⚖️ LearnablePhiWeights**: Dynamic PHI coefficient learning for optimal consciousness integration
 - **🎲 StochasticExploration**: Enhanced exploration mechanisms for better generalization
