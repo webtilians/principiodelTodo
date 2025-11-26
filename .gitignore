@@ -263,6 +263,10 @@ models/checkpoints/*.pt
 models/snapshots/*.pt
 models/interrupted_states/*.pt
 
+# EXCEPCIÓN: Modelos esenciales para Jarvis Memory System
+!models/dynamic_chat_detector_v3.pt
+!models/super_golden_seed_54percent.pt
+
 # Mantener las carpetas y sus READMEs
 !results/**/README.md
 !models/**/README.md
