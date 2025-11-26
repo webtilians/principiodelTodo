@@ -84,11 +84,105 @@ if not API_KEY:
     API_KEY = os.environ.get("OPENAI_API_KEY", "")
 
 # =============================================================================
-# MODELO INFINITO CON IIT (Versión simplificada para UI)
+# MODELO INFINITO CON IIT - ARQUITECTURA COMPLETA
 # =============================================================================
 
+class IITGuidedMemory(nn.Module):
+    """Memoria con priorización por PHI (standalone para Streamlit)."""
+    
+    def __init__(self, hidden_dim, memory_slots=256):
+        super().__init__()
+        self.hidden_dim = hidden_dim
+        self.memory_slots = memory_slots
+        
+        # Parámetros de memoria
+        self.threshold_logit = nn.Parameter(torch.tensor(0.0))
+        self.memory_keys = nn.Parameter(torch.randn(memory_slots, hidden_dim) * 0.02)
+        self.memory_values = nn.Parameter(torch.randn(memory_slots, hidden_dim) * 0.02)
+        
+        # Buffers para estadísticas
+        self.register_buffer('phi_scores', torch.zeros(memory_slots))
+        self.register_buffer('attention_scores', torch.zeros(memory_slots))
+        self.register_buffer('access_count', torch.zeros(memory_slots))
+        self.register_buffer('timestamps', torch.zeros(memory_slots))
+        self.register_buffer('global_time', torch.tensor(0.0))
+        self.register_buffer('write_count', torch.tensor(0))
+        
+        # Proyecciones
+        self.query_proj = nn.Linear(hidden_dim, hidden_dim)
+        self.key_proj = nn.Linear(hidden_dim, hidden_dim)
+    
+    def read(self, query, top_k=5):
+        q = self.query_proj(query)
+        k = self.key_proj(self.memory_keys)
+        scores = torch.matmul(q, k.T) / (self.hidden_dim ** 0.5)
+        weights = torch.softmax(scores, dim=-1)
+        result = torch.matmul(weights, self.memory_values)
+        return result, weights
+    
+    def write(self, content, priority=1.0):
+        idx = int(self.write_count.item()) % self.memory_slots
+        with torch.no_grad():
+            self.memory_values.data[idx] = content.mean(dim=0) if content.dim() > 1 else content
+            self.phi_scores[idx] = priority
+            self.write_count += 1
+    
+    def get_statistics(self):
+        return {'utilization': (self.write_count.item() / self.memory_slots), 'size': self.memory_slots}
+
+
+class ImprovedIITMetrics(nn.Module):
+    """Métricas IIT de 4 componentes (standalone para Streamlit)."""
+    
+    def __init__(self, hidden_dim):
+        super().__init__()
+        self.hidden_dim = hidden_dim
+        
+        # Pesos para cada componente
+        self.weight_temporal = nn.Parameter(torch.tensor(0.25))
+        self.weight_integration = nn.Parameter(torch.tensor(0.25))
+        self.weight_complexity = nn.Parameter(torch.tensor(0.25))
+        self.weight_attention = nn.Parameter(torch.tensor(0.25))
+        
+        self.phi_projector = nn.Linear(hidden_dim, 1)
+    
+    def forward(self, hidden_states, attention_weights=None):
+        batch_size = hidden_states.shape[0]
+        
+        # Temporal coherence
+        if hidden_states.shape[1] > 1:
+            temporal = 1 - torch.mean(torch.abs(hidden_states[:, 1:] - hidden_states[:, :-1]))
+        else:
+            temporal = torch.tensor(0.5)
+        
+        # Integration
+        mean_state = hidden_states.mean(dim=1, keepdim=True)
+        integration = 1 / (1 + torch.mean((hidden_states - mean_state) ** 2))
+        
+        # Complexity
+        complexity = torch.sigmoid(hidden_states.std())
+        
+        # Attention diversity
+        if attention_weights is not None and attention_weights.numel() > 0:
+            attention_div = torch.mean(-attention_weights * torch.log(attention_weights + 1e-10))
+        else:
+            attention_div = torch.tensor(0.5)
+        
+        # PHI combinado
+        phi = self.phi_projector(hidden_states.mean(dim=1)).sigmoid().mean()
+        
+        return {
+            'temporal_coherence': temporal,
+            'integration_strength': integration,
+            'complexity': complexity,
+            'attention_diversity': attention_div,
+            'phi': phi,
+            'coherence': temporal
+        }
+
+
 class InfinitoUIModel(nn.Module):
-    """Modelo simplificado para la UI con métricas IIT."""
+    """Modelo completo IIT para la UI - Compatible con pesos entrenados."""
     
     def __init__(self, vocab_size=256, hidden_dim=64, num_layers=2, num_heads=4):
         super().__init__()
@@ -109,6 +203,10 @@ class InfinitoUIModel(nn.Module):
             ) for _ in range(num_layers)
         ])
         
+        # IIT Components (compatibles con pesos entrenados)
+        self.memory = IITGuidedMemory(hidden_dim)
+        self.iit_metrics = ImprovedIITMetrics(hidden_dim)
+        
         # Importance Gate (el "portero")
         self.importance_gate = nn.Sequential(
             nn.Linear(hidden_dim, hidden_dim // 2),
@@ -120,9 +218,6 @@ class InfinitoUIModel(nn.Module):
         
         # Memory Gate
         self.memory_gate = nn.Parameter(torch.tensor(-2.0))
-        
-        # IIT Metrics simulados
-        self.phi_weight = nn.Parameter(torch.tensor(0.5))
         
         # Output
         self.output = nn.Linear(hidden_dim, vocab_size)
@@ -141,32 +236,31 @@ class InfinitoUIModel(nn.Module):
         # Query para métricas
         query = hidden.mean(dim=1)  # [batch, hidden]
         
-        # Calcular métricas IIT
+        # IIT Metrics
+        iit_results = self.iit_metrics(hidden, None)
+        
+        # Calcular importancia con el gate
         importance_logit = self.importance_gate(query)
         importance = torch.sigmoid(importance_logit)
         
         memory_gate_value = torch.sigmoid(self.memory_gate)
         
-        # Simular PHI y coherencia basados en la varianza de hidden states
-        hidden_var = hidden.var(dim=1).mean()
-        phi = torch.sigmoid(self.phi_weight * hidden_var * 10)
-        coherence = torch.sigmoid(hidden.mean() * 5 + 0.5)
+        # Extraer métricas
+        phi = iit_results['phi'] if torch.is_tensor(iit_results['phi']) else torch.tensor(iit_results['phi'])
+        coherence = iit_results['coherence'] if torch.is_tensor(iit_results['coherence']) else torch.tensor(iit_results['coherence'])
+        complexity = iit_results['complexity'] if torch.is_tensor(iit_results['complexity']) else torch.tensor(iit_results['complexity'])
         
-        # Complejidad basada en la entropía aproximada
         logits = self.output(hidden)
-        probs = torch.softmax(logits, dim=-1)
-        entropy = -(probs * torch.log(probs + 1e-10)).sum(dim=-1).mean()
-        complexity = torch.sigmoid(entropy / 5)
         
         if return_metrics:
             metrics = {
                 'importance': importance.mean().item(),
-                'gate_value': importance.mean().item() * 100,  # Porcentaje
+                'gate_value': importance.mean().item() * 100,
                 'memory_gate': memory_gate_value.item(),
-                'phi': phi.item(),
-                'coherence': coherence.item(),
-                'complexity': complexity.item(),
-                'integration': (phi.item() + coherence.item()) / 2
+                'phi': phi.item() if torch.is_tensor(phi) else float(phi),
+                'coherence': coherence.item() if torch.is_tensor(coherence) else float(coherence),
+                'complexity': complexity.item() if torch.is_tensor(complexity) else float(complexity),
+                'integration': iit_results.get('integration_strength', torch.tensor(0.5)).item() if torch.is_tensor(iit_results.get('integration_strength', 0.5)) else 0.5
             }
             return logits, metrics
         
