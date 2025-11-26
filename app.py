@@ -400,14 +400,30 @@ def detect_category(text):
 def es_pregunta(text):
     """Detecta si es una pregunta."""
     t = text.lower().strip()
+    
+    # Signos de interrogación explícitos
     if '?' in t or '¿' in t:
         return True
+    
+    # Palabras interrogativas al inicio
     starts = ['que ', 'qué ', 'como ', 'cómo ', 'cual ', 'cuál ', 
               'quien ', 'quién ', 'donde ', 'dónde ', 'cuando ', 
-              'cuándo ', 'sabes ', 'recuerdas ', 'dime ', 'cuanto ', 'cuánto ']
+              'cuándo ', 'sabes ', 'recuerdas ', 'dime ', 'cuanto ', 'cuánto ',
+              'a que ', 'a qué ', 'a cual ', 'a cuál ', 'a donde ', 'a dónde ',
+              'por que ', 'por qué ', 'para que ', 'para qué ',
+              'en que ', 'en qué ', 'de que ', 'de qué ', 'con que ', 'con qué ']
     for s in starts:
         if t.startswith(s):
             return True
+    
+    # Patrones de pregunta sobre información guardada
+    question_patterns = ['me gusta ir', 'suelo ir', 'voy a', 'tengo que',
+                         'cuál es mi', 'cual es mi', 'qué es mi', 'que es mi',
+                         'cómo se llama', 'como se llama', 'cuándo es', 'cuando es']
+    # Si pregunta sobre SÍ MISMO en forma de pregunta
+    if any(p in t for p in question_patterns) and any(w in t for w in ['qué', 'que', 'cuál', 'cual', 'cuándo', 'cuando', 'a qué', 'a que']):
+        return True
+    
     return False
 
 
@@ -453,11 +469,32 @@ def construct_prompt(user_query=None, openai_client=None):
 
 {memory_block}
 
-INSTRUCCIONES:
-1. USA el contexto anterior SOLO si es útil para responder
-2. Si preguntan algo personal, mira el contexto
-3. Los números [0.XX] indican qué tan relevante es cada recuerdo (1.0 = exacto)
-4. Responde de forma natural y amigable en español."""
+🚨 REGLAS ABSOLUTAS (NUNCA VIOLAR):
+
+1. **SOLO USA INFORMACIÓN EXPLÍCITA** - Si algo NO está escrito exactamente en los recuerdos, NO lo sabes
+2. **NO COMBINES RECUERDOS** - Cada recuerdo es 100% independiente. NUNCA mezcles datos de diferentes recuerdos
+3. **PREFERENCIA ≠ EVENTO** - "Le gusta ir al mediodía" NO significa "va a ir". Solo indica preferencia habitual
+4. **FECHA/HORA ESPECÍFICA** - Si preguntan "¿cuándo?" o "¿el viernes?", solo responde si ESA fecha está en UN recuerdo específico
+5. **NO INFERIR** - Si un recuerdo dice "A le gusta X" y otro dice "B hace X el viernes", NO concluyas que A hace X el viernes
+6. **PERSONA CORRECTA** - Verifica que el SUJETO de la pregunta coincide con el SUJETO del recuerdo
+
+📌 TIPOS DE INFORMACIÓN:
+- HECHO: "El viernes voy a montar en bici" → EVENTO con fecha específica
+- PREFERENCIA: "Le gusta ir al mediodía" → HÁBITO sin fecha concreta
+- IDENTIDAD: "Mi padre se llama Juan" → DATO permanente
+
+❌ ERRORES PROHIBIDOS:
+- Pregunta: "¿El viernes va mi padre al restaurante?"
+- Recuerdos: "El viernes voy en bici con mi padre" + "A mi padre le gusta ir al restaurante al mediodía"
+- ❌ INCORRECTO: "Sí, el viernes va" (INVENTADO - ningún recuerdo dice eso)
+- ✅ CORRECTO: "No tengo información de que tu padre vaya al restaurante el viernes. Solo sé que le gusta ir al mediodía normalmente."
+
+- Pregunta: "¿Cuándo va Andrés a montar en bici?"
+- Recuerdos: "Mi primo Andrés monta en bici" + "El viernes voy en bici con mi padre"
+- ❌ INCORRECTO: "Andrés va el viernes" (MEZCLÓ recuerdos de diferentes personas)
+- ✅ CORRECTO: "Solo sé que a tu primo Andrés le gusta montar en bici, pero no tengo guardado cuándo específicamente."
+
+Responde de forma natural en español. Si no tienes la información, di claramente "No tengo esa información guardada"."""
 
 
 # =============================================================================
