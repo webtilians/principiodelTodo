@@ -62,6 +62,75 @@ from core import (
     BenchmarkComparison           # Comparación contra baselines
 )
 
+# =============================================================================
+# DYNAMIC GATING MODULE - Gate que reacciona al contenido
+# =============================================================================
+
+class DynamicGatingModule(nn.Module):
+    """
+    🚪 Gate Dinámico que decide cuánta memoria inyectar basándose en el contenido.
+    
+    La clave: Inicializa CERRADO (como el Super Golden Seed) pero puede
+    APRENDER a abrirse cuando detecta patrones que se benefician de la memoria.
+    
+    Arquitectura:
+        x [batch, seq, hidden] -> mean() -> [batch, hidden] -> MLP -> [batch, 1] -> sigmoid -> gate_prob
+    """
+    
+    def __init__(self, hidden_dim: int):
+        super().__init__()
+        
+        # Red que decide el gate basándose en el contenido
+        self.gate_network = nn.Sequential(
+            nn.Linear(hidden_dim, hidden_dim // 4),
+            nn.ReLU(),
+            nn.Linear(hidden_dim // 4, 1)
+        )
+        
+        # CRÍTICO: Inicializar cerrado (preserva el truco del 54%)
+        self._init_closed_gate()
+    
+    def _init_closed_gate(self):
+        """Inicializa el gate CERRADO para que empiece como el Super Golden Seed."""
+        # 1. Pesos a cero (la entrada no afecta al principio)
+        nn.init.zeros_(self.gate_network[0].weight)
+        nn.init.zeros_(self.gate_network[2].weight)
+        
+        # 2. Bias intermedio a 0
+        nn.init.zeros_(self.gate_network[0].bias)
+        
+        # 3. BIAS FINAL A -5.0 (La Clave del Super Golden Seed)
+        # sigmoid(-5.0) ≈ 0.0067 (0.67%) → Gate casi cerrado al inicio
+        nn.init.constant_(self.gate_network[2].bias, -5.0)
+    
+    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        Calcula la probabilidad de apertura del gate.
+        
+        Args:
+            x: [batch, seq_len, hidden_dim] - Hidden states del transformer
+            
+        Returns:
+            gate_prob: [batch, 1] - Probabilidad de apertura (0.0 a 1.0)
+            gate_logit: [batch, 1] - Logit antes de sigmoid (para debugging)
+        """
+        # Paso 1: Resumir la frase (Global Average Pooling)
+        # Esto captura el "sentido global" de toda la secuencia
+        sentence_context = x.mean(dim=1)  # [batch, hidden_dim]
+        
+        # Paso 2: Calcular el logit del gate
+        gate_logit = self.gate_network(sentence_context)  # [batch, 1]
+        
+        # Paso 3: Sigmoide para probabilidad (0.0 a 1.0)
+        gate_prob = torch.sigmoid(gate_logit)  # [batch, 1]
+        
+        return gate_prob, gate_logit
+    
+    def get_gate_value(self) -> float:
+        """Retorna el valor del bias final (para compatibilidad con código existente)."""
+        return self.gate_network[2].bias.item()
+
+
 # GloVe embeddings (opcional)
 try:
     import gensim.downloader as api
@@ -97,7 +166,8 @@ class InfinitoV52Refactored(nn.Module):
         use_learnable_phi: bool = True,    # 🆕 Usar LearnableRelevance
         use_stochastic_exploration: bool = True,  # 🆕 Usar exploración estocástica
         lambda_phi: float = 0.1,           # 🆕 Peso del objetivo ΔPhi (0.0-1.0)
-        seed: int = None  # 🆕 Seed para reproducibilidad
+        seed: int = None,  # 🆕 Seed para reproducibilidad
+        use_dynamic_gate: bool = False  # 🆕 Usar DynamicGatingModule en lugar de gate estático
     ):
         super().__init__()
         
@@ -118,6 +188,7 @@ class InfinitoV52Refactored(nn.Module):
         self.use_improved_iit = use_improved_iit
         self.use_learnable_phi = use_learnable_phi
         self.use_stochastic_exploration = use_stochastic_exploration
+        self.use_dynamic_gate = use_dynamic_gate
         self.seed = seed
         
         print(f"\n{'='*70}")
@@ -128,6 +199,7 @@ class InfinitoV52Refactored(nn.Module):
         print(f"  IIT Metrics mejorado (4 comp): {use_improved_iit}")
         print(f"  Pesos PHI aprendibles: {use_learnable_phi}")
         print(f"  Exploración estocástica: {use_stochastic_exploration}")
+        print(f"  🚪 Dynamic Gate: {use_dynamic_gate} {'(reacciona al contenido)' if use_dynamic_gate else '(estático)'}") 
         if seed is not None:
             print(f"  [SEED] Fijado: {seed} (reproducibilidad garantizada)")
         print(f"{'='*70}\n")
@@ -219,12 +291,21 @@ class InfinitoV52Refactored(nn.Module):
         self.output_projection = nn.Linear(hidden_dim, vocab_size)
         
         # --- FIX: Mecanismo de Fusión de Memoria ---
-        # Un valor escalar aprendible que empieza en -5.0
-        # sigmoid(-5.0) ≈ 0.006 (0.6%) → Prácticamente CERRADO al inicio
-        # Al principio: Hidden + 0.006 * Memoria ≈ Hidden (casi igual que Baseline, sin ruido)
-        # Con el tiempo: El modelo aprenderá a ABRIR el gate si la memoria es útil
-        # CRÍTICO: Empezar cerrado evita que la memoria ruidosa al inicio corrompa el entrenamiento
-        self.memory_gate = nn.Parameter(torch.tensor(-5.0)) 
+        # Dos opciones:
+        # 1. Gate ESTÁTICO (nn.Parameter): Un valor escalar que se optimiza globalmente
+        # 2. Gate DINÁMICO (DynamicGatingModule): Reacciona al contenido de cada input
+        
+        if use_dynamic_gate:
+            # 🆕 DYNAMIC GATE: El gate depende del contenido
+            print("  [OK] Usando DynamicGatingModule (gate reactivo al contenido)")
+            self.dynamic_gate = DynamicGatingModule(hidden_dim)
+            # Para compatibilidad, mantener memory_gate como referencia al bias
+            self.memory_gate = self.dynamic_gate.gate_network[2].bias
+        else:
+            # STATIC GATE: Un valor escalar aprendible que empieza en -5.0
+            # sigmoid(-5.0) ≈ 0.006 (0.6%) → Prácticamente CERRADO al inicio
+            self.dynamic_gate = None
+            self.memory_gate = nn.Parameter(torch.tensor(-5.0)) 
         
         # Una normalización extra para evitar que la suma explote los valores
         self.memory_norm = nn.LayerNorm(hidden_dim)
@@ -381,11 +462,23 @@ class InfinitoV52Refactored(nn.Module):
             self.memory.write(memory_query, memory_content, integration_level, phi_value)
         
         # --- FIX: FUSIÓN DE MEMORIA CON GATE APRENDIBLE ---
-        # Usamos sigmoid en el gate para mantenerlo entre 0 y 1
-        # Empieza en sigmoid(0.0) ≈ 0.5, pero inicializamos en 0.0 para empezar neutro
+        # Dos modos:
+        # 1. ESTÁTICO: sigmoid(memory_gate) es constante para todo el batch
+        # 2. DINÁMICO: El gate varía según el contenido de cada secuencia
+        
+        gate_value = None  # Para métricas
+        
         if read_content is not None:
-            # Aplicar gate: empieza cerca de 0, crece si la memoria es útil
-            gated_memory = torch.sigmoid(self.memory_gate) * read_content.unsqueeze(1)
+            if self.use_dynamic_gate and self.dynamic_gate is not None:
+                # 🆕 DYNAMIC GATE: Calcula gate basado en el contenido actual
+                gate_prob, gate_logit = self.dynamic_gate(hidden)
+                # gate_prob: [batch, 1] -> expandir para broadcasting
+                gated_memory = gate_prob.unsqueeze(1) * read_content.unsqueeze(1)
+                gate_value = gate_prob.mean().item()  # Para métricas
+            else:
+                # STATIC GATE: Mismo valor para todo
+                gated_memory = torch.sigmoid(self.memory_gate) * read_content.unsqueeze(1)
+                gate_value = torch.sigmoid(self.memory_gate).item()
             
             # Conexión Residual: Lo que sabías + Lo que recordaste
             hidden = hidden + gated_memory
