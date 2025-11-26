@@ -11,6 +11,10 @@ datasets>=2.12.0
 peft>=0.4.0  # LoRA adapters
 tokenizers>=0.13.0
 
+# OpenAI API (para embeddings y GPT)
+openai>=1.0.0
+python-dotenv>=1.0.0
+
 # Scientific Computing
 scipy>=1.7.0
 scikit-learn>=1.0.0
