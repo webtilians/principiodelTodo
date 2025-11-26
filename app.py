@@ -332,18 +332,25 @@ def save_memory(text, metrics, openai_client=None):
     """Guarda una memoria con métricas IIT y vector semántico."""
     memories = get_memories()
     
-    # Detectar categoría
+    # Detectar categoría (antes de transformar)
     category = detect_category(text)
+    
+    # Transformar primera persona a tercera (excepto para identidad)
+    # "El viernes voy a montar" → "El viernes Enrique va a montar"
+    if category != "👤 Identidad":  # No transformar "Me llamo X"
+        text_to_save = transform_first_to_third_person(text)
+    else:
+        text_to_save = text
     
     # Generar vector si tenemos cliente OpenAI
     vector = None
     if openai_client:
-        vector = get_embedding(text, openai_client)
+        vector = get_embedding(text_to_save, openai_client)
     
     entry = {
         "id": len(memories) + 1,
         "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M"),
-        "content": text,
+        "content": text_to_save,
         "category": category,
         "score": f"{metrics['importance'] * 100:.1f}%",
         "importance": f"{metrics['importance'] * 100:.1f}%",
@@ -436,6 +443,97 @@ def es_pregunta(text):
     return False
 
 
+def get_user_name():
+    """Extrae el nombre del usuario de las memorias guardadas."""
+    memories = get_memories()
+    import re
+    for mem in memories:
+        content = mem.get('content', '').lower()
+        # Buscar patrones como "me llamo X" o "mi nombre es X"
+        patterns = [
+            r'me llamo\s+([a-záéíóúñ]+)',
+            r'mi nombre es\s+([a-záéíóúñ]+)',
+            r'soy\s+([a-záéíóúñ]+)'
+        ]
+        for pattern in patterns:
+            match = re.search(pattern, content, re.IGNORECASE)
+            if match:
+                return match.group(1).capitalize()
+    return None
+
+
+def transform_first_to_third_person(text, user_name=None):
+    """
+    Transforma oraciones de primera persona a tercera persona.
+    Ejemplo: "El viernes voy a montar" → "El viernes Enrique va a montar"
+    """
+    if not user_name:
+        user_name = get_user_name()
+    
+    # Si no sabemos el nombre, usar "El usuario"
+    subject = user_name if user_name else "El usuario"
+    
+    import re
+    t = text.strip()
+    original = t
+    
+    # Transformaciones de primera persona a tercera
+    transformations = [
+        # Verbos comunes en primera persona → tercera
+        (r'\bvoy a\b', f'{subject} va a'),
+        (r'\bvoy\b', f'{subject} va'),
+        (r'\btengo\b', f'{subject} tiene'),
+        (r'\bquiero\b', f'{subject} quiere'),
+        (r'\bnecesito\b', f'{subject} necesita'),
+        (r'\bestoy\b', f'{subject} está'),
+        (r'\bsoy\b', f'{subject} es'),
+        (r'\bhago\b', f'{subject} hace'),
+        (r'\bpuedo\b', f'{subject} puede'),
+        (r'\bsé\b', f'{subject} sabe'),
+        (r'\bveo\b', f'{subject} ve'),
+        (r'\bcreo\b', f'{subject} cree'),
+        (r'\bpienso\b', f'{subject} piensa'),
+        (r'\bme gusta\b', f'A {subject} le gusta'),
+        (r'\bme encanta\b', f'A {subject} le encanta'),
+        (r'\bprefiero\b', f'{subject} prefiere'),
+        (r'\bsuelo\b', f'{subject} suele'),
+        (r'\bvivo\b', f'{subject} vive'),
+        (r'\btrabajo\b', f'{subject} trabaja'),
+        (r'\bestudio\b', f'{subject} estudia'),
+        (r'\bjuego\b', f'{subject} juega'),
+        (r'\bleo\b', f'{subject} lee'),
+        (r'\bescucho\b', f'{subject} escucha'),
+        (r'\bmiro\b', f'{subject} mira'),
+        (r'\bcomo\b', f'{subject} come'),
+        (r'\bbebo\b', f'{subject} bebe'),
+        (r'\bduermo\b', f'{subject} duerme'),
+        (r'\bcorro\b', f'{subject} corre'),
+        (r'\bcamino\b', f'{subject} camina'),
+        (r'\bmanejo\b', f'{subject} maneja'),
+        (r'\bconduzco\b', f'{subject} conduce'),
+        (r'\bsalgo\b', f'{subject} sale'),
+        (r'\bllego\b', f'{subject} llega'),
+        (r'\bvengo\b', f'{subject} viene'),
+    ]
+    
+    for pattern, replacement in transformations:
+        t = re.sub(pattern, replacement, t, flags=re.IGNORECASE)
+    
+    # Transformar pronombres posesivos DESPUÉS de los verbos
+    # Solo si hubo cambios en verbos (significa que era primera persona)
+    if t != original:
+        possessive_transforms = [
+            (r'\bmi\b', 'su'),
+            (r'\bmis\b', 'sus'),
+            (r'\bme\b', 'le'),
+            (r'\bconmigo\b', f'con {subject}'),
+        ]
+        for pattern, replacement in possessive_transforms:
+            t = re.sub(pattern, replacement, t, flags=re.IGNORECASE)
+        return t
+    return text
+
+
 def get_category_bonus(category):
     """Bonus de importancia por categoría."""
     bonuses = {
@@ -486,13 +584,20 @@ def construct_prompt(user_query=None, openai_client=None):
 4. **FECHA/HORA ESPECÍFICA** - Si preguntan "¿cuándo?" o "¿el viernes?", solo responde si ESA fecha está en UN recuerdo específico
 5. **NO INFERIR** - Si un recuerdo dice "A le gusta X" y otro dice "B hace X el viernes", NO concluyas que A hace X el viernes
 6. **PERSONA CORRECTA** - Verifica que el SUJETO de la pregunta coincide con el SUJETO del recuerdo
+7. **DISTINGUE ROLES** - "El restaurante DE Juan" significa que Juan es DUEÑO, no que Juan VA al restaurante
 
 📌 TIPOS DE INFORMACIÓN:
 - HECHO: "El viernes voy a montar en bici" → EVENTO con fecha específica
-- PREFERENCIA: "Le gusta ir al mediodía" → HÁBITO sin fecha concreta
+- PREFERENCIA: "A mi padre le gusta ir al restaurante" → HÁBITO de MI PADRE (no del dueño)
 - IDENTIDAD: "Mi padre se llama Juan" → DATO permanente
+- PROPIEDAD: "El restaurante de mi hermano" → Mi hermano es DUEÑO del restaurante
 
 ❌ ERRORES PROHIBIDOS:
+- Pregunta: "¿A qué hora le gusta ir a Juan al restaurante?"
+- Recuerdos: "A mi padre le gusta ir al restaurante de mi hermano al mediodía" + "Mi hermano se llama Juan"
+- ❌ INCORRECTO: "A Juan le gusta ir al mediodía" (¡JUAN ES EL DUEÑO, no el que va!)
+- ✅ CORRECTO: "No tengo información de que a Juan le guste ir al restaurante. Juan es el dueño del restaurante Sake Izakaya. Quien va al mediodía es tu padre."
+
 - Pregunta: "¿El viernes va mi padre al restaurante?"
 - Recuerdos: "El viernes voy en bici con mi padre" + "A mi padre le gusta ir al restaurante al mediodía"
 - ❌ INCORRECTO: "Sí, el viernes va" (INVENTADO - ningún recuerdo dice eso)
@@ -502,6 +607,11 @@ def construct_prompt(user_query=None, openai_client=None):
 - Recuerdos: "Mi primo Andrés monta en bici" + "El viernes voy en bici con mi padre"
 - ❌ INCORRECTO: "Andrés va el viernes" (MEZCLÓ recuerdos de diferentes personas)
 - ✅ CORRECTO: "Solo sé que a tu primo Andrés le gusta montar en bici, pero no tengo guardado cuándo específicamente."
+
+⚠️ ANTES DE RESPONDER, VERIFICA:
+1. ¿Quién es el SUJETO de la pregunta? (ej: "Juan")
+2. ¿Quién es el SUJETO del recuerdo? (ej: "mi padre", no Juan)
+3. ¿Coinciden? Si NO, no uses ese recuerdo.
 
 Responde de forma natural en español. Si no tienes la información, di claramente "No tengo esa información guardada"."""
 
