@@ -94,16 +94,25 @@ if not API_KEY:
 # MOTOR VECTORIAL (Búsqueda Semántica)
 # =============================================================================
 import numpy as np
+import time
 
 EMBEDDING_MODEL = "text-embedding-3-small"
+MAX_RETRIES = 3
+RETRY_DELAY = 1  # segundos
 
-def get_embedding(text, client):
-    """Convierte texto en un vector de 1536 números."""
+def get_embedding(text, client, retries=MAX_RETRIES):
+    """Convierte texto en un vector de 1536 números con reintentos."""
     text = text.replace("\n", " ")
-    try:
-        return client.embeddings.create(input=[text], model=EMBEDDING_MODEL).data[0].embedding
-    except:
-        return None
+    for attempt in range(retries):
+        try:
+            return client.embeddings.create(input=[text], model=EMBEDDING_MODEL).data[0].embedding
+        except Exception as e:
+            if attempt < retries - 1:
+                time.sleep(RETRY_DELAY * (attempt + 1))  # Backoff exponencial
+            else:
+                st.warning(f"⚠️ Error obteniendo embedding: {str(e)[:50]}")
+                return None
+    return None
 
 def cosine_similarity(v1, v2):
     """Calcula qué tan parecidos son dos vectores."""
@@ -774,23 +783,29 @@ if prompt := st.chat_input("Escribe algo... (ej: 'Me llamo Enrique' o '¿Cómo m
     
     # Usar OpenAI si está disponible
     if st.session_state.get("openai_client"):
-        try:
-            # Usar búsqueda semántica para el prompt
-            system_prompt = construct_prompt(prompt, st.session_state["openai_client"])
-            
-            response = st.session_state["openai_client"].chat.completions.create(
-                model="gpt-3.5-turbo",
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.7,
-                max_tokens=500
-            )
-            full_response = response.choices[0].message.content
-            
-        except Exception as e:
-            full_response = f"❌ Error con OpenAI: {e}"
+        # Reintentos para GPT
+        for attempt in range(MAX_RETRIES):
+            try:
+                # Usar búsqueda semántica para el prompt
+                system_prompt = construct_prompt(prompt, st.session_state["openai_client"])
+                
+                response = st.session_state["openai_client"].chat.completions.create(
+                    model="gpt-3.5-turbo",
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": prompt}
+                    ],
+                    temperature=0.7,
+                    max_tokens=500
+                )
+                full_response = response.choices[0].message.content
+                break  # Éxito, salir del loop
+                
+            except Exception as e:
+                if attempt < MAX_RETRIES - 1:
+                    time.sleep(RETRY_DELAY * (attempt + 1))
+                else:
+                    full_response = f"❌ Error con OpenAI después de {MAX_RETRIES} intentos: {str(e)[:100]}"
     else:
         # Respuesta simulada sin OpenAI
         memories = get_memories()
