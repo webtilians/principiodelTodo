@@ -76,7 +76,7 @@ st.markdown("""
 
 # --- CONFIGURACIÓN ---
 MODEL_PATH = "models/dynamic_chat_detector_v2.pt"
-DB_FILE = "memoria_infinito_ui.json"
+DB_FILE = "memoria_permanente.json"  # Ahora usa el archivo vectorial
 
 # API Key de OpenAI - Múltiples fuentes (prioridad: secrets > env > input manual)
 API_KEY = ""
@@ -89,6 +89,26 @@ except:
 if not API_KEY:
     # 2. Luego variable de entorno (para local)
     API_KEY = os.environ.get("OPENAI_API_KEY", "")
+
+# =============================================================================
+# MOTOR VECTORIAL (Búsqueda Semántica)
+# =============================================================================
+import numpy as np
+
+EMBEDDING_MODEL = "text-embedding-3-small"
+
+def get_embedding(text, client):
+    """Convierte texto en un vector de 1536 números."""
+    text = text.replace("\n", " ")
+    try:
+        return client.embeddings.create(input=[text], model=EMBEDDING_MODEL).data[0].embedding
+    except:
+        return None
+
+def cosine_similarity(v1, v2):
+    """Calcula qué tan parecidos son dos vectores."""
+    v1, v2 = np.array(v1), np.array(v2)
+    return float(np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2)))
 
 # =============================================================================
 # MODELO INFINITO CON IIT - ARQUITECTURA COMPLETA
@@ -299,29 +319,64 @@ def get_memories():
     return []
 
 
-def save_memory(text, metrics):
-    """Guarda una memoria con métricas IIT."""
+def save_memory(text, metrics, openai_client=None):
+    """Guarda una memoria con métricas IIT y vector semántico."""
     memories = get_memories()
     
     # Detectar categoría
     category = detect_category(text)
+    
+    # Generar vector si tenemos cliente OpenAI
+    vector = None
+    if openai_client:
+        vector = get_embedding(text, openai_client)
     
     entry = {
         "id": len(memories) + 1,
         "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M"),
         "content": text,
         "category": category,
+        "score": f"{metrics['importance'] * 100:.1f}%",
         "importance": f"{metrics['importance'] * 100:.1f}%",
         "phi": f"{metrics['phi']:.3f}",
         "coherence": f"{metrics['coherence']:.3f}",
         "combined_score": f"{(metrics['importance'] + metrics['phi']) / 2 * 100:.1f}%"
     }
+    
+    # Añadir vector solo si se generó
+    if vector:
+        entry["vector"] = vector
+    
     memories.append(entry)
     
     with open(DB_FILE, 'w', encoding='utf-8') as f:
         json.dump(memories, f, indent=2, ensure_ascii=False)
     
     return entry
+
+
+def semantic_search(query, openai_client, top_k=3):
+    """Busca los recuerdos más relevantes semánticamente."""
+    memories = get_memories()
+    if not memories or not openai_client:
+        return []
+    
+    # Vectorizar la pregunta
+    query_vector = get_embedding(query, openai_client)
+    if not query_vector:
+        return []
+    
+    # Comparar con todos los recuerdos que tengan vector
+    scored = []
+    for mem in memories:
+        if 'vector' in mem:
+            sim = cosine_similarity(query_vector, mem['vector'])
+            scored.append((sim, mem))
+    
+    # Ordenar por similitud
+    scored.sort(key=lambda x: x[0], reverse=True)
+    
+    return [(score, mem) for score, mem in scored[:top_k]]
 
 
 def detect_category(text):
@@ -370,29 +425,39 @@ def get_category_bonus(category):
     return bonuses.get(category, 0.0)
 
 
-def construct_prompt():
-    """Construye el prompt con memoria para GPT."""
-    memories = get_memories()
+def construct_prompt(user_query=None, openai_client=None):
+    """Construye el prompt con memoria para GPT usando búsqueda semántica."""
     
-    if not memories:
-        memory_block = "NO TIENES RECUERDOS PREVIOS."
-    else:
-        # Ordenar por PHI (los más integrados primero)
-        sorted_mems = sorted(memories, key=lambda x: float(x.get('phi', '0').replace(',', '.')), reverse=True)
+    # Si tenemos query y cliente, hacer búsqueda semántica
+    if user_query and openai_client:
+        results = semantic_search(user_query, openai_client, top_k=5)
         
-        memory_block = "🧠 MEMORIA A LARGO PLAZO (ordenada por integración PHI):\n"
-        for mem in sorted_mems[-15:]:
-            memory_block += f"  • {mem['content']} [{mem['category']}] (PHI:{mem['phi']}, Imp:{mem['importance']})\n"
+        if results:
+            memory_block = "🔍 RECUERDOS RELEVANTES (búsqueda semántica):\n"
+            for score, mem in results:
+                memory_block += f"  • [{score:.2f}] {mem['content']} [{mem.get('category', 'General')}]\n"
+        else:
+            memory_block = "No encontré recuerdos relacionados con este tema."
+    else:
+        # Fallback: mostrar últimas memorias
+        memories = get_memories()
+        if not memories:
+            memory_block = "NO TIENES RECUERDOS PREVIOS."
+        else:
+            sorted_mems = sorted(memories, key=lambda x: float(x.get('phi', '0').replace(',', '.')), reverse=True)
+            memory_block = "🧠 MEMORIA A LARGO PLAZO:\n"
+            for mem in sorted_mems[-10:]:
+                memory_block += f"  • {mem['content']} [{mem.get('category', 'General')}]\n"
     
-    return f"""Eres Infinito, un asistente con MEMORIA PERSISTENTE basada en teoría IIT (Integrated Information Theory).
+    return f"""Eres Infinito, un asistente con MEMORIA PERSISTENTE y búsqueda semántica vectorial.
 
 {memory_block}
 
 INSTRUCCIONES:
-1. USA la memoria para personalizar respuestas
-2. Si preguntan algo en tu memoria, RESPONDE DIRECTAMENTE
-3. Los recuerdos con PHI alto son más "integrados" en tu consciencia
-4. Sé breve y útil. Responde en español."""
+1. USA el contexto anterior SOLO si es útil para responder
+2. Si preguntan algo personal, mira el contexto
+3. Los números [0.XX] indican qué tan relevante es cada recuerdo (1.0 = exacto)
+4. Responde de forma natural y amigable en español."""
 
 
 # =============================================================================
@@ -523,14 +588,14 @@ with st.sidebar:
             with st.container():
                 col1, col2 = st.columns([3, 1])
                 with col1:
-                    st.markdown(f"**{mem['category']}**")
-                    st.caption(f"📅 {mem['timestamp']}")
+                    st.markdown(f"**{mem.get('category', '📝 General')}**")
+                    st.caption(f"📅 {mem.get('timestamp', 'N/A')}")
                 with col2:
-                    st.markdown(f"PHI: `{mem['phi']}`")
+                    st.markdown(f"PHI: `{mem.get('phi', '0.000')}`")
                 
                 st.text_area(
-                    label=f"mem_{mem['id']}", 
-                    value=mem['content'], 
+                    label=f"mem_{mem.get('id', 0)}", 
+                    value=mem.get('content', ''), 
                     height=60, 
                     disabled=True,
                     label_visibility="collapsed"
@@ -608,11 +673,17 @@ with analysis_col:
                 
                 # Estado
                 if analysis['saved']:
-                    st.success(f"💾 Guardado: {analysis['category']}")
+                    st.success(f"💾 Guardado con Vector: {analysis['category']}")
                 elif analysis['is_question']:
-                    st.warning("❓ Pregunta - Consultando memoria")
+                    st.warning("❓ Pregunta - Búsqueda Semántica")
                 else:
                     st.info("🔇 No guardado - Información trivial")
+                
+                # Mostrar resultados de búsqueda semántica si existen
+                if 'semantic_results' in analysis and analysis['semantic_results']:
+                    st.caption("🔍 **Búsqueda Semántica:**")
+                    for sim, content in analysis['semantic_results']:
+                        st.caption(f"  [{sim}] {content}...")
                 
                 st.caption(f"🕐 {analysis['timestamp']}")
     else:
@@ -651,9 +722,15 @@ if prompt := st.chat_input("Escribe algo... (ej: 'Me llamo Enrique' o '¿Cómo m
     }
     st.session_state.analysis_history.append(analysis_entry)
     
-    # Guardar en memoria si es importante
+    # Guardar en memoria si es importante (con vector si hay OpenAI)
     if should_save:
-        save_memory(prompt, metrics)
+        save_memory(prompt, metrics, st.session_state.get("openai_client"))
+    
+    # Guardar resultados de búsqueda semántica para mostrar
+    semantic_results = []
+    if st.session_state.get("openai_client"):
+        semantic_results = semantic_search(prompt, st.session_state["openai_client"], top_k=3)
+        analysis_entry['semantic_results'] = [(f"{s:.3f}", m['content'][:50]) for s, m in semantic_results]
     
     # --- GENERAR RESPUESTA ---
     full_response = ""
@@ -661,7 +738,8 @@ if prompt := st.chat_input("Escribe algo... (ej: 'Me llamo Enrique' o '¿Cómo m
     # Usar OpenAI si está disponible
     if st.session_state.get("openai_client"):
         try:
-            system_prompt = construct_prompt()
+            # Usar búsqueda semántica para el prompt
+            system_prompt = construct_prompt(prompt, st.session_state["openai_client"])
             
             response = st.session_state["openai_client"].chat.completions.create(
                 model="gpt-3.5-turbo",
