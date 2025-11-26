@@ -124,7 +124,14 @@ def cosine_similarity(v1, v2):
 # =============================================================================
 
 class IITGuidedMemory(nn.Module):
-    """Memoria con priorización por PHI (standalone para Streamlit)."""
+    """
+    Memoria neuronal con priorización por PHI (standalone para Streamlit).
+    
+    MEJORAS:
+    - Almacena texto original junto con embeddings
+    - Lectura por similitud semántica
+    - Priorización por PHI para olvido selectivo
+    """
     
     def __init__(self, hidden_dim, memory_slots=256):
         super().__init__()
@@ -147,8 +154,13 @@ class IITGuidedMemory(nn.Module):
         # Proyecciones
         self.query_proj = nn.Linear(hidden_dim, hidden_dim)
         self.key_proj = nn.Linear(hidden_dim, hidden_dim)
+        
+        # 🆕 Almacén de texto (corto plazo - últimas N interacciones)
+        self.text_memory = []  # Lista de {"text": str, "phi": float, "timestamp": int}
+        self.max_text_slots = 20  # Últimas 20 interacciones
     
     def read(self, query, top_k=5):
+        """Lee de memoria neuronal por similitud."""
         q = self.query_proj(query)
         k = self.key_proj(self.memory_keys)
         scores = torch.matmul(q, k.T) / (self.hidden_dim ** 0.5)
@@ -156,15 +168,47 @@ class IITGuidedMemory(nn.Module):
         result = torch.matmul(weights, self.memory_values)
         return result, weights
     
-    def write(self, content, priority=1.0):
+    def write(self, content, priority=1.0, text=None):
+        """Escribe en memoria neuronal con priorización por PHI."""
         idx = int(self.write_count.item()) % self.memory_slots
         with torch.no_grad():
             self.memory_values.data[idx] = content.mean(dim=0) if content.dim() > 1 else content
             self.phi_scores[idx] = priority
+            self.timestamps[idx] = self.global_time.item()
+            self.global_time += 1
             self.write_count += 1
+        
+        # 🆕 Guardar texto en memoria de corto plazo
+        if text:
+            self.text_memory.append({
+                "text": text,
+                "phi": priority,
+                "timestamp": self.global_time.item()
+            })
+            # Mantener solo las últimas N
+            if len(self.text_memory) > self.max_text_slots:
+                # Eliminar el de menor PHI (olvido selectivo)
+                min_phi_idx = min(range(len(self.text_memory)), 
+                                  key=lambda i: self.text_memory[i]['phi'])
+                self.text_memory.pop(min_phi_idx)
+    
+    def get_recent_context(self, top_k=5):
+        """
+        🆕 Obtiene el contexto reciente de memoria neuronal.
+        Devuelve las últimas interacciones ordenadas por PHI.
+        """
+        if not self.text_memory:
+            return []
+        # Ordenar por PHI descendente
+        sorted_mem = sorted(self.text_memory, key=lambda x: x['phi'], reverse=True)
+        return sorted_mem[:top_k]
     
     def get_statistics(self):
-        return {'utilization': (self.write_count.item() / self.memory_slots), 'size': self.memory_slots}
+        return {
+            'utilization': (self.write_count.item() / self.memory_slots), 
+            'size': self.memory_slots,
+            'text_memories': len(self.text_memory)
+        }
 
 
 class ImprovedIITMetrics(nn.Module):
@@ -372,7 +416,12 @@ def save_memory(text, metrics, openai_client=None):
 
 
 def semantic_search(query, openai_client, top_k=3):
-    """Busca los recuerdos más relevantes semánticamente."""
+    """
+    Busca los recuerdos más relevantes semánticamente.
+    
+    MEJORA: Pondera resultados con PHI
+    final_score = similarity * 0.7 + phi_normalized * 0.3
+    """
     memories = get_memories()
     if not memories or not openai_client:
         return []
@@ -387,12 +436,73 @@ def semantic_search(query, openai_client, top_k=3):
     for mem in memories:
         if 'vector' in mem:
             sim = cosine_similarity(query_vector, mem['vector'])
-            scored.append((sim, mem))
+            
+            # 🆕 Obtener PHI normalizado (0-1)
+            phi_str = mem.get('phi', '0.5')
+            try:
+                phi_value = float(phi_str.replace(',', '.'))
+            except:
+                phi_value = 0.5
+            phi_normalized = min(phi_value, 1.0)  # Clamp a [0, 1]
+            
+            # 🆕 Score combinado: 70% similitud + 30% PHI
+            final_score = sim * 0.7 + phi_normalized * 0.3
+            
+            scored.append((final_score, sim, mem))
     
-    # Ordenar por similitud
+    # Ordenar por score combinado
     scored.sort(key=lambda x: x[0], reverse=True)
     
-    return [(score, mem) for score, mem in scored[:top_k]]
+    # Devolver con score original de similitud para compatibilidad
+    return [(sim, mem) for _, sim, mem in scored[:top_k]]
+
+
+def forget_low_phi_memories(max_memories=100):
+    """
+    🆕 Olvido selectivo: elimina memorias con bajo PHI cuando hay muchas.
+    
+    Mantiene las memorias con mayor PHI * recencia.
+    """
+    memories = get_memories()
+    if len(memories) <= max_memories:
+        return 0  # No hay que olvidar nada
+    
+    # Calcular score de retención para cada memoria
+    now = datetime.now()
+    for i, mem in enumerate(memories):
+        # PHI
+        phi_str = mem.get('phi', '0.5')
+        try:
+            phi = float(phi_str.replace(',', '.'))
+        except:
+            phi = 0.5
+        
+        # Recencia (decay exponencial)
+        try:
+            mem_time = datetime.strptime(mem.get('timestamp', ''), "%Y-%m-%d %H:%M")
+            days_old = (now - mem_time).days
+            recency = 0.95 ** days_old  # 5% decay por día
+        except:
+            recency = 0.5
+        
+        # Score de retención
+        mem['_retention_score'] = phi * 0.6 + recency * 0.4
+    
+    # Ordenar por retención (menor primero = olvidar)
+    memories.sort(key=lambda x: x.get('_retention_score', 0))
+    
+    # Eliminar las de menor score
+    to_remove = len(memories) - max_memories
+    memories = memories[to_remove:]
+    
+    # Limpiar campo temporal y guardar
+    for mem in memories:
+        mem.pop('_retention_score', None)
+    
+    with open(DB_FILE, 'w', encoding='utf-8') as f:
+        json.dump(memories, f, indent=2, ensure_ascii=False)
+    
+    return to_remove
 
 
 def detect_category(text):
@@ -548,27 +658,44 @@ def get_category_bonus(category):
     return bonuses.get(category, 0.0)
 
 
-def construct_prompt(user_query=None, openai_client=None):
-    """Construye el prompt con memoria para GPT usando búsqueda semántica."""
+def construct_prompt(user_query=None, openai_client=None, neural_memory=None):
+    """
+    Construye el prompt con memoria para GPT.
     
-    # Si tenemos query y cliente, hacer búsqueda semántica
+    Combina:
+    - 🧠 Memoria neuronal (corto plazo) - últimas interacciones
+    - 🔍 Búsqueda semántica (largo plazo) - recuerdos persistentes
+    """
+    memory_block = ""
+    
+    # 🆕 1. Contexto de memoria neuronal (corto plazo - sin API)
+    if neural_memory and hasattr(neural_memory, 'get_recent_context'):
+        recent = neural_memory.get_recent_context(top_k=3)
+        if recent:
+            memory_block += "💭 CONTEXTO RECIENTE (memoria de corto plazo):\n"
+            for item in recent:
+                memory_block += f"  • [PHI:{item['phi']:.2f}] {item['text']}\n"
+            memory_block += "\n"
+    
+    # 2. Búsqueda semántica (largo plazo - con API)
     if user_query and openai_client:
         results = semantic_search(user_query, openai_client, top_k=5)
         
         if results:
-            memory_block = "🔍 RECUERDOS RELEVANTES (búsqueda semántica):\n"
+            memory_block += "🔍 RECUERDOS RELEVANTES (memoria de largo plazo):\n"
             for score, mem in results:
                 memory_block += f"  • [{score:.2f}] {mem['content']} [{mem.get('category', 'General')}]\n"
         else:
-            memory_block = "No encontré recuerdos relacionados con este tema."
+            if not memory_block:
+                memory_block = "No encontré recuerdos relacionados con este tema."
     else:
         # Fallback: mostrar últimas memorias
         memories = get_memories()
-        if not memories:
+        if not memories and not memory_block:
             memory_block = "NO TIENES RECUERDOS PREVIOS."
-        else:
+        elif memories:
             sorted_mems = sorted(memories, key=lambda x: float(x.get('phi', '0').replace(',', '.')), reverse=True)
-            memory_block = "🧠 MEMORIA A LARGO PLAZO:\n"
+            memory_block += "🧠 MEMORIA A LARGO PLAZO:\n"
             for mem in sorted_mems[-10:]:
                 memory_block += f"  • {mem['content']} [{mem.get('category', 'General')}]\n"
     
@@ -881,6 +1008,22 @@ if prompt := st.chat_input("Escribe algo... (ej: 'Me llamo Enrique' o '¿Cómo m
     # Guardar en memoria si es importante (con vector si hay OpenAI)
     if should_save:
         save_memory(prompt, metrics, st.session_state.get("openai_client"))
+        
+        # 🆕 También guardar en memoria neuronal (corto plazo)
+        if hasattr(model, 'memory'):
+            input_ids = text_to_ids(prompt).to(device)
+            with torch.no_grad():
+                hidden = model.token_embedding(input_ids)
+                hidden = hidden + model.position_embedding[:, :hidden.size(1), :]
+                for layer in model.layers:
+                    hidden = layer(hidden)
+                # Guardar embedding con PHI como prioridad
+                model.memory.write(hidden.mean(dim=1), priority=metrics['phi'], text=prompt)
+        
+        # 🆕 Olvido selectivo si hay muchos recuerdos
+        forgotten = forget_low_phi_memories(max_memories=100)
+        if forgotten > 0:
+            st.toast(f"🧹 Olvido selectivo: {forgotten} recuerdos de bajo PHI eliminados")
     
     # Guardar resultados de búsqueda semántica para mostrar
     semantic_results = []
@@ -896,8 +1039,9 @@ if prompt := st.chat_input("Escribe algo... (ej: 'Me llamo Enrique' o '¿Cómo m
         # Reintentos para GPT
         for attempt in range(MAX_RETRIES):
             try:
-                # Usar búsqueda semántica para el prompt
-                system_prompt = construct_prompt(prompt, st.session_state["openai_client"])
+                # 🆕 Pasar memoria neuronal para contexto de corto plazo
+                neural_mem = model.memory if hasattr(model, 'memory') else None
+                system_prompt = construct_prompt(prompt, st.session_state["openai_client"], neural_mem)
                 
                 response = st.session_state["openai_client"].chat.completions.create(
                     model="gpt-3.5-turbo",
