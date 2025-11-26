@@ -22,6 +22,13 @@ import time
 from datetime import datetime
 from typing import Dict, Optional, Tuple
 
+# Cargar variables de entorno desde .env (para local)
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass  # dotenv no instalado, usar otras fuentes
+
 # Añadir src al path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
