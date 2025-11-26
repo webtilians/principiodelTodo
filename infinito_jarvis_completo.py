@@ -617,7 +617,7 @@ INSTRUCCIONES:
 def main():
     """Función principal."""
     
-    MODEL_PATH = os.path.join(os.path.dirname(__file__), "models", "dynamic_chat_detector_v2.pt")
+    MODEL_PATH = os.path.join(os.path.dirname(__file__), "models", "dynamic_chat_detector_v3.pt")  # v3: 10k+ datos
     
     jarvis = JarvisCompletoSystem(MODEL_PATH if os.path.exists(MODEL_PATH) else None)
     

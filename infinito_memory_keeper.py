@@ -28,7 +28,10 @@ from infinito_v5_2_refactored import InfinitoV52Refactored
 # --- 1. ARQUITECTURA DEL MODELO (igual que en entrenamiento) ---
 
 class InfinitoDynamicChat(InfinitoV52Refactored):
-    """Modelo con gate dinámico para detectar información importante."""
+    """Modelo con gate dinámico para detectar información importante.
+    
+    v3: Gate con arquitectura mejorada (64→64→32→1) entrenado con 10k+ ejemplos.
+    """
     
     def __init__(self, *args, **kwargs):
         kwargs['use_dynamic_gate'] = False
@@ -37,13 +40,16 @@ class InfinitoDynamicChat(InfinitoV52Refactored):
         if hasattr(self, 'memory_gate'):
             del self.memory_gate
         
-        # Gate dinámico (misma arquitectura que v2)
+        # Gate v3: arquitectura más profunda (64→64→32→1)
         self.gate_network = nn.Sequential(
-            nn.Linear(self.hidden_dim, self.hidden_dim // 2),
+            nn.Linear(self.hidden_dim, self.hidden_dim),      # 64→64
+            nn.LayerNorm(self.hidden_dim),
             nn.GELU(),
-            nn.Linear(self.hidden_dim // 2, self.hidden_dim // 4),
+            nn.Dropout(0.1),
+            nn.Linear(self.hidden_dim, self.hidden_dim // 2), # 64→32
             nn.GELU(),
-            nn.Linear(self.hidden_dim // 4, 1)
+            nn.Dropout(0.1),
+            nn.Linear(self.hidden_dim // 2, 1)                # 32→1
         )
     
     def forward(self, input_ids, return_metrics=False):
@@ -289,7 +295,7 @@ def run_demo_test(bot):
 def main():
     """Función principal."""
     # Ruta al modelo entrenado
-    MODEL_PATH = os.path.join(os.path.dirname(__file__), "models", "dynamic_chat_detector_v2.pt")
+    MODEL_PATH = os.path.join(os.path.dirname(__file__), "models", "dynamic_chat_detector_v3.pt")  # v3: 10k+ datos
     
     # Verificar que existe
     if not os.path.exists(MODEL_PATH):

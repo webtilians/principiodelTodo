@@ -75,7 +75,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- CONFIGURACIÓN ---
-MODEL_PATH = "models/dynamic_chat_detector_v2.pt"
+MODEL_PATH = "models/dynamic_chat_detector_v3.pt"  # v3: entrenado con 10k+ datos híbridos
 DB_FILE = "memoria_permanente.json"  # Ahora usa el archivo vectorial
 
 # API Key de OpenAI - Múltiples fuentes (prioridad: secrets > env > input manual)

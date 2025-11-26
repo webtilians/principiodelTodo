@@ -118,7 +118,7 @@ Responde de forma natural y amigable."""
 
 
 if __name__ == "__main__":
-    MODEL_PATH = "models/dynamic_chat_detector_v2.pt"
+    MODEL_PATH = "models/dynamic_chat_detector_v3.pt"  # v3: entrenado con 10k+ datos híbridos
     
     print("\n" + "="*55)
     print("🔮 INFINITO VECTORIAL - Búsqueda Semántica Activada")

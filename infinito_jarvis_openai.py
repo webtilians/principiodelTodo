@@ -294,7 +294,7 @@ Eres como Jarvis de Iron Man, pero con memoria real sobre tu usuario."""
 def main():
     """Función principal."""
     
-    MODEL_PATH = os.path.join(os.path.dirname(__file__), "models", "dynamic_chat_detector_v2.pt")
+    MODEL_PATH = os.path.join(os.path.dirname(__file__), "models", "dynamic_chat_detector_v3.pt")  # v3: 10k+ datos
     
     if not os.path.exists(MODEL_PATH):
         print(f"❌ No se encontró el modelo en: {MODEL_PATH}")
