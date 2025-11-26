@@ -514,6 +514,10 @@ class InfinitoV52Refactored(nn.Module):
                     # ⚠️ FIX BUG #4: NO convertir a .item() - conservar tensor con gradientes
                     metrics['delta_phi_loss'] = delta_phi_loss
             
+            # 🆕 Añadir gate_value a métricas
+            if gate_value is not None:
+                metrics['gate_value'] = gate_value
+            
             # 🆕 Añadir nota sobre interpretación
             metrics['_note'] = (
                 "Estas métricas son APROXIMACIONES. "

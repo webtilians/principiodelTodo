@@ -465,6 +465,89 @@ DATA_SEED = 42          # Seed for data generation
 
 ---
 
+## 🤖 INFINITO JARVIS - Chat con Memoria IIT Completa (NUEVO)
+
+### Descripción
+
+**Infinito Jarvis Completo** es un sistema de chat interactivo que utiliza TODA la arquitectura IIT para decidir qué información es importante guardar en memoria permanente. Integra OpenAI GPT para respuestas inteligentes con memoria de contexto.
+
+### Características Principales
+
+| Característica | Descripción |
+|----------------|-------------|
+| **IITGuidedMemory** | Memoria con priorización por PHI |
+| **ImprovedIITMetrics** | 4 componentes de integración |
+| **LearnablePhiWeights** | Pesos aprendibles para métricas |
+| **Dynamic Gate** | Detecta importancia de información |
+| **OpenAI Integration** | Respuestas con GPT-3.5-turbo |
+| **Memoria JSON** | Persistencia de recuerdos |
+
+### Cómo Funciona
+
+```
+Usuario: "Me llamo Enrique"
+         ↓
+   ┌─────────────────────────────────────────────┐
+   │ 🧠 ANÁLISIS IIT COMPLETO                    │
+   ├─────────────────────────────────────────────┤
+   │ Importance: [████████░░░░░░░░░░░░]  45.2% 🟢│
+   │ Combined:   [██████████████░░░░░░]  72.4%   │
+   │ PHI:        [████████████░░░░░░░░]  0.612   │
+   │ Mem Gate:   [██░░░░░░░░░░░░░░░░░░]   8.3%   │
+   ├─────────────────────────────────────────────┤
+   │ 💾 GUARDADO: 👤 identidad                   │
+   └─────────────────────────────────────────────┘
+         ↓
+   GPT responde con contexto de memoria
+```
+
+### Uso Rápido
+
+```bash
+# Ejecutar el sistema Jarvis completo
+python infinito_jarvis_completo.py
+```
+
+### Comandos Disponibles
+
+| Comando | Acción |
+|---------|--------|
+| `ver memoria` | Muestra todos los recuerdos guardados |
+| `ver iit` | Muestra estado de la arquitectura IIT |
+| `borrar` | Borra la memoria |
+| `salir` | Termina la sesión |
+
+### Categorías de Memoria
+
+El sistema detecta automáticamente:
+- 👤 **Identidad**: "Me llamo...", "Mi nombre es..."
+- 🔐 **Credenciales**: Contraseñas, claves, PINs
+- 📞 **Contacto**: Teléfonos, emails, direcciones
+- 👨‍👩‍👧 **Familia**: Referencias a familiares
+- 📌 **Recordatorios**: "Recuerda que...", citas
+- ❤️ **Preferencias**: "Me gusta...", favoritos
+
+### Archivos del Sistema
+
+```
+infinito_jarvis_completo.py  # Sistema completo con IIT
+infinito_jarvis_openai.py    # Versión simplificada con OpenAI
+infinito_memory_keeper.py    # Sistema básico de memoria
+memoria_infinito_completo.json  # Base de datos de memorias
+```
+
+### Configuración OpenAI
+
+Para usar respuestas reales con GPT:
+
+```python
+# En infinito_jarvis_completo.py
+USE_OPENAI = True
+API_KEY = "sk-proj-tu-api-key-aqui"
+```
+
+---
+
 ## 📚 Citation
 
 If you use this code or the Super Golden Seed in your research, please cite:
@@ -498,6 +581,7 @@ We welcome contributions! Areas of interest:
 - 📊 Statistical analysis of lottery ticket phenomena
 - 🧠 New IIT-inspired mechanisms
 - 🛠️ Performance optimizations
+- 🤖 Mejoras al sistema Jarvis de memoria
 
 ---
 
