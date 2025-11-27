@@ -25,7 +25,9 @@ from typing import Dict, Optional, Tuple
 # Cargar variables de entorno desde .env (para local)
 try:
     from dotenv import load_dotenv
-    load_dotenv()
+    # Cargar explícitamente desde el directorio actual
+    env_path = os.path.join(os.path.dirname(__file__), '.env')
+    load_dotenv(env_path)
 except ImportError:
     pass  # dotenv no instalado, usar otras fuentes
 
@@ -376,6 +378,21 @@ def save_memory(text, metrics, openai_client=None):
     """Guarda una memoria con métricas IIT y vector semántico."""
     memories = get_memories()
     
+    # 🆕 VERIFICAR DUPLICADOS: No guardar si ya existe algo muy similar
+    text_lower = text.lower().strip()
+    for mem in memories:
+        existing = mem.get('content', '').lower().strip()
+        # Duplicado exacto
+        if existing == text_lower:
+            print(f"⚠️ Duplicado exacto ignorado: {text[:30]}...")
+            return None
+        # Duplicado semántico (uno contiene al otro)
+        if text_lower in existing or existing in text_lower:
+            # Si el nuevo es más largo, podría ser más específico - permitir
+            if len(text_lower) <= len(existing):
+                print(f"⚠️ Duplicado similar ignorado: {text[:30]}...")
+                return None
+    
     # Detectar categoría (antes de transformar)
     category = detect_category(text)
     
@@ -521,6 +538,89 @@ def detect_category(text):
     elif any(x in t for x in ['me gusta', 'prefiero', 'favorito']):
         return "❤️ Preferencia"
     return "📝 General"
+
+
+def extract_interest_or_concept(text, openai_client=None):
+    """
+    Extrae el interés o concepto principal del texto del usuario.
+    
+    Ejemplos:
+    - "dime la teoría de la relatividad" → "Le interesa: teoría de la relatividad"
+    - "cuéntame sobre Einstein" → "Le interesa: Einstein"
+    - "teoría de la relatividad" → "Le interesa: teoría de la relatividad"
+    - "me llamo Enrique" → "me llamo Enrique" (sin cambio, es identidad)
+    
+    Si hay cliente OpenAI, usa GPT para extracción más inteligente.
+    Si no, usa reglas heurísticas.
+    """
+    t = text.lower().strip()
+    original = text.strip()
+    
+    # NO transformar información personal/identidad
+    identity_patterns = ['me llamo', 'mi nombre', 'soy ', 'tengo ', 'trabajo en', 
+                         'vivo en', 'mi teléfono', 'mi email', 'mi correo',
+                         'mi hermano', 'mi padre', 'mi madre', 'mi hijo', 'mi esposa',
+                         'me gusta', 'prefiero', 'favorito']
+    if any(p in t for p in identity_patterns):
+        return original  # Devolver sin cambios
+    
+    # Patrones de solicitud de información → extraer el tema
+    request_patterns = [
+        (r'^(?:dime|cuéntame|háblame|explícame|explica)\s+(?:sobre\s+)?(?:la\s+|el\s+|los\s+|las\s+)?(.+)$', 'Le interesa: {}'),
+        (r'^(?:qué es|que es|qué son|que son)\s+(?:la\s+|el\s+|los\s+|las\s+)?(.+?)[\?]?$', 'Le interesa: {}'),
+        (r'^(?:cómo funciona|como funciona)\s+(?:la\s+|el\s+|los\s+|las\s+)?(.+?)[\?]?$', 'Le interesa: {}'),
+        (r'^(?:quiero saber sobre|quiero aprender)\s+(?:la\s+|el\s+|los\s+|las\s+)?(.+)$', 'Le interesa: {}'),
+        (r'^(?:información sobre|info sobre)\s+(?:la\s+|el\s+|los\s+|las\s+)?(.+)$', 'Le interesa: {}'),
+        # 🆕 Nuevos patrones para preguntas de interés
+        (r'^(?:qué sabes|que sabes)\s+(?:de|sobre)\s+(?:la\s+|el\s+|los\s+|las\s+)?(.+?)[\?]?$', 'Le interesa: {}'),
+        (r'^(?:sobre|acerca de)\s+(?:la\s+|el\s+|los\s+|las\s+)?(.+?)[\?]?$', 'Le interesa: {}'),
+        (r'^(?:a qué hora|a que hora|cuándo|cuando|cómo|como)\s+(?:salen|sale|son|es|funciona)\s+(?:los\s+|las\s+|el\s+|la\s+)?(.+?)[\?]?$', 'Le interesa: {}'),
+    ]
+    
+    import re
+    for pattern, template in request_patterns:
+        match = re.search(pattern, t, re.IGNORECASE)
+        if match:
+            concept = match.group(1).strip().rstrip('?.!')
+            return template.format(concept)
+    
+    # Si el texto es corto (1-5 palabras) y no es una pregunta, probablemente es un tema directo
+    words = t.split()
+    if 1 <= len(words) <= 5 and '?' not in t:
+        # Limpiar artículos al inicio
+        concept = original.strip().rstrip('?.!')
+        for prefix in ['la ', 'el ', 'los ', 'las ', 'un ', 'una ', 'unos ', 'unas ']:
+            if t.startswith(prefix):
+                concept = original[len(prefix):].strip()
+                break
+        return f"Le interesa: {concept}"
+    
+    # Si tenemos OpenAI, usar GPT para extracción más precisa
+    if openai_client and len(t) > 20:
+        try:
+            response = openai_client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {"role": "system", "content": """Eres un extractor de intereses. 
+Tu tarea es extraer el TEMA o CONCEPTO principal que le interesa al usuario.
+Responde SOLO con el formato: "Le interesa: [tema]"
+Si el texto contiene información personal (nombre, trabajo, familia), devuélvelo sin cambios.
+Ejemplos:
+- "dime la teoría de la relatividad" → "Le interesa: teoría de la relatividad"
+- "cuéntame sobre los agujeros negros" → "Le interesa: agujeros negros"
+- "me llamo Juan" → "me llamo Juan" (sin cambio)"""},
+                    {"role": "user", "content": text}
+                ],
+                temperature=0,
+                max_tokens=50
+            )
+            extracted = response.choices[0].message.content.strip()
+            if extracted and len(extracted) < len(text) * 2:  # Sanity check
+                return extracted
+        except:
+            pass  # Si falla, usar el original
+    
+    return original  # Fallback: devolver sin cambios
 
 
 def es_pregunta(text):
@@ -699,48 +799,29 @@ def construct_prompt(user_query=None, openai_client=None, neural_memory=None):
             for mem in sorted_mems[-10:]:
                 memory_block += f"  • {mem['content']} [{mem.get('category', 'General')}]\n"
     
-    return f"""Eres Infinito, un asistente con MEMORIA PERSISTENTE y búsqueda semántica vectorial.
+    return f"""Eres Infinito, un asistente inteligente con MEMORIA PERSISTENTE y búsqueda semántica vectorial.
 
 {memory_block}
 
-🚨 REGLAS ABSOLUTAS (NUNCA VIOLAR):
+📋 INSTRUCCIONES:
 
-1. **SOLO USA INFORMACIÓN EXPLÍCITA** - Si algo NO está escrito exactamente en los recuerdos, NO lo sabes
-2. **NO COMBINES RECUERDOS** - Cada recuerdo es 100% independiente. NUNCA mezcles datos de diferentes recuerdos
-3. **PREFERENCIA ≠ EVENTO** - "Le gusta ir al mediodía" NO significa "va a ir". Solo indica preferencia habitual
-4. **FECHA/HORA ESPECÍFICA** - Si preguntan "¿cuándo?" o "¿el viernes?", solo responde si ESA fecha está en UN recuerdo específico
-5. **NO INFERIR** - Si un recuerdo dice "A le gusta X" y otro dice "B hace X el viernes", NO concluyas que A hace X el viernes
-6. **PERSONA CORRECTA** - Verifica que el SUJETO de la pregunta coincide con el SUJETO del recuerdo
-7. **DISTINGUE ROLES** - "El restaurante DE Juan" significa que Juan es DUEÑO, no que Juan VA al restaurante
+1. **USA TU CONOCIMIENTO GENERAL** - Puedes responder preguntas generales usando tu conocimiento (ej: "¿a qué hora suelen salir los perros?" → responde con información general sobre paseos de perros)
 
-📌 TIPOS DE INFORMACIÓN:
-- HECHO: "El viernes voy a montar en bici" → EVENTO con fecha específica
-- PREFERENCIA: "A mi padre le gusta ir al restaurante" → HÁBITO de MI PADRE (no del dueño)
-- IDENTIDAD: "Mi padre se llama Juan" → DATO permanente
-- PROPIEDAD: "El restaurante de mi hermano" → Mi hermano es DUEÑO del restaurante
+2. **MEMORIA PERSONAL** - Si la pregunta es sobre el USUARIO (su nombre, familia, preferencias personales), SOLO usa los recuerdos guardados arriba. Si no hay información personal guardada, di que no lo sabes.
 
-❌ ERRORES PROHIBIDOS:
-- Pregunta: "¿A qué hora le gusta ir a Juan al restaurante?"
-- Recuerdos: "A mi padre le gusta ir al restaurante de mi hermano al mediodía" + "Mi hermano se llama Juan"
-- ❌ INCORRECTO: "A Juan le gusta ir al mediodía" (¡JUAN ES EL DUEÑO, no el que va!)
-- ✅ CORRECTO: "No tengo información de que a Juan le guste ir al restaurante. Juan es el dueño del restaurante Sake Izakaya. Quien va al mediodía es tu padre."
+3. **NO INVENTES DATOS PERSONALES** - Nunca inventes información sobre el usuario, su familia o sus planes. Solo usa lo que está en los recuerdos.
 
-- Pregunta: "¿El viernes va mi padre al restaurante?"
-- Recuerdos: "El viernes voy en bici con mi padre" + "A mi padre le gusta ir al restaurante al mediodía"
-- ❌ INCORRECTO: "Sí, el viernes va" (INVENTADO - ningún recuerdo dice eso)
-- ✅ CORRECTO: "No tengo información de que tu padre vaya al restaurante el viernes. Solo sé que le gusta ir al mediodía normalmente."
+4. **DISTINGUE**:
+   - Pregunta GENERAL (ciencia, cultura, consejos): Usa tu conocimiento
+   - Pregunta PERSONAL (sobre el usuario): Usa solo la memoria
 
-- Pregunta: "¿Cuándo va Andrés a montar en bici?"
-- Recuerdos: "Mi primo Andrés monta en bici" + "El viernes voy en bici con mi padre"
-- ❌ INCORRECTO: "Andrés va el viernes" (MEZCLÓ recuerdos de diferentes personas)
-- ✅ CORRECTO: "Solo sé que a tu primo Andrés le gusta montar en bici, pero no tengo guardado cuándo específicamente."
+📌 EJEMPLOS:
+- "¿A qué hora suelen salir los perros?" → Responde con info general sobre paseos caninos
+- "¿Cómo me llamo?" → Busca en los recuerdos guardados
+- "¿Qué es la teoría de la relatividad?" → Explica usando tu conocimiento
+- "¿A qué hora le gusta ir a mi padre al restaurante?" → Busca en los recuerdos
 
-⚠️ ANTES DE RESPONDER, VERIFICA:
-1. ¿Quién es el SUJETO de la pregunta? (ej: "Juan")
-2. ¿Quién es el SUJETO del recuerdo? (ej: "mi padre", no Juan)
-3. ¿Coinciden? Si NO, no uses ese recuerdo.
-
-Responde de forma natural en español. Si no tienes la información, di claramente "No tengo esa información guardada"."""
+Responde de forma natural y útil en español."""
 
 
 # =============================================================================
@@ -822,14 +903,18 @@ if "analysis_history" not in st.session_state:
 
 if "openai_client" not in st.session_state:
     # Inicializar OpenAI automáticamente con la API key configurada
+    # Debug: mostrar si API_KEY fue cargada
     if API_KEY and API_KEY.startswith("sk-"):
         try:
             from openai import OpenAI
             st.session_state["openai_client"] = OpenAI(api_key=API_KEY)
+            print(f"✅ OpenAI inicializado con API_KEY: {API_KEY[:20]}...")
         except Exception as e:
             st.session_state["openai_client"] = None
+            print(f"❌ Error inicializando OpenAI: {e}")
     else:
         st.session_state["openai_client"] = None
+        print(f"⚠️ API_KEY no válida o vacía: '{API_KEY[:10] if API_KEY else 'VACIA'}...'")
 
 # --- SIDEBAR: MEMORIA EN VIVO ---
 with st.sidebar:
@@ -986,8 +1071,33 @@ if prompt := st.chat_input("Escribe algo... (ej: 'Me llamo Enrique' o '¿Cómo m
     combined = metrics['combined_score']
     is_question = es_pregunta(prompt)
     
-    # Decisión de guardar
-    should_save = (combined > 0.3 or metrics['category_bonus'] > 0.3) and (not is_question)
+    # 🆕 Detectar si la pregunta revela un INTERÉS temático
+    # Ej: "qué sabes de los perros?" → Interés en perros
+    # Ej: "sobre la teoría de la relatividad?" → Interés en relatividad
+    is_interest_question = False
+    if is_question:
+        t = prompt.lower()
+        # Patrones que indican interés en un tema
+        interest_patterns = [
+            'qué sabes', 'que sabes', 'sobre ', 'acerca de', 'cuéntame', 'cuentame',
+            'háblame', 'hablame', 'explícame', 'explicame', 'dime sobre',
+            'qué es', 'que es', 'cómo es', 'como es', 'cómo funciona', 'como funciona'
+        ]
+        # Preguntas triviales que NO indican interés
+        trivial_patterns = [
+            'cómo estás', 'como estas', 'qué tal', 'que tal', 'cómo te llamas',
+            'quién eres', 'quien eres', 'cómo me llamo', 'como me llamo'
+        ]
+        
+        has_interest = any(p in t for p in interest_patterns)
+        is_trivial = any(p in t for p in trivial_patterns)
+        
+        is_interest_question = has_interest and not is_trivial
+    
+    # Decisión de guardar: 
+    # - Afirmaciones importantes (no preguntas)
+    # - O preguntas que revelan interés temático
+    should_save = (combined > 0.3 or metrics['category_bonus'] > 0.3) and (not is_question or is_interest_question)
     
     # Guardar en historial de análisis (para el panel permanente)
     analysis_entry = {
@@ -1001,13 +1111,16 @@ if prompt := st.chat_input("Escribe algo... (ej: 'Me llamo Enrique' o '¿Cómo m
         'category': metrics['category'],
         'category_bonus': metrics['category_bonus'],
         'is_question': is_question,
+        'is_interest_question': is_interest_question,
         'saved': should_save
     }
     st.session_state.analysis_history.append(analysis_entry)
     
     # Guardar en memoria si es importante (con vector si hay OpenAI)
     if should_save:
-        save_memory(prompt, metrics, st.session_state.get("openai_client"))
+        # 🆕 Extraer interés/concepto en lugar de guardar la frase completa
+        text_to_save = extract_interest_or_concept(prompt, st.session_state.get("openai_client"))
+        save_memory(text_to_save, metrics, st.session_state.get("openai_client"))
         
         # 🆕 También guardar en memoria neuronal (corto plazo)
         if hasattr(model, 'memory'):
@@ -1034,23 +1147,11 @@ if prompt := st.chat_input("Escribe algo... (ej: 'Me llamo Enrique' o '¿Cómo m
     # --- GENERAR RESPUESTA ---
     full_response = ""
     
-    # 🆕 VERIFICACIÓN PRE-GPT: Si es pregunta y no hay memoria relevante, responder sin GPT
-    MIN_RELEVANCE_SCORE = 0.45  # Umbral mínimo de similitud semántica
-    skip_gpt = False
+    # 🆕 Siempre usar GPT si está disponible
+    # La búsqueda semántica sirve para dar CONTEXTO a GPT, no para decidir si usarlo
     
-    if is_question and st.session_state.get("openai_client"):
-        # Verificar si hay resultados relevantes
-        if not semantic_results:
-            skip_gpt = True
-            full_response = "🤔 No tengo información guardada sobre eso. ¿Quieres contarme algo al respecto?"
-        else:
-            best_score = semantic_results[0][0] if semantic_results else 0
-            if best_score < MIN_RELEVANCE_SCORE:
-                skip_gpt = True
-                full_response = f"🤔 No encuentro información relevante sobre eso en mi memoria (mejor coincidencia: {best_score:.0%}). ¿Quieres que recuerde algo sobre este tema?"
-    
-    # Usar OpenAI si está disponible y no saltamos GPT
-    if st.session_state.get("openai_client") and not skip_gpt:
+    # Usar OpenAI si está disponible
+    if st.session_state.get("openai_client"):
         # Reintentos para GPT
         for attempt in range(MAX_RETRIES):
             try:
@@ -1076,7 +1177,7 @@ if prompt := st.chat_input("Escribe algo... (ej: 'Me llamo Enrique' o '¿Cómo m
                 else:
                     full_response = f"❌ Error con OpenAI después de {MAX_RETRIES} intentos: {str(e)[:100]}"
     else:
-        # Respuesta simulada sin OpenAI
+        # 🆕 SOLO caer aquí si NO hay OpenAI configurado
         memories = get_memories()
         
         # Buscar nombre en memoria
@@ -1102,7 +1203,12 @@ if prompt := st.chat_input("Escribe algo... (ej: 'Me llamo Enrique' o '¿Cómo m
             else:
                 full_response = "Aún no sé nada de ti. ¡Cuéntame!"
         elif should_save:
-            full_response = f"✅ Entendido. He guardado eso en mi memoria como **{metrics['category']}**."
+            # Mostrar qué se guardó (interés extraído)
+            text_saved = extract_interest_or_concept(prompt)
+            if text_saved != prompt:
+                full_response = f"✅ Guardado: **{text_saved}** ({metrics['category']})"
+            else:
+                full_response = f"✅ Entendido. He guardado eso en mi memoria como **{metrics['category']}**."
         else:
             full_response = "Entendido. (Configura OpenAI para respuestas más inteligentes)"
     
