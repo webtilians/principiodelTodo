@@ -34,6 +34,9 @@ except ImportError:
 # Añadir src al path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
+# Importar GoalManager
+from goal_manager import GoalManager, GoalType, GoalPriority
+
 # --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(
     page_title="Infinito Beta", 
@@ -916,6 +919,28 @@ if "openai_client" not in st.session_state:
         st.session_state["openai_client"] = None
         print(f"⚠️ API_KEY no válida o vacía: '{API_KEY[:10] if API_KEY else 'VACIA'}...'")
 
+# Inicializar GoalManager
+if "goal_manager" not in st.session_state:
+    st.session_state["goal_manager"] = GoalManager()
+
+# Verificar objetivos pendientes al inicio de sesión
+if "goals_checked" not in st.session_state:
+    st.session_state["goals_checked"] = True
+    gm = st.session_state["goal_manager"]
+    due_goals = gm.get_due_goals()
+    if due_goals:
+        # Añadir recordatorios al inicio del chat
+        reminders = []
+        for goal in due_goals:
+            reminders.append(f"🎯 **Recordatorio**: {goal.description}")
+            if goal.description:
+                reminders.append(f"   _{goal.description}_")
+        if reminders:
+            st.session_state["messages"].insert(1, {
+                "role": "assistant", 
+                "content": "¡Buenos días! Tienes objetivos pendientes:\n\n" + "\n".join(reminders)
+            })
+
 # --- SIDEBAR: MEMORIA EN VIVO ---
 with st.sidebar:
     st.markdown("## 🧠 Memoria Viva")
@@ -975,6 +1000,51 @@ with st.sidebar:
         if os.path.exists(DB_FILE):
             os.remove(DB_FILE)
             st.rerun()
+    
+    # --- SECCIÓN DE OBJETIVOS ---
+    st.divider()
+    st.markdown("## 🎯 Objetivos Activos")
+    
+    gm = st.session_state.get("goal_manager")
+    if gm:
+        active_goals = gm.get_active_goals()
+        due_goals = gm.get_due_goals()
+        
+        if due_goals:
+            st.warning(f"⏰ {len(due_goals)} objetivo(s) pendiente(s)")
+        
+        if active_goals:
+            for goal in active_goals[:5]:  # Mostrar máximo 5
+                priority_emoji = {"LOW": "🟢", "MEDIUM": "🟡", "HIGH": "🟠", "CRITICAL": "🔴"}
+                emoji = priority_emoji.get(goal.priority.name, "⚪")
+                
+                with st.container():
+                    st.markdown(f"{emoji} **{goal.description[:50]}**")
+                    if goal.trigger_date:
+                        st.caption(f"📅 {goal.trigger_date.strftime('%d/%m/%Y %H:%M')}")
+                    
+                    # Botón para completar
+                    if st.button("✅", key=f"complete_{goal.id}", help="Marcar como completado"):
+                        gm.complete_goal(goal.id)
+                        st.rerun()
+        else:
+            st.info("💭 Sin objetivos activos")
+        
+        # Expander para añadir objetivo manual
+        with st.expander("➕ Añadir objetivo"):
+            new_desc = st.text_input("Descripción del objetivo", key="new_goal_desc")
+            new_type = st.selectbox("Tipo", ["TASK", "REMINDER", "FOLLOW_UP", "LEARNING"], key="new_goal_type")
+            new_priority = st.selectbox("Prioridad", ["MEDIUM", "LOW", "HIGH", "CRITICAL"], key="new_goal_priority")
+            
+            if st.button("Crear objetivo", use_container_width=True):
+                if new_desc:
+                    gm.add_goal(
+                        description=new_desc,
+                        goal_type=GoalType[new_type],
+                        priority=GoalPriority[new_priority]
+                    )
+                    st.success("✅ Objetivo creado")
+                    st.rerun()
 
 
 # --- ÁREA PRINCIPAL ---
@@ -1137,6 +1207,14 @@ if prompt := st.chat_input("Escribe algo... (ej: 'Me llamo Enrique' o '¿Cómo m
         forgotten = forget_low_phi_memories(max_memories=100)
         if forgotten > 0:
             st.toast(f"🧹 Olvido selectivo: {forgotten} recuerdos de bajo PHI eliminados")
+    
+    # 🎯 Detectar objetivos automáticamente
+    gm = st.session_state.get("goal_manager")
+    if gm:
+        detected_goals = gm.detect_from_text(prompt)
+        if detected_goals:
+            for goal in detected_goals:
+                st.toast(f"🎯 Objetivo detectado: {goal.description[:50]}")
     
     # Guardar resultados de búsqueda semántica para mostrar
     semantic_results = []

@@ -1,828 +1,265 @@
-# INFINITO V5.2 - IIT-Enhanced Transformer 🧠
+# 🧠 INFINITO - Cerebro Motor para LLMs
+
+> **De buscar consciencia artificial a crear un motor cognitivo práctico**
 
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-red.svg)](https://pytorch.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Status](https://img.shields.io/badge/Status-Production%20Ready-brightgreen.svg)]()
-[![Super Golden Seed](https://img.shields.io/badge/Super%20Golden%20Seed-54.35%25%20Improvement-gold.svg)]()
-[![Reproducibility](https://img.shields.io/badge/Reproducibility-100%25-brightgreen.svg)]()
 
-## 🚀 Overview
+## 🎯 ¿Qué es INFINITO?
 
-INFINITO V5.2 is a state-of-the-art Transformer model enhanced with **Integrated Information Theory (IIT)** consciousness features. This implementation demonstrates **exceptional performance improvements** through consciousness-inspired mechanisms and optimized initialization (Super Golden Seed).
+INFINITO es un **cerebro ejecutivo** que potencia a los LLMs (GPT, Claude, etc.) con capacidades que no tienen de forma nativa:
 
-**Key Achievement:** We discovered a "Super Golden Seed" initialization that provides a **54.35% improvement** over baseline models, with **100% reproducibility**.
-
----
-
-## 🏆 Super Golden Seed: 54.35% Improvement
-
-### The Discovery
-
-Through systematic application of the **Lottery Ticket Hypothesis**, we discovered an exceptional combination of model initialization and data sequence that consistently delivers **54.35% improvement** over baseline:
-
-| Metric | IIT Model | Baseline Model | Improvement |
-|--------|-----------|----------------|-------------|
-| **Final Loss** | 0.23646 | 0.51803 | **54.35%** |
-| **Reproducibility** | 100% | 100% | ✅ |
-| **Training Time** | ~2 min | ~2 min | Same |
-
-### The Secret Formula
-
-The Super Golden Seed requires a specific combination:
-
-| Component | Configuration | Purpose |
-|-----------|---------------|---------|
-| **IIT Model Weights** | Load from `golden_seed2_init.pt` | Optimal starting point |
-| **Baseline Model Seed** | `seed=42` | Fair comparison baseline |
-| **Data Generation Seed** | `seed=42` | Consistent training data |
-| **Training Epochs** | 3000 | Full convergence |
-
----
-
-## 🔬 How to Reproduce the 54.35% Result (Step-by-Step)
-
-### Prerequisites
-
-```bash
-# Clone the repository
-git clone https://github.com/webtilians/principiodelTodo.git
-cd principiodelTodo
-
-# Create virtual environment (recommended)
-python -m venv .venv
-.venv\Scripts\activate  # Windows
-# source .venv/bin/activate  # Linux/Mac
-
-# Install dependencies
-pip install torch numpy tqdm matplotlib
-```
-
-### Method 1: Use the Reproduction Script (Easiest) 🥇
-
-```bash
-# Run the reproduction script
-python reproduce_super_golden.py
-```
-
-**Expected Output:**
-```
-======================================================================      
-🏆 REPRODUCCIÓN SUPER GOLDEN SEED
-   Método: Cargar Golden Seed 2 + Data Seed 42
-   Device: cuda
-======================================================================      
-
-[1/4] Creando modelo IIT (cargando Golden Seed 2)...
-   ✅ Cargados pesos de Golden Seed 2
-   Memory Gate inicial: -5.0000
-
-[2/4] Creando modelo Baseline (seed=42)...
-   Memory Gate inicial: -5.0000
-
-[3/4] Configurando entrenamiento...
-
-[4/4] Entrenando 3000 épocas con data_seed=42...
-   Época 500: IIT=1.0517, Base=1.0522, Mejora=+0.0%, Gate=0.68%
-   Época 1000: IIT=1.0337, Base=1.0342, Mejora=+0.1%, Gate=0.69%
-   Época 1500: IIT=1.0312, Base=1.0311, Mejora=-0.0%, Gate=0.69%
-   Época 2000: IIT=1.0316, Base=1.0336, Mejora=+0.2%, Gate=0.70%
-   Época 2500: IIT=0.8817, Base=1.0221, Mejora=+13.7%, Gate=0.71%
-   Época 3000: IIT=0.3459, Base=0.6559, Mejora=+47.3%, Gate=0.72%
-
-======================================================================      
-📊 RESULTADOS FINALES
-======================================================================      
-   IIT Loss: 0.23646
-   Baseline Loss: 0.51803
-   MEJORA: 54.35%
-   Memory Gate: -4.9256 (0.72%)
-
-   🎯 Objetivo: 54.35%
-   ✅ ¡ÉXITO! Reproducido >= 50%
-
-⏱️ Tiempo: 0:01:43
-======================================================================
-```
-
-### Method 2: Manual Implementation (For Understanding)
-
-```python
-import torch
-import torch.nn as nn
-import torch.optim as optim
-import random
-import numpy as np
-import sys
-import os
-
-sys.path.insert(0, 'src')
-from infinito_v5_2_refactored import InfinitoV52Refactored
-
-# ============================================================================
-# STEP 1: Define the seed control function
-# ============================================================================
-def set_all_seeds(seed):
-    """Fix ALL seeds for total reproducibility."""
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed(seed)
-        torch.cuda.manual_seed_all(seed)
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
-
-# ============================================================================
-# STEP 2: Define the data generation (Dyck sequences)
-# ============================================================================
-vocab = {'PAD': 0, '(': 1, ')': 2, '[': 3, ']': 4, '{': 5, '}': 6, 
-         '<': 7, '>': 8, 'A': 9, 'B': 10, 'C': 11, 'EOS': 12}
-
-def generate_dyck_sample(max_depth=12, noise_len=6):
-    pairs = [('(', ')'), ('[', ']'), ('{', '}'), ('<', '>')]
-    depth = random.randint(4, max_depth)
-    stack = []
-    sequence = []
-    for _ in range(depth):
-        pair = random.choice(pairs)
-        sequence.append(pair[0])
-        stack.append(pair[1])
-    noise = [random.choice(['A', 'B', 'C']) for _ in range(noise_len)]
-    input_str = sequence + noise
-    target_str = list(reversed(stack))
-    return input_str, target_str
-
-def get_batch(batch_size=32):
-    inputs, targets = [], []
-    for _ in range(batch_size):
-        inp, tar = generate_dyck_sample()
-        inp_ids = [vocab[c] for c in inp]
-        tar_ids = [vocab[c] for c in tar] + [vocab['EOS']]
-        inputs.append(torch.tensor(inp_ids))
-        targets.append(torch.tensor(tar_ids))
-    inp_tens = torch.nn.utils.rnn.pad_sequence(inputs, batch_first=True, padding_value=0)
-    tar_tens = torch.nn.utils.rnn.pad_sequence(targets, batch_first=True, padding_value=0)
-    return inp_tens, tar_tens
-
-# ============================================================================
-# STEP 3: Configuration
-# ============================================================================
-DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
-DATA_SEED = 42  # Critical: This seed for data generation
-CONFIG = {
-    'vocab_size': 13,
-    'hidden_dim': 64,
-    'num_layers': 2,
-    'num_heads': 4,
-    'use_improved_memory': True,
-    'use_improved_iit': True,
-    'use_learnable_phi': True,
-    'use_stochastic_exploration': True,
-    'lambda_phi': 0.0
-}
-
-# ============================================================================
-# STEP 4: Create IIT model and LOAD Golden Seed 2 weights
-# ============================================================================
-model_iit = InfinitoV52Refactored(
-    vocab_size=CONFIG['vocab_size'],
-    hidden_dim=CONFIG['hidden_dim'],
-    num_layers=CONFIG['num_layers'],
-    num_heads=CONFIG['num_heads'],
-    use_improved_memory=CONFIG['use_improved_memory'],
-    use_improved_iit=CONFIG['use_improved_iit'],
-    use_learnable_phi=CONFIG['use_learnable_phi'],
-    use_stochastic_exploration=CONFIG['use_stochastic_exploration'],
-    lambda_phi=CONFIG['lambda_phi']
-).to(DEVICE)
-
-# 🏆 CRITICAL: Load the Golden Seed 2 weights
-golden_checkpoint = torch.load('models/golden_seed2_init.pt', weights_only=False)
-model_iit.load_state_dict(golden_checkpoint['model_state_dict'])
-print(f"✅ IIT Model: Loaded Golden Seed 2 weights")
-
-# ============================================================================
-# STEP 5: Create Baseline model with seed=42
-# ============================================================================
-set_all_seeds(DATA_SEED)  # Use 42 for baseline initialization
-
-model_base = InfinitoV52Refactored(
-    vocab_size=CONFIG['vocab_size'],
-    hidden_dim=CONFIG['hidden_dim'],
-    num_layers=CONFIG['num_layers'],
-    num_heads=CONFIG['num_heads'],
-    use_improved_memory=False,  # NO IIT features
-    use_improved_iit=False,
-    use_learnable_phi=False,
-    use_stochastic_exploration=False,
-    seed=DATA_SEED
-).to(DEVICE)
-print(f"✅ Baseline Model: Initialized with seed={DATA_SEED}")
-
-# ============================================================================
-# STEP 6: Setup training
-# ============================================================================
-opt_iit = optim.AdamW(model_iit.parameters(), lr=0.0005)
-opt_base = optim.AdamW(model_base.parameters(), lr=0.0005)
-criterion = nn.CrossEntropyLoss(ignore_index=0)
-
-# ============================================================================
-# STEP 7: Train for 3000 epochs (CRITICAL: set seed=42 before loop)
-# ============================================================================
-set_all_seeds(DATA_SEED)  # CRITICAL: Same data sequence for both models
-
-history_iit, history_base = [], []
-
-for epoch in range(1, 3001):
-    input_ids, target_ids = get_batch(32)
-    input_ids, target_ids = input_ids.to(DEVICE), target_ids.to(DEVICE)
-    
-    # Train Baseline FIRST
-    opt_base.zero_grad()
-    logits_base, _ = model_base(input_ids)
-    min_len = min(logits_base.shape[1], target_ids.shape[1])
-    loss_base = criterion(logits_base[:, :min_len, :].transpose(1, 2), target_ids[:, :min_len])
-    loss_base.backward()
-    opt_base.step()
-    
-    # Train IIT SECOND (same data)
-    opt_iit.zero_grad()
-    logits_iit, metrics = model_iit(input_ids, return_metrics=True)
-    loss_iit = criterion(logits_iit[:, :min_len, :].transpose(1, 2), target_ids[:, :min_len])
-    loss_iit.backward()
-    opt_iit.step()
-    
-    history_base.append(loss_base.item())
-    history_iit.append(loss_iit.item())
-    
-    if epoch % 500 == 0:
-        print(f"Epoch {epoch}: IIT={loss_iit.item():.4f}, Base={loss_base.item():.4f}")
-
-# ============================================================================
-# STEP 8: Calculate final improvement
-# ============================================================================
-final_iit = history_iit[-1]
-final_base = history_base[-1]
-improvement = ((final_base - final_iit) / final_base) * 100
-
-print(f"\n{'='*60}")
-print(f"FINAL RESULTS")
-print(f"{'='*60}")
-print(f"IIT Loss: {final_iit:.5f}")
-print(f"Baseline Loss: {final_base:.5f}")
-print(f"IMPROVEMENT: {improvement:.2f}%")  # Should be ~54.35%
-```
-
-### Verification: Run Multiple Times
-
-```bash
-# Run 5 times to verify 100% reproducibility
-for i in {1..5}; do
-    echo "=== Run $i ==="
-    python reproduce_super_golden.py | grep "MEJORA:"
-done
-```
-
-**Expected output (all identical):**
-```
-=== Run 1 ===
-   MEJORA: 54.35%
-=== Run 2 ===
-   MEJORA: 54.35%
-=== Run 3 ===
-   MEJORA: 54.35%
-=== Run 4 ===
-   MEJORA: 54.35%
-=== Run 5 ===
-   MEJORA: 54.35%
-```
-
----
-
-## 🧠 Understanding the IIT Features
-
-### Memory Gate Mechanism
-
-The **Memory Gate** is the core innovation that enables the 54% improvement:
-
-```
-Memory Gate = σ(-5.0) = 0.0067 = 0.67%
-```
-
-- **Initial value:** -5.0 (gate almost completely closed)
-- **After training:** -4.9256 (gate slightly open at 0.72%)
-- **Purpose:** Allows the model to learn **exactly** how much memory to inject
-
-### Why This Works
-
-1. **Baseline models** have no memory gating - they must use all memory information
-2. **IIT models** learn to filter memory, keeping only useful information
-3. **Golden Seed 2** provides an optimal starting configuration for learning this filtering
-4. **Seed 42 data sequence** creates a training curriculum that maximizes the IIT advantage
-
-### IIT Components
-
-| Component | Function | Impact |
-|-----------|----------|--------|
-| `IITGuidedMemory` | Adaptive memory with PHI-based prioritization | Core improvement source |
-| `ImprovedIITMetrics` | 4-component consciousness measurement | Guides memory selection |
-| `LearnablePhiWeights` | Dynamic PHI coefficient learning | Fine-tunes integration |
-| `StochasticExploration` | Enhanced exploration mechanisms | Prevents local minima |
-
----
-
-## 📊 Statistical Validation
-
-### 10-Seed Experiment Results
-
-We tested 10 different random seeds to understand the variance:
-
-| Seed | IIT Loss | Baseline Loss | Improvement |
-|------|----------|---------------|-------------|
-| 1 | 0.2671 | 0.2747 | +2.77% |
-| 2 | 0.2382 | 0.3430 | **+30.55%** |
-| 3 | 0.3146 | 0.3236 | +2.78% |
-| 4 | 0.2689 | 0.2764 | +2.71% |
-| 5 | 0.3081 | 0.4203 | +26.70% |
-| 6 | 0.4135 | 0.4013 | -3.04% |
-| 7 | 0.3979 | 0.2971 | **-33.93%** |
-| 8 | 0.2826 | 0.2993 | +5.58% |
-| 9 | 0.2704 | 0.2896 | +6.63% |
-| 10 | 0.3160 | 0.4295 | **+26.43%** |
-
-**Statistics:**
-- Mean improvement: **+6.72%**
-- Standard deviation: **±18.45%**
-- Best case: **+30.55%** (Seed 2)
-- Worst case: **-33.93%** (Seed 7)
-
-### Why Super Golden Seed is Special
-
-The **Super Golden Seed** (Golden Seed 2 + Data Seed 42) achieves **54.35%**, which is:
-- **8x better** than the mean random improvement
-- **1.8x better** than the best single-seed result
-- **100% reproducible** across all runs
-
----
-
-## 📁 Project Structure
-
-```
-principiodelTodo/
-├── src/                              # Core model implementation
-│   ├── infinito_v5_2_refactored.py  # Main model class (IIT-enhanced)
-│   ├── infinito_gemini.py           # Original experiment code
-│   ├── extract_golden_seed.py       # Extract winning initializations
-│   ├── extract_super_golden_seed.py # Extract Super Golden Seed
-│   ├── analyze_30percent_cause.py   # Deep analysis of performance factors
-│   └── statistical_experiment_10_seeds.py # Statistical validation
-├── models/                           # Model checkpoints
-│   ├── super_golden_seed_54percent.pt    # 🥇 Super Golden Seed checkpoint
-│   ├── golden_seed2_init.pt             # Golden Seed 2 weights
-│   └── checkpoints/                      # Training checkpoints
-├── backup_original/                  # Backup of original code
-│   ├── infinito_v5_2_refactored.py
-│   ├── infinito_gemini.py
-│   └── super_golden_seed_54percent.pt
-├── reproduce_super_golden.py         # 🎯 Reproduction script (run this!)
-├── requirements.txt                  # Dependencies
-└── README.md                         # This file
-```
-
----
-
-## 🧪 Running Tests
-
-### Quick Test (Fast)
-```bash
-# Run reproduction script (should take ~2 minutes on GPU)
-python reproduce_super_golden.py
-```
-
-### Full Statistical Test
-```bash
-# Run 10-seed statistical experiment (~20 minutes)
-python src/statistical_experiment_10_seeds.py
-```
-
-### Deep Analysis
-```bash
-# Run comprehensive analysis (~10 minutes)
-python src/analyze_30percent_cause.py
-```
-
----
-
-## 🔬 For Researchers
-
-### Reproducing Our Results
-
-1. **Clone the repository** with all model checkpoints
-2. **Run `reproduce_super_golden.py`** to verify the 54.35% improvement
-3. **Check the models/ directory** for the Golden Seed weights
-
-### Key Files for Analysis
-
-| File | Purpose |
-|------|---------|
-| `models/golden_seed2_init.pt` | The optimal model initialization weights |
-| `models/super_golden_seed_54percent.pt` | Complete checkpoint with configuration |
-| `models/deep_analysis_*.json` | Detailed experiment results |
-
-### Extending This Work
-
-- **New Seeds:** Try different combinations of model seed + data seed
-- **New Tasks:** Apply the Super Golden Seed to different tasks
-- **New Architectures:** Test if the Golden Seed transfers to other models
-
----
-
-## ⚙️ Configuration Reference
-
-### Model Configuration
-```python
-CONFIG = {
-    'vocab_size': 13,       # Dyck vocabulary size
-    'hidden_dim': 64,       # Model dimension
-    'num_layers': 2,        # Transformer layers
-    'num_heads': 4,         # Attention heads
-    'use_improved_memory': True,      # Enable IIT memory
-    'use_improved_iit': True,         # Enable 4-component IIT
-    'use_learnable_phi': True,        # Enable learnable PHI
-    'use_stochastic_exploration': True,  # Enable exploration
-    'lambda_phi': 0.0       # PHI loss weight (0 = no explicit PHI loss)
-}
-```
-
-### Training Configuration
-```python
-EPOCHS = 3000           # Number of training epochs
-BATCH_SIZE = 32         # Batch size
-LEARNING_RATE = 0.0005  # AdamW learning rate
-DATA_SEED = 42          # Seed for data generation
-```
-
----
-
-## 🤖 INFINITO JARVIS - Chat con Memoria IIT Completa (NUEVO)
-
-### Descripción
-
-**Infinito Jarvis Completo** es un sistema de chat interactivo que utiliza TODA la arquitectura IIT para decidir qué información es importante guardar en memoria permanente. Integra OpenAI GPT para respuestas inteligentes con memoria de contexto.
-
-### Características Principales
-
-| Característica | Descripción |
-|----------------|-------------|
-| **IITGuidedMemory** | Memoria con priorización por PHI |
-| **ImprovedIITMetrics** | 4 componentes de integración |
-| **LearnablePhiWeights** | Pesos aprendibles para métricas |
-| **Dynamic Gate** | Detecta importancia de información |
-| **OpenAI Integration** | Respuestas con GPT-3.5-turbo |
-| **Memoria JSON** | Persistencia de recuerdos |
-
-### Cómo Funciona
-
-```
-Usuario: "Me llamo Enrique"
-         ↓
-   ┌─────────────────────────────────────────────┐
-   │ 🧠 ANÁLISIS IIT COMPLETO                    │
-   ├─────────────────────────────────────────────┤
-   │ Importance: [████████░░░░░░░░░░░░]  45.2% 🟢│
-   │ Combined:   [██████████████░░░░░░]  72.4%   │
-   │ PHI:        [████████████░░░░░░░░]  0.612   │
-   │ Mem Gate:   [██░░░░░░░░░░░░░░░░░░]   8.3%   │
-   ├─────────────────────────────────────────────┤
-   │ 💾 GUARDADO: 👤 identidad                   │
-   └─────────────────────────────────────────────┘
-         ↓
-   GPT responde con contexto de memoria
-```
-
-### Uso Rápido
-
-```bash
-# Ejecutar el sistema Jarvis completo
-python infinito_jarvis_completo.py
-```
-
-### Comandos Disponibles
-
-| Comando | Acción |
-|---------|--------|
-| `ver memoria` | Muestra todos los recuerdos guardados |
-| `ver iit` | Muestra estado de la arquitectura IIT |
-| `borrar` | Borra la memoria |
-| `salir` | Termina la sesión |
-
-### Categorías de Memoria
-
-El sistema detecta automáticamente:
-- 👤 **Identidad**: "Me llamo...", "Mi nombre es..."
-- 🔐 **Credenciales**: Contraseñas, claves, PINs
-- 📞 **Contacto**: Teléfonos, emails, direcciones
-- 👨‍👩‍👧 **Familia**: Referencias a familiares
-- 📌 **Recordatorios**: "Recuerda que...", citas
-- ❤️ **Preferencias**: "Me gusta...", favoritos
-
-### Archivos del Sistema
-
-```
-infinito_jarvis_completo.py  # Sistema completo con IIT
-infinito_jarvis_openai.py    # Versión simplificada con OpenAI
-infinito_memory_keeper.py    # Sistema básico de memoria
-memoria_infinito_completo.json  # Base de datos de memorias
-```
-
-### Configuración OpenAI
-
-Para usar respuestas reales con GPT:
-
-```python
-# En infinito_jarvis_completo.py
-USE_OPENAI = True
-API_KEY = "sk-proj-tu-api-key-aqui"
-```
-
----
-
-## 📚 Citation
-
-If you use this code or the Super Golden Seed in your research, please cite:
-
-```bibtex
-@software{infinito_v52_super_golden_seed,
-  title={INFINITO V5.2: IIT-Enhanced Transformer with Super Golden Seed},
-  author={webtilians},
-  year={2025},
-  url={https://github.com/webtilians/principiodelTodo},
-  note={54.35\% performance improvement through Lottery Ticket Hypothesis application, 100\% reproducible}
-}
-```
-
-### References
-- Frankle, J., & Carlin, M. (2019). The Lottery Ticket Hypothesis. ICLR.
-- Tononi, G., et al. (2016). Integrated Information Theory. Nature Reviews Neuroscience.
-
----
-
-## 🤖 INFINITO JARVIS - Asistente con Memoria Persistente
-
-### ¿Qué es Jarvis?
-
-Jarvis es un **asistente de IA con memoria a largo plazo** que:
-- 🧠 **Recuerda** información importante que le dices
-- 🔍 **Busca semánticamente** en sus recuerdos para responder
-- 🚪 **Filtra automáticamente** qué guardar (Gate IIT al 95% accuracy)
-- 💬 **Responde inteligentemente** usando GPT + contexto de memoria
-
-### Arquitectura del Sistema
+- **🧠 Memoria Selectiva**: No guarda todo, solo lo importante
+- **🎯 Gestión de Objetivos**: Recordatorios, seguimiento, tareas proactivas
+- **🔍 Búsqueda Semántica**: Encuentra información relevante por significado
+- **⚡ Gate Neuronal**: Red neuronal que decide qué merece atención
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    USUARIO                                   │
-│                      │                                       │
-│                      ▼                                       │
-│  ┌─────────────────────────────────────────────────────┐    │
-│  │              INFINITO GATE (v3)                      │    │
-│  │         "¿Es importante guardar esto?"               │    │
-│  │    Entrenado con 10,000+ ejemplos híbridos          │    │
-│  │              95% accuracy                            │    │
-│  └─────────────────────────────────────────────────────┘    │
-│           │                              │                   │
-│     Gate > 50%                     Gate < 50%               │
-│     GUARDAR                        IGNORAR                  │
-│           │                              │                   │
-│           ▼                              │                   │
-│  ┌─────────────────────┐                 │                   │
-│  │   VECTOR ENGINE     │                 │                   │
-│  │  (OpenAI Embeddings)│                 │                   │
-│  │  Búsqueda Semántica │                 │                   │
-│  └─────────────────────┘                 │                   │
-│           │                              │                   │
-│           ▼                              ▼                   │
-│  ┌─────────────────────────────────────────────────────┐    │
-│  │                   GPT-3.5/4                          │    │
-│  │    Responde usando memoria + reglas estrictas        │    │
-│  │    (No mezcla recuerdos, no inventa información)     │    │
-│  └─────────────────────────────────────────────────────┘    │
+│                     INFINITO BRAIN                          │
+│                                                             │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
+│  │    GATE      │  │   MEMORIA    │  │    GOALS     │      │
+│  │  (Filtro)    │  │  (Vectorial) │  │ (Objetivos)  │      │
+│  │              │  │              │  │              │      │
+│  │ "¿Importa?"  │  │ "¿Qué sé?"   │  │ "¿Qué quiero?"│     │
+│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘      │
+│         │                 │                 │               │
+│         └────────────┬────┴────────┬────────┘               │
+│                      ▼             ▼                        │
+│              ┌───────────────────────────┐                  │
+│              │      DECISION ENGINE      │                  │
+│              │  Contexto + Memoria +     │                  │
+│              │  Objetivos → Acción       │                  │
+│              └─────────────┬─────────────┘                  │
+│                            ▼                                │
+│                     ┌─────────────┐                         │
+│                     │     LLM     │                         │
+│                     │   (GPT...)  │                         │
+│                     └─────────────┘                         │
 └─────────────────────────────────────────────────────────────┘
 ```
 
+## 🌟 La Visión
+
+Los LLMs actuales (GPT, Claude, Llama) son increíbles generando lenguaje, pero:
+
+❌ **No recuerdan** - Cada conversación empieza de cero  
+❌ **No priorizan** - No saben qué es importante para ti  
+❌ **No anticipan** - Son reactivos, no proactivos  
+❌ **No tienen objetivos** - No pueden perseguir metas a largo plazo  
+
+**INFINITO** no intenta reemplazar al LLM, sino ser su **cerebro motor**:
+
+✅ **Memoria selectiva** - Recuerda lo que importa  
+✅ **Gate neuronal** - Filtra el ruido  
+✅ **GoalManager** - Mantiene objetivos activos  
+✅ **Proactividad** - Anticipa necesidades  
+
 ---
 
-## 🏠 Cómo Montar tu Propio Jarvis con Memoria
+## 📖 Historia del Proyecto
 
-### Requisitos Previos
+### Fase 1: Búsqueda de Consciencia (2024-2025)
+Comenzamos intentando implementar la **Teoría de Información Integrada (IIT)** de Giulio Tononi para crear "consciencia artificial". Aprendimos que:
 
-- Python 3.8+
-- Una API Key de OpenAI (para embeddings y respuestas)
-- GPU opcional (CUDA) para entrenamiento más rápido
+- ❌ Maximizar PHI directamente causa **colapso** (el modelo repite tokens)
+- ❌ PHI alto ≠ inteligencia o consciencia
+- ✅ Las métricas IIT son útiles como **indicadores de coherencia**, no como objetivo
 
-### Paso 1: Clonar el Repositorio
+### Fase 2: Cerebro Motor (Actual)
+Pivotamos hacia un enfoque **pragmático y útil**:
+
+- ✅ El "cerebro" no reemplaza al LLM, lo **potencia**
+- ✅ Memoria selectiva basada en **importancia real**
+- ✅ Objetivos y recordatorios **proactivos**
+- ✅ Métricas renombradas: de "consciousness" a "coherence/integration"
+
+---
+
+## 🚀 Instalación
 
 ```bash
+# Clonar
 git clone https://github.com/webtilians/principiodelTodo.git
 cd principiodelTodo
-```
 
-### Paso 2: Crear Entorno Virtual
-
-```bash
-# Windows
-python -m venv .venv
-.venv\Scripts\activate
-
-# Linux/Mac
-python -m venv .venv
-source .venv/bin/activate
-```
-
-### Paso 3: Instalar Dependencias
-
-```bash
+# Instalar dependencias
 pip install -r requirements.txt
-```
 
-### Paso 4: Configurar API Key de OpenAI
+# Configurar OpenAI (crear archivo .env)
+echo "OPENAI_API_KEY=tu-api-key" > .env
 
-Crea un archivo `.env` en la raíz del proyecto:
-
-```bash
-# .env
-OPENAI_API_KEY=sk-tu-api-key-aqui
-```
-
-### Paso 5: Entrenar tu Propio Gate (Opcional)
-
-Si quieres entrenar tu propio modelo de gate con datos personalizados:
-
-```bash
-# Esto genera 10,000+ ejemplos y entrena el gate
-python train_gate_v3_hybrid.py
-```
-
-El script:
-1. Genera 5,000 frases importantes (nombres, fechas, preferencias...)
-2. Genera 5,000 frases de ruido (saludos, comentarios triviales...)
-3. Usa GPT para generar 200+ ejemplos adicionales más naturales
-4. Entrena el modelo por 2,000 épocas
-5. Guarda en `models/dynamic_chat_detector_v3.pt`
-
-**Accuracy esperado: ~95%**
-
-### Paso 6: Ejecutar la Interfaz Web
-
-```bash
+# Ejecutar
 streamlit run app.py
 ```
 
-Abre `http://localhost:8501` en tu navegador.
-
-### Paso 7: Usar el CLI (Alternativa)
-
-```bash
-python infinito_jarvis_vector.py
-```
-
 ---
 
-## 📝 Cómo Funciona la Memoria
+## 💡 Características Principales
 
-### El Gate Decide Qué Guardar
+### 🧠 Gate Neuronal (Filtro de Importancia)
+Red neuronal entrenada para decidir qué información vale la pena guardar:
 
-| Tipo de Frase | Gate | Acción |
-|---------------|------|--------|
-| "Me llamo Enrique" | 100% | ✅ GUARDAR |
-| "Mi contraseña es abc123" | 100% | ✅ GUARDAR |
-| "Tengo 35 años" | 100% | ✅ GUARDAR |
-| "Hola qué tal" | 0% | ❌ ignorar |
-| "ok gracias" | 0% | ❌ ignorar |
-| "El cielo es azul" | 0% | ❌ ignorar |
+| Input | Gate Score | Decisión |
+|-------|------------|----------|
+| "Me llamo Enrique" | 85% | ✅ Guardar (identidad) |
+| "Hola qué tal" | 15% | ❌ Ignorar (trivial) |
+| "Mañana tengo reunión a las 10" | 78% | ✅ Guardar + Crear recordatorio |
 
-### Búsqueda Semántica (RAG)
+### 🔍 Memoria Vectorial (RAG)
+Búsqueda semántica usando embeddings de OpenAI:
 
-Cuando preguntas algo, el sistema:
-1. Convierte tu pregunta en un **embedding** (vector de 1536 dimensiones)
-2. Busca los recuerdos más **similares semánticamente**
-3. Envía los recuerdos relevantes a GPT como contexto
-4. GPT responde usando **solo la información guardada**
-
-### Reglas Anti-Mezcla
-
-El sistema está configurado para **NO cometer estos errores**:
-
-❌ **Error 1: Mezclar personas**
-```
-Recuerdo 1: "Mi primo Andrés monta en bici"
-Recuerdo 2: "El viernes voy en bici con mi padre"
-Pregunta: "¿Cuándo va Andrés?"
-Respuesta incorrecta: "El viernes" (mezcló fechas)
-```
-
-❌ **Error 2: Inferir de preferencias**
-```
-Recuerdo: "A mi padre le gusta el café por las mañanas"
-Pregunta: "¿El domingo mi padre va a tomar café?"
-Respuesta incorrecta: "Sí" (inventó un evento)
-```
-
-✅ **Respuesta correcta**: "No tengo esa información guardada"
-
----
-
-## 🛠️ Personalización
-
-### Cambiar el Umbral del Gate
-
-En `app.py`, línea ~719:
 ```python
-should_save = (combined > 0.3 or metrics['category_bonus'] > 0.3) and (not is_question)
+# No busca palabras exactas, busca SIGNIFICADO
+query = "¿Cuándo es mi cita médica?"
+# Encuentra: "El viernes voy al doctor a las 16:00"
 ```
 
-Aumenta `0.3` a `0.5` para guardar menos cosas.
+### 🎯 GoalManager (Objetivos Persistentes)
+Sistema proactivo de gestión de objetivos:
 
-### Añadir Nuevas Categorías
-
-En `app.py`, función `detect_category()`:
 ```python
-def detect_category(text):
-    t = text.lower()
-    if 'trabajo' in t or 'empleo' in t:
-        return "💼 Trabajo"
-    # ... añade más categorías
+# El usuario dice:
+"Mañana tengo reunión importante a las 10"
+
+# INFINITO automáticamente:
+# 1. Guarda en memoria
+# 2. Crea objetivo: "Recordar reunión mañana"
+# 3. Al día siguiente, saluda: "¡Buenos días! Recuerda tu reunión a las 10"
 ```
 
-### Cambiar el Modelo de OpenAI
+**Tipos de objetivos:**
+| Tipo | Ejemplo | Trigger |
+|------|---------|---------|
+| `REMINDER` | "Reunión mañana" | Fecha/hora |
+| `FOLLOW_UP` | "¿Cómo fue la reunión?" | Después del evento |
+| `LEARNING` | "Aprender gustos del usuario" | Cada interacción |
+| `TASK` | "Tarea pendiente" | Manual |
 
-En `app.py`:
-```python
-# Cambiar de gpt-3.5-turbo a gpt-4
-response = client.chat.completions.create(
-    model="gpt-4",  # o "gpt-4-turbo"
-    ...
-)
+### 📊 Métricas de Coherencia
+Las métricas IIT originales, renombradas a términos más precisos:
+
+| Antes | Ahora | Significado |
+|-------|-------|-------------|
+| `consciousness_level` | `coherence_score` | Qué tan integrada está la información |
+| `phi` | `integration_index` | Conexión entre conceptos |
+| `complexity` | `information_richness` | Diversidad de la información |
+
+---
+
+## 🏗️ Arquitectura del Proyecto
+
+```
+principiodelTodo/
+├── app.py                      # 🖥️ Interfaz Streamlit principal
+├── .env                        # 🔑 API key de OpenAI
+├── memoria_permanente.json     # 💾 Memorias con embeddings
+├── goals.json                  # 🎯 Objetivos persistentes
+│
+├── src/
+│   ├── goal_manager.py         # 🎯 Sistema de objetivos
+│   ├── vector_engine.py        # 🔍 Búsqueda semántica
+│   └── core/
+│       ├── iit_metrics_v2.py   # 📊 Métricas de coherencia
+│       └── iit_guided_memory.py # 💾 Memoria con priorización
+│
+├── infinito_jarvis_vector.py   # 🤖 RAG + búsqueda vectorial
+├── infinito_memory_keeper.py   # 🧠 Gate neuronal (modelo)
+│
+├── models/
+│   └── dynamic_chat_detector_v3.pt  # 🎓 Gate entrenado (95% acc)
+│
+└── experiments/                # 🔬 Scripts de investigación IIT
+    └── (legacy - mantiene la investigación original)
 ```
 
 ---
 
-## 📊 Archivos del Sistema de Memoria
+## 📈 Roadmap
 
-| Archivo | Descripción |
-|---------|-------------|
-| `app.py` | Interfaz web Streamlit |
-| `infinito_jarvis_vector.py` | CLI con búsqueda semántica |
-| `train_gate_v3_hybrid.py` | Entrenamiento del gate |
-| `src/vector_engine.py` | Motor de búsqueda vectorial |
-| `src/infinito_v5_2_refactored.py` | Modelo base IIT |
-| `models/dynamic_chat_detector_v3.pt` | Gate entrenado (95%) |
-| `memoria_permanente.json` | Base de datos de recuerdos |
+### ✅ Completado
+- [x] Gate neuronal funcional (95% accuracy)
+- [x] Memoria vectorial con RAG
+- [x] Extracción automática de intereses
+- [x] Evitar duplicados en memoria
+- [x] GoalManager básico
 
----
+### 🔄 En Progreso
+- [ ] Integración completa de GoalManager en UI
+- [ ] Mensajes proactivos al iniciar sesión
+- [ ] Seguimiento automático de eventos pasados
 
-## 🐛 Solución de Problemas
-
-### Error: "No se encontró el modelo"
-```bash
-# Asegúrate de tener el modelo entrenado
-python train_gate_v3_hybrid.py
-```
-
-### Error: "API Key inválida"
-```bash
-# Verifica tu archivo .env
-cat .env
-# Debe contener: OPENAI_API_KEY=sk-...
-```
-
-### El Gate guarda todo / no guarda nada
-```bash
-# Re-entrena con más datos
-python train_gate_v3_hybrid.py
-```
+### 📋 Planificado
+- [ ] Múltiples perfiles de usuario
+- [ ] Exportar/importar memoria
+- [ ] API REST para integración externa
+- [ ] Conexión con calendarios (Google Calendar)
+- [ ] Voice interface
 
 ---
 
-## 📄 License
+## 🔬 Lecciones Aprendidas
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+### Sobre IIT y Consciencia
+1. **PHI no es un objetivo válido para optimización** - El modelo "hace trampa" repitiendo tokens
+2. **Las métricas de integración son útiles como diagnóstico**, no como loss function
+3. **La consciencia artificial sigue siendo un problema abierto** - Mejor enfocarse en utilidad práctica
 
----
-
-## 🤝 Contributing
-
-We welcome contributions! Areas of interest:
-- 🔬 Finding additional Super Golden Seeds for different tasks
-- 📊 Statistical analysis of lottery ticket phenomena
-- 🧠 New IIT-inspired mechanisms
-- 🛠️ Performance optimizations
-- 🤖 Mejoras al sistema Jarvis de memoria
-- 🌍 Soporte para más idiomas
+### Sobre Diseño de Sistemas Cognitivos
+1. **Separar responsabilidades**: Gate (filtrar) ≠ Memoria (guardar) ≠ LLM (generar)
+2. **El LLM es el motor de lenguaje**, el cerebro es la capa de gestión
+3. **Proactividad > Reactividad**: Un asistente útil anticipa necesidades
 
 ---
 
-**Made with ❤️ for advancing consciousness-aware AI**
+## 🧪 Para Investigadores
 
-*Last updated: November 26, 2025*
+Si te interesa la **investigación original sobre IIT**, los archivos legacy están en:
+
+- `src/core/iit_metrics_v2.py` - Cálculo de PHI
+- `src/core/phi_learnable.py` - PHI como parámetro entrenable
+- `experiments/` - Scripts de experimentación
+- `README_GITHUB.md` - Documentación técnica original
+
+**Nota**: Esta investigación demostró que maximizar PHI directamente no es viable para consciousness engineering, pero las métricas son útiles para análisis.
+
+---
+
+## 🤝 Contribuir
+
+¿Ideas? ¿Mejoras? ¡Bienvenidas!
+
+1. Fork el proyecto
+2. Crea una rama (`git checkout -b feature/nueva-idea`)
+3. Commit (`git commit -m 'feat: Nueva característica'`)
+4. Push (`git push origin feature/nueva-idea`)
+5. Abre un Pull Request
+
+---
+
+## 📄 Licencia
+
+MIT License - Ver [LICENSE](LICENSE)
+
+---
+
+## 🙏 Créditos
+
+- **Giulio Tononi** - Por la Teoría de Información Integrada (inspiración inicial)
+- **OpenAI** - GPT y embeddings
+- **Hugging Face** - Transformers
+- **Streamlit** - UI
+
+---
+
+<p align="center">
+  <b>INFINITO</b><br>
+  <i>No intentamos crear una mente. Creamos un cerebro que hace útil a las mentes artificiales.</i>
+</p>
+
+---
+
+**Última actualización**: Noviembre 2025  
+**Versión**: 2.0 (Cerebro Motor)
