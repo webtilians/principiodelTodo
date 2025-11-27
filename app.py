@@ -1161,8 +1161,10 @@ with analysis_col:
                     st.success(f"💾 Guardado con Vector: {analysis['category']}")
                 elif analysis['is_question']:
                     st.warning("❓ Pregunta - Búsqueda Semántica")
+                elif analysis.get('is_trivial'):
+                    st.info("🔇 No guardado - Frase trivial (saludo/cortesía)")
                 else:
-                    st.info("🔇 No guardado - Información trivial")
+                    st.info("🔇 No guardado - Información de baja relevancia")
                 
                 # Mostrar resultados de búsqueda semántica si existen
                 if 'semantic_results' in analysis and analysis['semantic_results']:
@@ -1211,10 +1213,21 @@ if prompt := st.chat_input("Escribe algo... (ej: 'Me llamo Enrique' o '¿Cómo m
         
         is_interest_question = has_interest and not is_trivial
     
+    # 🆕 Filtro de frases triviales que NUNCA deben guardarse
+    trivial_phrases = [
+        'hola', 'hello', 'hi', 'hey', 'buenos días', 'buenas tardes', 'buenas noches',
+        'ok', 'vale', 'bien', 'sí', 'no', 'gracias', 'de nada', 'adios', 'adiós',
+        'chao', 'bye', 'hasta luego', 'claro', 'perfecto', 'genial', 'entendido',
+        'ya', 'ajá', 'mmm', 'ah', 'oh', 'aha', 'okey', 'okay', 'bueno', 'dale',
+        'qué tal', 'que tal', 'cómo estás', 'como estas', 'qué hay', 'que hay'
+    ]
+    is_trivial_phrase = prompt.lower().strip().rstrip('?!.,') in trivial_phrases
+    
     # Decisión de guardar: 
+    # - NO guardar frases triviales
     # - Afirmaciones importantes (no preguntas)
     # - O preguntas que revelan interés temático
-    should_save = (combined > 0.3 or metrics['category_bonus'] > 0.3) and (not is_question or is_interest_question)
+    should_save = (not is_trivial_phrase) and (combined > 0.3 or metrics['category_bonus'] > 0.3) and (not is_question or is_interest_question)
     
     # Guardar en historial de análisis (para el panel permanente)
     analysis_entry = {
@@ -1229,6 +1242,7 @@ if prompt := st.chat_input("Escribe algo... (ej: 'Me llamo Enrique' o '¿Cómo m
         'category_bonus': metrics['category_bonus'],
         'is_question': is_question,
         'is_interest_question': is_interest_question,
+        'is_trivial': is_trivial_phrase,  # 🆕 Flag para debugging
         'saved': should_save
     }
     st.session_state.analysis_history.append(analysis_entry)
