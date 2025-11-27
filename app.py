@@ -37,6 +37,14 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 # Importar GoalManager
 from goal_manager import GoalManager, GoalType, GoalPriority
 
+# 📊 Importar Analytics Engine para logging de métricas
+try:
+    from analytics_engine import log_interaction, get_logger
+    ANALYTICS_ENABLED = True
+except ImportError:
+    ANALYTICS_ENABLED = False
+    print("⚠️ Analytics Engine no disponible")
+
 # Importar Neural Memory (opcional - si falla, usamos el sistema legacy)
 try:
     from neural_memory import NeuralMemoryManager
@@ -1166,6 +1174,31 @@ with st.sidebar:
                     st.success(f"✅ Loss: {result.get('avg_loss', 0):.4f}")
                 else:
                     st.warning(f"⚠️ {result.get('reason', 'Buffer muy pequeño')}")
+    
+    # --- SECCIÓN ANALYTICS ---
+    if ANALYTICS_ENABLED:
+        st.divider()
+        st.markdown("## 📊 Analytics")
+        
+        # Mostrar stats del log
+        metrics_file = "data/metrics_log.jsonl"
+        if os.path.exists(metrics_file):
+            with open(metrics_file, 'r') as f:
+                n_entries = sum(1 for _ in f)
+            st.metric("Interacciones logueadas", n_entries)
+            
+            if st.button("📈 Generar Reporte", use_container_width=True):
+                with st.spinner("Analizando datos..."):
+                    try:
+                        from analytics_engine import MetricsAnalyzer
+                        analyzer = MetricsAnalyzer()
+                        report = analyzer.generate_report()
+                        st.text_area("Reporte", report, height=400)
+                        st.success("✅ Gráficos guardados en data/analysis/")
+                    except Exception as e:
+                        st.error(f"Error: {e}")
+        else:
+            st.info("📝 Los datos se guardarán automáticamente al chatear")
 
 
 # --- ÁREA PRINCIPAL ---
@@ -1314,6 +1347,32 @@ if prompt := st.chat_input("Escribe algo... (ej: 'Me llamo Enrique' o '¿Cómo m
         'saved': should_save
     }
     st.session_state.analysis_history.append(analysis_entry)
+    
+    # 📊 Log para Analytics Engine
+    if ANALYTICS_ENABLED:
+        # Obtener triviality_score del Gate neuronal
+        triviality_score = 0.0
+        if triviality_gate is not None:
+            ids = [ord(c) % 256 for c in prompt.lower()[:64]]
+            if len(ids) < 64:
+                ids = ids + [0] * (64 - len(ids))
+            input_ids_triv = torch.tensor([ids]).to(triviality_device)
+            with torch.no_grad():
+                triviality_score = triviality_gate(input_ids_triv).item()
+        
+        log_interaction(
+            text=prompt,
+            phi=metrics['phi'],
+            coherence=metrics['coherence'],
+            complexity=metrics['complexity'],
+            importance=importance,
+            combined=combined,
+            category=metrics['category'],
+            category_bonus=metrics['category_bonus'],
+            triviality_score=triviality_score,
+            is_question=is_question,
+            saved=should_save
+        )
     
     # Guardar en memoria si es importante (con vector si hay OpenAI)
     if should_save:
