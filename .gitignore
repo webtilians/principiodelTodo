@@ -280,3 +280,5 @@ models/interrupted_states/*.pt
 !pyproject.toml
 !pytest.ini
 !.github/
+# Streamlit secrets
+.streamlit/secrets.toml
