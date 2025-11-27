@@ -224,6 +224,80 @@ class IITGuidedMemory(nn.Module):
         }
 
 
+# =============================================================================
+# GATE DE TRIVIALIDADES (Red Neuronal para filtrar saludos/cortesías)
+# =============================================================================
+
+class TrivialityGate(nn.Module):
+    """Gate neuronal que detecta frases triviales (saludos, cortesías, etc.)"""
+    
+    def __init__(self, vocab_size=256, hidden_dim=64):
+        super().__init__()
+        self.embedding = nn.Embedding(vocab_size, hidden_dim)
+        self.position_embedding = nn.Parameter(torch.randn(1, 128, hidden_dim) * 0.02)
+        
+        self.encoder = nn.TransformerEncoderLayer(
+            d_model=hidden_dim, nhead=4, dim_feedforward=hidden_dim*2,
+            dropout=0.1, batch_first=True
+        )
+        
+        self.importance_gate = nn.Sequential(
+            nn.Linear(hidden_dim, hidden_dim // 2),
+            nn.GELU(),
+            nn.Dropout(0.1),
+            nn.Linear(hidden_dim // 2, hidden_dim // 4),
+            nn.GELU(),
+            nn.Linear(hidden_dim // 4, 1),
+            nn.Sigmoid()
+        )
+    
+    def forward(self, input_ids):
+        x = self.embedding(input_ids)
+        seq_len = input_ids.size(1)
+        x = x + self.position_embedding[:, :seq_len, :]
+        x = self.encoder(x)
+        x = x.mean(dim=1)
+        importance = self.importance_gate(x)
+        return importance.squeeze(-1)
+
+
+@st.cache_resource
+def load_triviality_gate():
+    """Carga el Gate de trivialidades (cached)."""
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    gate = TrivialityGate().to(device)
+    
+    gate_path = 'models/triviality_gate.pt'
+    if os.path.exists(gate_path):
+        checkpoint = torch.load(gate_path, map_location=device, weights_only=False)
+        gate.load_state_dict(checkpoint['model_state_dict'])
+        st.sidebar.success(f"✅ TrivialityGate cargado (acc={checkpoint.get('accuracy', 0)*100:.0f}%)")
+    else:
+        st.sidebar.warning("⚠️ TrivialityGate no encontrado - usando heurísticas")
+        return None, device
+    
+    gate.eval()
+    return gate, device
+
+
+def is_trivial_neural(text, gate, device):
+    """Usa red neuronal para detectar si un texto es trivial."""
+    if gate is None:
+        return False  # Si no hay gate, no filtrar
+    
+    # Convertir texto a IDs
+    ids = [ord(c) % 256 for c in text.lower()[:64]]
+    if len(ids) < 64:
+        ids = ids + [0] * (64 - len(ids))
+    input_ids = torch.tensor([ids]).to(device)
+    
+    with torch.no_grad():
+        importance = gate(input_ids).item()
+    
+    # Si importance < 0.5, es trivial
+    return importance < 0.5
+
+
 class ImprovedIITMetrics(nn.Module):
     """Métricas IIT de 4 componentes (standalone para Streamlit)."""
     
@@ -1162,7 +1236,7 @@ with analysis_col:
                 elif analysis['is_question']:
                     st.warning("❓ Pregunta - Búsqueda Semántica")
                 elif analysis.get('is_trivial'):
-                    st.info("🔇 No guardado - Frase trivial (saludo/cortesía)")
+                    st.info("🧠 No guardado - Trivial (detectado por NN)")
                 else:
                     st.info("🔇 No guardado - Información de baja relevancia")
                 
@@ -1213,18 +1287,12 @@ if prompt := st.chat_input("Escribe algo... (ej: 'Me llamo Enrique' o '¿Cómo m
         
         is_interest_question = has_interest and not is_trivial
     
-    # 🆕 Filtro de frases triviales que NUNCA deben guardarse
-    trivial_phrases = [
-        'hola', 'hello', 'hi', 'hey', 'buenos días', 'buenas tardes', 'buenas noches',
-        'ok', 'vale', 'bien', 'sí', 'no', 'gracias', 'de nada', 'adios', 'adiós',
-        'chao', 'bye', 'hasta luego', 'claro', 'perfecto', 'genial', 'entendido',
-        'ya', 'ajá', 'mmm', 'ah', 'oh', 'aha', 'okey', 'okay', 'bueno', 'dale',
-        'qué tal', 'que tal', 'cómo estás', 'como estas', 'qué hay', 'que hay'
-    ]
-    is_trivial_phrase = prompt.lower().strip().rstrip('?!.,') in trivial_phrases
+    # 🧠 Usar red neuronal para detectar trivialidades (en lugar de diccionario)
+    triviality_gate, triviality_device = load_triviality_gate()
+    is_trivial_phrase = is_trivial_neural(prompt, triviality_gate, triviality_device)
     
     # Decisión de guardar: 
-    # - NO guardar frases triviales
+    # - NO guardar frases triviales (detectadas por red neuronal)
     # - Afirmaciones importantes (no preguntas)
     # - O preguntas que revelan interés temático
     should_save = (not is_trivial_phrase) and (combined > 0.3 or metrics['category_bonus'] > 0.3) and (not is_question or is_interest_question)
