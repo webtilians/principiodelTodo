@@ -1034,8 +1034,23 @@ if prompt := st.chat_input("Escribe algo... (ej: 'Me llamo Enrique' o '¿Cómo m
     # --- GENERAR RESPUESTA ---
     full_response = ""
     
-    # Usar OpenAI si está disponible
-    if st.session_state.get("openai_client"):
+    # 🆕 VERIFICACIÓN PRE-GPT: Si es pregunta y no hay memoria relevante, responder sin GPT
+    MIN_RELEVANCE_SCORE = 0.45  # Umbral mínimo de similitud semántica
+    skip_gpt = False
+    
+    if is_question and st.session_state.get("openai_client"):
+        # Verificar si hay resultados relevantes
+        if not semantic_results:
+            skip_gpt = True
+            full_response = "🤔 No tengo información guardada sobre eso. ¿Quieres contarme algo al respecto?"
+        else:
+            best_score = semantic_results[0][0] if semantic_results else 0
+            if best_score < MIN_RELEVANCE_SCORE:
+                skip_gpt = True
+                full_response = f"🤔 No encuentro información relevante sobre eso en mi memoria (mejor coincidencia: {best_score:.0%}). ¿Quieres que recuerde algo sobre este tema?"
+    
+    # Usar OpenAI si está disponible y no saltamos GPT
+    if st.session_state.get("openai_client") and not skip_gpt:
         # Reintentos para GPT
         for attempt in range(MAX_RETRIES):
             try:
