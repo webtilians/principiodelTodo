@@ -37,6 +37,14 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 # Importar GoalManager
 from goal_manager import GoalManager, GoalType, GoalPriority
 
+# Importar Neural Memory (opcional - si falla, usamos el sistema legacy)
+try:
+    from neural_memory import NeuralMemoryManager
+    NEURAL_MEMORY_AVAILABLE = True
+except ImportError as e:
+    print(f"⚠️ Neural Memory no disponible: {e}")
+    NEURAL_MEMORY_AVAILABLE = False
+
 # --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(
     page_title="Infinito Beta", 
@@ -923,6 +931,23 @@ if "openai_client" not in st.session_state:
 if "goal_manager" not in st.session_state:
     st.session_state["goal_manager"] = GoalManager()
 
+# Inicializar Neural Memory Manager (si está disponible)
+if "neural_memory" not in st.session_state:
+    if NEURAL_MEMORY_AVAILABLE:
+        try:
+            st.session_state["neural_memory"] = NeuralMemoryManager(
+                base_model_path="models/super_golden_seed_54percent.pt",
+                hidden_dim=64,
+                lora_rank=8,
+                auto_consolidate_every=50
+            )
+            print("✅ Neural Memory Manager inicializado")
+        except Exception as e:
+            print(f"⚠️ Error inicializando Neural Memory: {e}")
+            st.session_state["neural_memory"] = None
+    else:
+        st.session_state["neural_memory"] = None
+
 # Verificar objetivos pendientes al inicio de sesión
 if "goals_checked" not in st.session_state:
     st.session_state["goals_checked"] = True
@@ -1045,6 +1070,28 @@ with st.sidebar:
                     )
                     st.success("✅ Objetivo creado")
                     st.rerun()
+    
+    # --- SECCIÓN NEURAL MEMORY ---
+    neural_mem = st.session_state.get("neural_memory")
+    if neural_mem:
+        st.divider()
+        st.markdown("## 🧠 Neural Memory")
+        
+        stats = neural_mem.get_stats()
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric("Interacciones", stats.get("interactions", 0))
+        with col2:
+            st.metric("Buffer", stats.get("buffer_size", 0))
+        
+        # Botón para consolidar manualmente
+        if st.button("🌙 Consolidar Memoria", use_container_width=True, help="Entrenar adapters con replay buffer"):
+            with st.spinner("Consolidando..."):
+                result = neural_mem.consolidate(epochs=3, batch_size=16)
+                if result.get("status") != "skipped":
+                    st.success(f"✅ Loss: {result.get('avg_loss', 0):.4f}")
+                else:
+                    st.warning(f"⚠️ {result.get('reason', 'Buffer muy pequeño')}")
 
 
 # --- ÁREA PRINCIPAL ---
@@ -1202,6 +1249,23 @@ if prompt := st.chat_input("Escribe algo... (ej: 'Me llamo Enrique' o '¿Cómo m
                     hidden = layer(hidden)
                 # Guardar embedding con PHI como prioridad
                 model.memory.write(hidden.mean(dim=1), priority=metrics['phi'], text=prompt)
+        
+        # 🧠 Aprender con Neural Memory Manager (LoRA + Replay)
+        neural_mem = st.session_state.get("neural_memory")
+        if neural_mem:
+            # Obtener embedding del texto si hay OpenAI
+            embedding = None
+            if st.session_state.get("openai_client"):
+                embedding = get_embedding(text_to_save, st.session_state["openai_client"])
+            
+            # Aprender la interacción
+            neural_mem.learn(
+                text=text_to_save,
+                importance=combined,
+                embedding=embedding,
+                category=metrics['category'],
+                metrics=metrics
+            )
         
         # 🆕 Olvido selectivo si hay muchos recuerdos
         forgotten = forget_low_phi_memories(max_memories=100)
