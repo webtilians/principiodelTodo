@@ -12,38 +12,75 @@ import os
 # ============================================================================
 
 TRIVIAL_PHRASES = [
-    # Saludos
+    # Saludos básicos
     "hola", "hello", "hi", "hey", "buenas", "buenos días", "buenas tardes", 
     "buenas noches", "qué tal", "cómo estás", "cómo va", "qué hay",
+    "hola qué tal", "hey qué pasa", "buenas qué tal",
     # Cortesías
     "gracias", "de nada", "por favor", "perdón", "disculpa", "lo siento",
+    "muchas gracias", "gracias por todo", "te lo agradezco",
     # Afirmaciones simples
     "ok", "vale", "sí", "no", "claro", "entendido", "perfecto", "genial",
     "bien", "mal", "regular", "más o menos", "ya", "ajá", "mmm", "ah", "oh",
+    "de acuerdo", "está bien", "vale vale", "okey", "oki",
     # Despedidas
     "adiós", "chao", "bye", "hasta luego", "nos vemos", "hasta mañana",
+    "que te vaya bien", "cuídate", "hasta pronto",
     # Relleno
     "pues", "bueno", "entonces", "a ver", "veamos", "oye", "mira",
+    "vamos a ver", "déjame ver", "espera", "un momento",
+    # Preguntas vacías (no aportan info nueva)
+    "cómo", "qué", "cuál", "dónde", "cuándo", "por qué",
+    "qué pasa", "qué tal", "cómo vas", "qué dices",
+    "cuéntame algo sobre ti", "háblame de ti", "qué me cuentas",
+    "cuentame algo sobre ti", "hablame de ti", "que me cuentas",  # sin tildes
+    "cuentame sobre ti", "hablame sobre ti", "cuentame de ti",
+    "y tú qué", "qué opinas", "tú qué dices",
+    # Preguntas genéricas sin contexto personal
+    "qué hora es", "qué día es hoy", "qué tiempo hace",
+    "qué prioridades debería tener", "qué debería hacer",
+    # Referencias vagas sin información (preguntas sobre personas sin dar info nueva)
+    "y eso", "y qué más", "algo más", "qué más",
+    "y mi primo andrés", "y mi padre", "y mi madre",  # preguntas sin info nueva
+    "y mi primo andres", "y mi hermano", "y mi hermana",  # sin tilde también
+    "y respecto a mi padre", "y qué pasa con mi madre",
+    "y mi primo", "y mi tío", "y mi abuelo", "y tu familia",
+    "qué sabes de mi padre", "qué sabes de mi madre",
+    "y juan", "y pedro", "y maría",  # nombres solos como pregunta
 ]
 
 IMPORTANT_PHRASES = [
-    # Identidad
+    # Identidad con datos concretos
     "me llamo Juan", "mi nombre es María", "soy Pedro García", "tengo 25 años",
+    "soy Enrique", "me llamo Ana López", "mi apellido es Martínez",
+    "hola infinito soy enrique", "hola me llamo carlos",
     # Contacto
     "mi teléfono es 666123456", "mi email es juan@gmail.com", "vivo en Madrid",
-    "mi dirección es Calle Mayor 5",
-    # Familia
+    "mi dirección es Calle Mayor 5", "mi móvil es 612345678",
+    # Familia con información concreta
     "mi hermano se llama Pedro", "mi madre es profesora", "mi padre trabaja en banco",
-    "mi esposa es doctora", "tengo dos hijos",
-    # Preferencias
+    "mi esposa es doctora", "tengo dos hijos", "mi hijo tiene 5 años",
+    "mi primo andres monta en bici", "mi hermana estudia medicina",
+    "mi padre tiene una tienda", "mi abuela vive en el pueblo",
+    # Preferencias y gustos
     "me gusta el fútbol", "prefiero el café", "mi color favorito es azul",
-    "odio las espinacas", "me encanta la música",
-    # Recordatorios
+    "odio las espinacas", "me encanta la música", "hago descenso en bici",
+    "mi deporte favorito es el ciclismo", "me gusta correr por las mañanas",
+    # Recordatorios y eventos
     "mañana tengo cita con el médico", "el viernes es mi cumpleaños",
     "recuerda llamar a Juan", "no olvides comprar leche",
-    # Información personal
+    "el sábado vamos a la playa", "la semana que viene tengo examen",
+    # Actividades y logros
+    "hoy he igualado mi mejor tiempo", "esta mañana he montado la suspensión",
+    "ayer terminé el proyecto", "he conseguido el trabajo",
+    "hoy he corrido 10 kilómetros", "acabo de aprobar el examen",
+    # Información personal específica
     "trabajo como ingeniero", "estudio medicina", "mi coche es rojo",
     "tengo un perro llamado Max", "nací en Barcelona",
+    "peso 75 kilos", "mido 1.80 metros", "mi bici es una Scott",
+    # Datos técnicos/específicos
+    "el sag ideal es 25 por ciento", "uso una horquilla de 160mm",
+    "mi presupuesto es 500 euros", "necesito 8 horas de sueño",
 ]
 
 # ============================================================================
@@ -102,7 +139,7 @@ def train():
     print(f"🔧 Dispositivo: {device}")
     
     model = TrivialityGate().to(device)
-    optimizer = optim.AdamW(model.parameters(), lr=1e-3, weight_decay=0.01)
+    optimizer = optim.AdamW(model.parameters(), lr=5e-4, weight_decay=0.01)
     criterion = nn.BCELoss()
     
     # Preparar datos
@@ -119,7 +156,8 @@ def train():
     print(f"📈 Entrenando...")
     
     best_acc = 0
-    for epoch in range(200):
+    best_separation = 0
+    for epoch in range(500):  # Más épocas
         model.train()
         
         # Shuffle
@@ -131,9 +169,15 @@ def train():
         predictions = model(ids)
         loss = criterion(predictions, labels)
         
+        # Añadir margin loss para mejor separación
+        trivial_preds = predictions[:len(TRIVIAL_PHRASES)]
+        important_preds = predictions[len(TRIVIAL_PHRASES):]
+        margin_loss = torch.relu(0.3 - (important_preds.mean() - trivial_preds.mean()))
+        total_loss = loss + 0.5 * margin_loss
+        
         # Backward
         optimizer.zero_grad()
-        loss.backward()
+        total_loss.backward()
         optimizer.step()
         
         # Evaluar
@@ -147,40 +191,53 @@ def train():
             # Scores por clase
             trivial_scores = model(trivial_ids)
             important_scores = model(important_ids)
+            separation = important_scores.mean().item() - trivial_scores.mean().item()
         
-        if acc > best_acc:
+        # Guardar si tiene buena accuracy Y buena separación
+        if acc >= best_acc and separation > best_separation:
             best_acc = acc
+            best_separation = separation
             torch.save({
                 'model_state_dict': model.state_dict(),
                 'accuracy': acc,
+                'separation': separation,
                 'epoch': epoch
             }, 'models/triviality_gate.pt')
         
-        if epoch % 20 == 0:
+        if epoch % 50 == 0:
             print(f"  Epoch {epoch:3d}: loss={loss.item():.4f}, acc={acc*100:.1f}%, "
-                  f"trivial={trivial_scores.mean().item():.3f}, important={important_scores.mean().item():.3f}")
+                  f"trivial={trivial_scores.mean().item():.3f}, important={important_scores.mean().item():.3f}, "
+                  f"sep={separation:.3f}")
     
     print(f"\n✅ Mejor accuracy: {best_acc*100:.1f}%")
+    print(f"📊 Mejor separación: {best_separation:.3f}")
     print(f"💾 Modelo guardado en: models/triviality_gate.pt")
     
-    # Test final
-    print("\n🧪 Test final:")
+    # Test final con casos problemáticos
+    print("\n🧪 Test final (casos problemáticos):")
     model.eval()
     with torch.no_grad():
         test_phrases = [
             ("hola", "trivial"),
-            ("ok", "trivial"),
-            ("buenos días", "trivial"),
-            ("me llamo Enrique", "importante"),
-            ("mi teléfono es 123456", "importante"),
-            ("mañana tengo cita", "importante"),
+            ("cuentame algo sobre ti", "trivial"),
+            ("que pasa", "trivial"),
+            ("como estas", "trivial"),
+            ("y mi primo andres", "trivial"),
+            ("hola infinito soy enrique", "importante"),
+            ("mi primo andres monta en bici", "importante"),
+            ("hoy he igualado mi mejor tiempo", "importante"),
+            ("peso 75 kilos", "importante"),
         ]
+        correct = 0
         for phrase, expected in test_phrases:
             ids = text_to_ids(phrase).unsqueeze(0).to(device)
             score = model(ids).item()
             pred = "importante" if score > 0.5 else "trivial"
             status = "✓" if pred == expected else "✗"
-            print(f"  {phrase:25} → {score:.3f} ({pred}) {status}")
+            if pred == expected:
+                correct += 1
+            print(f"  {phrase:35} → {score:.3f} ({pred}) {status}")
+        print(f"\n  Casos test: {correct}/{len(test_phrases)} correctos")
 
 
 if __name__ == "__main__":

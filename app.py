@@ -1183,7 +1183,7 @@ with st.sidebar:
         # Mostrar stats del log
         metrics_file = "data/metrics_log.jsonl"
         if os.path.exists(metrics_file):
-            with open(metrics_file, 'r') as f:
+            with open(metrics_file, 'r', encoding='utf-8') as f:
                 n_entries = sum(1 for _ in f)
             st.metric("Interacciones logueadas", n_entries)
             
