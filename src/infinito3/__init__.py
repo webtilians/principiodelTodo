@@ -4,6 +4,7 @@ This package is intentionally independent from Streamlit and any concrete LLM
 provider. The public entry point is :class:`CognitiveEngine`.
 """
 
+from .context_builder import ApproximateTokenEstimator, BalancedContextBuilder
 from .engine import CognitiveEngine
 from .memory import InMemoryMemoryStore, RuleBasedMemoryGate
 from .persistent_memory import (
@@ -15,6 +16,10 @@ from .persistent_memory import (
 from .safety import SensitiveInformationFilter
 from .types import (
     CognitiveDecision,
+    ContextItem,
+    ContextPacket,
+    ContextSource,
+    ConversationTurn,
     MaintenanceReport,
     MemoryKind,
     MemoryRecord,
@@ -23,8 +28,14 @@ from .types import (
 )
 
 __all__ = [
+    "ApproximateTokenEstimator",
+    "BalancedContextBuilder",
     "CognitiveEngine",
     "CognitiveDecision",
+    "ContextItem",
+    "ContextPacket",
+    "ContextSource",
+    "ConversationTurn",
     "HashEmbeddingProvider",
     "InMemoryMemoryStore",
     "MaintenanceReport",

@@ -1,10 +1,18 @@
-from typing import Optional
+from typing import Optional, Sequence
 
+from .context_builder import BalancedContextBuilder
 from .goals import SimpleGoalEngine
-from .interfaces import EmbeddingProvider, GoalEngine, MemoryGate, MemoryStore, SafetyFilter
+from .interfaces import (
+    ContextBuilder,
+    EmbeddingProvider,
+    GoalEngine,
+    MemoryGate,
+    MemoryStore,
+    SafetyFilter,
+)
 from .memory import InMemoryMemoryStore, RuleBasedMemoryGate
 from .safety import SensitiveInformationFilter
-from .types import CognitiveDecision, MemoryRecord, SafetyLevel
+from .types import CognitiveDecision, ConversationTurn, MemoryRecord, SafetyLevel
 
 
 class CognitiveEngine:
@@ -15,7 +23,8 @@ class CognitiveEngine:
     2. Retrieval from existing memory
     3. Memory-gate evaluation
     4. Goal extraction
-    5. Persistence, only when policy allows it
+    5. Context construction from pre-write state + active goals
+    6. Persistence, only when policy allows it
 
     No LLM provider or UI dependency belongs here.
     """
@@ -26,11 +35,16 @@ class CognitiveEngine:
         memory_gate: Optional[MemoryGate] = None,
         safety_filter: Optional[SafetyFilter] = None,
         goal_engine: Optional[GoalEngine] = None,
+        context_builder: Optional[ContextBuilder] = None,
     ):
         self.memory_store = memory_store or InMemoryMemoryStore()
         self.memory_gate = memory_gate or RuleBasedMemoryGate()
         self.safety_filter = safety_filter or SensitiveInformationFilter()
         self.goal_engine = goal_engine or SimpleGoalEngine()
+        self.context_builder = context_builder or BalancedContextBuilder(
+            memory_store=self.memory_store,
+            goal_engine=self.goal_engine,
+        )
 
     @classmethod
     def persistent(
@@ -48,7 +62,14 @@ class CognitiveEngine:
         )
         return cls(memory_store=store, **kwargs)
 
-    def process(self, text: str, top_k: int = 5) -> CognitiveDecision:
+    def process(
+        self,
+        text: str,
+        top_k: int = 5,
+        *,
+        context_budget_tokens: int = 1200,
+        recent_turns: Optional[Sequence[ConversationTurn]] = None,
+    ) -> CognitiveDecision:
         safety = self.safety_filter.inspect(text)
 
         # Secrets are blocked before any cognitive subsystem receives them.
@@ -58,6 +79,7 @@ class CognitiveEngine:
                 safety=safety,
                 gate=None,
                 context=[],
+                context_packet=None,
             )
 
         # Retrieve before writing so the current message cannot retrieve itself.
@@ -70,9 +92,18 @@ class CognitiveEngine:
         # interaction but is never written to long-term memory by default.
         allow_persistence = safety.level == SafetyLevel.SAFE
 
+        # Goals are available to the context builder immediately, while the
+        # current message still has not been persisted as long-term memory.
         created_goals = self.goal_engine.ingest(query) if allow_persistence else []
-        stored_memory_id = None
 
+        context_packet = self.context_builder.build(
+            query,
+            memory_candidates=context,
+            recent_turns=recent_turns,
+            max_tokens=context_budget_tokens,
+        )
+
+        stored_memory_id = None
         if allow_persistence and gate.should_store:
             record = MemoryRecord(
                 content=query,
@@ -90,4 +121,5 @@ class CognitiveEngine:
             stored_memory_id=stored_memory_id,
             created_goal_ids=[goal.id for goal in created_goals],
             context=context,
+            context_packet=context_packet,
         )

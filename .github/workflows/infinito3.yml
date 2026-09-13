@@ -22,4 +22,9 @@ jobs:
       - name: Install test dependency
         run: python -m pip install pytest
       - name: Test isolated cognitive core
-        run: python -m pytest tests/test_cognitive_engine_v3.py tests/test_persistent_memory_v3.py -q
+        run: >-
+          python -m pytest
+          tests/test_cognitive_engine_v3.py
+          tests/test_persistent_memory_v3.py
+          tests/test_context_builder_v3.py
+          -q
