@@ -1,7 +1,7 @@
 from typing import Optional
 
 from .goals import SimpleGoalEngine
-from .interfaces import GoalEngine, MemoryGate, MemoryStore, SafetyFilter
+from .interfaces import EmbeddingProvider, GoalEngine, MemoryGate, MemoryStore, SafetyFilter
 from .memory import InMemoryMemoryStore, RuleBasedMemoryGate
 from .safety import SensitiveInformationFilter
 from .types import CognitiveDecision, MemoryRecord, SafetyLevel
@@ -32,6 +32,22 @@ class CognitiveEngine:
         self.safety_filter = safety_filter or SensitiveInformationFilter()
         self.goal_engine = goal_engine or SimpleGoalEngine()
 
+    @classmethod
+    def persistent(
+        cls,
+        db_path: str = "data/infinito3_memory.db",
+        embedding_provider: Optional[EmbeddingProvider] = None,
+        **kwargs,
+    ) -> "CognitiveEngine":
+        """Create an engine backed by the real persistent v3 memory."""
+        from .persistent_memory import SQLiteCognitiveMemoryStore
+
+        store = SQLiteCognitiveMemoryStore(
+            path=db_path,
+            embedding_provider=embedding_provider,
+        )
+        return cls(memory_store=store, **kwargs)
+
     def process(self, text: str, top_k: int = 5) -> CognitiveDecision:
         safety = self.safety_filter.inspect(text)
 
@@ -50,7 +66,7 @@ class CognitiveEngine:
 
         gate = self.memory_gate.evaluate(query)
 
-        # Conservative v3.0 policy: sensitive PII can be used in the current
+        # Conservative v3 policy: sensitive PII can be used in the current
         # interaction but is never written to long-term memory by default.
         allow_persistence = safety.level == SafetyLevel.SAFE
 

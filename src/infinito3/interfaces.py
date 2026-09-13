@@ -13,6 +13,11 @@ class MemoryGate(Protocol):
         ...
 
 
+class EmbeddingProvider(Protocol):
+    def embed(self, text: str) -> List[float]:
+        ...
+
+
 class MemoryStore(Protocol):
     def add(self, record: MemoryRecord) -> MemoryRecord:
         ...

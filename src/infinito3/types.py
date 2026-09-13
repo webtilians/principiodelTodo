@@ -12,6 +12,12 @@ class MemoryKind(Enum):
     USER_MODEL = "user_model"
 
 
+class MemoryStatus(Enum):
+    ACTIVE = "active"
+    SUPERSEDED = "superseded"
+    FORGOTTEN = "forgotten"
+
+
 class SafetyLevel(Enum):
     SAFE = "safe"
     SENSITIVE = "sensitive"
@@ -33,6 +39,14 @@ class MemoryRecord:
     confidence: float = 1.0
     metadata: Dict[str, Any] = field(default_factory=dict)
     created_at: datetime = field(default_factory=datetime.utcnow)
+    updated_at: datetime = field(default_factory=datetime.utcnow)
+    last_accessed_at: Optional[datetime] = None
+    access_count: int = 0
+    status: MemoryStatus = MemoryStatus.ACTIVE
+    supersedes_id: Optional[str] = None
+    fact_subject: Optional[str] = None
+    fact_predicate: Optional[str] = None
+    fact_value: Optional[str] = None
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
 
 
@@ -51,6 +65,13 @@ class Goal:
     metadata: Dict[str, Any] = field(default_factory=dict)
     completed: bool = False
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
+
+
+@dataclass
+class MaintenanceReport:
+    consolidated: int = 0
+    forgotten: int = 0
+    restored: int = 0
 
 
 @dataclass
