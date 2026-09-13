@@ -103,6 +103,29 @@ class ContextPacket:
 
 
 @dataclass
+class LLMMessage:
+    role: str
+    content: str
+
+
+@dataclass
+class LLMRequest:
+    messages: List[LLMMessage]
+    max_output_tokens: Optional[int] = None
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class LLMResponse:
+    text: str
+    provider: str = "unknown"
+    model: Optional[str] = None
+    response_id: Optional[str] = None
+    usage: Dict[str, Any] = field(default_factory=dict)
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
 class MaintenanceReport:
     consolidated: int = 0
     forgotten: int = 0
@@ -122,3 +145,24 @@ class CognitiveDecision:
     @property
     def stored(self) -> bool:
         return self.stored_memory_id is not None
+
+
+@dataclass
+class CognitiveRunResult:
+    user_text: str
+    response: Optional[LLMResponse]
+    request: Optional[LLMRequest]
+    cognitive_decision: Optional[CognitiveDecision]
+    used_cognition: bool
+    blocked: bool = False
+    block_reason: str = ""
+    duration_ms: float = 0.0
+    history_size: int = 0
+
+
+@dataclass
+class ABComparison:
+    user_text: str
+    baseline: CognitiveRunResult
+    cognitive: CognitiveRunResult
+    metadata: Dict[str, Any] = field(default_factory=dict)

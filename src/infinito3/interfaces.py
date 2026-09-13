@@ -5,6 +5,8 @@ from .types import (
     ConversationTurn,
     GateDecision,
     Goal,
+    LLMRequest,
+    LLMResponse,
     MemoryRecord,
     SafetyDecision,
 )
@@ -27,6 +29,11 @@ class EmbeddingProvider(Protocol):
 
 class TokenEstimator(Protocol):
     def estimate(self, text: str) -> int:
+        ...
+
+
+class LLMAdapter(Protocol):
+    def generate(self, request: LLMRequest) -> LLMResponse:
         ...
 
 

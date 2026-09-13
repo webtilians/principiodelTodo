@@ -1,11 +1,13 @@
 """INFINITO 3.0 cognitive layer.
 
-This package is intentionally independent from Streamlit and any concrete LLM
-provider. The public entry point is :class:`CognitiveEngine`.
+The package is independent from Streamlit. The cognitive core, context builder,
+LLM adapters and orchestration loop are all replaceable components.
 """
 
+from .cognitive_loop import CognitiveLoop
 from .context_builder import ApproximateTokenEstimator, BalancedContextBuilder
 from .engine import CognitiveEngine
+from .llm_adapter import OpenAIResponsesAdapter, RecordingLLMAdapter
 from .memory import InMemoryMemoryStore, RuleBasedMemoryGate
 from .persistent_memory import (
     HashEmbeddingProvider,
@@ -15,11 +17,16 @@ from .persistent_memory import (
 )
 from .safety import SensitiveInformationFilter
 from .types import (
+    ABComparison,
     CognitiveDecision,
+    CognitiveRunResult,
     ContextItem,
     ContextPacket,
     ContextSource,
     ConversationTurn,
+    LLMMessage,
+    LLMRequest,
+    LLMResponse,
     MaintenanceReport,
     MemoryKind,
     MemoryRecord,
@@ -28,21 +35,29 @@ from .types import (
 )
 
 __all__ = [
+    "ABComparison",
     "ApproximateTokenEstimator",
     "BalancedContextBuilder",
-    "CognitiveEngine",
     "CognitiveDecision",
+    "CognitiveEngine",
+    "CognitiveLoop",
+    "CognitiveRunResult",
     "ContextItem",
     "ContextPacket",
     "ContextSource",
     "ConversationTurn",
     "HashEmbeddingProvider",
     "InMemoryMemoryStore",
+    "LLMMessage",
+    "LLMRequest",
+    "LLMResponse",
     "MaintenanceReport",
     "MemoryKind",
     "MemoryRecord",
     "MemoryStatus",
     "OpenAIEmbeddingProvider",
+    "OpenAIResponsesAdapter",
+    "RecordingLLMAdapter",
     "RuleBasedMemoryGate",
     "SafetyLevel",
     "SensitiveInformationFilter",
