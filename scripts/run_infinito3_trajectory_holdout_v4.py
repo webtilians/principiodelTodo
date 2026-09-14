@@ -25,11 +25,12 @@ from src.infinito3.trajectory_evaluation import MutableClock, TrajectoryEvaluati
 from src.infinito3.trajectory_holdout_v4_cases import independent_trajectory_holdout_v4_suite
 
 FROZEN_CASE_COMMIT = "ef689e8adece7aa265c236ac9f50db0ebac45469"
-IMPLEMENTATION_COMMIT = "9be85131cbabf257036bfb6742493ffe9f8d66d2"
+FROZEN_SUITE_SHA256 = "8825f79527a36da808915f6b085fcee349e808da98879c8947ed807df5390979"
+BASELINE_IMPLEMENTATION_COMMIT = "9be85131cbabf257036bfb6742493ffe9f8d66d2"
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run frozen INFINITO 3.0 held-out V4.")
+    parser = argparse.ArgumentParser(description="Run frozen INFINITO 3.0 held-out V4 with structured-state candidate.")
     parser.add_argument("--model", default=os.environ.get("OPENAI_MODEL", "gpt-5.6-luna"))
     parser.add_argument("--reasoning-effort", default=os.environ.get("OPENAI_REASONING_EFFORT", "none"))
     parser.add_argument("--embedding-provider", choices=("hash", "openai"), default=os.environ.get("INFINITO_EMBEDDING_PROVIDER", "openai"))
@@ -37,7 +38,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--semantic-reranker", choices=("none", "llm"), default=os.environ.get("INFINITO_SEMANTIC_RERANKER", "llm"))
     parser.add_argument("--reranker-model", default=os.environ.get("INFINITO_RERANKER_MODEL", ""))
     parser.add_argument("--event-model", default=os.environ.get("INFINITO_EVENT_MODEL", ""))
-    parser.add_argument("--output-dir", default="trajectory-holdout-v4-results")
+    parser.add_argument("--output-dir", default="trajectory-holdout-v4-structured-results")
     return parser.parse_args()
 
 
@@ -50,6 +51,7 @@ def main() -> int:
     client = OpenAI(api_key=api_key)
     reranker_model = args.reranker_model.strip() or args.model.strip()
     event_model = args.event_model.strip() or args.model.strip()
+    implementation_commit = os.environ.get("GITHUB_SHA", "structured-state-candidate")
     semantic_extractors = []
 
     def embedding_provider():
@@ -77,7 +79,7 @@ def main() -> int:
         extractor = SemanticCognitiveEventExtractor(
             OpenAIResponsesAdapter(client, model=event_model, reasoning_effort=None),
             now_fn=clock,
-            max_output_tokens=420,
+            max_output_tokens=260,
             min_confidence=0.72,
         )
         semantic_extractors.append(extractor)
@@ -103,15 +105,21 @@ def main() -> int:
         return baseline, cognitive
 
     case_path = REPO_ROOT / "src" / "infinito3" / "trajectory_holdout_v4_cases.py"
-    scenarios = independent_trajectory_holdout_v4_suite()
-    report = TrajectoryEvaluationHarness(loop_pair_factory).run(scenarios)
+    actual_suite_hash = hashlib.sha256(case_path.read_bytes()).hexdigest()
+    if actual_suite_hash != FROZEN_SUITE_SHA256:
+        raise SystemExit(f"Frozen V4 suite changed: {actual_suite_hash}")
 
-    event_stats = {"calls": 0, "successes": 0, "failures": 0, "emitted_events": 0,
-                   "input_tokens": 0, "output_tokens": 0, "total_tokens": 0}
+    report = TrajectoryEvaluationHarness(loop_pair_factory).run(independent_trajectory_holdout_v4_suite())
+
+    event_stat_keys = (
+        "calls", "successes", "failures", "emitted_events", "skipped_non_mutating_requests",
+        "semantic_reviews", "input_tokens", "output_tokens", "total_tokens",
+    )
+    event_stats = {key: 0 for key in event_stat_keys}
     event_errors = {}
     for extractor in semantic_extractors:
         stats = extractor.stats()
-        for key in event_stats:
+        for key in event_stat_keys:
             event_stats[key] += int(stats.get(key) or 0)
         for key, value in (stats.get("errors") or {}).items():
             event_errors[key] = event_errors.get(key, 0) + int(value or 0)
@@ -125,10 +133,10 @@ def main() -> int:
         "reasoning_effort": args.reasoning_effort.strip() or None,
         "embedding_provider": args.embedding_provider,
         "embedding_model": args.embedding_model.strip() if args.embedding_provider == "openai" else None,
-        "context_builder": "temporal_semantic_cohort_uncertainty_gated",
+        "context_builder": "temporal_structured_state_v1",
         "semantic_reranker": args.semantic_reranker,
         "reranker_model": reranker_model if args.semantic_reranker == "llm" else None,
-        "cognitive_event_extractor": "hybrid_semantic_v1",
+        "cognitive_event_extractor": "hybrid_semantic_v1_1_gated",
         "semantic_event_model": event_model,
         "semantic_event_stats": {**event_stats, "errors": event_errors},
         "temporal_cognitive_state": "semantic_event_sourced_v1",
@@ -137,25 +145,25 @@ def main() -> int:
         "suite": "independent_trajectory_holdout_v4_suite",
         "suite_frozen_before_first_live_run": True,
         "frozen_case_commit": FROZEN_CASE_COMMIT,
-        "implementation_commit": IMPLEMENTATION_COMMIT,
-        "suite_sha256": hashlib.sha256(case_path.read_bytes()).hexdigest(),
+        "baseline_implementation_commit": BASELINE_IMPLEMENTATION_COMMIT,
+        "implementation_commit": implementation_commit,
+        "suite_sha256": actual_suite_hash,
         "cognitive_effective_total_tokens_including_event_extractor": effective_with_events,
         "effective_total_token_delta_including_event_extractor": effective_delta_with_events,
     })
 
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
-    json_path = output_dir / "infinito3-trajectory-holdout-v4.json"
-    md_path = output_dir / "infinito3-trajectory-holdout-v4.md"
+    json_path = output_dir / "infinito3-trajectory-holdout-v4-structured.json"
+    md_path = output_dir / "infinito3-trajectory-holdout-v4-structured.md"
     json_path.write_text(report.to_json(), encoding="utf-8")
     md_path.write_text(report.to_markdown(), encoding="utf-8")
 
-    print("INFINITO 3.0 FOURTH FROZEN LONG-HORIZON HELD-OUT")
-    print(f"implementation_commit={IMPLEMENTATION_COMMIT}")
+    print("INFINITO 3.0 FROZEN V4 — STRUCTURED STATE ABLATION")
+    print(f"baseline_implementation_commit={BASELINE_IMPLEMENTATION_COMMIT}")
+    print(f"implementation_commit={implementation_commit}")
     print(f"frozen_case_commit={FROZEN_CASE_COMMIT}")
-    print(f"suite_sha256={report.metadata['suite_sha256']}")
-    print(f"model={args.model.strip()}")
-    print(f"event_model={event_model}")
+    print(f"suite_sha256={actual_suite_hash}")
     print(f"trajectories={s.trajectory_count}")
     print(f"user_turns={s.user_turn_count}")
     print(f"probes={s.probe_count}")
@@ -164,11 +172,8 @@ def main() -> int:
     print(f"mean_cognitive_score={s.mean_cognitive_answer_score}")
     print(f"mean_answer_lift={s.mean_answer_lift}")
     print(f"mean_context_score={s.mean_context_score}")
-    print(f"semantic_event_calls={event_stats['calls']}")
-    print(f"semantic_event_successes={event_stats['successes']}")
-    print(f"semantic_event_failures={event_stats['failures']}")
-    print(f"semantic_event_emitted_events={event_stats['emitted_events']}")
-    print(f"semantic_event_total_tokens={event_stats['total_tokens']}")
+    for key in event_stat_keys:
+        print(f"semantic_event_{key}={event_stats[key]}")
     print(f"reranker_calls={s.reranker_calls}")
     print(f"reranker_total_tokens={s.reranker_total_tokens}")
     print(f"cognitive_effective_total_tokens_with_event_extractor={effective_with_events}")
