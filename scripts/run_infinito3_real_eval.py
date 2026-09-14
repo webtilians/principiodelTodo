@@ -15,7 +15,7 @@ from src.infinito3.cognitive_loop import CognitiveLoop
 from src.infinito3.engine import CognitiveEngine
 from src.infinito3.evaluation import EvaluationHarness, standard_evaluation_suite
 from src.infinito3.llm_adapter import OpenAIResponsesAdapter
-from src.infinito3.persistent_memory import HashEmbeddingProvider
+from src.infinito3.persistent_memory import HashEmbeddingProvider, OpenAIEmbeddingProvider
 
 
 def parse_args() -> argparse.Namespace:
@@ -45,6 +45,17 @@ def parse_args() -> argparse.Namespace:
         help="Scenario bank to run. Extended is the default for live experiments.",
     )
     parser.add_argument(
+        "--embedding-provider",
+        choices=("hash", "openai"),
+        default=os.environ.get("INFINITO_EMBEDDING_PROVIDER", "openai"),
+        help="Retrieval embedding backend. OpenAI is the live semantic default; hash is the offline baseline.",
+    )
+    parser.add_argument(
+        "--embedding-model",
+        default=os.environ.get("INFINITO_EMBEDDING_MODEL", "text-embedding-3-small"),
+        help="Embedding model used when --embedding-provider=openai.",
+    )
+    parser.add_argument(
         "--output-dir",
         default="evaluation-results",
         help="Directory where JSON and Markdown reports are written.",
@@ -69,10 +80,15 @@ def main() -> int:
 
     client = OpenAI(api_key=api_key)
 
+    def make_embedding_provider():
+        if args.embedding_provider == "openai":
+            return OpenAIEmbeddingProvider(client, model=args.embedding_model.strip())
+        return HashEmbeddingProvider()
+
     def loop_factory() -> CognitiveLoop:
         engine = CognitiveEngine.persistent(
             db_path=":memory:",
-            embedding_provider=HashEmbeddingProvider(),
+            embedding_provider=make_embedding_provider(),
         )
         llm = OpenAIResponsesAdapter(
             client,
@@ -98,7 +114,8 @@ def main() -> int:
             "model": args.model.strip(),
             "reasoning_effort": args.reasoning_effort.strip() or None,
             "history_limit": args.history_limit,
-            "embedding_provider": "hash_baseline",
+            "embedding_provider": args.embedding_provider,
+            "embedding_model": args.embedding_model.strip() if args.embedding_provider == "openai" else None,
             "real_model_run": True,
             "suite": args.suite,
         }
@@ -116,6 +133,8 @@ def main() -> int:
     print("INFINITO 3.0 REAL MODEL EVALUATION")
     print(f"model={args.model.strip()}")
     print(f"suite={args.suite}")
+    print(f"embedding_provider={args.embedding_provider}")
+    print(f"embedding_model={args.embedding_model.strip() if args.embedding_provider == 'openai' else 'n/a'}")
     print(f"scenarios={summary.scenario_count}")
     print(
         "wins/ties/losses="
