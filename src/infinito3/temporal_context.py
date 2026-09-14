@@ -3,11 +3,12 @@ from dataclasses import replace
 from typing import Dict, List, Optional, Sequence, Tuple
 
 from .semantic_context import SemanticCohortContextBuilder
+from .temporal import parse_weekday_range
 from .types import ContextItem, ContextSource, MemoryKind, MemoryRecord, MemoryStatus
 
 
 class TemporalSemanticContextBuilder(SemanticCohortContextBuilder):
-    """Semantic Context Builder with predicate and temporal-lineage support."""
+    """Semantic Context Builder with structured predicates and temporal lineage."""
 
     def build(self, query: str, *, memory_candidates: Optional[Sequence[MemoryRecord]] = None,
               recent_turns=None, max_tokens: int = 1200, candidate_k: int = 20):
@@ -21,19 +22,72 @@ class TemporalSemanticContextBuilder(SemanticCohortContextBuilder):
     def _requested_core_facts(cls, query: str) -> set:
         requested = set(super()._requested_core_facts(query))
         q = " ".join(cls._normalized(query).split())
+
+        # A structured profile query should be resolved by predicate, not by
+        # accidental lexical similarity between the question and stored values.
+        profile_scope = bool(
+            re.search(
+                r"\b(?:mi|mis|my|current|currently|actual|actuales|ahora|recuerda|remember|profile|perfil)\b",
+                q,
+            )
+        )
+        if profile_scope:
+            if re.search(r"\b(?:nombre|name)\b", q):
+                requested.add("name")
+            if re.search(r"\b(?:ciudad|city|location|ubicacion|residencia|residence|home)\b", q):
+                requested.add("location")
+            if re.search(r"\b(?:bici|bicicleta|bike|bicycle|montura|ride)\b", q):
+                requested.add("bike")
+            if re.search(r"\b(?:idioma|language|lengua)\b", q):
+                requested.add("studying_language")
+            if re.search(r"\b(?:profesion|profession|occupation|job|trabajo|empleo|work)\b", q):
+                requested.add("occupation")
+            if re.search(r"\b(?:mascota|pet|perro|dog|gato|cat|loro|parrot)\b", q):
+                requested.add("pet_name")
+            if re.search(r"\b(?:color)\b", q) and re.search(r"\b(?:favorit|favorite|favourite)\w*\b", q):
+                requested.add("favorite_color")
+
         if re.search(r"\b(call me|called me|should you call me|llamabas|me llamaban)\b", q):
+            requested.add("name")
+        if re.search(r"\b(?:como me llamo|como prefiero que me llames|nombre preferido|preferred name)\b", q):
             requested.add("name")
         if re.search(r"\b(vivia|vivi|lived|used to live)\b", q) and re.search(r"\b(donde|where|ciudad|city)\b", q):
             requested.add("location")
         if re.search(r"\b(idioma|language|lengua)\b", q) and re.search(r"\b(estudi\w*|study\w*|learning|aprend\w*)\b", q):
             requested.add("studying_language")
-        if re.search(r"\b(profesion|trabajo|occupation|job|work)\b", q) and re.search(r"\b(mi|my|soy|i)\b", q):
+        if re.search(r"\b(profesion|trabajo|occupation|job|work|empleo)\b", q) and re.search(r"\b(mi|my|soy|i|actual|current)\b", q):
             requested.add("occupation")
-        if re.search(r"\b(perro|dog|mascota|pet)\b", q) and re.search(r"\b(nombre|name|llama|called)\b", q):
+        if re.search(r"\b(?:a que me dedico|what do i do for work|what is my profession)\b", q):
+            requested.add("occupation")
+        if re.search(r"\b(perro|dog|mascota|pet|gato|cat|loro|parrot)\b", q) and re.search(r"\b(nombre|name|llama|called)\b", q):
             requested.add("pet_name")
-        if "frase de prueba" in q or "test phrase" in q:
+        if "frase de prueba" in q or "test phrase" in q or "verification phrase" in q or "frase de verificacion" in q:
             requested.add("test_phrase")
         return requested
+
+    @classmethod
+    def _asks_for_goals(cls, query: str) -> bool:
+        if super()._asks_for_goals(query):
+            return True
+        q = " ".join(cls._normalized(query).split())
+
+        # Generic commitment vocabulary.  These are relation words, not domain
+        # values, so they generalize to arbitrary appointments/tasks.
+        if re.search(
+            r"\b(?:commitment\w*|compromiso\w*|appointment\w*|cita\w*|pending|pendiente\w*|to-do\w*)\b",
+            q,
+        ):
+            return True
+
+        # Elliptical follow-ups are common after a list of commitments.
+        if re.search(
+            r"\b(?:what|which|que)\b.{0,28}\b(?:remain\w*|remaining|left|open|queda\w*|abiert\w*)\b",
+            q,
+        ):
+            return True
+        if re.search(r"\b(?:still pending|still open|sigue\w* pendiente\w*|sigue\w* abiert\w*)\b", q):
+            return True
+        return False
 
     def _build_pools(self, query, candidates, recent_turns):
         pools = super()._build_pools(query, candidates, recent_turns)
@@ -41,8 +95,7 @@ class TemporalSemanticContextBuilder(SemanticCohortContextBuilder):
 
         # Structured predicates are authoritative retrieval keys. If semantic
         # retrieval misses a requested field because its value shares no words
-        # with the query (e.g. "test phrase" -> arbitrary phrase), recover it by
-        # predicate rather than inventing a domain-specific synonym list.
+        # with the query, recover every active requested slot directly.
         if requested:
             seen = {
                 item.memory_id
@@ -57,12 +110,12 @@ class TemporalSemanticContextBuilder(SemanticCohortContextBuilder):
                 item = self._memory_item(query, record, rank=0, total=1)
                 source = ContextSource.USER_MODEL if record.kind == MemoryKind.USER_MODEL else ContextSource.MEMORY
                 item.metadata["predicate_fallback"] = True
+                item.metadata["structured_state_retrieval"] = True
                 pools[source].append(item)
                 seen.add(record.id)
 
         # Historical predecessor evidence must not be polluted by the current
-        # version of the same predicate. Base-builder core fallback would
-        # otherwise reinsert `Bilbao` while answering `before Bilbao?`.
+        # version of the same predicate.
         if self._is_history_query(query):
             historical_ids = {
                 record.id
@@ -112,6 +165,49 @@ class TemporalSemanticContextBuilder(SemanticCohortContextBuilder):
         after = sum(len(items) for items in filtered.values())
         return filtered, max(0, before - after)
 
+    def _filter_goals_for_temporal_intent(self, query: str, items: List[ContextItem]) -> List[ContextItem]:
+        """Extend calendar filtering with explicit ranges and before-weekday bounds."""
+        now = self._now_fn()
+        focus = self._question_focus(query)
+        q = " ".join(self._normalized(focus).split())
+
+        weekday_range = parse_weekday_range(focus, now)
+        if weekday_range is not None:
+            start_date, end_date = weekday_range
+            return [
+                item for item in items
+                if self._due_date(item) is not None and start_date <= self._due_date(item) <= end_date
+            ]
+
+        # "before Monday" / "antes del lunes" means a strict upper bound, not
+        # the Monday itself.  Resolve the weekday with the shared parser in the
+        # superclass path, then compare dates here.
+        before_match = re.search(
+            r"\b(?:before|antes de(?:l)?)\s+(lunes|monday|martes|tuesday|miercoles|wednesday|jueves|thursday|viernes|friday|sabado|saturday|domingo|sunday)\b",
+            q,
+        )
+        if before_match:
+            from .temporal import parse_weekday_date
+            target = parse_weekday_date(before_match.group(1), now)
+            if target is not None:
+                return [
+                    item for item in items
+                    if self._due_date(item) is not None and self._due_date(item) < target
+                ]
+
+        return super()._filter_goals_for_temporal_intent(query, items)
+
+    @staticmethod
+    def _due_date(item: ContextItem):
+        from datetime import datetime
+        raw_due = item.metadata.get("due_at")
+        if not raw_due:
+            return None
+        try:
+            return datetime.fromisoformat(str(raw_due)).date()
+        except (TypeError, ValueError):
+            return None
+
     def _historical_candidates(self, query: str, candidates: Sequence[MemoryRecord]) -> List[MemoryRecord]:
         all_records = self._all_with_inactive()
         by_id = {record.id: record for record in all_records}
@@ -125,11 +221,17 @@ class TemporalSemanticContextBuilder(SemanticCohortContextBuilder):
             if value and value in query_norm:
                 predecessor = by_id.get(record.supersedes_id)
                 if predecessor is not None:
-                    direct_predecessors.append(self._as_historical_evidence(predecessor))
+                    direct_predecessors.append(
+                        self._as_historical_evidence(predecessor, relation="immediately_previous")
+                    )
                     if record.fact_predicate:
                         target_predicates.add(record.fact_predicate)
         if direct_predecessors:
-            rest = [self._as_historical_evidence(record) for record in candidates if record.fact_predicate not in target_predicates]
+            rest = [
+                self._as_historical_evidence(record)
+                for record in candidates
+                if record.fact_predicate not in target_predicates
+            ]
             seen, ordered = set(), []
             for record in direct_predecessors + rest:
                 if record.id in seen:
@@ -149,19 +251,35 @@ class TemporalSemanticContextBuilder(SemanticCohortContextBuilder):
             return list(getter())
 
     @staticmethod
-    def _as_historical_evidence(record: MemoryRecord) -> MemoryRecord:
-        if record.status == MemoryStatus.ACTIVE:
-            return record
+    def _as_historical_evidence(record: MemoryRecord, relation: Optional[str] = None) -> MemoryRecord:
         metadata = dict(record.metadata)
-        metadata["historical_original_status"] = record.status.value
-        return replace(record, status=MemoryStatus.ACTIVE, importance=max(record.importance, 0.96), metadata=metadata)
+        if record.status != MemoryStatus.ACTIVE:
+            metadata["historical_original_status"] = record.status.value
+        if relation:
+            metadata["temporal_relation"] = relation
+            predicate = record.fact_predicate or "fact"
+            value = record.fact_value or record.content
+            content = (
+                f"[TEMPORAL HISTORY] relation={relation}; predicate={predicate}; "
+                f"value={value}. Original evidence: {record.content}"
+            )
+        else:
+            content = record.content
+        return replace(
+            record,
+            content=content,
+            status=MemoryStatus.ACTIVE,
+            importance=max(record.importance, 0.96),
+            metadata=metadata,
+        )
 
     @classmethod
     def _is_history_query(cls, query: str) -> bool:
         q = cls._normalized(query)
         markers = (
             "antes de", "antes del", "anterior", "anteriormente", "usaba antes",
-            "vivia antes", "llamabas antes", "ya no me gusta", "he dicho explicitamente que ya no",
-            "before ", "previous", "previously", "used to", "no longer like", "historical",
+            "vivia antes", "llamabas antes", "ya no", "he dicho explicitamente que ya no",
+            "before ", "previous", "previously", "used to", "no longer", "historical",
+            "lost interest", "stopped ", "dropped ",
         )
         return any(marker in q for marker in markers)
