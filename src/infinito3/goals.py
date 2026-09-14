@@ -17,6 +17,10 @@ class SimpleGoalEngine:
         "recuérdame", "recuerdame", "avísame", "avisame", "no olvides",
         "tengo cita", "tengo reunión", "tengo reunion", "tengo que",
     )
+    _INTERROGATIVE_PREFIXES = (
+        "qué ", "que ", "cuándo ", "cuando ", "dónde ", "donde ",
+        "cómo ", "como ", "cuál ", "cual ", "cuáles ", "cuales ",
+    )
 
     def __init__(self, now_fn=datetime.now):
         self._now_fn = now_fn
@@ -24,6 +28,8 @@ class SimpleGoalEngine:
 
     def ingest(self, text: str) -> List[Goal]:
         normalized = " ".join(text.lower().split())
+        if self._is_interrogative(normalized):
+            return []
         if not self._looks_like_goal(normalized):
             return []
 
@@ -38,6 +44,12 @@ class SimpleGoalEngine:
 
     def all(self) -> List[Goal]:
         return list(self._goals)
+
+    def _is_interrogative(self, text: str) -> bool:
+        stripped = text.lstrip("¿").strip()
+        return "?" in text and any(
+            stripped.startswith(prefix) for prefix in self._INTERROGATIVE_PREFIXES
+        )
 
     def _looks_like_goal(self, text: str) -> bool:
         has_marker = any(marker in text for marker in self._REMINDER_MARKERS)
