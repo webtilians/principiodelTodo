@@ -1,0 +1,51 @@
+name: INFINITO 3.0 Frozen V4 Preference State
+
+on:
+  push:
+    branches: [eval/v4-preference-state-20260914]
+    paths:
+      - '.github/infinito3-v4-preference-state-trigger'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  heldout-v4-preference:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: python -m pip install openai pytest
+      - name: Deterministic tests before paid run
+        run: python -m pytest tests/test_*v3.py -q
+      - name: Frozen V4 preference-state ablation
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: >-
+          python scripts/run_infinito3_trajectory_holdout_v4.py
+          --model gpt-5.6-luna
+          --reasoning-effort none
+          --embedding-provider openai
+          --embedding-model text-embedding-3-small
+          --semantic-reranker llm
+          --reranker-model gpt-5.6-luna
+          --event-model gpt-5.6-luna
+          --output-dir trajectory-holdout-v4-preference-results
+      - name: Summary
+        if: always()
+        run: |
+          if [ -d trajectory-holdout-v4-preference-results ]; then
+            find trajectory-holdout-v4-preference-results -name '*.md' -exec cat {} \; >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: infinito3-heldout-v4-preference
+          path: trajectory-holdout-v4-preference-results/
+          if-no-files-found: warn
+          retention-days: 30
