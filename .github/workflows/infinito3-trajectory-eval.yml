@@ -7,8 +7,11 @@ on:
       - '.github/workflows/infinito3-trajectory-eval.yml'
       - 'src/infinito3/trajectory_evaluation.py'
       - 'src/infinito3/trajectory_cases.py'
+      - 'src/infinito3/goals.py'
+      - 'src/infinito3/generalized_context_builder.py'
+      - 'src/infinito3/semantic_context.py'
       - 'scripts/run_infinito3_trajectory_eval.py'
-      - 'tests/test_trajectory_evaluation_v3.py'
+      - 'tests/test_*v3.py'
   workflow_dispatch:
 
 permissions:
