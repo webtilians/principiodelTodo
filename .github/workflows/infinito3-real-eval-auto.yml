@@ -1,0 +1,47 @@
+name: INFINITO 3.0 Real Model Evaluation Auto
+
+on:
+  push:
+    branches: [infinito-3.0]
+    paths:
+      - '.github/infinito3-real-eval-trigger'
+
+permissions:
+  contents: read
+
+jobs:
+  real-evaluation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install runtime dependencies
+        run: python -m pip install openai
+
+      - name: Run paired A/B evaluation
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: >-
+          python scripts/run_infinito3_real_eval.py
+          --model "gpt-5.6-luna"
+          --reasoning-effort "none"
+          --history-limit "4"
+          --output-dir evaluation-results
+
+      - name: Publish Markdown summary
+        if: always() && hashFiles('evaluation-results/infinito3-evaluation.md') != ''
+        run: cat evaluation-results/infinito3-evaluation.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload evaluation reports
+        if: always() && hashFiles('evaluation-results/**') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: infinito3-real-evaluation-gpt-5.6-luna
+          path: evaluation-results/
+          if-no-files-found: error
+          retention-days: 30
