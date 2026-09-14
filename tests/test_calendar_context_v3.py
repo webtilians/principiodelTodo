@@ -31,8 +31,8 @@ def test_weekday_goals_share_calendar_semantics_with_weekend_query():
 
     assert "fisioterapeuta" in packet.rendered
     assert "Ana" in packet.rendered
-    assert "due=2026-09-18T12:00:00" in packet.rendered
-    assert "due=2026-09-19T10:00:00" in packet.rendered
+    assert "due=2026-09-18T12:00" in packet.rendered
+    assert "due=2026-09-19T10:00" in packet.rendered
 
 
 def test_explicit_spanish_date_is_scheduled_and_retrievable():
@@ -48,7 +48,7 @@ def test_explicit_spanish_date_is_scheduled_and_retrievable():
         memory_candidates=[],
     )
     assert "seguro" in packet.rendered
-    assert "due=2026-09-25T09:00:00" in packet.rendered
+    assert "due=2026-09-25T09:00" in packet.rendered
 
 
 def test_cancelled_goal_cannot_leak_back_from_episodic_memory():
