@@ -38,6 +38,24 @@ def test_generic_multi_value_query_keeps_same_predicate_without_domain_dictionar
     assert "Cádiz" not in packet.rendered
 
 
+def test_generic_quantifier_todas_mis_enables_multi_value_without_topic_vocabulary():
+    builder = _builder()
+    candidates = [
+        _user_fact("Me gusta la cerámica.", "likes", "la ceramica"),
+        _user_fact("Me gusta la astronomía.", "likes", "la astronomia"),
+        _user_fact("Vivo en León.", "location", "leon"),
+    ]
+
+    packet = builder.build(
+        "Cuéntame todas mis preferencias que recuerdes.",
+        memory_candidates=candidates,
+    )
+
+    assert "cerámica" in packet.rendered
+    assert "astronomía" in packet.rendered
+    assert "León" not in packet.rendered
+
+
 def test_multiple_requested_core_facts_are_preserved_independently():
     builder = _builder()
     candidates = [
