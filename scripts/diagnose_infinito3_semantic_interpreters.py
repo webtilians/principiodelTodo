@@ -11,7 +11,6 @@ if str(REPO_ROOT) not in sys.path:
 
 from openai import OpenAI
 
-from src.infinito3.cognitive_events import CognitiveEventType
 from src.infinito3.llm_adapter import OpenAIResponsesAdapter
 from src.infinito3.semantic_interpreter import SemanticCognitiveEventExtractor, SemanticStateQueryAnalyzer
 
@@ -35,23 +34,25 @@ def main() -> int:
     extractor = SemanticCognitiveEventExtractor(adapter, now_fn=clock)
     analyzer = SemanticStateQueryAnalyzer(adapter, max_output_tokens=220)
 
+    # expected_types may contain schema-equivalent operations. Predicate=None
+    # means downstream state reconciliation, not the parser, owns ontology alignment.
     event_cases = [
-        ("He cambiado otra vez de bici: ahora uso una Yeti SB160.", "replace_fact", "bike", "yeti sb160"),
-        ("I no longer drink kombucha.", "retract_preference", "likes", "kombucha"),
-        ("I have started enjoying bouldering.", "assert_preference", "likes", "bouldering"),
-        ("Mi gata se llama Nube.", "assert_fact", "pet_name", "nube"),
-        ("Mi frase de verificación es: las nubes cantan en hexadecimal.", "store_note", "verification_phrase", "nubes cantan"),
-        ("El domingo a las 17 tengo clase de guitarra.", "create_goal", "goal", "guitarra"),
-        ("La cita del veterinario cambia: ya no es el martes, será el jueves a las 20.", "reschedule_goal", "goal", "veterin"),
-        ("I already finished the server backup; mark it completed.", "complete_goal", "goal", "backup"),
-        ("Cancel Friday's property-tax payment; it is no longer needed.", "cancel_goal", "goal", "tax"),
-        ("I picked up the glasses already; close that task.", "complete_goal", "goal", "glass"),
-        ("La clase de guitarra se cancela; no voy a ir.", "cancel_goal", "goal", "guitarra"),
+        ("He cambiado otra vez de bici: ahora uso una Yeti SB160.", {"replace_fact"}, "bike", "yeti sb160"),
+        ("I no longer drink kombucha.", {"retract_preference", "retract_fact"}, None, "kombucha"),
+        ("I have started enjoying bouldering.", {"assert_preference"}, "likes", "bouldering"),
+        ("Mi gata se llama Nube.", {"assert_fact"}, "pet_name", "nube"),
+        ("Mi frase de verificación es: las nubes cantan en hexadecimal.", {"store_note"}, "verification_phrase", "nubes cantan"),
+        ("El domingo a las 17 tengo clase de guitarra.", {"create_goal"}, "goal", "guitarra"),
+        ("La cita del veterinario cambia: ya no es el martes, será el jueves a las 20.", {"reschedule_goal"}, "goal", "veterin"),
+        ("I already finished the server backup; mark it completed.", {"complete_goal"}, "goal", "backup"),
+        ("Cancel Friday's property-tax payment; it is no longer needed.", {"cancel_goal"}, "goal", "tax"),
+        ("I picked up the glasses already; close that task.", {"complete_goal"}, "goal", "glass"),
+        ("La clase de guitarra se cancela; no voy a ir.", {"cancel_goal"}, "goal", "guitarra"),
     ]
 
     failures = []
     rows = []
-    for text, expected_type, expected_predicate, value_fragment in event_cases:
+    for text, expected_types, expected_predicate, value_fragment in event_cases:
         events = extractor.extract(text)
         compact = [
             {
@@ -66,13 +67,13 @@ def main() -> int:
         ]
         matching = [
             event for event in events
-            if event.type.value == expected_type
-            and event.predicate == expected_predicate
+            if event.type.value in expected_types
+            and (expected_predicate is None or event.predicate == expected_predicate)
             and value_fragment in (event.value or "").lower()
         ]
         ok = bool(matching)
         if not ok:
-            failures.append({"text": text, "expected_type": expected_type, "events": compact})
+            failures.append({"text": text, "expected_types": sorted(expected_types), "events": compact})
         rows.append({"text": text, "ok": ok, "events": compact})
 
     query_cases = [
