@@ -55,6 +55,19 @@ class GeneralizedContextBuilder(BalancedContextBuilder):
         normalized = " ".join(cls._normalized(query).split())
         return any(marker in normalized for marker in cls._GENERIC_MULTI_MARKERS)
 
+    @staticmethod
+    def _question_focus(query: str) -> str:
+        """Return the interrogative clause when Spanish framing precedes `¿`.
+
+        Long-horizon probes often say e.g. "Hoy es 18 de septiembre. ¿Qué tarea
+        futura...?". The first date describes the simulated present; it must not
+        be mistaken for the date being requested. A date inside the actual
+        question ("¿qué tengo para el 25 de septiembre?") remains a target.
+        """
+        if "¿" in query:
+            return query.rsplit("¿", 1)[-1]
+        return query
+
     @classmethod
     def _asks_for_goals(cls, query: str) -> bool:
         if super()._asks_for_goals(query):
@@ -168,19 +181,20 @@ class GeneralizedContextBuilder(BalancedContextBuilder):
         query: str,
         items: List[ContextItem],
     ) -> List[ContextItem]:
-        """Apply only temporal constraints explicitly present in the query.
+        """Apply only temporal constraints explicitly present in the question.
 
         Overdue goals remain valid for broad questions such as "what is still
-        pending?". A concrete calendar phrase narrows the window; future-only
-        wording additionally excludes overdue goals. Completion is never
-        inferred from time passing.
+        pending?". A concrete calendar phrase inside the interrogative clause
+        narrows the window. Dates before that clause are temporal framing only.
+        Completion is never inferred from time passing.
         """
-        q = " ".join(self._normalized(query).split())
         now = self._now_fn()
+        focus = self._question_focus(query)
+        q = " ".join(self._normalized(focus).split())
 
-        explicit_date = parse_explicit_date(query, now)
-        weekday_date = parse_weekday_date(query, now)
-        weekend_window = parse_weekend_window(query, now)
+        explicit_date = parse_explicit_date(focus, now)
+        weekday_date = parse_weekday_date(focus, now)
+        weekend_window = parse_weekend_window(focus, now)
         day_after = any(marker in q for marker in ("pasado manana", "day after tomorrow"))
         tomorrow = not day_after and any(marker in q for marker in ("manana", "tomorrow"))
         future_only = bool(
