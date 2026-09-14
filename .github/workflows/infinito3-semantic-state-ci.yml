@@ -1,0 +1,22 @@
+name: INFINITO 3.0 Semantic Events + Structured State CI
+
+on:
+  push:
+    branches: [feat/semantic-events-structured-state-20260914]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install test dependencies
+        run: python -m pip install pytest
+      - name: Deterministic INFINITO 3.0 tests
+        run: python -m pytest tests/test_*v3.py -q
