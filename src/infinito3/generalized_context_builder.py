@@ -146,7 +146,6 @@ class GeneralizedContextBuilder(BalancedContextBuilder):
 
         day_after = any(marker in q for marker in ("pasado manana", "day after tomorrow"))
         tomorrow = not day_after and any(marker in q for marker in ("manana", "tomorrow"))
-        today = not day_after and not tomorrow and any(marker in q for marker in ("hoy", "today"))
         future_only = bool(
             any(
                 marker in q
@@ -156,6 +155,14 @@ class GeneralizedContextBuilder(BalancedContextBuilder):
                 )
             )
         )
+        # "Hoy es 18... ¿qué tarea futura...?" uses today only as framing.
+        # Explicit future intent therefore takes precedence over the word hoy.
+        today = (
+            not day_after
+            and not tomorrow
+            and not future_only
+            and any(marker in q for marker in ("hoy", "today"))
+        )
 
         if not (day_after or tomorrow or today or future_only):
             return items
@@ -164,10 +171,10 @@ class GeneralizedContextBuilder(BalancedContextBuilder):
             target_date = (now + timedelta(days=2)).date()
         elif tomorrow:
             target_date = (now + timedelta(days=1)).date()
-        elif today:
-            target_date = now.date()
-        else:
+        elif future_only:
             target_date = None
+        else:
+            target_date = now.date()
 
         selected: List[ContextItem] = []
         for item in items:
