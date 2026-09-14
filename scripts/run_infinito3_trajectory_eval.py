@@ -12,15 +12,13 @@ if str(REPO_ROOT) not in sys.path:
 from openai import OpenAI
 
 from src.infinito3.cognitive_loop import CognitiveLoop
-from src.infinito3.context_builder import BalancedContextBuilder
 from src.infinito3.engine import CognitiveEngine
-from src.infinito3.generalized_context_builder import GeneralizedContextBuilder
 from src.infinito3.goals import SimpleGoalEngine
 from src.infinito3.llm_adapter import OpenAIResponsesAdapter
-from src.infinito3.persistent_memory import (
-    HashEmbeddingProvider,
-    OpenAIEmbeddingProvider,
-    SQLiteCognitiveMemoryStore,
+from src.infinito3.persistent_memory import HashEmbeddingProvider, OpenAIEmbeddingProvider
+from src.infinito3.semantic_context import (
+    SemanticCohortContextBuilder,
+    SemanticScoringSQLiteMemoryStore,
 )
 from src.infinito3.trajectory_cases import independent_trajectory_suite
 from src.infinito3.trajectory_evaluation import MutableClock, TrajectoryEvaluationHarness
@@ -72,12 +70,12 @@ def main() -> int:
         return HashEmbeddingProvider()
 
     def make_engine(clock: MutableClock) -> CognitiveEngine:
-        store = SQLiteCognitiveMemoryStore(
+        store = SemanticScoringSQLiteMemoryStore(
             path=":memory:",
             embedding_provider=embedding_provider(),
         )
         goals = SimpleGoalEngine(now_fn=clock)
-        context_builder = GeneralizedContextBuilder(
+        context_builder = SemanticCohortContextBuilder(
             memory_store=store,
             goal_engine=goals,
             now_fn=clock,
@@ -118,6 +116,7 @@ def main() -> int:
             "reasoning_effort": args.reasoning_effort.strip() or None,
             "embedding_provider": args.embedding_provider,
             "embedding_model": args.embedding_model.strip() if args.embedding_provider == "openai" else None,
+            "context_builder": "semantic_cohort",
             "real_model_run": True,
             "suite": "independent_trajectory_suite",
             "suite_sha256": hashlib.sha256(
@@ -137,6 +136,7 @@ def main() -> int:
     print("INFINITO 3.0 INDEPENDENT TRAJECTORY EVALUATION")
     print(f"model={args.model.strip()}")
     print(f"embedding_provider={args.embedding_provider}")
+    print("context_builder=semantic_cohort")
     print(f"trajectories={s.trajectory_count}")
     print(f"user_turns={s.user_turn_count}")
     print(f"probes={s.probe_count}")
