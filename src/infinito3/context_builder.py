@@ -41,6 +41,11 @@ class BalancedContextBuilder:
     The builder is not an agent and does not execute remembered text. It treats
     memories and recent turns as evidence. Selection is balanced across active
     goals, stable user-model facts, relevant memory and recent conversation.
+
+    Precision is intentionally conservative: retrieved memory is pruned before
+    budget allocation so spare context budget does not become an excuse to add
+    weakly related memories. Plural queries may retain several values of the
+    same fact/predicate; singular queries normally keep only the dominant item.
     """
 
     _SECTION_ORDER = (
@@ -64,7 +69,29 @@ class BalancedContextBuilder:
         ContextSource.RECENT: 0.08,
     }
 
-    _CORE_USER_FACTS = {"name", "location", "age", "bike"}
+    _CORE_USER_FACTS = {"name", "location", "age", "bike", "favorite_color"}
+
+    _MULTI_VALUE_MARKERS = (
+        "cuáles",
+        "cuales",
+        "qué estilos",
+        "que estilos",
+        "qué tipos",
+        "que tipos",
+        "qué cosas",
+        "que cosas",
+        "qué tareas",
+        "que tareas",
+        "pendientes",
+        "me gustan",
+        "what kinds",
+        "what types",
+        "which ",
+        "preferences",
+        "tasks",
+        "goals",
+        "things do i like",
+    )
 
     def __init__(
         self,
@@ -103,8 +130,9 @@ class BalancedContextBuilder:
         candidates = list(memory_candidates) if memory_candidates is not None else list(
             self.memory_store.search(query, top_k=candidate_k)
         )
-        pools = self._build_pools(query, candidates, recent_turns or [])
-        original_total = sum(len(items) for items in pools.values())
+        raw_pools = self._build_pools(query, candidates, recent_turns or [])
+        original_total = sum(len(items) for items in raw_pools.values())
+        pools, precision_dropped = self._apply_precision_filter(query, raw_pools)
 
         header = (
             "INFINITO CONTEXT\n"
@@ -121,7 +149,10 @@ class BalancedContextBuilder:
                 budget_tokens=max_tokens,
                 items=[],
                 dropped_count=original_total,
-                diagnostics={"reason": "header_consumed_budget"},
+                diagnostics={
+                    "reason": "header_consumed_budget",
+                    "precision_dropped": precision_dropped,
+                },
             )
 
         selected: List[ContextItem] = []
@@ -172,6 +203,8 @@ class BalancedContextBuilder:
                     for source in self._SECTION_ORDER
                 },
                 "remaining_budget_estimate": max(0, max_tokens - estimated),
+                "precision_dropped": precision_dropped,
+                "precision_policy": "adaptive_dominant_or_same_predicate_multi",
             },
         )
 
@@ -198,13 +231,11 @@ class BalancedContextBuilder:
             source = ContextSource.USER_MODEL if memory.kind == MemoryKind.USER_MODEL else ContextSource.MEMORY
             pools[source].append(item)
 
-        # A few stable identity facts should survive even when lexical retrieval
-        # misses them, but unrelated preferences should not flood every prompt.
-        try:
-            all_memories = self.memory_store.all()
-        except TypeError:
-            all_memories = self.memory_store.all()
-        for memory in all_memories:
+        # Stable identity facts remain available as a fallback, but only when
+        # the current query actually asks for that fact. This avoids injecting
+        # name/location/etc. into unrelated prompts merely because budget exists.
+        requested_core_facts = self._requested_core_facts(query)
+        for memory in self.memory_store.all():
             if (
                 memory.id in seen_ids
                 or memory.kind != MemoryKind.USER_MODEL
@@ -213,11 +244,18 @@ class BalancedContextBuilder:
                 continue
             if memory.fact_predicate not in self._CORE_USER_FACTS:
                 continue
+            if memory.fact_predicate not in requested_core_facts:
+                continue
             if memory.confidence < 0.50 or memory.importance < 0.50:
                 continue
             seen_ids.add(memory.id)
             pools[ContextSource.USER_MODEL].append(
-                self._memory_item(query, memory, rank=len(ranked_candidates), total=max(1, len(ranked_candidates)))
+                self._memory_item(
+                    query,
+                    memory,
+                    rank=len(ranked_candidates),
+                    total=max(1, len(ranked_candidates)),
+                )
             )
 
         for index, turn in enumerate(reversed(list(recent_turns))):
@@ -236,6 +274,96 @@ class BalancedContextBuilder:
         for source in pools:
             pools[source].sort(key=lambda item: item.score, reverse=True)
         return pools
+
+    def _apply_precision_filter(
+        self,
+        query: str,
+        pools: Dict[ContextSource, List[ContextItem]],
+    ) -> Tuple[Dict[ContextSource, List[ContextItem]], int]:
+        filtered = {source: list(items) for source, items in pools.items()}
+        before = sum(len(items) for items in filtered.values())
+
+        # Goal descriptions already contain the evidence needed by the model;
+        # the same sentence stored as ordinary memory is redundant context.
+        goal_signatures = {
+            self._content_signature(item.content.split(" | due=", 1)[0])
+            for item in filtered[ContextSource.GOAL]
+        }
+        if goal_signatures:
+            for source in (ContextSource.USER_MODEL, ContextSource.MEMORY):
+                filtered[source] = [
+                    item
+                    for item in filtered[source]
+                    if self._content_signature(item.content) not in goal_signatures
+                ]
+
+        for source in (ContextSource.USER_MODEL, ContextSource.MEMORY):
+            filtered[source] = self._prune_memory_pool(query, filtered[source])
+
+        after = sum(len(items) for items in filtered.values())
+        return filtered, max(0, before - after)
+
+    def _prune_memory_pool(
+        self,
+        query: str,
+        items: Sequence[ContextItem],
+    ) -> List[ContextItem]:
+        if len(items) <= 1:
+            return list(items)
+
+        ranked = sorted(items, key=lambda item: item.score, reverse=True)
+        top = ranked[0]
+        kept = [top]
+        multi_value = self._query_allows_multiple(query)
+        top_predicate = top.metadata.get("fact_predicate")
+
+        for item in ranked[1:]:
+            if multi_value:
+                same_predicate = bool(
+                    top_predicate
+                    and item.metadata.get("fact_predicate") == top_predicate
+                )
+                if (
+                    same_predicate
+                    and item.score >= 0.50
+                    and item.score >= top.score - 0.14
+                ):
+                    kept.append(item)
+                continue
+
+            # Singular queries may keep a genuine near-tie, but spare token
+            # budget alone is never sufficient reason to include a weaker item.
+            if item.score >= 0.62 and item.score >= top.score - 0.05:
+                kept.append(item)
+
+        return kept
+
+    @classmethod
+    def _query_allows_multiple(cls, query: str) -> bool:
+        normalized = " ".join(query.lower().split())
+        return any(marker in normalized for marker in cls._MULTI_VALUE_MARKERS)
+
+    @staticmethod
+    def _requested_core_facts(query: str) -> set:
+        normalized = " ".join(query.lower().split())
+        requested = set()
+
+        if any(marker in normalized for marker in ("cómo me llamo", "como me llamo", "mi nombre", "my name", "what is my name")):
+            requested.add("name")
+        if any(marker in normalized for marker in ("dónde vivo", "donde vivo", "where do i live", "mi ubicación", "mi ubicacion")):
+            requested.add("location")
+        if any(marker in normalized for marker in ("qué edad", "que edad", "cuántos años", "cuantos años", "how old", "my age")):
+            requested.add("age")
+        if any(marker in normalized for marker in ("qué bici", "que bici", "mi bici", "what bike", "which bike")):
+            requested.add("bike")
+        if any(marker in normalized for marker in ("color favorito", "favorite color", "favourite colour")):
+            requested.add("favorite_color")
+
+        return requested
+
+    @staticmethod
+    def _content_signature(text: str) -> str:
+        return " ".join(_TOKEN_RE.findall(text.lower()))
 
     def _active_goals(self) -> List[Goal]:
         getter = getattr(self.goal_engine, "all", None)
