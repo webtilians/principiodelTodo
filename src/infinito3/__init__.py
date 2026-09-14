@@ -5,6 +5,7 @@ LLM adapters, orchestration loop and evaluation harness are replaceable
 components.
 """
 
+from .benchmark_cases import extended_evaluation_suite
 from .cognitive_loop import CognitiveLoop
 from .context_builder import ApproximateTokenEstimator, BalancedContextBuilder
 from .engine import CognitiveEngine
@@ -87,5 +88,6 @@ __all__ = [
     "SensitiveInformationFilter",
     "SimpleFactExtractor",
     "SQLiteCognitiveMemoryStore",
+    "extended_evaluation_suite",
     "standard_evaluation_suite",
 ]
