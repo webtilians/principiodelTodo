@@ -1,0 +1,7 @@
+run: heldout-v2-first-live
+frozen_case_commit: 34b2b41922370ccbbcb1ba302113d5b431b22e55
+suite: second-frozen-long-horizon
+model: gpt-5.6-luna
+embedding_model: text-embedding-3-small
+semantic_reranker: uncertainty-gated-llm
+reason: first live run of untouched second held-out bank; do not modify cases before evaluating failures
