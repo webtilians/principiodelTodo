@@ -61,13 +61,7 @@ def normalize_calendar_text(text: str) -> str:
 
 
 def parse_explicit_date(text: str, now: datetime) -> Optional[date]:
-    """Parse a human day/month date without silently changing its year.
-
-    If no year is present we bind it to the simulated/current year. That keeps
-    a later query such as "25 de septiembre" aligned with the goal originally
-    created in that same conversational calendar instead of guessing a future
-    year.
-    """
+    """Parse a human day/month date without silently changing its year."""
     normalized = normalize_calendar_text(text)
     match = re.search(
         r"\b(\d{1,2})\s+(?:de\s+)?([a-z]+)(?:\s+(?:de\s+)?(\d{4}))?\b",
@@ -102,13 +96,35 @@ def parse_weekday_date(text: str, now: datetime) -> Optional[date]:
     return now.date() + timedelta(days=days_ahead)
 
 
-def parse_weekend_window(text: str, now: datetime) -> Optional[Tuple[date, date]]:
-    """Resolve conversational weekend planning to Friday-through-Sunday.
+def parse_weekday_range(text: str, now: datetime) -> Optional[Tuple[date, date]]:
+    """Resolve an explicit inclusive weekday range in Spanish or English.
 
-    Friday is included because people commonly treat Friday commitments as part
-    of "this weekend" planning. The interval is used only when the query itself
-    explicitly says weekend / fin de semana.
+    Examples: ``from Wednesday through Sunday``, ``from Tuesday to Friday``,
+    ``de miércoles a domingo`` and ``entre jueves y sábado``.  The first day is
+    bound to its next occurrence (today is allowed); the second day is resolved
+    forward from that start so ranges can cross a week boundary without domain
+    assumptions.
     """
+    normalized = normalize_calendar_text(text)
+    weekday_pattern = "|".join(sorted(_WEEKDAYS, key=len, reverse=True))
+    patterns = (
+        rf"\bfrom\s+({weekday_pattern})\s+(?:to|through|thru|until)\s+({weekday_pattern})\b",
+        rf"\bde\s+({weekday_pattern})\s+(?:a|hasta)\s+({weekday_pattern})\b",
+        rf"\bentre\s+({weekday_pattern})\s+y\s+({weekday_pattern})\b",
+    )
+    match = next((candidate for pattern in patterns if (candidate := re.search(pattern, normalized))), None)
+    if match is None:
+        return None
+
+    start_weekday = _WEEKDAYS[match.group(1)]
+    end_weekday = _WEEKDAYS[match.group(2)]
+    start = now.date() + timedelta(days=(start_weekday - now.weekday()) % 7)
+    end = start + timedelta(days=(end_weekday - start_weekday) % 7)
+    return start, end
+
+
+def parse_weekend_window(text: str, now: datetime) -> Optional[Tuple[date, date]]:
+    """Resolve conversational weekend planning to Friday-through-Sunday."""
     normalized = normalize_calendar_text(text)
     if "fin de semana" not in normalized and "weekend" not in normalized:
         return None
