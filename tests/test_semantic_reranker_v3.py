@@ -45,21 +45,25 @@ class CreativeFacetReranker:
         )
 
 
-def test_llm_semantic_membership_reranker_parses_ids_and_usage():
-    adapter = FakeAdapter('{"selected_ids":["a","c","unknown"]}')
+def test_llm_semantic_membership_reranker_parses_compact_indices_and_usage():
+    adapter = FakeAdapter('{"selected":[0,2,99]}')
     reranker = LLMSemanticMembershipReranker(adapter)
     candidates = [
-        ContextItem(ContextSource.USER_MODEL, "A", 1.0, 1, memory_id="a"),
-        ContextItem(ContextSource.USER_MODEL, "B", 0.9, 1, memory_id="b"),
-        ContextItem(ContextSource.USER_MODEL, "C", 0.8, 1, memory_id="c"),
+        ContextItem(ContextSource.USER_MODEL, "A", 1.0, 1, memory_id="uuid-a"),
+        ContextItem(ContextSource.USER_MODEL, "B", 0.9, 1, memory_id="uuid-b"),
+        ContextItem(ContextSource.USER_MODEL, "C", 0.8, 1, memory_id="uuid-c"),
     ]
 
     result = reranker.rerank("which are creative?", candidates)
 
     assert result.success is True
-    assert result.selected_ids == ["a", "c"]
+    assert result.selected_ids == ["uuid-a", "uuid-c"]
     assert result.usage["total_tokens"] == 30
-    assert adapter.requests[0].metadata["infinito_semantic_reranker"] is True
+    request = adapter.requests[0]
+    assert request.metadata["infinito_semantic_reranker"] is True
+    assert request.metadata["compact_indices"] is True
+    assert '"i":0' in request.messages[-1].content
+    assert "uuid-a" not in request.messages[-1].content
 
 
 def test_semantic_builder_uses_reranker_and_exposes_cost_diagnostics():
