@@ -3,7 +3,6 @@ from typing import Optional, Sequence
 
 from .advanced_temporal_state import ResolvedTemporalCognitiveState
 from .cognitive_events import CognitiveEventType
-from .generalized_context_builder import GeneralizedContextBuilder
 from .interfaces import ContextBuilder, EmbeddingProvider, GoalEngine, MemoryGate, MemoryStore, SafetyFilter
 from .memory import InMemoryMemoryStore, RuleBasedMemoryGate
 from .safety import SensitiveInformationFilter
@@ -55,8 +54,14 @@ class CognitiveEngine:
         planner = getattr(self.structured_retriever, "planner", None)
         planner_usage_before = self._usage_snapshot(planner)
 
-        # State mutation happens before retrieval so the current turn immediately
-        # becomes authoritative. Questions normally produce no events.
+        # Preserve the original invariant: ordinary retrieval sees state from
+        # before the current user message, so a statement never retrieves itself.
+        semantic_context = self._search_memory(
+            query,
+            top_k=top_k,
+            include_history=self.temporal_state.wants_history(query),
+        )
+
         events = self.event_extractor.extract(query) if allow_persistence else []
         transitions = self.temporal_state.apply(
             events,
@@ -73,12 +78,10 @@ class CognitiveEngine:
         structured_goal = any(event.type in goal_types for event in events)
         created_goals = self.goal_engine.ingest(query) if allow_persistence and not structured_goal else []
 
+        # Structured retrieval is question-only. Questions do not mutate state,
+        # so it can safely run after event processing while using authoritative
+        # temporal slots and lineage rather than vector ranking.
         structured_context = list(self.structured_retriever.retrieve(query)) if self.structured_retriever else []
-        semantic_context = self._search_memory(
-            query,
-            top_k=top_k,
-            include_history=self.temporal_state.wants_history(query),
-        )
         context = self._merge_context(structured_context, semantic_context)
 
         context_packet = self.context_builder.build(
