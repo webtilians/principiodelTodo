@@ -2,7 +2,9 @@ name: INFINITO 3.0 Preference State Tests
 
 on:
   push:
-    branches: [feat/preference-state-retrieval-20260914]
+    branches:
+      - feat/preference-state-retrieval-20260914
+      - feat/preference-history-resolution-20260914
     paths:
       - '.github/workflows/infinito3-preference-state-tests.yml'
       - 'src/infinito3/preference_context.py'
