@@ -11,9 +11,9 @@ if str(REPO_ROOT) not in sys.path:
 
 from openai import OpenAI
 
-from src.infinito3.cognitive_events import RuleBasedCognitiveEventExtractor
 from src.infinito3.cognitive_loop import CognitiveLoop
 from src.infinito3.engine import CognitiveEngine
+from src.infinito3.event_extractor import TemporalCognitiveEventExtractor
 from src.infinito3.llm_adapter import OpenAIResponsesAdapter
 from src.infinito3.persistent_memory import HashEmbeddingProvider, OpenAIEmbeddingProvider
 from src.infinito3.semantic_reranker import LLMSemanticMembershipReranker
@@ -31,20 +31,9 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run frozen INFINITO 3.0 long-horizon held-out v2.")
     parser.add_argument("--model", default=os.environ.get("OPENAI_MODEL", "gpt-5.6-luna"))
     parser.add_argument("--reasoning-effort", default=os.environ.get("OPENAI_REASONING_EFFORT", "none"))
-    parser.add_argument(
-        "--embedding-provider",
-        choices=("hash", "openai"),
-        default=os.environ.get("INFINITO_EMBEDDING_PROVIDER", "openai"),
-    )
-    parser.add_argument(
-        "--embedding-model",
-        default=os.environ.get("INFINITO_EMBEDDING_MODEL", "text-embedding-3-small"),
-    )
-    parser.add_argument(
-        "--semantic-reranker",
-        choices=("none", "llm"),
-        default=os.environ.get("INFINITO_SEMANTIC_RERANKER", "llm"),
-    )
+    parser.add_argument("--embedding-provider", choices=("hash", "openai"), default=os.environ.get("INFINITO_EMBEDDING_PROVIDER", "openai"))
+    parser.add_argument("--embedding-model", default=os.environ.get("INFINITO_EMBEDDING_MODEL", "text-embedding-3-small"))
+    parser.add_argument("--semantic-reranker", choices=("none", "llm"), default=os.environ.get("INFINITO_SEMANTIC_RERANKER", "llm"))
     parser.add_argument("--reranker-model", default=os.environ.get("INFINITO_RERANKER_MODEL", ""))
     parser.add_argument("--output-dir", default="trajectory-holdout-v2-results")
     return parser.parse_args()
@@ -73,10 +62,7 @@ def main() -> int:
         )
 
     def make_engine(clock: MutableClock) -> CognitiveEngine:
-        store = TemporalAwareSQLiteMemoryStore(
-            path=":memory:",
-            embedding_provider=embedding_provider(),
-        )
+        store = TemporalAwareSQLiteMemoryStore(path=":memory:", embedding_provider=embedding_provider())
         goals = TemporalGoalEngine(now_fn=clock)
         builder = TemporalSemanticContextBuilder(
             memory_store=store,
@@ -88,7 +74,7 @@ def main() -> int:
             memory_store=store,
             goal_engine=goals,
             context_builder=builder,
-            event_extractor=RuleBasedCognitiveEventExtractor(now_fn=clock),
+            event_extractor=TemporalCognitiveEventExtractor(now_fn=clock),
             temporal_state=TemporalCognitiveState(now_fn=clock),
         )
 
@@ -118,7 +104,7 @@ def main() -> int:
             "context_builder": "temporal_semantic_cohort_uncertainty_gated",
             "semantic_reranker": args.semantic_reranker,
             "reranker_model": reranker_model if args.semantic_reranker == "llm" else None,
-            "cognitive_event_extractor": "rule_based_v1",
+            "cognitive_event_extractor": "temporal_rule_based_v1",
             "temporal_cognitive_state": True,
             "temporal_memory_projection": True,
             "real_model_run": True,
@@ -143,7 +129,7 @@ def main() -> int:
     print(f"model={args.model.strip()}")
     print(f"embedding_provider={args.embedding_provider}")
     print("context_builder=temporal_semantic_cohort_uncertainty_gated")
-    print("cognitive_event_extractor=rule_based_v1")
+    print("cognitive_event_extractor=temporal_rule_based_v1")
     print("temporal_cognitive_state=true")
     print(f"semantic_reranker={args.semantic_reranker}")
     print(f"trajectories={s.trajectory_count}")
