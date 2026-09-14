@@ -20,18 +20,9 @@ class SemanticCognitiveEventExtractor:
 
     _OPERATIONS = {event_type.value: event_type for event_type in CognitiveEventType}
     _CORE_PREDICATES = {
-        "name",
-        "location",
-        "bike",
-        "favorite_color",
-        "studying_language",
-        "occupation",
-        "pet_name",
-        "likes",
-        "goal",
-        "test_phrase",
-        "verification_phrase",
-        "note",
+        "name", "location", "bike", "favorite_color", "studying_language",
+        "occupation", "pet_name", "likes", "goal", "test_phrase",
+        "verification_phrase", "note",
     }
     _LIFECYCLE = {
         CognitiveEventType.CREATE_GOAL,
@@ -84,7 +75,6 @@ Never turn a question into a state mutation."""
         rule_events = list(self.fallback.extract(text))
         if self.adapter is None or self._is_question(text) or not self._should_escalate(text, rule_events):
             return rule_events
-
         semantic_events = self._semantic_extract(text)
         if semantic_events is None:
             return rule_events
@@ -123,19 +113,16 @@ Never turn a question into a state mutation."""
         except Exception:
             self._usage["failures"] += 1
             return None
-
         self._usage["calls"] += 1
         for key in ("input_tokens", "output_tokens", "total_tokens"):
             try:
                 self._usage[key] += int((response.usage or {}).get(key) or 0)
             except (TypeError, ValueError):
                 pass
-
         parsed = self._parse_json_object((response.text or "").strip())
         if parsed is None or not isinstance(parsed.get("events"), list):
             self._usage["failures"] += 1
             return None
-
         events: List[CognitiveEvent] = []
         for raw in parsed["events"][:4]:
             event = self._validated_event(raw, text=text, now=now)
@@ -160,17 +147,13 @@ Never turn a question into a state mutation."""
         predicate = self._clean_predicate(raw.get("predicate"))
         value = self._clean_value(raw.get("value"))
         previous_value = self._clean_value(raw.get("previous_value")) or None
-
         if event_type in self._LIFECYCLE:
             predicate = "goal"
         elif event_type in (CognitiveEventType.ASSERT_PREFERENCE, CognitiveEventType.RETRACT_PREFERENCE):
             predicate = "likes"
         elif not predicate:
             return None
-
-        if event_type not in (CognitiveEventType.STORE_NOTE,) and not value:
-            return None
-        if event_type == CognitiveEventType.STORE_NOTE and not value:
+        if not value:
             return None
 
         due_at = self._parse_datetime(raw.get("due_at"))
@@ -178,10 +161,12 @@ Never turn a question into a state mutation."""
         metadata = {
             "extractor": "semantic_v1",
             "semantic_confidence": confidence,
-            "exclusive": event_type in (CognitiveEventType.REPLACE_FACT,),
+            "exclusive": event_type == CognitiveEventType.REPLACE_FACT,
         }
         if previous_due_at is not None:
             metadata["previous_due_at"] = previous_due_at.isoformat()
+        if event_type == CognitiveEventType.STORE_NOTE:
+            metadata["instruction_like_data"] = True
 
         return CognitiveEvent(
             event_type,
@@ -198,13 +183,8 @@ Never turn a question into a state mutation."""
     def _merge(self, rules: Sequence[CognitiveEvent], semantic: Sequence[CognitiveEvent]) -> List[CognitiveEvent]:
         if not semantic:
             return list(rules)
-
         semantic_lifecycle = [event for event in semantic if event.type in self._LIFECYCLE]
         result = [event for event in rules if not (semantic_lifecycle and event.type in self._LIFECYCLE)]
-
-        # For the same structured slot/operation prefer the semantic normalization
-        # only when it is a replacement/retraction/lifecycle event. Initial rule
-        # assertions keep their transparent exact extraction when already valid.
         for event in semantic:
             replaceable = event.type in self._LIFECYCLE or event.type in {
                 CognitiveEventType.REPLACE_FACT,
@@ -212,11 +192,7 @@ Never turn a question into a state mutation."""
                 CognitiveEventType.RETRACT_PREFERENCE,
             }
             duplicate_index = next(
-                (
-                    index
-                    for index, existing in enumerate(result)
-                    if existing.type == event.type and existing.predicate == event.predicate
-                ),
+                (index for index, existing in enumerate(result) if existing.type == event.type and existing.predicate == event.predicate),
                 None,
             )
             if duplicate_index is not None:
@@ -224,9 +200,7 @@ Never turn a question into a state mutation."""
                     result[duplicate_index] = event
                 continue
             result.append(event)
-
-        seen = set()
-        unique = []
+        seen, unique = set(), []
         for event in result:
             key = (event.type.value, event.predicate, self._normalize(event.value or ""), event.due_at.isoformat() if event.due_at else None)
             if key in seen:
