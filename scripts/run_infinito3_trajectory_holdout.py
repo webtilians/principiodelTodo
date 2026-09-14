@@ -82,7 +82,7 @@ def main() -> int:
                 model=reranker_model,
                 reasoning_effort=None,
             ),
-            max_output_tokens=128,
+            max_output_tokens=160,
         )
 
     def make_engine(clock: MutableClock) -> CognitiveEngine:
