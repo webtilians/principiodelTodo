@@ -17,9 +17,20 @@ class SimpleGoalEngine:
         "recuérdame", "recuerdame", "avísame", "avisame", "no olvides",
         "tengo cita", "tengo reunión", "tengo reunion", "tengo que",
     )
+    _REMINDER_REQUEST_MARKERS = (
+        "recuérdame", "recuerdame", "avísame", "avisame", "no olvides",
+        "recordarme", "remind me",
+    )
     _INTERROGATIVE_PREFIXES = (
         "qué ", "que ", "cuándo ", "cuando ", "dónde ", "donde ",
         "cómo ", "como ", "cuál ", "cual ", "cuáles ", "cuales ",
+        "what ", "when ", "where ", "how ", "which ",
+    )
+    _INTERROGATIVE_RE = re.compile(
+        r"(?:^|[¿?]\s*)"
+        r"(?:qué|que|cuándo|cuando|dónde|donde|cómo|como|cuál|cual|cuáles|cuales|"
+        r"what|when|where|how|which)\b",
+        re.I,
     )
 
     def __init__(self, now_fn=datetime.now):
@@ -46,10 +57,23 @@ class SimpleGoalEngine:
         return list(self._goals)
 
     def _is_interrogative(self, text: str) -> bool:
+        if "?" not in text:
+            return False
+
+        # A polite reminder request can itself be phrased as a question. Those
+        # are commands, not information-seeking probes, and should still create
+        # a goal.
+        if any(marker in text for marker in self._REMINDER_REQUEST_MARKERS):
+            return False
+
         stripped = text.lstrip("¿").strip()
-        return "?" in text and any(
-            stripped.startswith(prefix) for prefix in self._INTERROGATIVE_PREFIXES
-        )
+        if any(stripped.startswith(prefix) for prefix in self._INTERROGATIVE_PREFIXES):
+            return True
+
+        # Long-horizon conversations often prefix the actual question with
+        # temporal framing: "Hoy es 17... ¿qué tengo pendiente mañana?". The
+        # old startswith-only rule misclassified those probes as new goals.
+        return bool(self._INTERROGATIVE_RE.search(text))
 
     def _looks_like_goal(self, text: str) -> bool:
         has_marker = any(marker in text for marker in self._REMINDER_MARKERS)
