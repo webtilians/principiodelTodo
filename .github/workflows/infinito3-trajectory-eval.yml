@@ -4,14 +4,7 @@ on:
   push:
     branches: [eval/trajectory-harness-20260914]
     paths:
-      - '.github/workflows/infinito3-trajectory-eval.yml'
-      - 'src/infinito3/trajectory_evaluation.py'
-      - 'src/infinito3/trajectory_cases.py'
-      - 'src/infinito3/goals.py'
-      - 'src/infinito3/generalized_context_builder.py'
-      - 'src/infinito3/semantic_context.py'
-      - 'scripts/run_infinito3_trajectory_eval.py'
-      - 'tests/test_*v3.py'
+      - '.github/infinito3-trajectory-eval-trigger'
   workflow_dispatch:
 
 permissions:
@@ -42,7 +35,10 @@ jobs:
           --output-dir trajectory-results
       - name: Summary
         if: always()
-        run: find trajectory-results -name '*.md' -exec cat {} \; >> "$GITHUB_STEP_SUMMARY"
+        run: |
+          if [ -d trajectory-results ]; then
+            find trajectory-results -name '*.md' -exec cat {} \; >> "$GITHUB_STEP_SUMMARY"
+          fi
       - uses: actions/upload-artifact@v4
         if: always()
         with:
