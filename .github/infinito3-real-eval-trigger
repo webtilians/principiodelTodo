@@ -1,5 +1,7 @@
-run: extended-live-evaluation-20-scenarios
+run: extended-live-evaluation-semantic-embeddings
 model: gpt-5.6-luna
 reasoning_effort: none
 history_limit: 4
 suite: extended
+embedding_provider: openai
+embedding_model: text-embedding-3-small
