@@ -1,10 +1,11 @@
 import json
-from typing import Dict, List, Sequence
+from typing import Dict, List, Optional, Sequence
 
 from .context_builder import _TOKEN_RE
 from .generalized_context_builder import GeneralizedContextBuilder
 from .persistent_memory import SQLiteCognitiveMemoryStore, _cosine
-from .types import ContextItem
+from .semantic_reranker import SemanticMembershipReranker
+from .types import ContextItem, ContextPacket
 
 
 class SemanticScoringSQLiteMemoryStore(SQLiteCognitiveMemoryStore):
@@ -40,15 +41,13 @@ class SemanticScoringSQLiteMemoryStore(SQLiteCognitiveMemoryStore):
 
 
 class SemanticCohortContextBuilder(GeneralizedContextBuilder):
-    """Generalized builder with an optional semantic second-stage for multi-value facts.
+    """Generalized builder with semantic retrieval and optional membership reranking.
 
-    A query such as "all outdoor activities I like" should not pull every
-    `likes` fact merely because they share a predicate. The builder first uses
-    normal retrieval, then re-scores only the already retrieved same-predicate
-    candidates against a compact semantic focus extracted from the request.
-
-    No domain vocabulary is encoded here: music, food, sport and future domains
-    use the same mechanism.
+    Embeddings remain the first semantic stage. When a multi-value query leaves
+    several same-predicate candidates and an injectable reranker is configured,
+    the reranker classifies only that already-retrieved candidate set. Its usage
+    is attached to ContextPacket diagnostics so evaluation can account for the
+    extra model cost explicitly.
     """
 
     _FOCUS_STOP_WORDS = {
@@ -61,6 +60,18 @@ class SemanticCohortContextBuilder(GeneralizedContextBuilder):
         "include", "all", "every", "everything", "remember", "remembered", "my",
         "me", "i", "you", "told", "do", "does", "like", "liked",
     }
+
+    def __init__(self, *args, reranker: Optional[SemanticMembershipReranker] = None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.reranker = reranker
+        self._reranker_events: List[Dict[str, object]] = []
+
+    def build(self, *args, **kwargs) -> ContextPacket:
+        self._reranker_events = []
+        packet = super().build(*args, **kwargs)
+        if self._reranker_events:
+            packet.diagnostics["semantic_reranker"] = self._summarize_reranker_events()
+        return packet
 
     @classmethod
     def _semantic_focus_query(cls, query: str) -> str:
@@ -86,6 +97,30 @@ class SemanticCohortContextBuilder(GeneralizedContextBuilder):
         if len(same_predicate) <= 1:
             return baseline
 
+        # A generative/classification reranker is deliberately optional. When
+        # present it sees the full small same-predicate candidate set so it can
+        # recover a true member that raw embedding rank placed below a distractor.
+        if self.reranker is not None and len(same_predicate) >= 3:
+            reranked = self.reranker.rerank(query, same_predicate)
+            event = {
+                "success": bool(reranked.success),
+                "candidate_count": len(same_predicate),
+                "selected_count": len(reranked.selected_ids),
+                "provider": reranked.provider,
+                "model": reranked.model,
+                "input_tokens": int(reranked.usage.get("input_tokens") or 0),
+                "output_tokens": int(reranked.usage.get("output_tokens") or 0),
+                "total_tokens": int(reranked.usage.get("total_tokens") or 0),
+                "error": reranked.error,
+            }
+            self._reranker_events.append(event)
+            if reranked.success:
+                selected_ids = set(reranked.selected_ids)
+                selected = [item for item in ranked if str(item.memory_id) in selected_ids]
+                for item in selected:
+                    item.metadata["semantic_reranker_selected"] = True
+                return selected
+
         scorer = getattr(self.memory_store, "semantic_scores", None)
         if scorer is None:
             return baseline
@@ -104,10 +139,8 @@ class SemanticCohortContextBuilder(GeneralizedContextBuilder):
         if top_score <= 0.0:
             return baseline
 
-        # Broad requests (for example "all my preferences") tend to give every
-        # value similar low-to-mid similarity. Narrow facets produce a sharper
-        # semantic cluster. Use a relative floor and then an elbow only when the
-        # gap is substantial, so the policy adapts without domain labels.
+        # Embedding-only fallback. It stays available for offline/local modes
+        # and whenever the injected reranker fails.
         floor = max(0.16, top_score * 0.62, top_score - 0.22)
         eligible = [
             item
@@ -130,3 +163,20 @@ class SemanticCohortContextBuilder(GeneralizedContextBuilder):
             item.metadata["semantic_focus"] = focus
             item.metadata["semantic_focus_score"] = semantic.get(str(item.memory_id), 0.0)
         return selected
+
+    def _summarize_reranker_events(self) -> Dict[str, object]:
+        providers = sorted({str(event.get("provider") or "unknown") for event in self._reranker_events})
+        models = sorted({str(event.get("model") or "") for event in self._reranker_events if event.get("model")})
+        errors = [str(event["error"]) for event in self._reranker_events if event.get("error")]
+        return {
+            "calls": len(self._reranker_events),
+            "successful_calls": sum(bool(event.get("success")) for event in self._reranker_events),
+            "candidate_count": sum(int(event.get("candidate_count") or 0) for event in self._reranker_events),
+            "selected_count": sum(int(event.get("selected_count") or 0) for event in self._reranker_events),
+            "input_tokens": sum(int(event.get("input_tokens") or 0) for event in self._reranker_events),
+            "output_tokens": sum(int(event.get("output_tokens") or 0) for event in self._reranker_events),
+            "total_tokens": sum(int(event.get("total_tokens") or 0) for event in self._reranker_events),
+            "providers": providers,
+            "models": models,
+            "errors": errors,
+        }
