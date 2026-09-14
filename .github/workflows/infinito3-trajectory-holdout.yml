@@ -1,0 +1,50 @@
+name: INFINITO 3.0 Held-out Trajectory Evaluation
+
+on:
+  push:
+    branches: [eval/trajectory-harness-20260914]
+    paths:
+      - '.github/workflows/infinito3-trajectory-holdout.yml'
+      - 'src/infinito3/trajectory_holdout_cases.py'
+      - 'scripts/run_infinito3_trajectory_holdout.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  holdout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: python -m pip install openai pytest
+      - name: Deterministic tests
+        run: python -m pytest tests/test_*v3.py -q
+      - name: Frozen held-out trajectories
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: >-
+          python scripts/run_infinito3_trajectory_holdout.py
+          --model gpt-5.6-luna
+          --reasoning-effort none
+          --embedding-provider openai
+          --embedding-model text-embedding-3-small
+          --output-dir trajectory-holdout-results
+      - name: Summary
+        if: always()
+        run: |
+          if [ -d trajectory-holdout-results ]; then
+            find trajectory-holdout-results -name '*.md' -exec cat {} \; >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: infinito3-heldout-trajectories
+          path: trajectory-holdout-results/
+          if-no-files-found: warn
+          retention-days: 30
