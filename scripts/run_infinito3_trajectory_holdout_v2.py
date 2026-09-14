@@ -17,10 +17,10 @@ from src.infinito3.event_extractor import TemporalCognitiveEventExtractor
 from src.infinito3.llm_adapter import OpenAIResponsesAdapter
 from src.infinito3.persistent_memory import HashEmbeddingProvider, OpenAIEmbeddingProvider
 from src.infinito3.semantic_reranker import LLMSemanticMembershipReranker
+from src.infinito3.semantic_temporal_memory import SemanticTemporalMemoryStore
+from src.infinito3.semantic_temporal_state import SemanticTemporalCognitiveState
 from src.infinito3.temporal_context import TemporalSemanticContextBuilder
 from src.infinito3.temporal_goals import TemporalGoalEngine
-from src.infinito3.temporal_memory import TemporalAwareSQLiteMemoryStore
-from src.infinito3.temporal_state import TemporalCognitiveState
 from src.infinito3.trajectory_evaluation import MutableClock, TrajectoryEvaluationHarness
 from src.infinito3.trajectory_holdout_v2_cases import independent_trajectory_holdout_v2_suite
 
@@ -62,7 +62,7 @@ def main() -> int:
         )
 
     def make_engine(clock: MutableClock) -> CognitiveEngine:
-        store = TemporalAwareSQLiteMemoryStore(path=":memory:", embedding_provider=embedding_provider())
+        store = SemanticTemporalMemoryStore(path=":memory:", embedding_provider=embedding_provider())
         goals = TemporalGoalEngine(now_fn=clock)
         builder = TemporalSemanticContextBuilder(
             memory_store=store,
@@ -75,7 +75,7 @@ def main() -> int:
             goal_engine=goals,
             context_builder=builder,
             event_extractor=TemporalCognitiveEventExtractor(now_fn=clock),
-            temporal_state=TemporalCognitiveState(now_fn=clock),
+            temporal_state=SemanticTemporalCognitiveState(now_fn=clock),
         )
 
     def loop_pair_factory(clock, scenario):
@@ -105,8 +105,8 @@ def main() -> int:
             "semantic_reranker": args.semantic_reranker,
             "reranker_model": reranker_model if args.semantic_reranker == "llm" else None,
             "cognitive_event_extractor": "temporal_rule_based_v1",
-            "temporal_cognitive_state": True,
-            "temporal_memory_projection": True,
+            "temporal_cognitive_state": "semantic_event_sourced_v1",
+            "temporal_memory_projection": "semantic_temporal_sqlite_v1",
             "real_model_run": True,
             "suite": "independent_trajectory_holdout_v2_suite",
             "suite_frozen_before_first_live_run": True,
@@ -130,7 +130,7 @@ def main() -> int:
     print(f"embedding_provider={args.embedding_provider}")
     print("context_builder=temporal_semantic_cohort_uncertainty_gated")
     print("cognitive_event_extractor=temporal_rule_based_v1")
-    print("temporal_cognitive_state=true")
+    print("temporal_cognitive_state=semantic_event_sourced_v1")
     print(f"semantic_reranker={args.semantic_reranker}")
     print(f"trajectories={s.trajectory_count}")
     print(f"user_turns={s.user_turn_count}")
