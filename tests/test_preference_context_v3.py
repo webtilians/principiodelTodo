@@ -147,6 +147,25 @@ def test_historical_preference_query_returns_retraction_evidence():
     assert packet.diagnostics["preference_state"]["historical"] is True
 
 
+def test_historical_relation_wording_selects_matching_tombstone_before_membership_rerank():
+    store = _store()
+    t0 = datetime(2026, 11, 3, 10, 0)
+    paddle = _add_preference(store, "Últimamente disfruto mucho del paddle surf.", "paddle surf", t0)
+    _add_preference(store, "Me he aficionado a observar aves.", "observar aves", t0 + timedelta(minutes=1))
+    cold = _add_preference(store, "Brewing cold brew has become a hobby of mine.", "cold brew", t0 + timedelta(minutes=2))
+    _add_tombstone(store, "paddle surf", "I've lost interest in paddle surf.", t0 + timedelta(hours=2), [paddle.id])
+    _add_tombstone(store, "birdwatching", "Birdwatching no longer appeals to me.", t0 + timedelta(hours=2, minutes=1))
+    _add_tombstone(store, "cold brew", "Cold brew isn't my thing anymore.", t0 + timedelta(hours=2, minutes=2), [cold.id])
+
+    packet = _builder(store).build("What activity did I explicitly say no longer appeals to me?")
+
+    assert "observar aves" in packet.rendered
+    assert "Birdwatching no longer appeals to me" in packet.rendered
+    assert "paddle surf" not in packet.rendered
+    assert "cold brew" not in packet.rendered.lower()
+    assert packet.diagnostics["semantic_reranker"]["calls"] == 1
+
+
 def test_recency_preference_query_uses_retraction_cutoff():
     store = _store()
     t0 = datetime(2026, 11, 3, 10, 0)
