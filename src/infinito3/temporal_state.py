@@ -4,7 +4,7 @@ import unicodedata
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
 from .cognitive_events import CognitiveEvent, CognitiveEventType
 from .types import Goal, MemoryKind, MemoryRecord
@@ -50,10 +50,9 @@ class TemporalStateTransition:
 class TemporalCognitiveState:
     """Authoritative event-sourced state for facts, preferences and goals.
 
-    The state keeps temporal lineage independently from the retrieval backend.
-    Current facts are projections of the event log; old versions are closed, not
-    deleted. Memory and GoalEngine remain query/projection layers so the rest of
-    INFINITO can evolve incrementally around this source of truth.
+    Current state is a projection of an append-only cognitive-event stream.
+    Replacements and retractions close old versions rather than destroying them,
+    so current and historical questions share the same lineage.
     """
 
     _HISTORY_MARKERS = (
@@ -70,59 +69,30 @@ class TemporalCognitiveState:
         self._facts: Dict[Tuple[str, str], List[TemporalFactVersion]] = {}
         self._goal_history: List[TemporalGoalVersion] = []
 
-    def apply(
-        self,
-        events: Sequence[CognitiveEvent],
-        *,
-        memory_store=None,
-        goal_engine=None,
-    ) -> List[TemporalStateTransition]:
+    def apply(self, events: Sequence[CognitiveEvent], *, memory_store=None, goal_engine=None) -> List[TemporalStateTransition]:
         transitions: List[TemporalStateTransition] = []
         for event in events:
             self._events.append(event)
             transition = TemporalStateTransition(event.id, event.type.value)
-
-            if event.type in (
-                CognitiveEventType.ASSERT_FACT,
-                CognitiveEventType.REPLACE_FACT,
-                CognitiveEventType.ASSERT_PREFERENCE,
-            ):
+            if event.type in (CognitiveEventType.ASSERT_FACT, CognitiveEventType.REPLACE_FACT, CognitiveEventType.ASSERT_PREFERENCE):
                 self._apply_fact_event(event, transition, memory_store)
-            elif event.type in (
-                CognitiveEventType.RETRACT_FACT,
-                CognitiveEventType.RETRACT_PREFERENCE,
-            ):
+            elif event.type in (CognitiveEventType.RETRACT_FACT, CognitiveEventType.RETRACT_PREFERENCE):
                 self._apply_retraction(event, transition, memory_store)
             elif event.type == CognitiveEventType.STORE_NOTE:
                 self._apply_note(event, transition, memory_store)
             elif event.type == CognitiveEventType.CREATE_GOAL:
                 self._apply_goal_create(event, transition, goal_engine)
-            elif event.type in (
-                CognitiveEventType.COMPLETE_GOAL,
-                CognitiveEventType.CANCEL_GOAL,
-                CognitiveEventType.RESCHEDULE_GOAL,
-            ):
-                self._apply_goal_lifecycle(
-                    event,
-                    transition,
-                    goal_engine,
-                    memory_store=memory_store,
-                )
-
+            elif event.type in (CognitiveEventType.COMPLETE_GOAL, CognitiveEventType.CANCEL_GOAL, CognitiveEventType.RESCHEDULE_GOAL):
+                self._apply_goal_lifecycle(event, transition, goal_engine, memory_store=memory_store)
             transitions.append(transition)
         return transitions
 
     def current_fact(self, predicate: str, *, subject: str = "user") -> Optional[TemporalFactVersion]:
-        versions = self._facts.get((subject, predicate), [])
-        active = [version for version in versions if version.active and not version.retracted]
+        active = [v for v in self._facts.get((subject, predicate), []) if v.active and not v.retracted]
         return active[-1] if active else None
 
     def current_values(self, predicate: str, *, subject: str = "user") -> List[str]:
-        return [
-            version.value
-            for version in self._facts.get((subject, predicate), [])
-            if version.active and not version.retracted
-        ]
+        return [v.value for v in self._facts.get((subject, predicate), []) if v.active and not v.retracted]
 
     def fact_history(self, predicate: str, *, subject: str = "user") -> List[TemporalFactVersion]:
         return list(self._facts.get((subject, predicate), []))
@@ -146,12 +116,11 @@ class TemporalCognitiveState:
         key = (event.subject, event.predicate)
         versions = self._facts.setdefault(key, [])
         exclusive = bool(event.metadata.get("exclusive")) or event.type == CognitiveEventType.REPLACE_FACT
-
         previous_active = [v for v in versions if v.active and not v.retracted]
+
         if exclusive:
             for version in previous_active:
                 if self._same_value(version.value, event.value):
-                    # Equivalent current assertion: preserve one state version.
                     transition.notes.append("equivalent_current_fact")
                     return
                 version.active = False
@@ -170,10 +139,17 @@ class TemporalCognitiveState:
         versions.append(version)
 
         if memory_store is not None:
-            kind = MemoryKind.USER_MODEL
+            # Initial assertions preserve the user's exact wording for audit and
+            # backward compatibility. Replacements are canonicalized so a phrase
+            # such as "call me Dani instead of Diego" cannot keep the stale value
+            # inside the active memory text.
+            if event.type in (CognitiveEventType.ASSERT_FACT, CognitiveEventType.ASSERT_PREFERENCE):
+                content = event.source_text
+            else:
+                content = self._canonical_fact_content(event.predicate, event.value)
             record = MemoryRecord(
-                content=self._canonical_fact_content(event.predicate, event.value),
-                kind=kind,
+                content=content,
+                kind=MemoryKind.USER_MODEL,
                 importance=0.92 if exclusive else 0.82,
                 confidence=event.confidence,
                 fact_subject=event.subject,
@@ -197,14 +173,10 @@ class TemporalCognitiveState:
         if not event.predicate or not event.value:
             transition.notes.append("ignored_retraction_without_target")
             return
-        key = (event.subject, event.predicate)
-        versions = self._facts.setdefault(key, [])
+        versions = self._facts.setdefault((event.subject, event.predicate), [])
         candidates = [
-            version
-            for version in versions
-            if version.active
-            and not version.retracted
-            and self._values_match(version.value, event.value)
+            v for v in versions
+            if v.active and not v.retracted and self._values_match(v.value, event.value)
         ]
         if not candidates:
             transition.notes.append("retraction_target_not_in_temporal_state")
@@ -272,14 +244,7 @@ class TemporalCognitiveState:
             return
         transition.goal_ids.append(goal.id)
         self._goal_history.append(
-            TemporalGoalVersion(
-                goal.id,
-                goal.description,
-                "open",
-                event.occurred_at,
-                due_at=goal.due_at,
-                source_event_id=event.id,
-            )
+            TemporalGoalVersion(goal.id, goal.description, "open", event.occurred_at, due_at=goal.due_at, source_event_id=event.id)
         )
 
     def _apply_goal_lifecycle(self, event, transition, goal_engine, *, memory_store=None) -> None:
@@ -289,7 +254,6 @@ class TemporalCognitiveState:
         if not goals:
             transition.notes.append("no_open_goal_for_lifecycle_event")
             return
-
         target = self._match_goal(event, goals, memory_store=memory_store)
         if target is None:
             transition.notes.append("goal_lifecycle_target_not_found")
@@ -301,8 +265,6 @@ class TemporalCognitiveState:
                 transition.notes.append("reschedule_without_due_at")
                 return
             target.due_at = event.due_at
-            # The canonical target avoids carrying obsolete weekday/time text
-            # into future ContextPackets.
             target.description = self._canonical_goal_label(event.value or target.description)
             target.metadata["lifecycle"] = "rescheduled"
             target.metadata["reschedule_source"] = event.source_text
@@ -333,7 +295,6 @@ class TemporalCognitiveState:
         query_terms = self._content_terms(query)
         embedder = getattr(memory_store, "embedding_provider", None)
         query_embedding = self._safe_embed(embedder, query)
-
         ranked = []
         for goal in goals:
             goal_terms = self._content_terms(goal.description)
@@ -344,19 +305,13 @@ class TemporalCognitiveState:
                 goal_embedding = self._safe_embed(embedder, goal.description)
                 if goal_embedding is not None:
                     semantic = max(0.0, self._cosine(query_embedding, goal_embedding))
-            due_bonus = 0.0
-            if event.due_at and goal.due_at and event.due_at.date() == goal.due_at.date():
-                due_bonus = 0.12
-            score = 0.50 * semantic + 0.38 * lexical + due_bonus
-            ranked.append((score, semantic, lexical, goal))
-
+            due_bonus = 0.12 if event.due_at and goal.due_at and event.due_at.date() == goal.due_at.date() else 0.0
+            ranked.append((0.50 * semantic + 0.38 * lexical + due_bonus, semantic, lexical, goal))
         ranked.sort(key=lambda row: row[0], reverse=True)
         if not ranked:
             return None
         best_score, best_semantic, best_lexical, best = ranked[0]
         second_score = ranked[1][0] if len(ranked) > 1 else -1.0
-
-        # Require evidence, and avoid mutating an arbitrary goal on a flat tie.
         if best_lexical <= 0.0 and best_semantic < 0.38:
             return None
         if best_score - second_score < 0.025 and best_lexical == 0.0:
@@ -378,10 +333,9 @@ class TemporalCognitiveState:
         }
         return templates.get(predicate, "{predicate}: {value}.").format(predicate=predicate, value=value)
 
-    @classmethod
-    def _canonical_goal_label(cls, value: str) -> str:
-        cleaned = " ".join(value.strip().split())
-        return cleaned[:180]
+    @staticmethod
+    def _canonical_goal_label(value: str) -> str:
+        return " ".join(value.strip().split())[:180]
 
     @classmethod
     def _content_terms(cls, text: str):
@@ -395,25 +349,22 @@ class TemporalCognitiveState:
 
     @classmethod
     def _values_match(cls, left: str, right: str) -> bool:
-        a = cls._normalize_value(left)
-        b = cls._normalize_value(right)
+        a, b = cls._normalize_value(left), cls._normalize_value(right)
         if a == b:
             return True
         if a in b or b in a:
             return min(len(a), len(b)) >= 4
-        a_terms = cls._content_terms(a)
-        b_terms = cls._content_terms(b)
+        a_terms, b_terms = cls._content_terms(a), cls._content_terms(b)
         if not a_terms or not b_terms:
             return False
-        overlap = len(a_terms & b_terms)
-        return overlap / max(1, min(len(a_terms), len(b_terms))) >= 0.6
+        return len(a_terms & b_terms) / max(1, min(len(a_terms), len(b_terms))) >= 0.6
 
     @classmethod
     def _same_value(cls, left: str, right: str) -> bool:
         return cls._normalize_value(left) == cls._normalize_value(right)
 
-    @classmethod
-    def _normalize_value(cls, value: str) -> str:
+    @staticmethod
+    def _normalize_value(value: str) -> str:
         return " ".join(re.findall(r"[a-z0-9áéíóúüñ]+", value.lower()))
 
     @staticmethod
@@ -440,8 +391,7 @@ class TemporalCognitiveState:
     def _normalize(text: str) -> str:
         return " ".join(
             "".join(
-                char
-                for char in unicodedata.normalize("NFKD", text.lower())
+                char for char in unicodedata.normalize("NFKD", text.lower())
                 if not unicodedata.combining(char)
             ).split()
         )
