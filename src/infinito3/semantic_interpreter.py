@@ -94,9 +94,17 @@ class SemanticCognitiveEventExtractor(_JSONInterpreterBase):
     """
 
     _STATE_HINT = re.compile(
-        r"\b(?:i|i'm|i've|i have|my|me|mine|we|our|yo|me|mi|mis|tengo|he|estoy|soy|ahora|ya|"
-        r"from now on|no longer|anymore|started|stopped|changed|moved|cancel|reschedul|mark|"
-        r"cancela|anula|movido|cambiado|dejado|empezado)\b",
+        r"\b(?:i|i'm|i've|i have|my|me|mine|we|our|yo|mi|mis|tengo|he|estoy|soy|ahora|ya|"
+        r"from now on|no longer|anymore|started|stopped|changed|moved|mark)\b",
+        re.I,
+    )
+    # Lifecycle/revision statements need not be first-person. Examples from the
+    # frozen V3 bank include "La cita cambia" and "La clase se cancela".
+    # These are generic operation stems, not domain vocabulary.
+    _OPERATION_HINT = re.compile(
+        r"\b(?:cambi\w*|mov\w*|cancel\w*|anul\w*|reprogram\w*|complet\w*|termin\w*|"
+        r"cerr\w*|hech\w*|dej\w*|empez\w*|change\w*|move\w*|cancel\w*|reschedul\w*|"
+        r"complete\w*|finish\w*|close\w*|start\w*|stop\w*|done)\b",
         re.I,
     )
 
@@ -129,7 +137,6 @@ Rules:
         base = list(self.fallback.extract(text))
         if not self._should_interpret(text, base):
             return base
-
         now = self._now_fn()
         payload = self._generate(
             self._SYSTEM,
@@ -147,15 +154,15 @@ Rules:
             return False
         if ("?" in stripped or "¿" in stripped) and not self._looks_like_command(stripped):
             return False
-        if not self._STATE_HINT.search(stripped):
+        state_hint = bool(self._STATE_HINT.search(stripped))
+        operation_hint = bool(self._OPERATION_HINT.search(stripped))
+        if not state_hint and not operation_hint:
             return False
         lower = stripped.lower()
         mutation_markers = (
-            "ahora", "otra vez", "cambi", "from now", "no longer", "anymore",
-            "started", "stopped", "cancel", "reschedul", "mark", "movido",
-            "ya no", "dejado", "hecho", "done", "current", "nuevo", "nueva",
+            "ahora", "otra vez", "from now", "no longer", "anymore", "current", "nuevo", "nueva",
         )
-        return not base or any(marker in lower for marker in mutation_markers)
+        return not base or operation_hint or any(marker in lower for marker in mutation_markers)
 
     @staticmethod
     def _looks_like_command(text: str) -> bool:
@@ -189,19 +196,11 @@ Rules:
             }
             if previous_due_at is not None:
                 metadata["previous_due_at"] = previous_due_at.isoformat()
-            events.append(
-                CognitiveEvent(
-                    event_type,
-                    source_text,
-                    predicate=predicate,
-                    value=value,
-                    previous_value=previous_value,
-                    due_at=due_at,
-                    confidence=confidence,
-                    occurred_at=now,
-                    metadata=metadata,
-                )
-            )
+            events.append(CognitiveEvent(
+                event_type, source_text, predicate=predicate, value=value,
+                previous_value=previous_value, due_at=due_at, confidence=confidence,
+                occurred_at=now, metadata=metadata,
+            ))
         return events
 
     @staticmethod
@@ -240,12 +239,8 @@ Rules:
         seen = set()
         unique = []
         for event in merged:
-            key = (
-                event.type.value,
-                event.predicate,
-                (event.value or "").strip().lower(),
-                event.due_at.isoformat() if event.due_at else None,
-            )
+            key = (event.type.value, event.predicate, (event.value or "").strip().lower(),
+                   event.due_at.isoformat() if event.due_at else None)
             if key in seen:
                 continue
             seen.add(key)
