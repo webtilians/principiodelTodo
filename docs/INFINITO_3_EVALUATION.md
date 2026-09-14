@@ -46,24 +46,11 @@ Forbidden-answer checks are useful for known contradiction leakage. They are not
 
 `standard_evaluation_suite()` contains four fixed smoke-test scenarios: long-term identity, contradiction resolution, goal continuity and relevance filtering.
 
-`extended_evaluation_suite()` contains 20 scenarios covering:
+`extended_evaluation_suite()` contains 20 scenarios covering long-term user facts, reinforcement, exclusive-fact supersession, multiple preferences, goals, tight budgets, controls, semantic paraphrases, cross-lingual retrieval, prompt hygiene and contradiction under noise.
 
-- long-term user facts
-- fact reinforcement
-- exclusive-fact supersession
-- multiple simultaneous preferences
-- temporal goals
-- multiple goals
-- tight context budgets
-- current-turn self-retrieval prevention
-- empty-memory controls
-- semantic paraphrases
-- cross-lingual retrieval
-- structured memory-gate facts
-- instruction-like remembered text
-- contradiction under irrelevant noise
+`precision_evaluation_suite()` is a separate frozen 12-case bank authored after the original 20-case benchmark. It deliberately probes multi-value requests, multiple requested predicates, irrelevant urgent goals, near distractors, cross-language queries, arithmetic negative controls and small budgets.
 
-The extended suite deliberately includes controls and cases expected to expose architectural gaps.
+`precision_validation_suite()` contains eight additional cases authored after the first precision fix, including name+age, city+bike, unusual preferences, profile+goal combinations and short English profile queries. It exists specifically to reduce the risk of tuning only to the first precision bank.
 
 ## Live experiment history
 
@@ -75,68 +62,64 @@ All live runs below used `gpt-5.6-luna`, reasoning effort `none`, isolated in-me
 | Extended baseline | 20 extended | hash | 14 / 6 / 0 | 0.175 | 0.800 | +0.625 | 0.778 | 51.25 | +54.45 |
 | Semantic retrieval | 20 extended | `text-embedding-3-small` | 15 / 5 / 0 | 0.175 | 0.850 | +0.675 | 0.838 | 56.25 | +67 |
 | After benchmark-derived fixes | 20 extended | `text-embedding-3-small` | 18 / 2 / 0 | 0.175 | 1.000 | +0.825 | 0.938 | 56.0 | +68 |
-| Adaptive Context Builder precision | 20 extended | `text-embedding-3-small` | **18 / 2 / 0** | **0.175** | **1.000** | **+0.825** | **1.000** | **46.95** | **+55.6** |
+| Adaptive Context Builder precision | 20 extended | `text-embedding-3-small` | 18 / 2 / 0 | 0.175 | 1.000 | +0.825 | 1.000 | 46.95 | +55.6 |
+| Generalized Context Builder | 20 extended | `text-embedding-3-small` | **18 / 2 / 0** | **0.175** | **1.000** | **+0.825** | **1.000** | **46.95** | **+55.35** |
+| Generalized Context Builder | 12 precision | `text-embedding-3-small` | **11 / 1 / 0** | **0.083** | **1.000** | **+0.917** | **1.000** | **47.83** | **+54.17** |
+| Generalized Context Builder | 8 validation | `text-embedding-3-small` | **7 / 1 / 0** | **0.125** | **1.000** | **+0.875** | **1.000** | **49.25** | **+62.75** |
 
-The final two ties are intentional controls: current-turn information that both arms can answer and an empty-memory negative control. No evaluated scenario is currently won by the baseline.
+Across the three non-overlapping current banks (40 scenarios), the generalized policy produced **36 wins / 4 ties / 0 losses**, with cognitive answer score **1.000** and context score **1.000** in every bank. The four ties are controls where cognitive state should not create an artificial advantage.
 
-## What the extended benchmark exposed
+## What the experiments exposed
 
 ### 1. Semantic retrieval matters
 
 The hash embedding baseline failed a paraphrase where the stored memory was `Me gusta el ciclismo de montaña.` and the probe was `¿Qué deporte practico?`. Replacing only the embedding backend with `text-embedding-3-small` recovered the memory and the model answered correctly.
 
-The same semantic backend also retrieved a Spanish memory for an English probe. The first deterministic oracle incorrectly marked the correct answer `You like downhill mountain biking.` as a failure because it required the literal Spanish word `descenso`. The benchmark oracle was corrected to score the English response while continuing to require the original Spanish evidence in the ContextPacket.
+The same semantic backend also retrieved a Spanish memory for an English probe. The first deterministic oracle incorrectly marked `You like downhill mountain biking.` as a failure because it required the literal Spanish word `descenso`. The oracle was corrected without relaxing the requirement that the original Spanish evidence be present in context.
 
 ### 2. The memory gate had observable blind spots
 
-Two direct structured facts were not originally persisted:
-
-- `Mi bici es una Santa Cruz V10.`
-- `Mi color favorito es azul petróleo.`
-
-The transparent rule baseline was extended to recognize these structured user facts, plus explicit age facts. After the fix both cases score 1.0 and appear as `USER_MODEL` context.
+Direct structured facts such as `Mi bici es...`, `Mi color favorito es...` and explicit age were not originally persisted. The transparent rule baseline now recognizes these as structured `USER_MODEL` facts.
 
 ### 3. Interrogative probes could create fake goals
 
-A probe such as `¿Qué tengo que hacer mañana?` originally matched the phrase `tengo que` and created a second artificial goal from the question itself. This did not stop the model from finding the real goal, but it polluted cognitive state.
+A probe such as `¿Qué tengo que hacer mañana?` originally matched `tengo que` and created an artificial goal from the question itself. `SimpleGoalEngine` now rejects information-seeking interrogatives while still accepting genuine requests such as `¿Puedes recordarme mañana llamar al banco?`.
 
-`SimpleGoalEngine` now rejects information-seeking interrogatives before goal creation while still accepting request forms such as `¿Puedes recordarme mañana llamar al banco?`. The live rerun confirms that only the real seeded goal appears in the final ContextPacket.
+### 4. Context precision required a separate experiment
 
-### 4. Context precision experiment
+The first 20-case precision optimization raised context score from **0.938 to 1.000** and reduced mean context from **56.0 to 46.95 tokens** without changing the answer result of **18 / 2 / 0**. It also deduplicated identical goal/memory evidence.
 
-The previous 20-scenario run had perfect answer score but a context score of 0.938 because four scenarios selected irrelevant user-model memories. The precision experiment changed only `BalancedContextBuilder`; memory storage, gate, goal engine, embeddings and LLM configuration were held fixed.
+Because that policy was designed after inspecting the 20-case suite, a new 12-case precision bank was frozen before further tuning. That bank successfully broke assumptions in the first policy: some queries needed multiple facts simultaneously, some multi-value requests were phrased differently, urgent goals could be irrelevant, and self-contained questions needed no personal memory.
 
-The new selection policy is adaptive rather than a single global cutoff:
+### 5. Domain dictionaries were not necessary
 
-- singular queries normally keep the dominant memory candidate and only allow a very close high-score tie
-- plural queries can keep multiple candidates when they represent the same structured predicate, preserving cases such as jazz + punk
-- stable core facts such as name/location/bike are used as fallback only when the query actually asks for that fact
-- a goal and an ordinary memory containing the same evidence are deduplicated before prompt construction
-- diagnostics expose how many candidates were removed by the precision policy
+An intermediate precision fix used explicit topic vocabularies for examples such as music and food. It passed the observed cases but would not scale: a cognitive layer should not require a hand-maintained list for every possible topic.
 
-Observed result:
+`GeneralizedContextBuilder` replaces that dependency in the default `CognitiveEngine`. Its active selection policy uses:
 
-- answer result stayed **18 / 2 / 0**
-- cognitive answer score stayed **1.000**
-- context score improved **0.938 → 1.000**
-- mean ContextPacket size fell **56.0 → 46.95 tokens** (about **16.2% less context**)
-- mean provider token delta fell **68.0 → 55.6** (about **18.2% less overhead**)
+- structured fact predicates for explicit profile facets such as name, location, age and bike
+- semantic retrieval ordering for open-ended memories and preferences
+- generic quantifier intent (`todos`, `todas`, `all`, `everything`, list/enumerate forms) to decide whether several values of a predicate are requested
+- relevance-based goal filtering rather than urgency alone
+- duplicate goal/memory removal
+- negative-control suppression for self-contained arithmetic
 
-The four previously noisy scenarios now contain only the required evidence. The multi-value music case still retains both `jazz` and `punk`, so the improvement is not a trivial top-1 policy.
+The older `BalancedContextBuilder` remains available as a replaceable/reference implementation, but the default engine now uses `GeneralizedContextBuilder`.
 
-The goal scenarios also became smaller because duplicate goal/memory evidence was removed:
+The first generalized held-out run exposed one remaining generic intent bug: `todas mis preferencias` was not recognized as plural. The fix broadened the quantifier rule generically rather than adding a music-specific exception. A full rerun then restored answer and context score to **1.000** on extended, frozen precision and validation banks.
 
-- `goal_tomorrow_time`: 2 context items → 1
-- `goal_day_after_tomorrow`: 2 → 1
-- `two_goals_recall`: 4 → 2
+## Current validation state
 
-## Interpretation
+The generalized branch was validated with **75 deterministic tests passing** plus the three live semantic-evaluation banks above. This is evidence for the current memory/context behaviors, not proof of general intelligence or broad real-world reliability.
 
-The current result is an encouraging test of the architecture, not evidence that INFINITO improves general intelligence. The live benchmark is still small, its exact-answer evaluator is intentionally simple, and each configuration has only been run once. Model sampling can vary between runs.
+Important limitations remain:
 
-What the experiments do show is narrower and useful: under controlled paired probes, a small amount of selected persistent state repeatedly restores information that the same model cannot answer from its visible short-term history alone. The experiments also successfully exposed concrete implementation defects, and isolated fixes improved both answer quality and context efficiency without creating baseline losses.
-
-The latest precision result should also be treated cautiously because the policy was developed after inspecting this 20-case suite. A new held-out context-precision bank is required before claiming that the pruning rule generalizes rather than merely fitting these cases.
+- the benchmark contains only 40 current live scenarios
+- deterministic answer assertions are intentionally simple
+- most configurations still have few stochastic repetitions
+- paired probes do not model long independent agent trajectories
+- there is not yet a semantic/human judge for nuanced answer quality
+- real long-lived databases, process restarts and days-long user interaction need broader testing
 
 ## Example
 
@@ -171,4 +154,4 @@ print(report.to_json())
 
 ## Next experiments
 
-The next evaluation work should create a **held-out Context Builder precision suite** that was not used to design the adaptive pruning rule. It should include ambiguous singular queries, genuinely multi-fact answers, unrelated urgent goals, semantically close distractors and queries in Spanish/English. After that: independent multi-turn trajectories, repeated runs for confidence intervals, semantic/human pairwise judging, grounded hallucination, quality-per-token normalization and component ablations.
+The next evaluation work should stop optimizing against these same 40 cases and move to broader held-out behavior: independent multi-turn trajectories, repeated runs with confidence intervals, larger noisy memory stores, persistence/restart tests, semantic/human pairwise judging, grounded hallucination, quality-per-token normalization and explicit component ablations for memory, goals and Context Builder.
