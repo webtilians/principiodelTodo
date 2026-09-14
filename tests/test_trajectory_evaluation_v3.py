@@ -1,7 +1,10 @@
 from src.infinito3.cognitive_loop import CognitiveLoop
 from src.infinito3.engine import CognitiveEngine
 from src.infinito3.evaluation import EvaluationExpectation
+from src.infinito3.generalized_context_builder import GeneralizedContextBuilder
+from src.infinito3.goals import SimpleGoalEngine
 from src.infinito3.llm_adapter import RecordingLLMAdapter
+from src.infinito3.memory import InMemoryMemoryStore
 from src.infinito3.trajectory_cases import independent_trajectory_suite
 from src.infinito3.trajectory_evaluation import (
     MutableClock,
@@ -101,6 +104,45 @@ def test_simulated_clock_advances_before_the_turn():
     assert observed[1] == scenario.start_at
     assert observed[2] == scenario.start_at.replace(day=15, hour=15)
     assert observed[3] == scenario.start_at.replace(day=15, hour=15)
+
+
+def test_prefixed_informational_question_does_not_create_a_goal():
+    clock = MutableClock(TrajectoryScenario(name="clock", steps=()).start_at)
+    goals = SimpleGoalEngine(now_fn=clock)
+    assert goals.ingest("Mañana tengo que llamar al banco a las 10.")
+    before = len(goals.all())
+
+    created = goals.ingest("Hoy es 17 de septiembre. ¿Qué tengo pendiente mañana?")
+
+    assert created == []
+    assert len(goals.all()) == before
+
+
+def test_polite_reminder_question_still_creates_a_goal():
+    clock = MutableClock(TrajectoryScenario(name="clock", steps=()).start_at)
+    goals = SimpleGoalEngine(now_fn=clock)
+
+    created = goals.ingest("¿Puedes recordarme mañana llamar al banco a las 10?")
+
+    assert len(created) == 1
+    assert created[0].due_at is not None
+
+
+def test_future_goal_query_excludes_overdue_goals_but_keeps_future_one():
+    clock = MutableClock(TrajectoryScenario(name="clock", steps=()).start_at)
+    goals = SimpleGoalEngine(now_fn=clock)
+    goals.ingest("Mañana tengo que llamar al banco a las 10.")
+    goals.ingest("Pasado mañana tengo cita con el dentista a las 16.")
+    builder = GeneralizedContextBuilder(InMemoryMemoryStore(), goals, now_fn=clock)
+
+    clock.advance(hours=30)
+    packet = builder.build(
+        "Ahora es 15 de septiembre por la tarde. ¿Qué cita futura sigo teniendo?",
+        memory_candidates=[],
+    )
+
+    assert "dentista" in packet.rendered
+    assert "banco" not in packet.rendered
 
 
 def test_frozen_long_horizon_bank_has_multiple_dozen_turn_trajectories():
