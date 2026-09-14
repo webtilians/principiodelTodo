@@ -145,6 +145,23 @@ def test_future_goal_query_excludes_overdue_goals_but_keeps_future_one():
     assert "banco" not in packet.rendered
 
 
+def test_future_intent_overrides_today_date_framing():
+    clock = MutableClock(TrajectoryScenario(name="clock", steps=()).start_at)
+    goals = SimpleGoalEngine(now_fn=clock)
+    goals.ingest("Mañana tengo que llamar al banco a las 10.")
+    clock.advance(hours=96)
+    goals.ingest("Pasado mañana tengo que llevar el coche al taller a las 9.")
+    builder = GeneralizedContextBuilder(InMemoryMemoryStore(), goals, now_fn=clock)
+
+    packet = builder.build(
+        "Hoy es 18 de septiembre. ¿Qué tarea futura tengo programada?",
+        memory_candidates=[],
+    )
+
+    assert "taller" in packet.rendered
+    assert "banco" not in packet.rendered
+
+
 def test_frozen_long_horizon_bank_has_multiple_dozen_turn_trajectories():
     suite = independent_trajectory_suite()
 
