@@ -1,0 +1,4 @@
+run: cognitive-events-temporal-state-v1
+suite: frozen-v2-163-turn-26-probe
+frozen_case_commit: 34b2b41922370ccbbcb1ba302113d5b431b22e55
+reason: measure event-sourced temporal cognition against unchanged second long-horizon held-out
