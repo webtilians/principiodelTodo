@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import hashlib
 import os
 import sys
 from pathlib import Path
@@ -11,6 +12,7 @@ if str(REPO_ROOT) not in sys.path:
 from openai import OpenAI
 
 from src.infinito3.benchmark_cases import extended_evaluation_suite
+from src.infinito3.precision_cases import precision_evaluation_suite
 from src.infinito3.cognitive_loop import CognitiveLoop
 from src.infinito3.engine import CognitiveEngine
 from src.infinito3.evaluation import EvaluationHarness, standard_evaluation_suite
@@ -40,7 +42,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--suite",
-        choices=("standard", "extended"),
+        choices=("standard", "extended", "precision"),
         default="extended",
         help="Scenario bank to run. Extended is the default for live experiments.",
     )
@@ -101,11 +103,8 @@ def main() -> int:
             history_limit=args.history_limit,
         )
 
-    scenarios = (
-        extended_evaluation_suite()
-        if args.suite == "extended"
-        else standard_evaluation_suite()
-    )
+    scenarios = {"standard": standard_evaluation_suite, "extended": extended_evaluation_suite,
+                 "precision": precision_evaluation_suite}[args.suite]()
     harness = EvaluationHarness(loop_factory)
     report = harness.run(scenarios)
     report.metadata.update(
@@ -118,6 +117,9 @@ def main() -> int:
             "embedding_model": args.embedding_model.strip() if args.embedding_provider == "openai" else None,
             "real_model_run": True,
             "suite": args.suite,
+            "suite_sha256": hashlib.sha256((REPO_ROOT / "src" / "infinito3" /
+                ("precision_cases.py" if args.suite == "precision" else
+                 "benchmark_cases.py" if args.suite == "extended" else "evaluation.py")).read_bytes()).hexdigest(),
         }
     )
 
