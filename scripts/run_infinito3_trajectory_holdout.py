@@ -14,7 +14,7 @@ from openai import OpenAI
 from src.infinito3.cognitive_loop import CognitiveLoop
 from src.infinito3.engine import CognitiveEngine
 from src.infinito3.goals import SimpleGoalEngine
-from src.infinito3.llm_adapter import OpenAIResponsesAdapter
+from src.infinito3.llm_adapter import OpenAIResponsesAdapter, RecordingLLMAdapter
 from src.infinito3.persistent_memory import HashEmbeddingProvider, OpenAIEmbeddingProvider
 from src.infinito3.semantic_context import (
     SemanticCohortContextBuilder,
@@ -52,6 +52,12 @@ def parse_args() -> argparse.Namespace:
         "--reranker-model",
         default=os.environ.get("INFINITO_RERANKER_MODEL", ""),
         help="Defaults to --model when omitted.",
+    )
+    parser.add_argument(
+        "--baseline-mode",
+        choices=("real", "stub"),
+        default=os.environ.get("INFINITO_BASELINE_MODE", "real"),
+        help="Use stub for cognitive-only ablations to avoid paying for an unused baseline arm.",
     )
     parser.add_argument("--output-dir", default="trajectory-holdout-results")
     return parser.parse_args()
@@ -103,23 +109,31 @@ def main() -> int:
             context_builder=context_builder,
         )
 
+    def real_adapter():
+        return OpenAIResponsesAdapter(
+            client,
+            model=args.model.strip(),
+            reasoning_effort=args.reasoning_effort.strip() or None,
+        )
+
     def loop_pair_factory(clock, scenario):
+        if args.baseline_mode == "stub":
+            baseline_adapter = RecordingLLMAdapter(
+                lambda request: "ABLATION_BASELINE_NOT_SCORED",
+                provider="ablation-stub",
+                model="ablation-stub",
+            )
+        else:
+            baseline_adapter = real_adapter()
+
         baseline = CognitiveLoop(
             make_engine(clock),
-            OpenAIResponsesAdapter(
-                client,
-                model=args.model.strip(),
-                reasoning_effort=args.reasoning_effort.strip() or None,
-            ),
+            baseline_adapter,
             history_limit=scenario.history_limit,
         )
         cognitive = CognitiveLoop(
             make_engine(clock),
-            OpenAIResponsesAdapter(
-                client,
-                model=args.model.strip(),
-                reasoning_effort=args.reasoning_effort.strip() or None,
-            ),
+            real_adapter(),
             history_limit=scenario.history_limit,
         )
         return baseline, cognitive
@@ -136,6 +150,8 @@ def main() -> int:
             "context_builder": "semantic_cohort",
             "semantic_reranker": args.semantic_reranker,
             "reranker_model": reranker_model if args.semantic_reranker == "llm" else None,
+            "baseline_mode": args.baseline_mode,
+            "baseline_scores_comparable": args.baseline_mode == "real",
             "real_model_run": True,
             "suite": "independent_trajectory_holdout_suite",
             "suite_frozen_before_run": True,
@@ -159,6 +175,7 @@ def main() -> int:
     print("context_builder=semantic_cohort")
     print(f"semantic_reranker={args.semantic_reranker}")
     print(f"reranker_model={reranker_model if args.semantic_reranker == 'llm' else 'none'}")
+    print(f"baseline_mode={args.baseline_mode}")
     print(f"trajectories={s.trajectory_count}")
     print(f"user_turns={s.user_turn_count}")
     print(f"probes={s.probe_count}")
