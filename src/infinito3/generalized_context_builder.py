@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta
 from typing import Dict, List, Tuple
 
 from .context_builder import BalancedContextBuilder
@@ -65,12 +66,13 @@ class GeneralizedContextBuilder(BalancedContextBuilder):
         facet_words = self._content_words(self._FACET_HINT_TEXT)
         additional_words = query_words - facet_words
 
-        # Urgency alone is not enough to inject a goal into an unrelated prompt.
+        # Keep signatures from every goal so an excluded stale goal cannot leak
+        # back through its duplicate episodic memory.
         all_goal_signatures = {
             self._content_signature(item.content.split(" | due=", 1)[0])
             for item in filtered[ContextSource.GOAL]
         }
-        filtered[ContextSource.GOAL] = [
+        goal_items = [
             item
             for item in filtered[ContextSource.GOAL]
             if asks_goals
@@ -79,6 +81,9 @@ class GeneralizedContextBuilder(BalancedContextBuilder):
                 & self._content_words(item.content.split(" | due=", 1)[0])
             )
         ]
+        if asks_goals:
+            goal_items = self._filter_goals_for_temporal_intent(query, goal_items)
+        filtered[ContextSource.GOAL] = goal_items
 
         # Goal descriptions can also be stored as episodic memories. Keep one
         # authoritative copy instead of paying for duplicate evidence.
@@ -123,3 +128,61 @@ class GeneralizedContextBuilder(BalancedContextBuilder):
 
         after = sum(len(items) for items in filtered.values())
         return filtered, max(0, before - after)
+
+    def _filter_goals_for_temporal_intent(
+        self,
+        query: str,
+        items: List[ContextItem],
+    ) -> List[ContextItem]:
+        """Apply only temporal constraints explicitly present in the query.
+
+        Overdue goals remain valid for broad questions such as "what is still
+        pending?". They are excluded only when the user asks for a future
+        window (tomorrow, day after tomorrow, upcoming/future). This avoids
+        silently redefining every overdue task as completed.
+        """
+        q = " ".join(self._normalized(query).split())
+        now = self._now_fn()
+
+        day_after = any(marker in q for marker in ("pasado manana", "day after tomorrow"))
+        tomorrow = not day_after and any(marker in q for marker in ("manana", "tomorrow"))
+        today = not day_after and not tomorrow and any(marker in q for marker in ("hoy", "today"))
+        future_only = bool(
+            any(
+                marker in q
+                for marker in (
+                    "futuro", "futura", "futuros", "futuras", "future",
+                    "upcoming", "proximo", "proxima", "proximos", "proximas",
+                )
+            )
+        )
+
+        if not (day_after or tomorrow or today or future_only):
+            return items
+
+        if day_after:
+            target_date = (now + timedelta(days=2)).date()
+        elif tomorrow:
+            target_date = (now + timedelta(days=1)).date()
+        elif today:
+            target_date = now.date()
+        else:
+            target_date = None
+
+        selected: List[ContextItem] = []
+        for item in items:
+            raw_due = item.metadata.get("due_at")
+            if not raw_due:
+                continue
+            try:
+                due_at = datetime.fromisoformat(str(raw_due))
+            except (TypeError, ValueError):
+                continue
+
+            if target_date is not None:
+                if due_at.date() == target_date and due_at >= now:
+                    selected.append(item)
+            elif due_at >= now:
+                selected.append(item)
+
+        return selected
