@@ -2,7 +2,7 @@ import json
 import re
 import unicodedata
 from dataclasses import dataclass, field, replace
-from typing import Dict, List, Optional, Sequence
+from typing import Dict, List, Optional
 
 from .interfaces import LLMAdapter
 from .types import LLMMessage, LLMRequest, MemoryRecord, MemoryStatus
@@ -18,12 +18,7 @@ class StructuredQueryPlan:
 
 
 class StructuredStateQueryPlanner:
-    """Map personal-memory questions to structured predicates before retrieval.
-
-    Rules cover common explicit wording. An optional semantic adapter is used only
-    when a personal query is broad/underspecified or historical target extraction
-    is ambiguous. The model may select only a closed set of durable predicates.
-    """
+    """Map personal-memory questions to structured predicates before retrieval."""
 
     _PREDICATES = (
         "name", "location", "bike", "favorite_color", "studying_language",
@@ -62,18 +57,15 @@ for example Utrecht in 'where did I live before Utrecht?'. Never answer the ques
         target = self._rule_history_target(query) if history else None
         broad = any(marker in normalized for marker in self._BROAD_MARKERS)
         plan = StructuredQueryPlan(predicates=predicates, history=history, target_value=target, all_current_profile=broad)
-
         if self.adapter is None or not self._should_semantic(query, plan):
             if broad and not predicates:
                 plan.predicates = ["name", "location", "bike", "favorite_color", "studying_language", "occupation", "pet_name"]
             return plan
-
         semantic = self._semantic_plan(query)
         if semantic is None:
             if broad and not plan.predicates:
                 plan.predicates = ["name", "location", "bike", "favorite_color", "studying_language", "occupation", "pet_name"]
             return plan
-
         merged = []
         for predicate in list(plan.predicates) + list(semantic.predicates):
             if predicate not in merged:
@@ -104,9 +96,7 @@ for example Utrecht in 'where did I live before Utrecht?'. Never answer the ques
             return True
         if plan.history and not plan.target_value:
             return True
-        # Multi-clause personal questions are cheap to validate semantically and
-        # are where rule-only slot detection most often misses one requested field.
-        return len(re.findall(r"\b(?:y|and|,|ademas|además|also)\b", normalized)) >= 2
+        return len(re.findall(r"(?:\by\b|\band\b|,|\bademas\b|\balso\b)", normalized)) >= 2
 
     def _semantic_plan(self, query: str) -> Optional[StructuredQueryPlan]:
         try:
@@ -123,7 +113,6 @@ for example Utrecht in 'where did I live before Utrecht?'. Never answer the ques
         except Exception:
             self._usage["failures"] += 1
             return None
-
         self._usage["calls"] += 1
         for key in ("input_tokens", "output_tokens", "total_tokens"):
             try:
@@ -173,11 +162,7 @@ for example Utrecht in 'where did I live before Utrecht?'. Never answer the ques
     @classmethod
     def _rule_history_target(cls, query: str) -> Optional[str]:
         q = " ".join(query.strip().split())
-        patterns = (
-            r"(?:antes de|antes del|justo antes de)\s+([^?.,;]+)",
-            r"(?:before)\s+([^?.,;]+)",
-        )
-        for pattern in patterns:
+        for pattern in (r"(?:antes de|antes del|justo antes de)\s+([^?.,;]+)", r"(?:before)\s+([^?.,;]+)"):
             match = re.search(pattern, q, re.I)
             if match:
                 value = " ".join(match.group(1).strip().split())
@@ -204,10 +189,7 @@ for example Utrecht in 'where did I live before Utrecht?'. Never answer the ques
     @staticmethod
     def _normalize(text: str) -> str:
         return " ".join(
-            "".join(
-                char for char in unicodedata.normalize("NFKD", text.lower())
-                if not unicodedata.combining(char)
-            ).split()
+            "".join(char for char in unicodedata.normalize("NFKD", text.lower()) if not unicodedata.combining(char)).split()
         )
 
 
@@ -221,6 +203,9 @@ class StructuredStateRetriever:
         self.last_plan = StructuredQueryPlan()
 
     def retrieve(self, query: str) -> List[MemoryRecord]:
+        if "?" not in query and "¿" not in query:
+            self.last_plan = StructuredQueryPlan()
+            return []
         plan = self.planner.plan(query)
         self.last_plan = plan
         if not plan.predicates:
@@ -228,14 +213,12 @@ class StructuredStateRetriever:
         records = self._all_records()
         by_id = {record.id: record for record in records}
         selected: List[MemoryRecord] = []
-
         for predicate in plan.predicates:
             if plan.history:
                 record = self._historical_record(predicate, query, plan.target_value, by_id)
                 if record is not None:
                     selected.append(record)
                 continue
-
             versions = list(self.temporal_state.fact_history(predicate))
             active_versions = [version for version in versions if version.active and not version.retracted]
             if active_versions:
@@ -244,15 +227,10 @@ class StructuredStateRetriever:
                     if record is not None:
                         selected.append(self._annotate(record, relation="current"))
                 continue
-
-            # Notes are projected directly to memory and do not necessarily have
-            # a TemporalFactVersion. Predicate identity is still authoritative.
             for record in records:
                 if record.status == MemoryStatus.ACTIVE and record.fact_predicate == predicate:
                     selected.append(self._annotate(record, relation="current"))
-
-        seen = set()
-        unique = []
+        seen, unique = set(), []
         for record in selected:
             if not record.id or record.id in seen:
                 continue
@@ -293,8 +271,7 @@ class StructuredStateRetriever:
         record = by_id.get(predecessor.memory_id)
         if record is None:
             return None
-        before_value = versions[target_index].value
-        return self._annotate(record, relation="immediately_previous", before_value=before_value)
+        return self._annotate(record, relation="immediately_previous", before_value=versions[target_index].value)
 
     @staticmethod
     def _annotate(record: MemoryRecord, *, relation: str, before_value: Optional[str] = None) -> MemoryRecord:
@@ -303,13 +280,7 @@ class StructuredStateRetriever:
         metadata["temporal_relation"] = relation
         if before_value:
             metadata["temporal_before_value"] = before_value
-        return replace(
-            record,
-            status=MemoryStatus.ACTIVE,
-            importance=max(record.importance, 0.98),
-            confidence=max(record.confidence, 0.98),
-            metadata=metadata,
-        )
+        return replace(record, status=MemoryStatus.ACTIVE, importance=max(record.importance, 0.98), confidence=max(record.confidence, 0.98), metadata=metadata)
 
     def _all_records(self) -> List[MemoryRecord]:
         getter = getattr(self.memory_store, "all", None)
@@ -323,8 +294,5 @@ class StructuredStateRetriever:
     @staticmethod
     def _normalize(text: str) -> str:
         return " ".join(
-            "".join(
-                char for char in unicodedata.normalize("NFKD", str(text).lower())
-                if not unicodedata.combining(char)
-            ).split()
+            "".join(char for char in unicodedata.normalize("NFKD", str(text).lower()) if not unicodedata.combining(char)).split()
         )
