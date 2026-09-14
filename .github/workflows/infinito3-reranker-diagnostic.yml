@@ -1,0 +1,28 @@
+name: INFINITO 3.0 Semantic Reranker Live Diagnostic
+
+on:
+  push:
+    branches: [eval/trajectory-harness-20260914]
+    paths:
+      - '.github/infinito3-reranker-diagnostic-trigger'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnostic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependency
+        run: python -m pip install openai
+      - name: Three semantic membership probes
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          INFINITO_RERANKER_MODEL: gpt-5.6-luna
+        run: python scripts/diagnose_infinito3_semantic_reranker_live.py
