@@ -59,6 +59,25 @@ def test_semantic_event_extractor_covers_unseen_surface_forms():
         assert any(e.type == event_type and e.predicate == predicate and e.value == value for e in events)
 
 
+def test_semantic_extractor_escalates_non_first_person_lifecycle_phrasing():
+    seen = []
+
+    def responder(request):
+        text = _last_user(request)
+        seen.append(text)
+        if "veterinario" in text:
+            return '{"events":[{"type":"reschedule_goal","predicate":"goal","value":"cita veterinario","due_at":"2026-11-12T20:00:00","previous_due_at":"2026-11-10T18:00:00","confidence":0.99}]}'
+        return '{"events":[{"type":"cancel_goal","predicate":"goal","value":"clase de guitarra","confidence":0.99}]}'
+
+    extractor = SemanticCognitiveEventExtractor(RecordingLLMAdapter(responder))
+    vet = extractor.extract("La cita del veterinario cambia: ya no es el martes, será el jueves a las 20.")
+    guitar = extractor.extract("La clase de guitarra se cancela; no voy a ir.")
+
+    assert any(event.type == CognitiveEventType.RESCHEDULE_GOAL for event in vet)
+    assert any(event.type == CognitiveEventType.CANCEL_GOAL for event in guitar)
+    assert len(seen) == 2
+
+
 def test_semantic_extractor_does_not_call_model_for_ordinary_questions():
     adapter = RecordingLLMAdapter(lambda request: '{"events":[{"type":"assert_fact","predicate":"bad","value":"bad"}]}')
     extractor = SemanticCognitiveEventExtractor(adapter)
