@@ -3,6 +3,12 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Tuple
 
 from .context_builder import BalancedContextBuilder
+from .temporal import (
+    calendar_reference_present,
+    parse_explicit_date,
+    parse_weekday_date,
+    parse_weekend_window,
+)
 from .types import ContextItem, ContextSource
 
 
@@ -58,15 +64,16 @@ class GeneralizedContextBuilder(BalancedContextBuilder):
         if "?" not in query:
             return False
 
-        # Infer a goal query from generic temporal/remaining-state language,
-        # rather than enumerating every possible noun (appointment, meeting,
-        # commitment, race, delivery, etc.).
+        # Infer a goal query from temporal framing plus a remaining-state
+        # question. Calendar vocabulary comes from the shared temporal parser,
+        # so creation and later retrieval agree about weekdays and dates.
         future_reference = bool(
             re.search(
                 r"\b(?:futur\w*|proxim\w*|manana|pasado manana|semana que viene|"
                 r"future|upcoming|tomorrow|next week)\b",
                 q,
             )
+            or calendar_reference_present(query)
         )
         if not future_reference:
             return False
@@ -74,7 +81,7 @@ class GeneralizedContextBuilder(BalancedContextBuilder):
         remaining_state = bool(
             re.search(
                 r"\b(?:me queda\w*|sigo teniendo|tengo programad\w*|tengo agendad\w*|"
-                r"que tengo|what do i have|what have i got|which .* do i have|"
+                r"que\b.{0,64}\btengo\b|what do i have|what have i got|which .* do i have|"
                 r"left|remaining|scheduled)\b",
                 q,
             )
@@ -99,8 +106,6 @@ class GeneralizedContextBuilder(BalancedContextBuilder):
         facet_words = self._content_words(self._FACET_HINT_TEXT)
         additional_words = query_words - facet_words
 
-        # Keep signatures from every goal so an excluded stale goal cannot leak
-        # back through its duplicate episodic memory.
         all_goal_signatures = {
             self._content_signature(item.content.split(" | due=", 1)[0])
             for item in filtered[ContextSource.GOAL]
@@ -118,8 +123,8 @@ class GeneralizedContextBuilder(BalancedContextBuilder):
             goal_items = self._filter_goals_for_temporal_intent(query, goal_items)
         filtered[ContextSource.GOAL] = goal_items
 
-        # Goal descriptions can also be stored as episodic memories. Keep one
-        # authoritative copy instead of paying for duplicate evidence.
+        # Active goals are the authoritative representation of commitments.
+        # Exact duplicates are removed even for non-goal queries.
         if all_goal_signatures:
             for source in (ContextSource.USER_MODEL, ContextSource.MEMORY):
                 filtered[source] = [
@@ -142,14 +147,10 @@ class GeneralizedContextBuilder(BalancedContextBuilder):
                     if matching_facts:
                         item.metadata["requested_facts"] = sorted(matching_facts)
                         eligible.append(item)
-                        continue
 
-                    # Episodic memory may still support the non-facet part of a
-                    # compound request. Unrequested profile facts are excluded.
-                    if source == ContextSource.MEMORY and additional_words:
-                        if additional_words & self._content_words(item.content):
-                            eligible.append(item)
-
+                # When the user is asking about commitments, the goal engine is
+                # authoritative. Do not resurrect cancelled/completed goals from
+                # episodic memory merely because their words overlap the query.
                 filtered[source] = eligible
             else:
                 # Semantic retrieval has already ranked the memories. For a
@@ -170,13 +171,16 @@ class GeneralizedContextBuilder(BalancedContextBuilder):
         """Apply only temporal constraints explicitly present in the query.
 
         Overdue goals remain valid for broad questions such as "what is still
-        pending?". They are excluded only when the user asks for a future
-        window (tomorrow, day after tomorrow, upcoming/future). This avoids
-        silently redefining every overdue task as completed.
+        pending?". A concrete calendar phrase narrows the window; future-only
+        wording additionally excludes overdue goals. Completion is never
+        inferred from time passing.
         """
         q = " ".join(self._normalized(query).split())
         now = self._now_fn()
 
+        explicit_date = parse_explicit_date(query, now)
+        weekday_date = parse_weekday_date(query, now)
+        weekend_window = parse_weekend_window(query, now)
         day_after = any(marker in q for marker in ("pasado manana", "day after tomorrow"))
         tomorrow = not day_after and any(marker in q for marker in ("manana", "tomorrow"))
         future_only = bool(
@@ -188,25 +192,37 @@ class GeneralizedContextBuilder(BalancedContextBuilder):
                 )
             )
         )
-        # "Hoy es 18... ¿qué tarea futura...?" uses today only as framing.
-        # Explicit future intent therefore takes precedence over the word hoy.
         today = (
-            not day_after
+            explicit_date is None
+            and weekday_date is None
+            and weekend_window is None
+            and not day_after
             and not tomorrow
             and not future_only
             and any(marker in q for marker in ("hoy", "today"))
         )
 
-        if not (day_after or tomorrow or today or future_only):
+        if not (
+            explicit_date is not None
+            or weekday_date is not None
+            or weekend_window is not None
+            or day_after
+            or tomorrow
+            or today
+            or future_only
+        ):
             return items
 
-        if day_after:
+        target_date = None
+        if explicit_date is not None:
+            target_date = explicit_date
+        elif weekday_date is not None:
+            target_date = weekday_date
+        elif day_after:
             target_date = (now + timedelta(days=2)).date()
         elif tomorrow:
             target_date = (now + timedelta(days=1)).date()
-        elif future_only:
-            target_date = None
-        else:
+        elif today:
             target_date = now.date()
 
         selected: List[ContextItem] = []
@@ -219,10 +235,19 @@ class GeneralizedContextBuilder(BalancedContextBuilder):
             except (TypeError, ValueError):
                 continue
 
-            if target_date is not None:
-                if due_at.date() == target_date and due_at >= now:
+            if weekend_window is not None:
+                start_date, end_date = weekend_window
+                if start_date <= due_at.date() <= end_date:
                     selected.append(item)
-            elif due_at >= now:
+                continue
+
+            if target_date is not None:
+                if due_at.date() == target_date:
+                    if target_date != now.date() or due_at >= now:
+                        selected.append(item)
+                continue
+
+            if future_only and due_at >= now:
                 selected.append(item)
 
         return selected
