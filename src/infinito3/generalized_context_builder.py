@@ -1,3 +1,4 @@
+import re
 from datetime import datetime, timedelta
 from typing import Dict, List, Tuple
 
@@ -47,6 +48,38 @@ class GeneralizedContextBuilder(BalancedContextBuilder):
             return True
         normalized = " ".join(cls._normalized(query).split())
         return any(marker in normalized for marker in cls._GENERIC_MULTI_MARKERS)
+
+    @classmethod
+    def _asks_for_goals(cls, query: str) -> bool:
+        if super()._asks_for_goals(query):
+            return True
+
+        q = " ".join(cls._normalized(query).split())
+        if "?" not in query:
+            return False
+
+        # Infer a goal query from generic temporal/remaining-state language,
+        # rather than enumerating every possible noun (appointment, meeting,
+        # commitment, race, delivery, etc.).
+        future_reference = bool(
+            re.search(
+                r"\b(?:futur\w*|proxim\w*|manana|pasado manana|semana que viene|"
+                r"future|upcoming|tomorrow|next week)\b",
+                q,
+            )
+        )
+        if not future_reference:
+            return False
+
+        remaining_state = bool(
+            re.search(
+                r"\b(?:me queda\w*|sigo teniendo|tengo programad\w*|tengo agendad\w*|"
+                r"que tengo|what do i have|what have i got|which .* do i have|"
+                r"left|remaining|scheduled)\b",
+                q,
+            )
+        )
+        return remaining_state
 
     def _apply_precision_filter(
         self,
