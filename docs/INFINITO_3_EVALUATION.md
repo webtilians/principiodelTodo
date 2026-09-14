@@ -42,37 +42,81 @@ Forbidden-answer checks are useful for known contradiction leakage. They are not
 
 `PairwiseJudge` is a plug-in boundary for richer evaluation. A judge may be a human annotation service, deterministic domain-specific scorer, separate LLM judge, or judge ensemble. The core harness does not require a judge, and CI never depends on an external model.
 
-## Standard suite
+## Scenario banks
 
-`standard_evaluation_suite()` currently contains four fixed scenarios:
+`standard_evaluation_suite()` contains four fixed smoke-test scenarios: long-term identity, contradiction resolution, goal continuity and relevance filtering.
 
-1. `long_term_identity`: a user fact leaves short-term history and the probe checks whether INFINITO recovers it.
-2. `contradiction_resolution`: the user changes an exclusive fact; the new value must be used and the superseded value suppressed.
-3. `goal_continuity`: an active goal is no longer visible in chat history and must survive through GoalEngine.
-4. `relevance_filter`: multiple user-model facts are stored but only the task-relevant one should enter the ContextPacket.
+`extended_evaluation_suite()` contains 20 scenarios covering:
 
-## First real-model run
+- long-term user facts
+- fact reinforcement
+- exclusive-fact supersession
+- multiple simultaneous preferences
+- temporal goals
+- multiple goals
+- tight context budgets
+- current-turn self-retrieval prevention
+- empty-memory controls
+- semantic paraphrases
+- cross-lingual retrieval
+- structured memory-gate facts
+- instruction-like remembered text
+- contradiction under irrelevant noise
 
-A first live paired A/B run was executed on 2026-09-14 with `gpt-5.6-luna`, reasoning effort `none`, short-term history limit `4`, and hash embeddings for the cognitive retrieval baseline.
+The extended suite deliberately includes controls and cases expected to expose architectural gaps.
 
-Observed result on the four-scenario standard suite:
+## Live experiment history
 
-- cognitive wins / ties / baseline wins: **4 / 0 / 0**
-- mean baseline answer score: **0.125**
-- mean cognitive answer score: **1.000**
-- mean answer lift: **+0.875**
-- mean context score: **1.000**
-- mean selected context size: **50.75 estimated tokens**
-- mean provider token delta: **+61 tokens** for the cognitive arm
+All live runs below used `gpt-5.6-luna`, reasoning effort `none`, isolated in-memory SQLite per scenario and the same paired-probe methodology.
 
-Scenario lifts:
+| Run | Suite | Retrieval | Wins / ties / losses | Baseline score | Cognitive score | Mean lift | Context score | Context tokens | Provider token delta |
+| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Initial smoke test | 4 standard | hash | 4 / 0 / 0 | 0.125 | 1.000 | +0.875 | 1.000 | 50.75 | +61 |
+| Extended baseline | 20 extended | hash | 14 / 6 / 0 | 0.175 | 0.800 | +0.625 | 0.778 | 51.25 | +54.45 |
+| Semantic retrieval | 20 extended | `text-embedding-3-small` | 15 / 5 / 0 | 0.175 | 0.850 | +0.675 | 0.838 | 56.25 | +67 |
+| After benchmark-derived fixes | 20 extended | `text-embedding-3-small` | **18 / 2 / 0** | **0.175** | **1.000** | **+0.825** | **0.938** | **56.0** | **+68** |
 
-- `long_term_identity`: **+1.0**
-- `contradiction_resolution`: **+0.5**
-- `goal_continuity`: **+1.0**
-- `relevance_filter`: **+1.0**
+The final two ties are intentional controls: current-turn information that both arms can answer and an empty-memory negative control. No evaluated scenario is currently won by the baseline.
 
-This is an encouraging architectural signal, not evidence of general intelligence improvement. The suite is intentionally tiny, uses deterministic substring scoring, and was run only once. Latency differences from one run are not treated as meaningful. The next benchmark must increase scenario count, repeat stochastic runs, add held-out cases and semantic/human judging, and include component ablations.
+## What the extended benchmark exposed
+
+### 1. Semantic retrieval matters
+
+The hash embedding baseline failed a paraphrase where the stored memory was `Me gusta el ciclismo de montaña.` and the probe was `¿Qué deporte practico?`. Replacing only the embedding backend with `text-embedding-3-small` recovered the memory and the model answered correctly.
+
+The same semantic backend also retrieved a Spanish memory for an English probe. The first deterministic oracle incorrectly marked the correct answer `You like downhill mountain biking.` as a failure because it required the literal Spanish word `descenso`. The benchmark oracle was corrected to score the English response while continuing to require the original Spanish evidence in the ContextPacket.
+
+### 2. The memory gate had observable blind spots
+
+Two direct structured facts were not originally persisted:
+
+- `Mi bici es una Santa Cruz V10.`
+- `Mi color favorito es azul petróleo.`
+
+The transparent rule baseline was extended to recognize these structured user facts, plus explicit age facts. After the fix both cases score 1.0 and appear as `USER_MODEL` context.
+
+### 3. Interrogative probes could create fake goals
+
+A probe such as `¿Qué tengo que hacer mañana?` originally matched the phrase `tengo que` and created a second artificial goal from the question itself. This did not stop the model from finding the real goal, but it polluted cognitive state.
+
+`SimpleGoalEngine` now rejects information-seeking interrogatives before goal creation while still accepting request forms such as `¿Puedes recordarme mañana llamar al banco?`. The live rerun confirms that only the real seeded goal appears in the final ContextPacket.
+
+### 4. Context precision is now the main measured weakness
+
+The final 20-scenario run achieved perfect answer score, but context score remained 0.938 rather than 1.0. Four scenarios still selected extra irrelevant user-model memories:
+
+- `relevance_bike_with_noise`
+- `relevance_food_with_noise`
+- `small_budget_identity`
+- `contradiction_under_noise`
+
+The LLM ignored the noise and answered correctly, but those extra memories cost tokens and could become harmful at larger scale. This should be optimized as a separate retrieval/context-selection experiment rather than hidden by changing benchmark expectations.
+
+## Interpretation
+
+The current result is an encouraging test of the architecture, not evidence that INFINITO improves general intelligence. The live benchmark is still small, its exact-answer evaluator is intentionally simple, and each configuration has only been run once. Model sampling can vary between runs.
+
+What the experiments do show is narrower and useful: under controlled paired probes, a small amount of selected persistent state repeatedly restores information that the same model cannot answer from its visible short-term history alone. The experiments also successfully exposed concrete implementation defects, and fixing those defects improved the measured result from 14/6/0 to 18/2/0 without creating baseline losses.
 
 ## Example
 
@@ -83,30 +127,28 @@ from src.infinito3 import (
     CognitiveEngine,
     CognitiveLoop,
     EvaluationHarness,
+    OpenAIEmbeddingProvider,
     OpenAIResponsesAdapter,
-    standard_evaluation_suite,
+    extended_evaluation_suite,
 )
+
+client = OpenAI()
 
 
 def make_loop():
-    client = OpenAI()
-    engine = CognitiveEngine.persistent(":memory:")
+    engine = CognitiveEngine.persistent(
+        ":memory:",
+        embedding_provider=OpenAIEmbeddingProvider(client, model="text-embedding-3-small"),
+    )
     adapter = OpenAIResponsesAdapter(client, model="gpt-5.6-luna")
     return CognitiveLoop(engine, adapter, history_limit=4)
 
 
-report = EvaluationHarness(make_loop).run(
-    standard_evaluation_suite()
-)
-
+report = EvaluationHarness(make_loop).run(extended_evaluation_suite())
 print(report.to_markdown())
 print(report.to_json())
 ```
 
-For serious model comparisons, pin provider/model configuration, run each scenario multiple times when the model is stochastic, save the raw `ABComparison` objects, and compare confidence intervals rather than one-off scores.
+## Next experiments
 
-## What this milestone does not claim
-
-A positive score does not prove that INFINITO improves general intelligence. The harness only demonstrates performance on explicitly defined cognitive tasks. The benchmark must grow before broad claims are justified.
-
-The next evaluation work should add independent multi-turn trajectories, larger held-out scenario sets, semantic/human judging, grounded hallucination checks, token/cost-normalized utility, statistical confidence intervals, and ablations for memory, goals and Context Builder separately.
+The next evaluation work should isolate Context Builder precision, add independent multi-turn trajectories, expand to held-out scenario banks, repeat stochastic runs for confidence intervals, add semantic/human pairwise judging, evaluate grounded hallucination, normalize quality by token/cost, and run component ablations for memory, goals and Context Builder separately.
