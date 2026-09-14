@@ -33,12 +33,24 @@ class StructuredTemporalContextBuilder(TemporalSemanticContextBuilder):
             )
         )
 
+    def _historical_candidates(self, query, candidates):
+        # StructuredStateRetriever already followed the authoritative temporal
+        # lineage. Do not let the parent historical fallback replace that
+        # annotated predecessor with a plain store record and lose its relation.
+        if any(
+            record.metadata.get("structured_state")
+            and record.metadata.get("temporal_relation") == "immediately_previous"
+            for record in candidates
+        ):
+            return list(candidates)
+        return super()._historical_candidates(query, candidates)
+
     def _memory_item(self, query, memory, rank, total):
         item = super()._memory_item(query, memory, rank, total)
         relation = memory.metadata.get("temporal_relation")
         structured = bool(memory.metadata.get("structured_state"))
         predicate = memory.fact_predicate
-        value = memory.fact_value
+        value = memory.metadata.get("structured_display_value") or memory.fact_value
 
         if relation == "immediately_previous" and predicate and value:
             before = memory.metadata.get("temporal_before_value") or "unknown"
