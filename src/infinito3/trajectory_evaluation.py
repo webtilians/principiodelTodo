@@ -108,6 +108,10 @@ class TrajectoryScenarioResult:
     baseline_total_tokens: int
     cognitive_total_tokens: int
     cumulative_context_tokens: int
+    reranker_calls: int = 0
+    reranker_input_tokens: int = 0
+    reranker_output_tokens: int = 0
+    reranker_total_tokens: int = 0
 
     @property
     def probes(self) -> List[TrajectoryStepResult]:
@@ -132,6 +136,12 @@ class TrajectorySummary:
     cumulative_context_tokens: int
     final_active_memories: int
     final_open_goals: int
+    reranker_calls: int = 0
+    reranker_input_tokens: int = 0
+    reranker_output_tokens: int = 0
+    reranker_total_tokens: int = 0
+    cognitive_effective_total_tokens: int = 0
+    effective_total_token_delta: int = 0
 
 
 @dataclass
@@ -159,8 +169,12 @@ class TrajectoryReport:
             f"- Mean cognitive answer score: {_fmt(s.mean_cognitive_answer_score)}",
             f"- Mean answer lift: {_fmt(s.mean_answer_lift, signed=True)}",
             f"- Mean cognitive context score: {_fmt(s.mean_context_score)}",
-            f"- Baseline / cognitive provider tokens: {s.baseline_total_tokens} / {s.cognitive_total_tokens}",
-            f"- Total provider token delta: {s.total_token_delta:+d}",
+            f"- Baseline / cognitive answer-provider tokens: {s.baseline_total_tokens} / {s.cognitive_total_tokens}",
+            f"- Answer-provider token delta: {s.total_token_delta:+d}",
+            f"- Semantic reranker calls / tokens: {s.reranker_calls} / {s.reranker_total_tokens} "
+            f"(input {s.reranker_input_tokens}, output {s.reranker_output_tokens})",
+            f"- Cognitive effective tokens incl. reranker: {s.cognitive_effective_total_tokens}",
+            f"- Effective token delta vs baseline: {s.effective_total_token_delta:+d}",
             f"- Cumulative INFINITO context tokens: {s.cumulative_context_tokens}",
             f"- Final active memories / open goals: {s.final_active_memories} / {s.final_open_goals}",
             "",
@@ -215,6 +229,11 @@ class TrajectoryEvaluationHarness:
         ties = len(comparable) - wins - losses
         baseline_tokens = sum(result.baseline_total_tokens for result in results)
         cognitive_tokens = sum(result.cognitive_total_tokens for result in results)
+        reranker_calls = sum(result.reranker_calls for result in results)
+        reranker_input_tokens = sum(result.reranker_input_tokens for result in results)
+        reranker_output_tokens = sum(result.reranker_output_tokens for result in results)
+        reranker_total_tokens = sum(result.reranker_total_tokens for result in results)
+        cognitive_effective_tokens = cognitive_tokens + reranker_total_tokens
 
         summary = TrajectorySummary(
             trajectory_count=len(results),
@@ -242,6 +261,12 @@ class TrajectoryEvaluationHarness:
             cumulative_context_tokens=sum(result.cumulative_context_tokens for result in results),
             final_active_memories=sum(result.final_active_memories for result in results),
             final_open_goals=sum(result.final_open_goals for result in results),
+            reranker_calls=reranker_calls,
+            reranker_input_tokens=reranker_input_tokens,
+            reranker_output_tokens=reranker_output_tokens,
+            reranker_total_tokens=reranker_total_tokens,
+            cognitive_effective_total_tokens=cognitive_effective_tokens,
+            effective_total_token_delta=cognitive_effective_tokens - baseline_tokens,
         )
         return TrajectoryReport(
             results=results,
@@ -267,6 +292,10 @@ class TrajectoryEvaluationHarness:
         baseline_total_tokens = 0
         cognitive_total_tokens = 0
         cumulative_context_tokens = 0
+        reranker_calls = 0
+        reranker_input_tokens = 0
+        reranker_output_tokens = 0
+        reranker_total_tokens = 0
 
         for index, step in enumerate(scenario.steps):
             if step.advance_hours:
@@ -301,6 +330,11 @@ class TrajectoryEvaluationHarness:
             packet = cognitive.cognitive_decision.context_packet if cognitive.cognitive_decision else None
             if packet is not None:
                 cumulative_context_tokens += packet.estimated_tokens
+                reranker = packet.diagnostics.get("semantic_reranker") or {}
+                reranker_calls += self._usage_int(reranker, "calls")
+                reranker_input_tokens += self._usage_int(reranker, "input_tokens")
+                reranker_output_tokens += self._usage_int(reranker, "output_tokens")
+                reranker_total_tokens += self._usage_int(reranker, "total_tokens")
 
             baseline_metrics = None
             cognitive_metrics = None
@@ -337,6 +371,10 @@ class TrajectoryEvaluationHarness:
             baseline_total_tokens=baseline_total_tokens,
             cognitive_total_tokens=cognitive_total_tokens,
             cumulative_context_tokens=cumulative_context_tokens,
+            reranker_calls=reranker_calls,
+            reranker_input_tokens=reranker_input_tokens,
+            reranker_output_tokens=reranker_output_tokens,
+            reranker_total_tokens=reranker_total_tokens,
         )
 
     @staticmethod
@@ -345,6 +383,13 @@ class TrajectoryEvaluationHarness:
         try:
             return int(usage.get("total_tokens") or 0)
         except (TypeError, ValueError):
+            return 0
+
+    @staticmethod
+    def _usage_int(usage: Dict[str, Any], key: str) -> int:
+        try:
+            return int(usage.get(key) or 0)
+        except (TypeError, ValueError, AttributeError):
             return 0
 
     @staticmethod
