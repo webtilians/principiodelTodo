@@ -76,10 +76,13 @@ def main():
 
         full_scored = []
         core_scored = []
-        for candidate, full_vec, value_vec in zip(candidates, full_vectors, value_vectors):
+        indexed_core = []
+        for index, (candidate, full_vec, value_vec) in enumerate(zip(candidates, full_vectors, value_vectors)):
             name, text, value, relevant = candidate
             full_scored.append((cosine(qvec, full_vec), name, relevant, text))
-            core_scored.append((cosine(core_vec, value_vec), name, relevant, value))
+            core_score = cosine(core_vec, value_vec)
+            core_scored.append((core_score, name, relevant, value))
+            indexed_core.append((index, core_score, name, relevant, value, value_vec))
 
         full_scored.sort(reverse=True)
         core_scored.sort(reverse=True)
@@ -89,6 +92,26 @@ def main():
         print(f"BANK={bank_name} MODE=semantic_core_fact_value")
         for rank, (score, name, relevant, value) in enumerate(core_scored, 1):
             print(f"{rank}\t{score:.6f}\t{'R' if relevant else 'D'}\t{name}\t{value}")
+
+        # Candidate cohesion experiment.  The top two query matches are seeds;
+        # every candidate is then measured against that semantic neighbourhood.
+        # This is intentionally label-free: the R/D annotations are printed only
+        # for diagnosis and never enter the score.
+        seeds = sorted(indexed_core, key=lambda row: row[1], reverse=True)[:2]
+        seed_vectors = [row[5] for row in seeds]
+        cohesion_scored = []
+        for _, query_score, name, relevant, value, value_vec in indexed_core:
+            cohesion = sum(cosine(value_vec, seed_vec) for seed_vec in seed_vectors) / len(seed_vectors)
+            combined = 0.60 * query_score + 0.40 * cohesion
+            cohesion_scored.append((combined, query_score, cohesion, name, relevant, value))
+        cohesion_scored.sort(reverse=True)
+        print(f"BANK={bank_name} MODE=query_plus_seed_cohesion")
+        print("seeds=" + ",".join(row[2] for row in seeds))
+        for rank, (combined, query_score, cohesion, name, relevant, value) in enumerate(cohesion_scored, 1):
+            print(
+                f"{rank}\tcombined={combined:.6f}\tquery={query_score:.6f}\t"
+                f"cohesion={cohesion:.6f}\t{'R' if relevant else 'D'}\t{name}\t{value}"
+            )
         print()
 
 
