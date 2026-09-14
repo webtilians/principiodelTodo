@@ -53,8 +53,8 @@ class CognitiveEngine:
         context_packet = self.context_builder.build(query, memory_candidates=context, recent_turns=recent_turns,
                                                     max_tokens=context_budget_tokens)
         structured_persistence = bool(events)
-        stored_memory_id = None
-        if allow_persistence and gate.should_store and not structured_persistence:
+        stored_memory_id = next((memory_id for t in transitions for memory_id in t.memory_ids), None)
+        if stored_memory_id is None and allow_persistence and gate.should_store and not structured_persistence:
             stored = self.memory_store.add(MemoryRecord(content=query, kind=gate.kind, importance=gate.importance,
                                                         metadata={"gate_reasons": gate.reasons}))
             stored_memory_id = stored.id
