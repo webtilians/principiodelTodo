@@ -9,7 +9,7 @@ def extended_evaluation_suite() -> Tuple[EvaluationScenario, ...]:
 
     All long-term-memory probes use no visible short-term history unless the
     scenario explicitly tests current-turn behavior. Some cases are expected
-    to reveal limitations of the rule gate or hash-embedding baseline.
+    to reveal limitations of the rule gate or retrieval baseline.
     """
     return (
         EvaluationScenario(
@@ -218,7 +218,7 @@ def extended_evaluation_suite() -> Tuple[EvaluationScenario, ...]:
         ),
         EvaluationScenario(
             name="direct_bike_fact_gate_gap",
-            description="Current rule gate does not explicitly recognize 'mi bici es'.",
+            description="Tests whether the memory gate recognizes a direct bike fact.",
             tags=("memory_gate", "expected_challenge"),
             history_limit=0,
             setup_turns=("Mi bici es una Santa Cruz V10.",),
@@ -230,7 +230,7 @@ def extended_evaluation_suite() -> Tuple[EvaluationScenario, ...]:
         ),
         EvaluationScenario(
             name="favorite_color_gate_gap",
-            description="Current rule gate does not explicitly recognize favorite-color facts.",
+            description="Tests whether the memory gate recognizes a favorite-color fact.",
             tags=("memory_gate", "expected_challenge"),
             history_limit=0,
             setup_turns=("Mi color favorito es azul petróleo.",),
@@ -242,13 +242,14 @@ def extended_evaluation_suite() -> Tuple[EvaluationScenario, ...]:
         ),
         EvaluationScenario(
             name="cross_lingual_retrieval_gap",
-            description="Spanish memory queried in English stresses the hash embedding baseline.",
+            description="Spanish memory queried in English stresses cross-lingual semantic retrieval.",
             tags=("memory", "cross_lingual", "semantic_gap", "expected_challenge"),
             history_limit=0,
             setup_turns=("Me gusta el descenso en bicicleta.",),
             probe="What kind of cycling do I like?",
             expectation=EvaluationExpectation(
-                answer_contains=("descenso",),
+                # The answer is expected in English; the retrieved evidence remains Spanish.
+                answer_contains=("downhill",),
                 context_contains=("descenso en bicicleta",),
             ),
         ),
