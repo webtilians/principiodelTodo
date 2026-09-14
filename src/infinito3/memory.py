@@ -20,8 +20,10 @@ class RuleBasedMemoryGate:
         "perfecto", "genial", "entendido", "si", "sí", "no",
     }
     _IDENTITY_MARKERS = ("me llamo ", "mi nombre es ", "soy ", "vivo en ")
+    _STRUCTURED_USER_MARKERS = ("mi bici es ", "mi color favorito es ")
     _PREFERENCE_MARKERS = ("me gusta ", "prefiero ", "odio ", "me encanta ")
     _EVENT_MARKERS = ("mañana ", "pasado mañana", "tengo cita", "tengo reunión", "tengo que ")
+    _AGE_RE = re.compile(r"\btengo\s+\d{1,3}\s+años\b", re.I)
 
     def __init__(self, threshold: float = 0.55):
         self.threshold = threshold
@@ -44,6 +46,11 @@ class RuleBasedMemoryGate:
             score += 0.55
             kind = MemoryKind.USER_MODEL
             reasons.append("user_identity")
+
+        if any(marker in normalized for marker in self._STRUCTURED_USER_MARKERS) or self._AGE_RE.search(normalized):
+            score += 0.55
+            kind = MemoryKind.USER_MODEL
+            reasons.append("structured_user_fact")
 
         if any(marker in normalized for marker in self._PREFERENCE_MARKERS):
             score += 0.45
