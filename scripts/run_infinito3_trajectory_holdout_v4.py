@@ -15,22 +15,22 @@ from src.infinito3.cognitive_loop import CognitiveLoop
 from src.infinito3.engine import CognitiveEngine
 from src.infinito3.llm_adapter import OpenAIResponsesAdapter
 from src.infinito3.persistent_memory import HashEmbeddingProvider, OpenAIEmbeddingProvider
+from src.infinito3.preference_context import PreferenceStateContextBuilder
 from src.infinito3.semantic_event_extractor import SemanticCognitiveEventExtractor
 from src.infinito3.semantic_reranker import LLMSemanticMembershipReranker
 from src.infinito3.semantic_temporal_memory import SemanticTemporalMemoryStore
 from src.infinito3.semantic_temporal_state import SemanticTemporalCognitiveState
-from src.infinito3.temporal_context import TemporalSemanticContextBuilder
 from src.infinito3.temporal_goals import TemporalGoalEngine
 from src.infinito3.trajectory_evaluation import MutableClock, TrajectoryEvaluationHarness
 from src.infinito3.trajectory_holdout_v4_cases import independent_trajectory_holdout_v4_suite
 
 FROZEN_CASE_COMMIT = "ef689e8adece7aa265c236ac9f50db0ebac45469"
 FROZEN_SUITE_SHA256 = "8825f79527a36da808915f6b085fcee349e808da98879c8947ed807df5390979"
-BASELINE_IMPLEMENTATION_COMMIT = "9be85131cbabf257036bfb6742493ffe9f8d66d2"
+STRUCTURED_STATE_REFERENCE_COMMIT = "42129d7c1926f182cb685cf637a2a3e9e2d4813a"
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run frozen INFINITO 3.0 held-out V4 with structured-state candidate.")
+    parser = argparse.ArgumentParser(description="Run frozen INFINITO 3.0 held-out V4 with preference-state retrieval.")
     parser.add_argument("--model", default=os.environ.get("OPENAI_MODEL", "gpt-5.6-luna"))
     parser.add_argument("--reasoning-effort", default=os.environ.get("OPENAI_REASONING_EFFORT", "none"))
     parser.add_argument("--embedding-provider", choices=("hash", "openai"), default=os.environ.get("INFINITO_EMBEDDING_PROVIDER", "openai"))
@@ -38,7 +38,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--semantic-reranker", choices=("none", "llm"), default=os.environ.get("INFINITO_SEMANTIC_RERANKER", "llm"))
     parser.add_argument("--reranker-model", default=os.environ.get("INFINITO_RERANKER_MODEL", ""))
     parser.add_argument("--event-model", default=os.environ.get("INFINITO_EVENT_MODEL", ""))
-    parser.add_argument("--output-dir", default="trajectory-holdout-v4-structured-results")
+    parser.add_argument("--output-dir", default="trajectory-holdout-v4-preference-results")
     return parser.parse_args()
 
 
@@ -51,7 +51,7 @@ def main() -> int:
     client = OpenAI(api_key=api_key)
     reranker_model = args.reranker_model.strip() or args.model.strip()
     event_model = args.event_model.strip() or args.model.strip()
-    implementation_commit = os.environ.get("GITHUB_SHA", "structured-state-candidate")
+    implementation_commit = os.environ.get("GITHUB_SHA", "preference-state-candidate")
     semantic_extractors = []
 
     def embedding_provider():
@@ -70,7 +70,7 @@ def main() -> int:
     def make_engine(clock: MutableClock) -> CognitiveEngine:
         store = SemanticTemporalMemoryStore(path=":memory:", embedding_provider=embedding_provider())
         goals = TemporalGoalEngine(now_fn=clock)
-        builder = TemporalSemanticContextBuilder(
+        builder = PreferenceStateContextBuilder(
             memory_store=store,
             goal_engine=goals,
             now_fn=clock,
@@ -133,19 +133,20 @@ def main() -> int:
         "reasoning_effort": args.reasoning_effort.strip() or None,
         "embedding_provider": args.embedding_provider,
         "embedding_model": args.embedding_model.strip() if args.embedding_provider == "openai" else None,
-        "context_builder": "temporal_structured_state_v1",
+        "context_builder": "preference_state_context_v1",
+        "preference_state_retrieval": True,
         "semantic_reranker": args.semantic_reranker,
         "reranker_model": reranker_model if args.semantic_reranker == "llm" else None,
         "cognitive_event_extractor": "hybrid_semantic_v1_1_gated",
         "semantic_event_model": event_model,
         "semantic_event_stats": {**event_stats, "errors": event_errors},
-        "temporal_cognitive_state": "semantic_event_sourced_v1",
+        "temporal_cognitive_state": "semantic_event_sourced_v1_with_retraction_tombstones",
         "temporal_memory_projection": "semantic_temporal_sqlite_v1",
         "real_model_run": True,
         "suite": "independent_trajectory_holdout_v4_suite",
         "suite_frozen_before_first_live_run": True,
         "frozen_case_commit": FROZEN_CASE_COMMIT,
-        "baseline_implementation_commit": BASELINE_IMPLEMENTATION_COMMIT,
+        "structured_state_reference_commit": STRUCTURED_STATE_REFERENCE_COMMIT,
         "implementation_commit": implementation_commit,
         "suite_sha256": actual_suite_hash,
         "cognitive_effective_total_tokens_including_event_extractor": effective_with_events,
@@ -154,13 +155,13 @@ def main() -> int:
 
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
-    json_path = output_dir / "infinito3-trajectory-holdout-v4-structured.json"
-    md_path = output_dir / "infinito3-trajectory-holdout-v4-structured.md"
+    json_path = output_dir / "infinito3-trajectory-holdout-v4-preference.json"
+    md_path = output_dir / "infinito3-trajectory-holdout-v4-preference.md"
     json_path.write_text(report.to_json(), encoding="utf-8")
     md_path.write_text(report.to_markdown(), encoding="utf-8")
 
-    print("INFINITO 3.0 FROZEN V4 — STRUCTURED STATE ABLATION")
-    print(f"baseline_implementation_commit={BASELINE_IMPLEMENTATION_COMMIT}")
+    print("INFINITO 3.0 FROZEN V4 — PREFERENCE STATE ABLATION")
+    print(f"structured_state_reference_commit={STRUCTURED_STATE_REFERENCE_COMMIT}")
     print(f"implementation_commit={implementation_commit}")
     print(f"frozen_case_commit={FROZEN_CASE_COMMIT}")
     print(f"suite_sha256={actual_suite_hash}")
