@@ -3,11 +3,11 @@ from dataclasses import replace
 from typing import Dict, List, Optional, Sequence, Tuple
 
 from .semantic_context import SemanticCohortContextBuilder
-from .types import ContextItem, ContextSource, MemoryRecord, MemoryStatus
+from .types import ContextItem, ContextSource, MemoryKind, MemoryRecord, MemoryStatus
 
 
 class TemporalSemanticContextBuilder(SemanticCohortContextBuilder):
-    """Semantic Context Builder with explicit temporal-lineage support."""
+    """Semantic Context Builder with predicate and temporal-lineage support."""
 
     def build(self, query: str, *, memory_candidates: Optional[Sequence[MemoryRecord]] = None,
               recent_turns=None, max_tokens: int = 1200, candidate_k: int = 20):
@@ -19,33 +19,76 @@ class TemporalSemanticContextBuilder(SemanticCohortContextBuilder):
 
     @classmethod
     def _requested_core_facts(cls, query: str) -> set:
-        """Extend structured intent beyond the original five profile facets.
-
-        These are predicate/query forms, not domain values. The same mechanism
-        therefore works for any language value, occupation, pet name, etc.
-        """
         requested = set(super()._requested_core_facts(query))
         q = " ".join(cls._normalized(query).split())
-
         if re.search(r"\b(call me|called me|should you call me|llamabas|me llamaban)\b", q):
             requested.add("name")
         if re.search(r"\b(vivia|vivi|lived|used to live)\b", q) and re.search(r"\b(donde|where|ciudad|city)\b", q):
             requested.add("location")
-        if (
-            re.search(r"\b(idioma|language|lengua)\b", q)
-            and re.search(r"\b(estudi\w*|study\w*|learning|aprend\w*)\b", q)
-        ):
+        if re.search(r"\b(idioma|language|lengua)\b", q) and re.search(r"\b(estudi\w*|study\w*|learning|aprend\w*)\b", q):
             requested.add("studying_language")
-        if re.search(r"\b(profesion|profesion|trabajo|occupation|job|work)\b", q) and re.search(r"\b(mi|my|soy|i)\b", q):
+        if re.search(r"\b(profesion|trabajo|occupation|job|work)\b", q) and re.search(r"\b(mi|my|soy|i)\b", q):
             requested.add("occupation")
         if re.search(r"\b(perro|dog|mascota|pet)\b", q) and re.search(r"\b(nombre|name|llama|called)\b", q):
             requested.add("pet_name")
+        if "frase de prueba" in q or "test phrase" in q:
+            requested.add("test_phrase")
         return requested
+
+    def _build_pools(self, query, candidates, recent_turns):
+        pools = super()._build_pools(query, candidates, recent_turns)
+        requested = self._requested_core_facts(query)
+
+        # Structured predicates are authoritative retrieval keys. If semantic
+        # retrieval misses a requested field because its value shares no words
+        # with the query (e.g. "test phrase" -> arbitrary phrase), recover it by
+        # predicate rather than inventing a domain-specific synonym list.
+        if requested:
+            seen = {
+                item.memory_id
+                for source in (ContextSource.USER_MODEL, ContextSource.MEMORY)
+                for item in pools[source]
+                if item.memory_id
+            }
+            active = [r for r in self._all_with_inactive() if r.status == MemoryStatus.ACTIVE]
+            for record in active:
+                if not record.id or record.id in seen or record.fact_predicate not in requested:
+                    continue
+                item = self._memory_item(query, record, rank=0, total=1)
+                source = ContextSource.USER_MODEL if record.kind == MemoryKind.USER_MODEL else ContextSource.MEMORY
+                item.metadata["predicate_fallback"] = True
+                pools[source].append(item)
+                seen.add(record.id)
+
+        # Historical predecessor evidence must not be polluted by the current
+        # version of the same predicate. Base-builder core fallback would
+        # otherwise reinsert `Bilbao` while answering `before Bilbao?`.
+        if self._is_history_query(query):
+            historical_ids = {
+                record.id
+                for record in candidates
+                if record.metadata.get("historical_original_status")
+            }
+            historical_predicates = {
+                record.fact_predicate
+                for record in candidates
+                if record.metadata.get("historical_original_status") and record.fact_predicate
+            }
+            if historical_predicates:
+                for source in (ContextSource.USER_MODEL, ContextSource.MEMORY):
+                    pools[source] = [
+                        item for item in pools[source]
+                        if item.metadata.get("fact_predicate") not in historical_predicates
+                        or item.memory_id in historical_ids
+                    ]
+
+        for source in pools:
+            pools[source].sort(key=lambda item: item.score, reverse=True)
+        return pools
 
     def _apply_precision_filter(self, query: str, pools: Dict[ContextSource, List[ContextItem]]) -> Tuple[Dict[ContextSource, List[ContextItem]], int]:
         originals = {source: list(items) for source, items in pools.items()}
         filtered, _ = super()._apply_precision_filter(query, pools)
-
         requested = self._requested_core_facts(query)
         asks_goals = self._asks_for_goals(query)
         if requested and not asks_goals:
@@ -65,7 +108,6 @@ class TemporalSemanticContextBuilder(SemanticCohortContextBuilder):
                         filtered[source].append(item)
                         existing_ids.add(item.memory_id)
                 filtered[source].sort(key=lambda item: item.score, reverse=True)
-
         before = sum(len(items) for items in originals.values())
         after = sum(len(items) for items in filtered.values())
         return filtered, max(0, before - after)
@@ -76,7 +118,6 @@ class TemporalSemanticContextBuilder(SemanticCohortContextBuilder):
         query_norm = self._normalized(query)
         direct_predecessors = []
         target_predicates = set()
-
         for record in all_records:
             if record.status != MemoryStatus.ACTIVE or not record.supersedes_id:
                 continue
@@ -87,22 +128,15 @@ class TemporalSemanticContextBuilder(SemanticCohortContextBuilder):
                     direct_predecessors.append(self._as_historical_evidence(predecessor))
                     if record.fact_predicate:
                         target_predicates.add(record.fact_predicate)
-
         if direct_predecessors:
-            rest = [
-                self._as_historical_evidence(record)
-                for record in candidates
-                if record.fact_predicate not in target_predicates
-            ]
-            seen = set()
-            ordered = []
+            rest = [self._as_historical_evidence(record) for record in candidates if record.fact_predicate not in target_predicates]
+            seen, ordered = set(), []
             for record in direct_predecessors + rest:
                 if record.id in seen:
                     continue
                 seen.add(record.id)
                 ordered.append(record)
             return ordered
-
         return [self._as_historical_evidence(record) for record in candidates]
 
     def _all_with_inactive(self) -> List[MemoryRecord]:
