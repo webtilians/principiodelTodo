@@ -8,6 +8,7 @@ components.
 from .benchmark_cases import extended_evaluation_suite
 from .cognitive_loop import CognitiveLoop
 from .context_builder import ApproximateTokenEstimator, BalancedContextBuilder
+from .generalized_context_builder import GeneralizedContextBuilder
 from .engine import CognitiveEngine
 from .evaluation import (
     CallablePairwiseJudge,
@@ -53,6 +54,7 @@ __all__ = [
     "ABComparison",
     "ApproximateTokenEstimator",
     "BalancedContextBuilder",
+    "GeneralizedContextBuilder",
     "CallablePairwiseJudge",
     "CognitiveDecision",
     "CognitiveEngine",
