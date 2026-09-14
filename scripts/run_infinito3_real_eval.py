@@ -10,6 +10,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from openai import OpenAI
 
+from src.infinito3.benchmark_cases import extended_evaluation_suite
 from src.infinito3.cognitive_loop import CognitiveLoop
 from src.infinito3.engine import CognitiveEngine
 from src.infinito3.evaluation import EvaluationHarness, standard_evaluation_suite
@@ -38,6 +39,12 @@ def parse_args() -> argparse.Namespace:
         help="Maximum number of short-term conversation turns visible to both A/B variants.",
     )
     parser.add_argument(
+        "--suite",
+        choices=("standard", "extended"),
+        default="extended",
+        help="Scenario bank to run. Extended is the default for live experiments.",
+    )
+    parser.add_argument(
         "--output-dir",
         default="evaluation-results",
         help="Directory where JSON and Markdown reports are written.",
@@ -63,9 +70,6 @@ def main() -> int:
     client = OpenAI(api_key=api_key)
 
     def loop_factory() -> CognitiveLoop:
-        # Full v3 memory semantics, but isolated and ephemeral per scenario.
-        # Hash embeddings avoid extra API calls so this benchmark isolates the
-        # value of the cognitive architecture from embedding-provider cost.
         engine = CognitiveEngine.persistent(
             db_path=":memory:",
             embedding_provider=HashEmbeddingProvider(),
@@ -81,8 +85,13 @@ def main() -> int:
             history_limit=args.history_limit,
         )
 
+    scenarios = (
+        extended_evaluation_suite()
+        if args.suite == "extended"
+        else standard_evaluation_suite()
+    )
     harness = EvaluationHarness(loop_factory)
-    report = harness.run(standard_evaluation_suite())
+    report = harness.run(scenarios)
     report.metadata.update(
         {
             "provider": "openai",
@@ -91,6 +100,7 @@ def main() -> int:
             "history_limit": args.history_limit,
             "embedding_provider": "hash_baseline",
             "real_model_run": True,
+            "suite": args.suite,
         }
     )
 
@@ -105,6 +115,7 @@ def main() -> int:
     summary = report.summary
     print("INFINITO 3.0 REAL MODEL EVALUATION")
     print(f"model={args.model.strip()}")
+    print(f"suite={args.suite}")
     print(f"scenarios={summary.scenario_count}")
     print(
         "wins/ties/losses="
@@ -113,6 +124,9 @@ def main() -> int:
     print(f"mean_baseline_score={summary.mean_baseline_answer_score}")
     print(f"mean_cognitive_score={summary.mean_cognitive_answer_score}")
     print(f"mean_answer_lift={summary.mean_answer_lift}")
+    print(f"mean_context_score={summary.mean_context_score}")
+    print(f"mean_context_tokens={summary.mean_context_tokens}")
+    print(f"mean_total_token_delta={summary.mean_total_token_delta}")
     print(f"json_report={json_path}")
     print(f"markdown_report={markdown_path}")
     return 0
