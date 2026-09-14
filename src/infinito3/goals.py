@@ -103,8 +103,10 @@ class SimpleGoalEngine:
 
     def _looks_like_goal(self, text: str) -> bool:
         # A temporal word alone is not intention. This avoids turning narrative
-        # statements such as "Hoy he leído..." into open goals.
-        if any(marker in text for marker in self._REMINDER_MARKERS):
+        # statements such as "Hoy he leído..." into open goals. Explicit
+        # reminder requests share the same intent signal whether declarative or
+        # politely phrased as a question.
+        if any(marker in text for marker in self._REMINDER_MARKERS + self._REMINDER_REQUEST_MARKERS):
             return True
 
         normalized = self._normalize(text)
