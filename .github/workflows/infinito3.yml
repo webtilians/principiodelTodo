@@ -1,0 +1,25 @@
+name: INFINITO 3.0 Core
+
+on:
+  push:
+    branches: [infinito-3.0]
+  pull_request:
+    branches: [master]
+    paths:
+      - 'src/infinito3/**'
+      - 'tests/test_*v3.py'
+      - 'docs/INFINITO_3_*.md'
+      - '.github/workflows/infinito3.yml'
+
+jobs:
+  cognitive-core:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install test dependency
+        run: python -m pip install pytest
+      - name: Test isolated cognitive core
+        run: python -m pytest tests/test_*v3.py -q
