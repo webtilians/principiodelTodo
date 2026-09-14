@@ -11,13 +11,16 @@ if str(REPO_ROOT) not in sys.path:
 
 from openai import OpenAI
 
+from src.infinito3.cognitive_events import RuleBasedCognitiveEventExtractor
 from src.infinito3.cognitive_loop import CognitiveLoop
 from src.infinito3.engine import CognitiveEngine
-from src.infinito3.goals import SimpleGoalEngine
 from src.infinito3.llm_adapter import OpenAIResponsesAdapter
 from src.infinito3.persistent_memory import HashEmbeddingProvider, OpenAIEmbeddingProvider
-from src.infinito3.semantic_context import SemanticCohortContextBuilder, SemanticScoringSQLiteMemoryStore
+from src.infinito3.semantic_context import SemanticCohortContextBuilder
 from src.infinito3.semantic_reranker import LLMSemanticMembershipReranker
+from src.infinito3.temporal_goals import TemporalGoalEngine
+from src.infinito3.temporal_memory import TemporalAwareSQLiteMemoryStore
+from src.infinito3.temporal_state import TemporalCognitiveState
 from src.infinito3.trajectory_evaluation import MutableClock, TrajectoryEvaluationHarness
 from src.infinito3.trajectory_holdout_v2_cases import independent_trajectory_holdout_v2_suite
 
@@ -73,18 +76,24 @@ def main() -> int:
         )
 
     def make_engine(clock: MutableClock) -> CognitiveEngine:
-        store = SemanticScoringSQLiteMemoryStore(
+        store = TemporalAwareSQLiteMemoryStore(
             path=":memory:",
             embedding_provider=embedding_provider(),
         )
-        goals = SimpleGoalEngine(now_fn=clock)
+        goals = TemporalGoalEngine(now_fn=clock)
         builder = SemanticCohortContextBuilder(
             memory_store=store,
             goal_engine=goals,
             now_fn=clock,
             reranker=semantic_reranker(),
         )
-        return CognitiveEngine(memory_store=store, goal_engine=goals, context_builder=builder)
+        return CognitiveEngine(
+            memory_store=store,
+            goal_engine=goals,
+            context_builder=builder,
+            event_extractor=RuleBasedCognitiveEventExtractor(now_fn=clock),
+            temporal_state=TemporalCognitiveState(now_fn=clock),
+        )
 
     def loop_pair_factory(clock, scenario):
         baseline = CognitiveLoop(
@@ -120,6 +129,9 @@ def main() -> int:
             "context_builder": "semantic_cohort_uncertainty_gated",
             "semantic_reranker": args.semantic_reranker,
             "reranker_model": reranker_model if args.semantic_reranker == "llm" else None,
+            "cognitive_event_extractor": "rule_based_v1",
+            "temporal_cognitive_state": True,
+            "temporal_memory_projection": True,
             "real_model_run": True,
             "suite": "independent_trajectory_holdout_v2_suite",
             "suite_frozen_before_first_live_run": True,
@@ -142,6 +154,8 @@ def main() -> int:
     print(f"model={args.model.strip()}")
     print(f"embedding_provider={args.embedding_provider}")
     print("context_builder=semantic_cohort_uncertainty_gated")
+    print("cognitive_event_extractor=rule_based_v1")
+    print("temporal_cognitive_state=true")
     print(f"semantic_reranker={args.semantic_reranker}")
     print(f"trajectories={s.trajectory_count}")
     print(f"user_turns={s.user_turn_count}")
