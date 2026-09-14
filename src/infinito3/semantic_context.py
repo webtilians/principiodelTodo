@@ -43,11 +43,14 @@ class SemanticScoringSQLiteMemoryStore(SQLiteCognitiveMemoryStore):
 class SemanticCohortContextBuilder(GeneralizedContextBuilder):
     """Generalized builder with semantic retrieval and optional membership reranking.
 
-    Embeddings remain the first semantic stage. When a multi-value query leaves
-    several same-predicate candidates and an injectable reranker is configured,
-    the reranker classifies only that already-retrieved candidate set. Its usage
-    is attached to ContextPacket diagnostics so evaluation can account for the
-    extra model cost explicitly.
+    Embeddings remain the first semantic stage. A configured reranker is invoked
+    only when the embedding cohort itself signals uncertainty: rejected
+    same-predicate competitors outnumber the selected cohort, or the embedding
+    scores are effectively flat. This keeps obvious queries cheap while allowing
+    a second-stage classifier to resolve dense semantic facets.
+
+    Reranker usage is attached to ContextPacket diagnostics so evaluation can
+    account for the extra model cost explicitly.
     """
 
     _FOCUS_STOP_WORDS = {
@@ -97,30 +100,6 @@ class SemanticCohortContextBuilder(GeneralizedContextBuilder):
         if len(same_predicate) <= 1:
             return baseline
 
-        # A generative/classification reranker is deliberately optional. When
-        # present it sees the full small same-predicate candidate set so it can
-        # recover a true member that raw embedding rank placed below a distractor.
-        if self.reranker is not None and len(same_predicate) >= 3:
-            reranked = self.reranker.rerank(query, same_predicate)
-            event = {
-                "success": bool(reranked.success),
-                "candidate_count": len(same_predicate),
-                "selected_count": len(reranked.selected_ids),
-                "provider": reranked.provider,
-                "model": reranked.model,
-                "input_tokens": int(reranked.usage.get("input_tokens") or 0),
-                "output_tokens": int(reranked.usage.get("output_tokens") or 0),
-                "total_tokens": int(reranked.usage.get("total_tokens") or 0),
-                "error": reranked.error,
-            }
-            self._reranker_events.append(event)
-            if reranked.success:
-                selected_ids = set(reranked.selected_ids)
-                selected = [item for item in ranked if str(item.memory_id) in selected_ids]
-                for item in selected:
-                    item.metadata["semantic_reranker_selected"] = True
-                return selected
-
         scorer = getattr(self.memory_store, "semantic_scores", None)
         if scorer is None:
             return baseline
@@ -139,8 +118,8 @@ class SemanticCohortContextBuilder(GeneralizedContextBuilder):
         if top_score <= 0.0:
             return baseline
 
-        # Embedding-only fallback. It stays available for offline/local modes
-        # and whenever the injected reranker fails.
+        # First-stage embedding cohort. This remains the complete fallback path
+        # for offline/local operation and for any failed reranker call.
         floor = max(0.16, top_score * 0.62, top_score - 0.22)
         eligible = [
             item
@@ -157,12 +136,73 @@ class SemanticCohortContextBuilder(GeneralizedContextBuilder):
             if largest_gap >= 0.075 and gap_index >= 1:
                 eligible = eligible[: gap_index + 1]
 
-        selected_ids = {item.memory_id for item in eligible}
-        selected = [item for item in ranked if item.memory_id in selected_ids]
-        for item in selected:
+        embedding_selected_ids = {item.memory_id for item in eligible}
+        embedding_selected = [item for item in ranked if item.memory_id in embedding_selected_ids]
+        for item in embedding_selected:
             item.metadata["semantic_focus"] = focus
             item.metadata["semantic_focus_score"] = semantic.get(str(item.memory_id), 0.0)
-        return selected
+
+        if self.reranker is not None and self._should_rerank(
+            same_predicate,
+            embedding_selected,
+            semantic,
+        ):
+            reranked = self.reranker.rerank(query, same_predicate)
+            event = {
+                "success": bool(reranked.success),
+                "candidate_count": len(same_predicate),
+                "embedding_selected_count": len(embedding_selected),
+                "selected_count": len(reranked.selected_ids),
+                "provider": reranked.provider,
+                "model": reranked.model,
+                "input_tokens": int(reranked.usage.get("input_tokens") or 0),
+                "output_tokens": int(reranked.usage.get("output_tokens") or 0),
+                "total_tokens": int(reranked.usage.get("total_tokens") or 0),
+                "error": reranked.error,
+            }
+            self._reranker_events.append(event)
+            if reranked.success:
+                selected_ids = set(reranked.selected_ids)
+                selected = [item for item in ranked if str(item.memory_id) in selected_ids]
+                for item in selected:
+                    item.metadata["semantic_reranker_selected"] = True
+                return selected
+
+        return embedding_selected
+
+    @staticmethod
+    def _should_rerank(
+        candidates: Sequence[ContextItem],
+        embedding_selected: Sequence[ContextItem],
+        semantic: Dict[str, float],
+    ) -> bool:
+        """Escalate only when the embedding cohort exposes real uncertainty.
+
+        Two observable signals are used without domain labels:
+        1. More same-predicate candidates were rejected than selected. This is
+           dense competition and is exactly where a false negative can hide
+           below an embedding distractor.
+        2. Nothing was rejected but at least five candidates have an almost-flat
+           semantic score distribution, meaning embeddings provided no useful
+           membership boundary at all.
+        """
+        candidate_count = len(candidates)
+        selected_count = len(embedding_selected)
+        if candidate_count < 3 or selected_count <= 0:
+            return False
+
+        rejected_count = candidate_count - selected_count
+        if rejected_count > selected_count:
+            return True
+
+        if rejected_count == 0 and candidate_count >= 5:
+            scores = [semantic.get(str(item.memory_id), 0.0) for item in candidates]
+            top = max(scores) if scores else 0.0
+            bottom = min(scores) if scores else 0.0
+            if top > 0.0 and (top - bottom) / top <= 0.12:
+                return True
+
+        return False
 
     def _summarize_reranker_events(self) -> Dict[str, object]:
         providers = sorted({str(event.get("provider") or "unknown") for event in self._reranker_events})
@@ -172,6 +212,9 @@ class SemanticCohortContextBuilder(GeneralizedContextBuilder):
             "calls": len(self._reranker_events),
             "successful_calls": sum(bool(event.get("success")) for event in self._reranker_events),
             "candidate_count": sum(int(event.get("candidate_count") or 0) for event in self._reranker_events),
+            "embedding_selected_count": sum(
+                int(event.get("embedding_selected_count") or 0) for event in self._reranker_events
+            ),
             "selected_count": sum(int(event.get("selected_count") or 0) for event in self._reranker_events),
             "input_tokens": sum(int(event.get("input_tokens") or 0) for event in self._reranker_events),
             "output_tokens": sum(int(event.get("output_tokens") or 0) for event in self._reranker_events),
