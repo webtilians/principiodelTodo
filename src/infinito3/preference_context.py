@@ -208,6 +208,18 @@ class PreferenceStateContextBuilder(TemporalSemanticContextBuilder):
         if len(items) == 1:
             return list(items)
 
+        # Historical questions often quote the user's retraction language rather
+        # than the original activity name ("no longer appeals", "lost interest",
+        # "isn't my thing anymore").  Tombstones preserve that exact evidence.
+        # When one candidate has a clear lexical match on at least two meaningful
+        # terms, that evidence is more authoritative than semantic facet ranking
+        # and avoids asking a model to choose among several equally retracted facts.
+        if self._is_historical_preference_query(query):
+            evidence_match = self._historical_evidence_match(query, items)
+            if evidence_match:
+                evidence_match[0].metadata["preference_history_evidence_match"] = True
+                return evidence_match
+
         if self.reranker is not None:
             reranked = self.reranker.rerank(query, items)
             self._record_preference_reranker_event(reranked, len(items), kind="preference_membership")
@@ -231,6 +243,27 @@ class PreferenceStateContextBuilder(TemporalSemanticContextBuilder):
             floor = max(0.16, top * 0.62, top - 0.22)
             return [item for item in ordered if semantic.get(str(item.memory_id), 0.0) >= floor]
         return ordered[:1]
+
+    @classmethod
+    def _historical_evidence_match(
+        cls, query: str, items: Sequence[ContextItem]
+    ) -> List[ContextItem]:
+        query_terms = cls._content_words(query)
+        if not query_terms:
+            return []
+
+        ranked = []
+        for item in items:
+            evidence = str(item.metadata.get("retraction_source_text") or item.content)
+            overlap = query_terms & cls._content_words(evidence)
+            ranked.append((len(overlap), item.score, item))
+        ranked.sort(key=lambda row: (row[0], row[1]), reverse=True)
+        if not ranked or ranked[0][0] < 2:
+            return []
+        second_overlap = ranked[1][0] if len(ranked) > 1 else 0
+        if ranked[0][0] <= second_overlap:
+            return []
+        return [ranked[0][2]]
 
     def _record_preference_reranker_event(self, reranked, candidate_count: int, *, kind: str) -> None:
         self._reranker_events.append({
