@@ -68,7 +68,7 @@ from src.infinito3 import (
 def make_loop():
     client = OpenAI()
     engine = CognitiveEngine.persistent(":memory:")
-    adapter = OpenAIResponsesAdapter(client, model="gpt-5.6-luna")
+    adapter = OpenAIResponsesAdapter(client, model="<api-model-id>")
     return CognitiveLoop(engine, adapter, history_limit=4)
 
 
@@ -81,6 +81,40 @@ print(report.to_json())
 ```
 
 For serious model comparisons, pin provider/model configuration, run each scenario multiple times when the model is stochastic, save the raw `ABComparison` objects, and compare confidence intervals rather than one-off scores.
+
+## Real-model run in GitHub Actions
+
+The repository includes `scripts/run_infinito3_real_eval.py` and a manual workflow named **INFINITO 3.0 Real Model Evaluation**.
+
+Before the first cloud run, create a repository Actions secret named:
+
+```text
+OPENAI_API_KEY
+```
+
+The secret is injected into the job environment and is never committed to the repository. The model id is selected when launching the workflow rather than hard-coded in INFINITO.
+
+The runner uses a fresh SQLite `:memory:` store for every scenario and local deterministic hash embeddings. That keeps scenarios isolated and avoids extra embedding API cost in the first real-model benchmark.
+
+To run it from GitHub:
+
+1. Open **Actions** in the repository.
+2. Select **INFINITO 3.0 Real Model Evaluation**.
+3. Choose **Run workflow**.
+4. Enter the OpenAI API model id to evaluate.
+5. Optionally set reasoning effort and short-term history limit.
+6. Run the workflow.
+
+GitHub publishes the Markdown result in the Actions summary and uploads both JSON and Markdown reports as an artifact retained for 30 days.
+
+The same runner can be executed locally:
+
+```bash
+export OPENAI_API_KEY="..."
+python scripts/run_infinito3_real_eval.py --model "<api-model-id>"
+```
+
+A local run needs the computer only while the script is running. A GitHub Actions run does **not** require the user's computer to remain powered on.
 
 ## What this milestone does not claim
 
