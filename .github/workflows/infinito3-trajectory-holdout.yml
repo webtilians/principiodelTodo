@@ -4,9 +4,7 @@ on:
   push:
     branches: [eval/trajectory-harness-20260914]
     paths:
-      - '.github/workflows/infinito3-trajectory-holdout.yml'
-      - 'src/infinito3/trajectory_holdout_cases.py'
-      - 'scripts/run_infinito3_trajectory_holdout.py'
+      - '.github/infinito3-trajectory-holdout-trigger'
   workflow_dispatch:
 
 permissions:
@@ -34,6 +32,8 @@ jobs:
           --reasoning-effort none
           --embedding-provider openai
           --embedding-model text-embedding-3-small
+          --semantic-reranker llm
+          --reranker-model gpt-5.6-luna
           --output-dir trajectory-holdout-results
       - name: Summary
         if: always()
