@@ -16,8 +16,8 @@ from src.infinito3.cognitive_loop import CognitiveLoop
 from src.infinito3.engine import CognitiveEngine
 from src.infinito3.llm_adapter import OpenAIResponsesAdapter
 from src.infinito3.persistent_memory import HashEmbeddingProvider, OpenAIEmbeddingProvider
-from src.infinito3.semantic_context import SemanticCohortContextBuilder
 from src.infinito3.semantic_reranker import LLMSemanticMembershipReranker
+from src.infinito3.temporal_context import TemporalSemanticContextBuilder
 from src.infinito3.temporal_goals import TemporalGoalEngine
 from src.infinito3.temporal_memory import TemporalAwareSQLiteMemoryStore
 from src.infinito3.temporal_state import TemporalCognitiveState
@@ -45,10 +45,7 @@ def parse_args() -> argparse.Namespace:
         choices=("none", "llm"),
         default=os.environ.get("INFINITO_SEMANTIC_RERANKER", "llm"),
     )
-    parser.add_argument(
-        "--reranker-model",
-        default=os.environ.get("INFINITO_RERANKER_MODEL", ""),
-    )
+    parser.add_argument("--reranker-model", default=os.environ.get("INFINITO_RERANKER_MODEL", ""))
     parser.add_argument("--output-dir", default="trajectory-holdout-v2-results")
     return parser.parse_args()
 
@@ -81,7 +78,7 @@ def main() -> int:
             embedding_provider=embedding_provider(),
         )
         goals = TemporalGoalEngine(now_fn=clock)
-        builder = SemanticCohortContextBuilder(
+        builder = TemporalSemanticContextBuilder(
             memory_store=store,
             goal_engine=goals,
             now_fn=clock,
@@ -98,20 +95,12 @@ def main() -> int:
     def loop_pair_factory(clock, scenario):
         baseline = CognitiveLoop(
             make_engine(clock),
-            OpenAIResponsesAdapter(
-                client,
-                model=args.model.strip(),
-                reasoning_effort=args.reasoning_effort.strip() or None,
-            ),
+            OpenAIResponsesAdapter(client, model=args.model.strip(), reasoning_effort=args.reasoning_effort.strip() or None),
             history_limit=scenario.history_limit,
         )
         cognitive = CognitiveLoop(
             make_engine(clock),
-            OpenAIResponsesAdapter(
-                client,
-                model=args.model.strip(),
-                reasoning_effort=args.reasoning_effort.strip() or None,
-            ),
+            OpenAIResponsesAdapter(client, model=args.model.strip(), reasoning_effort=args.reasoning_effort.strip() or None),
             history_limit=scenario.history_limit,
         )
         return baseline, cognitive
@@ -126,7 +115,7 @@ def main() -> int:
             "reasoning_effort": args.reasoning_effort.strip() or None,
             "embedding_provider": args.embedding_provider,
             "embedding_model": args.embedding_model.strip() if args.embedding_provider == "openai" else None,
-            "context_builder": "semantic_cohort_uncertainty_gated",
+            "context_builder": "temporal_semantic_cohort_uncertainty_gated",
             "semantic_reranker": args.semantic_reranker,
             "reranker_model": reranker_model if args.semantic_reranker == "llm" else None,
             "cognitive_event_extractor": "rule_based_v1",
@@ -153,7 +142,7 @@ def main() -> int:
     print(f"suite_sha256={report.metadata['suite_sha256']}")
     print(f"model={args.model.strip()}")
     print(f"embedding_provider={args.embedding_provider}")
-    print("context_builder=semantic_cohort_uncertainty_gated")
+    print("context_builder=temporal_semantic_cohort_uncertainty_gated")
     print("cognitive_event_extractor=rule_based_v1")
     print("temporal_cognitive_state=true")
     print(f"semantic_reranker={args.semantic_reranker}")
