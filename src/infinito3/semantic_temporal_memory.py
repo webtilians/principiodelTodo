@@ -10,10 +10,14 @@ from .types import MemoryStatus
 class SemanticTemporalMemoryStore(TemporalAwareSQLiteMemoryStore):
     """Temporal store with conservative semantic target resolution.
 
-    Retraction first uses exact/lexical fact identity from the base store. Only
-    when that finds nothing does it compare one query embedding with embeddings
-    already stored for active values of the same structured predicate. No
-    bilingual dictionary or domain vocabulary is encoded here.
+    Resolution order:
+    1. exact/lexical identity inside the requested predicate;
+    2. unique exact value identity across active predicates for the same subject;
+    3. semantic similarity inside the requested predicate.
+
+    Step 2 handles ontology drift such as `drinks=kombucha` versus an existing
+    `likes=kombucha` without encoding a domain dictionary. It only fires when a
+    single active record owns that exact normalized value.
     """
 
     semantic_retraction_threshold = 0.48
@@ -39,6 +43,17 @@ class SemanticTemporalMemoryStore(TemporalAwareSQLiteMemoryStore):
         )
         if lexical:
             return lexical
+
+        normalized_value = _normalize_text(value)
+        cross_predicate = self._unique_active_value_match(subject, normalized_value)
+        if cross_predicate is not None:
+            return self._close_row(
+                cross_predicate,
+                reason=reason,
+                source_text=source_text,
+                at=at,
+                metadata_extra={"cross_predicate_value_retraction": True},
+            )
 
         query_embedding = self._safe_embed(value)
         if not query_embedding:
@@ -71,15 +86,43 @@ class SemanticTemporalMemoryStore(TemporalAwareSQLiteMemoryStore):
         if len(scored) > 1 and best_score - second < self.semantic_retraction_margin:
             return []
 
+        return self._close_row(
+            best,
+            reason=reason,
+            source_text=source_text,
+            at=at,
+            metadata_extra={
+                "semantic_retraction": True,
+                "semantic_retraction_score": best_score,
+            },
+        )
+
+    def _unique_active_value_match(self, subject: str, normalized_value: str):
+        if not normalized_value:
+            return None
+        with self._lock:
+            rows = self._conn.execute(
+                """
+                SELECT * FROM memories
+                WHERE fact_subject = ? AND status = ?
+                """,
+                (subject, MemoryStatus.ACTIVE.value),
+            ).fetchall()
+        matches = [
+            row for row in rows
+            if _normalize_text(str(row["fact_value"] or "")) == normalized_value
+        ]
+        return matches[0] if len(matches) == 1 else None
+
+    def _close_row(self, row, *, reason: str, source_text: str, at: Optional[datetime], metadata_extra=None):
         changed_at = at or datetime.utcnow()
-        metadata = json.loads(best["metadata_json"] or "{}")
+        metadata = json.loads(row["metadata_json"] or "{}")
         metadata.update(
             {
                 "temporal_valid_to": changed_at.isoformat(),
                 "retraction_reason": reason,
                 "retraction_source_text": source_text,
-                "semantic_retraction": True,
-                "semantic_retraction_score": best_score,
+                **(metadata_extra or {}),
             }
         )
         with self._lock, self._conn:
@@ -93,7 +136,7 @@ class SemanticTemporalMemoryStore(TemporalAwareSQLiteMemoryStore):
                     MemoryStatus.SUPERSEDED.value,
                     changed_at.isoformat(),
                     json.dumps(metadata, ensure_ascii=False, default=str),
-                    best["id"],
+                    row["id"],
                 ),
             )
-        return [str(best["id"])]
+        return [str(row["id"])]
