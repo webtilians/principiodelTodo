@@ -1,0 +1,26 @@
+name: INFINITO 3.0 Semantic Cohort Diagnostic
+
+on:
+  push:
+    branches: [eval/trajectory-harness-20260914]
+    paths:
+      - '.github/workflows/infinito3-semantic-diagnostic.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnostic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install openai
+      - name: Semantic cohort scores
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: python scripts/diagnose_infinito3_semantic_cohort.py
