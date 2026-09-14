@@ -1,4 +1,4 @@
-run: first-real-evaluation-rerun-1
+run: first-real-evaluation-rerun-2
 model: gpt-5.6-luna
 reasoning_effort: none
 history_limit: 4
