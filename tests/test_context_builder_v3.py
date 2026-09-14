@@ -62,7 +62,7 @@ def test_context_balances_goal_user_model_memory_and_recent():
 
     builder = BalancedContextBuilder(store, goals, now_fn=lambda: fixed_now)
     packet = builder.build(
-        "preparar entrenamiento de descenso",
+        "preparar entrenamiento de descenso en mi ciudad",
         memory_candidates=[user, relevant],
         recent_turns=[ConversationTurn(role="user", content="Hoy hice cuatro bajadas")],
         max_tokens=500,

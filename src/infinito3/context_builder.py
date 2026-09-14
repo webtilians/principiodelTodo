@@ -1,6 +1,7 @@
 import json
 import math
 import re
+import unicodedata
 from datetime import datetime
 from typing import Dict, List, Optional, Sequence, Tuple
 
@@ -70,6 +71,59 @@ class BalancedContextBuilder:
     }
 
     _CORE_USER_FACTS = {"name", "location", "age", "bike", "favorite_color"}
+
+    # Lightweight bilingual topic evidence for the rule-based builder. Unknown
+    # topics still use retrieval ranking; this is not a semantic classifier.
+    _TOPICS = {
+        "music": {"musica", "music", "musical", "genero", "genres", "jazz", "blues", "reggae",
+                  "salsa", "punk", "rock", "pop", "metal", "flamenco", "clasica", "classical",
+                  "techno", "house", "rap", "hip", "soul", "funk", "folk", "country", "opera"},
+        "food": {"comida", "comidas", "food", "foods", "meal", "meals", "cocinar", "cocina",
+                 "comer", "eat", "eating", "pizza", "sushi", "pasta", "carbonara", "arroz", "paella", "sopa", "ensalada",
+                 "tacos", "curry", "ramen", "lentejas", "pescado", "verdura", "fruta", "chocolate"},
+    }
+    _TOPIC_QUERIES = {
+        "music": {"musica", "music", "musicales", "genres"},
+        "food": {"comida", "comidas", "food", "foods", "platos", "comer", "meals"},
+    }
+    _STOP_WORDS = set("a al de del en el la los las un una y o que qué como cómo cuando donde "
+                     "me mi mis te tu tengo tienes es son por para con sobre lo le se do does i my "
+                     "the a an and or to of in on is are what which how where when like gusta gustan "
+                     "mañana manana hoy tomorrow today at las all todo todos todas recuerdas dime "
+                     "puedes puedesme he contado told you about recuerda remember".split())
+
+    @staticmethod
+    def _normalized(text: str) -> str:
+        return ''.join(c for c in unicodedata.normalize('NFKD', text.lower()) if not unicodedata.combining(c))
+
+    @classmethod
+    def _content_words(cls, text: str) -> set:
+        return {word[:6] for word in _TOKEN_RE.findall(cls._normalized(text))
+                if word not in cls._STOP_WORDS and len(word) > 2 and not word.isdigit()}
+
+    @classmethod
+    def _asks_for_goals(cls, query: str) -> bool:
+        q = cls._normalized(query)
+        return bool(re.search(r'\b(pendiente\w*|tarea\w*|objetivo\w*|agenda|recordarme|remind|tasks?|goals?|plans?|scheduled)\b', q)
+                    or any(p in q for p in ('tengo que', 'debo hacer', 'por hacer', 'need to do', 'have to do')))
+
+    @classmethod
+    def _self_contained_math(cls, query: str) -> bool:
+        q = cls._normalized(query)
+        return bool(re.search(r'\d+\s*[+*/×÷−-]\s*\d+', q)
+                    and not re.search(r'\b(mi|mis|my|nuestro|nuestra)\b', q))
+
+    @classmethod
+    def _topics_for_query(cls, query: str) -> set:
+        words = set(_TOKEN_RE.findall(cls._normalized(query)))
+        return {topic for topic, markers in cls._TOPIC_QUERIES.items() if words & markers}
+
+    @classmethod
+    def _matches_fact(cls, item: ContextItem, fact: str) -> bool:
+        if item.metadata.get('fact_predicate') == fact:
+            return True
+        # Legacy preferences may describe a bicycle without a structured bike predicate.
+        return fact == 'bike' and bool(re.search(r'\b(bici|bicicleta|bike|bicycle)\b', cls._normalized(item.content)))
 
     _MULTI_VALUE_MARKERS = (
         "cuáles",
@@ -204,7 +258,7 @@ class BalancedContextBuilder:
                 },
                 "remaining_budget_estimate": max(0, max_tokens - estimated),
                 "precision_dropped": precision_dropped,
-                "precision_policy": "adaptive_dominant_or_same_predicate_multi",
+                "precision_policy": "requested_facts_and_relevant_topics_v2",
             },
         )
 
@@ -283,12 +337,27 @@ class BalancedContextBuilder:
         filtered = {source: list(items) for source, items in pools.items()}
         before = sum(len(items) for items in filtered.values())
 
-        # Goal descriptions already contain the evidence needed by the model;
-        # the same sentence stored as ordinary memory is redundant context.
-        goal_signatures = {
-            self._content_signature(item.content.split(" | due=", 1)[0])
+        if self._self_contained_math(query):
+            return {source: [] for source in filtered}, before
+
+        requested = self._requested_core_facts(query)
+        topics = self._topics_for_query(query)
+        asks_goals = self._asks_for_goals(query)
+        query_words = self._content_words(query)
+        facet_words = self._content_words('nombre name llamo ciudad city vivo live ubicacion location '
+                                          'bici bicicleta bike bicycle modelo model uso use edad age anos old '
+                                          'color favorito favorite colour musica music genres comida food')
+        additional_words = query_words - facet_words
+        all_goal_signatures = {
+            self._content_signature(item.content.split(' | due=', 1)[0])
             for item in filtered[ContextSource.GOAL]
         }
+        filtered[ContextSource.GOAL] = [item for item in filtered[ContextSource.GOAL]
+            if asks_goals or bool(additional_words & self._content_words(item.content.split(' | due=', 1)[0]))]
+
+        # Goal descriptions already contain the evidence needed by the model;
+        # the same sentence stored as ordinary memory is redundant context.
+        goal_signatures = all_goal_signatures
         if goal_signatures:
             for source in (ContextSource.USER_MODEL, ContextSource.MEMORY):
                 filtered[source] = [
@@ -298,7 +367,25 @@ class BalancedContextBuilder:
                 ]
 
         for source in (ContextSource.USER_MODEL, ContextSource.MEMORY):
-            filtered[source] = self._prune_memory_pool(query, filtered[source])
+            items = filtered[source]
+            if requested or topics or asks_goals:
+                eligible = []
+                for item in items:
+                    facts = {fact for fact in requested if self._matches_fact(item, fact)}
+                    words = set(_TOKEN_RE.findall(self._normalized(item.content)))
+                    matching_topics = {topic for topic in topics if words & self._TOPICS[topic]}
+                    if facts or matching_topics:
+                        item.metadata['requested_facts'] = sorted(facts)
+                        item.metadata['requested_topics'] = sorted(matching_topics)
+                        eligible.append(item)
+                    elif source == ContextSource.MEMORY:
+                        if additional_words & self._content_words(item.content):
+                            eligible.append(item)
+                # Explicitly requested facts and topic values are independently
+                # relevant; do not let one dominant fact suppress another.
+                filtered[source] = eligible
+            else:
+                filtered[source] = self._prune_memory_pool(query, items)
 
         after = sum(len(items) for items in filtered.values())
         return filtered, max(0, before - after)
@@ -350,9 +437,11 @@ class BalancedContextBuilder:
 
         if any(marker in normalized for marker in ("cómo me llamo", "como me llamo", "mi nombre", "my name", "what is my name")):
             requested.add("name")
-        if any(marker in normalized for marker in ("dónde vivo", "donde vivo", "where do i live", "mi ubicación", "mi ubicacion")):
+        if any(marker in normalized for marker in ("dónde vivo", "donde vivo", "where do i live", "mi ubicación", "mi ubicacion", "mi ciudad")) or (
+            re.search(r'\b(ciudad|city)\b', normalized) and re.search(r'\b(mi|my|vivo|live)\b', normalized)
+        ):
             requested.add("location")
-        if any(marker in normalized for marker in ("qué edad", "que edad", "cuántos años", "cuantos años", "how old", "my age")):
+        if any(marker in normalized for marker in ("qué edad", "que edad", "mi edad", "cuántos años", "cuantos años", "how old", "my age")):
             requested.add("age")
         if any(marker in normalized for marker in ("qué bici", "que bici", "mi bici", "what bike", "which bike")):
             requested.add("bike")

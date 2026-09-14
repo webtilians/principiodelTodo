@@ -13,6 +13,7 @@ from openai import OpenAI
 
 from src.infinito3.benchmark_cases import extended_evaluation_suite
 from src.infinito3.precision_cases import precision_evaluation_suite
+from src.infinito3.precision_validation_cases import precision_validation_suite
 from src.infinito3.cognitive_loop import CognitiveLoop
 from src.infinito3.engine import CognitiveEngine
 from src.infinito3.evaluation import EvaluationHarness, standard_evaluation_suite
@@ -42,7 +43,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--suite",
-        choices=("standard", "extended", "precision"),
+        choices=("standard", "extended", "precision", "validation"),
         default="extended",
         help="Scenario bank to run. Extended is the default for live experiments.",
     )
@@ -104,7 +105,7 @@ def main() -> int:
         )
 
     scenarios = {"standard": standard_evaluation_suite, "extended": extended_evaluation_suite,
-                 "precision": precision_evaluation_suite}[args.suite]()
+                 "precision": precision_evaluation_suite, "validation": precision_validation_suite}[args.suite]()
     harness = EvaluationHarness(loop_factory)
     report = harness.run(scenarios)
     report.metadata.update(
@@ -118,7 +119,8 @@ def main() -> int:
             "real_model_run": True,
             "suite": args.suite,
             "suite_sha256": hashlib.sha256((REPO_ROOT / "src" / "infinito3" /
-                ("precision_cases.py" if args.suite == "precision" else
+                ("precision_validation_cases.py" if args.suite == "validation" else
+                 "precision_cases.py" if args.suite == "precision" else
                  "benchmark_cases.py" if args.suite == "extended" else "evaluation.py")).read_bytes()).hexdigest(),
         }
     )
