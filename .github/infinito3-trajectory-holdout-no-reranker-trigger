@@ -1,0 +1,7 @@
+run: heldout-reranker-off-1
+suite: frozen-58-turn-7-probe
+model: gpt-5.6-luna
+embedding_model: text-embedding-3-small
+semantic_reranker: none
+baseline_mode: stub
+reason: measure heldout answer/context quality and cost without semantic reranking
