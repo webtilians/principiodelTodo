@@ -51,6 +51,29 @@ Forbidden-answer checks are useful for known contradiction leakage. They are not
 3. `goal_continuity`: an active goal is no longer visible in chat history and must survive through GoalEngine.
 4. `relevance_filter`: multiple user-model facts are stored but only the task-relevant one should enter the ContextPacket.
 
+## First real-model run
+
+A first live paired A/B run was executed on 2026-09-14 with `gpt-5.6-luna`, reasoning effort `none`, short-term history limit `4`, and hash embeddings for the cognitive retrieval baseline.
+
+Observed result on the four-scenario standard suite:
+
+- cognitive wins / ties / baseline wins: **4 / 0 / 0**
+- mean baseline answer score: **0.125**
+- mean cognitive answer score: **1.000**
+- mean answer lift: **+0.875**
+- mean context score: **1.000**
+- mean selected context size: **50.75 estimated tokens**
+- mean provider token delta: **+61 tokens** for the cognitive arm
+
+Scenario lifts:
+
+- `long_term_identity`: **+1.0**
+- `contradiction_resolution`: **+0.5**
+- `goal_continuity`: **+1.0**
+- `relevance_filter`: **+1.0**
+
+This is an encouraging architectural signal, not evidence of general intelligence improvement. The suite is intentionally tiny, uses deterministic substring scoring, and was run only once. Latency differences from one run are not treated as meaningful. The next benchmark must increase scenario count, repeat stochastic runs, add held-out cases and semantic/human judging, and include component ablations.
+
 ## Example
 
 ```python
@@ -68,7 +91,7 @@ from src.infinito3 import (
 def make_loop():
     client = OpenAI()
     engine = CognitiveEngine.persistent(":memory:")
-    adapter = OpenAIResponsesAdapter(client, model="<api-model-id>")
+    adapter = OpenAIResponsesAdapter(client, model="gpt-5.6-luna")
     return CognitiveLoop(engine, adapter, history_limit=4)
 
 
@@ -81,40 +104,6 @@ print(report.to_json())
 ```
 
 For serious model comparisons, pin provider/model configuration, run each scenario multiple times when the model is stochastic, save the raw `ABComparison` objects, and compare confidence intervals rather than one-off scores.
-
-## Real-model run in GitHub Actions
-
-The repository includes `scripts/run_infinito3_real_eval.py` and a manual workflow named **INFINITO 3.0 Real Model Evaluation**.
-
-Before the first cloud run, create a repository Actions secret named:
-
-```text
-OPENAI_API_KEY
-```
-
-The secret is injected into the job environment and is never committed to the repository. The model id is selected when launching the workflow rather than hard-coded in INFINITO.
-
-The runner uses a fresh SQLite `:memory:` store for every scenario and local deterministic hash embeddings. That keeps scenarios isolated and avoids extra embedding API cost in the first real-model benchmark.
-
-To run it from GitHub:
-
-1. Open **Actions** in the repository.
-2. Select **INFINITO 3.0 Real Model Evaluation**.
-3. Choose **Run workflow**.
-4. Enter the OpenAI API model id to evaluate.
-5. Optionally set reasoning effort and short-term history limit.
-6. Run the workflow.
-
-GitHub publishes the Markdown result in the Actions summary and uploads both JSON and Markdown reports as an artifact retained for 30 days.
-
-The same runner can be executed locally:
-
-```bash
-export OPENAI_API_KEY="..."
-python scripts/run_infinito3_real_eval.py --model "<api-model-id>"
-```
-
-A local run needs the computer only while the script is running. A GitHub Actions run does **not** require the user's computer to remain powered on.
 
 ## What this milestone does not claim
 
