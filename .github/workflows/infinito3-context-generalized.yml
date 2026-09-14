@@ -4,6 +4,8 @@ on:
     branches: [eval/context-generalized-20260914]
     paths:
       - '.github/workflows/infinito3-context-generalized.yml'
+      - 'src/infinito3/generalized_context_builder.py'
+      - 'tests/test_generalized_context_builder_v3.py'
   workflow_dispatch:
 
 permissions:
