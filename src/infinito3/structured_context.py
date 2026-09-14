@@ -1,7 +1,7 @@
 import re
 
 from .temporal_context import TemporalSemanticContextBuilder
-from .types import MemoryKind
+from .types import ContextSource, MemoryKind
 
 
 class StructuredTemporalContextBuilder(TemporalSemanticContextBuilder):
@@ -20,23 +20,14 @@ class StructuredTemporalContextBuilder(TemporalSemanticContextBuilder):
             or any(
                 marker in q
                 for marker in (
-                    "que tengo hoy",
-                    "qué tengo hoy",
-                    "que tengo esta semana",
-                    "qué tengo esta semana",
-                    "what do i have today",
-                    "what do i have this week",
-                    "what is still open",
-                    "que sigue abierto",
-                    "qué sigue abierto",
+                    "que tengo hoy", "qué tengo hoy", "que tengo esta semana", "qué tengo esta semana",
+                    "what do i have today", "what do i have this week", "what is still open",
+                    "que sigue abierto", "qué sigue abierto",
                 )
             )
         )
 
     def _historical_candidates(self, query, candidates):
-        # StructuredStateRetriever already followed the authoritative temporal
-        # lineage. Do not let the parent historical fallback replace that
-        # annotated predecessor with a plain store record and lose its relation.
         if any(
             record.metadata.get("structured_state")
             and record.metadata.get("temporal_relation") == "immediately_previous"
@@ -44,6 +35,25 @@ class StructuredTemporalContextBuilder(TemporalSemanticContextBuilder):
         ):
             return list(candidates)
         return super()._historical_candidates(query, candidates)
+
+    def _build_pools(self, query, candidates, recent_turns):
+        pools = super()._build_pools(query, candidates, recent_turns)
+        historical_predicates = {
+            record.fact_predicate
+            for record in candidates
+            if record.fact_predicate
+            and record.metadata.get("structured_state")
+            and record.metadata.get("temporal_relation") == "immediately_previous"
+        }
+        if historical_predicates:
+            for source in (ContextSource.USER_MODEL, ContextSource.MEMORY):
+                pools[source] = [
+                    item
+                    for item in pools[source]
+                    if item.metadata.get("fact_predicate") not in historical_predicates
+                    or item.metadata.get("temporal_relation") == "immediately_previous"
+                ]
+        return pools
 
     def _memory_item(self, query, memory, rank, total):
         item = super()._memory_item(query, memory, rank, total)
@@ -58,6 +68,7 @@ class StructuredTemporalContextBuilder(TemporalSemanticContextBuilder):
                 f"TEMPORAL FACT | predicate={predicate} | value={value} | "
                 f"relation=immediately_previous | before={before}"
             )
+            item.metadata["fact_predicate"] = predicate
             item.metadata["temporal_relation"] = relation
             item.metadata["temporal_before_value"] = before
             item.metadata["structured_state"] = True
@@ -70,6 +81,7 @@ class StructuredTemporalContextBuilder(TemporalSemanticContextBuilder):
             item.content = self._sanitize(
                 f"{label} | predicate={predicate} | value={value} | relation=current"
             )
+            item.metadata["fact_predicate"] = predicate
             item.metadata["temporal_relation"] = "current"
             item.metadata["structured_state"] = True
             item.score = max(item.score, 0.98)
