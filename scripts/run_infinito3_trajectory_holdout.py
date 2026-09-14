@@ -20,6 +20,7 @@ from src.infinito3.semantic_context import (
     SemanticCohortContextBuilder,
     SemanticScoringSQLiteMemoryStore,
 )
+from src.infinito3.semantic_reranker import LLMSemanticMembershipReranker
 from src.infinito3.trajectory_evaluation import MutableClock, TrajectoryEvaluationHarness
 from src.infinito3.trajectory_holdout_cases import independent_trajectory_holdout_suite
 
@@ -42,6 +43,16 @@ def parse_args() -> argparse.Namespace:
         "--embedding-model",
         default=os.environ.get("INFINITO_EMBEDDING_MODEL", "text-embedding-3-small"),
     )
+    parser.add_argument(
+        "--semantic-reranker",
+        choices=("none", "llm"),
+        default=os.environ.get("INFINITO_SEMANTIC_RERANKER", "llm"),
+    )
+    parser.add_argument(
+        "--reranker-model",
+        default=os.environ.get("INFINITO_RERANKER_MODEL", ""),
+        help="Defaults to --model when omitted.",
+    )
     parser.add_argument("--output-dir", default="trajectory-holdout-results")
     return parser.parse_args()
 
@@ -55,11 +66,24 @@ def main() -> int:
         raise SystemExit("No model specified")
 
     client = OpenAI(api_key=api_key)
+    reranker_model = args.reranker_model.strip() or args.model.strip()
 
     def embedding_provider():
         if args.embedding_provider == "openai":
             return OpenAIEmbeddingProvider(client, model=args.embedding_model.strip())
         return HashEmbeddingProvider()
+
+    def semantic_reranker():
+        if args.semantic_reranker != "llm":
+            return None
+        return LLMSemanticMembershipReranker(
+            OpenAIResponsesAdapter(
+                client,
+                model=reranker_model,
+                reasoning_effort=None,
+            ),
+            max_output_tokens=128,
+        )
 
     def make_engine(clock: MutableClock) -> CognitiveEngine:
         store = SemanticScoringSQLiteMemoryStore(
@@ -71,6 +95,7 @@ def main() -> int:
             memory_store=store,
             goal_engine=goals,
             now_fn=clock,
+            reranker=semantic_reranker(),
         )
         return CognitiveEngine(
             memory_store=store,
@@ -109,6 +134,8 @@ def main() -> int:
             "embedding_provider": args.embedding_provider,
             "embedding_model": args.embedding_model.strip() if args.embedding_provider == "openai" else None,
             "context_builder": "semantic_cohort",
+            "semantic_reranker": args.semantic_reranker,
+            "reranker_model": reranker_model if args.semantic_reranker == "llm" else None,
             "real_model_run": True,
             "suite": "independent_trajectory_holdout_suite",
             "suite_frozen_before_run": True,
@@ -130,6 +157,8 @@ def main() -> int:
     print(f"model={args.model.strip()}")
     print(f"embedding_provider={args.embedding_provider}")
     print("context_builder=semantic_cohort")
+    print(f"semantic_reranker={args.semantic_reranker}")
+    print(f"reranker_model={reranker_model if args.semantic_reranker == 'llm' else 'none'}")
     print(f"trajectories={s.trajectory_count}")
     print(f"user_turns={s.user_turn_count}")
     print(f"probes={s.probe_count}")
@@ -141,6 +170,12 @@ def main() -> int:
     print(f"baseline_total_tokens={s.baseline_total_tokens}")
     print(f"cognitive_total_tokens={s.cognitive_total_tokens}")
     print(f"total_token_delta={s.total_token_delta}")
+    print(f"reranker_calls={s.reranker_calls}")
+    print(f"reranker_input_tokens={s.reranker_input_tokens}")
+    print(f"reranker_output_tokens={s.reranker_output_tokens}")
+    print(f"reranker_total_tokens={s.reranker_total_tokens}")
+    print(f"cognitive_effective_total_tokens={s.cognitive_effective_total_tokens}")
+    print(f"effective_total_token_delta={s.effective_total_token_delta}")
     print(f"cumulative_context_tokens={s.cumulative_context_tokens}")
     print(f"final_active_memories={s.final_active_memories}")
     print(f"final_open_goals={s.final_open_goals}")
