@@ -20,13 +20,19 @@ class SemanticTemporalCognitiveState(TemporalCognitiveState):
             )
             if affected:
                 affected_set = set(affected)
-                versions = self._facts.setdefault((event.subject, event.predicate), [])
-                for version in versions:
-                    if version.active and version.memory_id in affected_set:
-                        version.active = False
-                        version.retracted = True
-                        version.valid_to = event.occurred_at
-                        transition.closed_version_ids.append(version.id)
+                # The store may resolve an ontology/predicate drift by unique
+                # value identity (for example drinks=kombucha -> likes=kombucha).
+                # Close whichever temporal version owns the affected memory id,
+                # rather than assuming it lives under event.predicate.
+                for (subject, _predicate), versions in self._facts.items():
+                    if subject != event.subject:
+                        continue
+                    for version in versions:
+                        if version.active and version.memory_id in affected_set:
+                            version.active = False
+                            version.retracted = True
+                            version.valid_to = event.occurred_at
+                            transition.closed_version_ids.append(version.id)
                 transition.memory_ids.extend(affected)
                 return
 
