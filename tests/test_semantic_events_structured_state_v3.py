@@ -9,7 +9,7 @@ from src.infinito3.semantic_interpreter import SemanticCognitiveEventExtractor, 
 from src.infinito3.semantic_temporal_memory import SemanticTemporalMemoryStore
 from src.infinito3.structured_temporal_context import StructuredTemporalContextBuilder
 from src.infinito3.temporal_goals import TemporalGoalEngine
-from src.infinito3.types import Goal, MemoryStatus
+from src.infinito3.types import Goal
 
 
 class Clock:
@@ -126,12 +126,12 @@ def test_structured_context_bypasses_vector_top_k_for_requested_slots_and_histor
     assert "value=utrecht" not in historical.rendered.lower()
 
 
-def test_goal_resolution_uses_previous_due_time_as_strong_evidence():
+def test_goal_resolution_uses_previous_due_time_plus_target_identity():
     clock = Clock(datetime(2026, 10, 5, 8, 0, 0))
     state = SemanticGoalTemporalState(now_fn=clock)
     old_due = datetime(2026, 10, 6, 18, 0, 0)
-    target = Goal("cita con el veterinario", due_at=old_due)
-    distractor = Goal("llamar al banco", due_at=datetime(2026, 10, 6, 18, 0, 0))
+    target = Goal("veterinarian appointment", due_at=old_due)
+    distractor = Goal("call the bank", due_at=datetime(2026, 10, 6, 18, 0, 0))
     event = CognitiveEvent(
         CognitiveEventType.RESCHEDULE_GOAL,
         "The veterinarian appointment moved from Tuesday 18:00 to Thursday 20:00.",
@@ -143,5 +143,4 @@ def test_goal_resolution_uses_previous_due_time_as_strong_evidence():
     )
     store = SemanticTemporalMemoryStore(":memory:", embedding_provider=HashEmbeddingProvider())
     resolved = state._match_goal(event, [distractor, target], memory_store=store)
-    # Same due time creates a temporal tie, so the semantic/lexical target must break it.
     assert resolved is target
