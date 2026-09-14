@@ -149,8 +149,6 @@ Rules:
             return False
         if not self._STATE_HINT.search(stripped):
             return False
-        # Semantic pass is especially useful when rules found nothing, or when
-        # the utterance signals revision/lifecycle where rule specificity matters.
         lower = stripped.lower()
         mutation_markers = (
             "ahora", "otra vez", "cambi", "from now", "no longer", "anymore",
@@ -258,9 +256,9 @@ Rules:
 class SemanticStateQueryAnalyzer(_JSONInterpreterBase):
     """Closed-schema parser for explicit structured-state questions."""
 
-    _PERSONAL_QUERY = re.compile(
-        r"(?:\?|¿).*(?:\bmy\b|\bme\b|\bi\b|\bmi\b|\bmis\b|\bme\b|\byo\b|"
-        r"before|previous|antes|anterior|pendiente|compromiso|goal|task)",
+    _PERSONAL_HINT = re.compile(
+        r"\b(?:my|me|i|mi|mis|yo|before|previous|antes|anterior|pendiente|pendientes|"
+        r"compromiso|compromisos|goal|goals|task|tasks|appointment|appointments|plan|plans)\b",
         re.I,
     )
 
@@ -273,7 +271,9 @@ Return exactly one JSON object: {\"predicates\":[],\"history\":[],\"asks_goals\"
 """
 
     def analyze(self, query: str) -> StateQueryPlan:
-        if not self._PERSONAL_QUERY.search(query):
+        if not ("?" in query or "¿" in query):
+            return StateQueryPlan()
+        if not self._PERSONAL_HINT.search(query):
             return StateQueryPlan()
         payload = self._generate(
             self._SYSTEM,
