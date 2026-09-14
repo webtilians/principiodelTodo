@@ -139,6 +139,8 @@ class CognitiveDecision:
     gate: Optional[GateDecision]
     stored_memory_id: Optional[str] = None
     created_goal_ids: List[str] = field(default_factory=list)
+    cognitive_event_ids: List[str] = field(default_factory=list)
+    temporal_transitions: List[Dict[str, Any]] = field(default_factory=list)
     context: List[MemoryRecord] = field(default_factory=list)
     context_packet: Optional[ContextPacket] = None
 
