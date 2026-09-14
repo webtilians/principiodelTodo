@@ -1,4 +1,4 @@
-run: extended-live-evaluation-semantic-embeddings
+run: extended-live-evaluation-after-regression-fixes
 model: gpt-5.6-luna
 reasoning_effort: none
 history_limit: 4
