@@ -1,6 +1,6 @@
 from typing import Optional, Sequence
 
-from .context_builder import BalancedContextBuilder
+from .generalized_context_builder import GeneralizedContextBuilder
 from .goals import SimpleGoalEngine
 from .interfaces import (
     ContextBuilder,
@@ -41,7 +41,7 @@ class CognitiveEngine:
         self.memory_gate = memory_gate or RuleBasedMemoryGate()
         self.safety_filter = safety_filter or SensitiveInformationFilter()
         self.goal_engine = goal_engine or SimpleGoalEngine()
-        self.context_builder = context_builder or BalancedContextBuilder(
+        self.context_builder = context_builder or GeneralizedContextBuilder(
             memory_store=self.memory_store,
             goal_engine=self.goal_engine,
         )
