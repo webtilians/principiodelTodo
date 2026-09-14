@@ -7,8 +7,8 @@ from .generalized_context_builder import GeneralizedContextBuilder
 from .interfaces import ContextBuilder, EmbeddingProvider, GoalEngine, MemoryGate, MemoryStore, SafetyFilter
 from .memory import InMemoryMemoryStore, RuleBasedMemoryGate
 from .safety import SensitiveInformationFilter
+from .semantic_temporal_state import SemanticTemporalCognitiveState
 from .temporal_goals import TemporalGoalEngine
-from .temporal_state import TemporalCognitiveState
 from .types import CognitiveDecision, ConversationTurn, MemoryRecord, SafetyLevel
 
 
@@ -18,19 +18,19 @@ class CognitiveEngine:
     def __init__(self, memory_store: Optional[MemoryStore] = None, memory_gate: Optional[MemoryGate] = None,
                  safety_filter: Optional[SafetyFilter] = None, goal_engine: Optional[GoalEngine] = None,
                  context_builder: Optional[ContextBuilder] = None, event_extractor=None,
-                 temporal_state: Optional[TemporalCognitiveState] = None):
+                 temporal_state=None):
         self.memory_store = memory_store or InMemoryMemoryStore()
         self.memory_gate = memory_gate or RuleBasedMemoryGate()
         self.safety_filter = safety_filter or SensitiveInformationFilter()
         self.goal_engine = goal_engine or TemporalGoalEngine()
         self.event_extractor = event_extractor or TemporalCognitiveEventExtractor()
-        self.temporal_state = temporal_state or TemporalCognitiveState()
+        self.temporal_state = temporal_state or SemanticTemporalCognitiveState()
         self.context_builder = context_builder or GeneralizedContextBuilder(memory_store=self.memory_store, goal_engine=self.goal_engine)
 
     @classmethod
     def persistent(cls, db_path: str = "data/infinito3_memory.db", embedding_provider: Optional[EmbeddingProvider] = None, **kwargs):
-        from .temporal_memory import TemporalAwareSQLiteMemoryStore
-        return cls(memory_store=TemporalAwareSQLiteMemoryStore(path=db_path, embedding_provider=embedding_provider), **kwargs)
+        from .semantic_temporal_memory import SemanticTemporalMemoryStore
+        return cls(memory_store=SemanticTemporalMemoryStore(path=db_path, embedding_provider=embedding_provider), **kwargs)
 
     def process(self, text: str, top_k: int = 5, *, context_budget_tokens: int = 1200,
                 recent_turns: Optional[Sequence[ConversationTurn]] = None) -> CognitiveDecision:
