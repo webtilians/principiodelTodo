@@ -1,4 +1,4 @@
-run: extended-live-evaluation-after-regression-fixes
+run: extended-live-evaluation-context-precision
 model: gpt-5.6-luna
 reasoning_effort: none
 history_limit: 4
