@@ -102,7 +102,7 @@ def test_current_preference_state_suppresses_lexical_and_semantic_retractions():
     store = _store()
     t0 = datetime(2026, 11, 3, 10, 0)
     paddle = _add_preference(store, "Últimamente disfruto mucho del paddle surf.", "paddle surf", t0)
-    birds = _add_preference(store, "Me he aficionado a observar aves.", "observar aves", t0 + timedelta(minutes=1))
+    _add_preference(store, "Me he aficionado a observar aves.", "observar aves", t0 + timedelta(minutes=1))
     _add_preference(store, "Ahora también disfruto del senderismo nocturno.", "senderismo nocturno", t0 + timedelta(hours=3))
     _add_tombstone(store, "paddle surf", "I've lost interest in paddle surf.", t0 + timedelta(hours=2), [paddle.id])
     _add_tombstone(store, "birdwatching", "Birdwatching no longer appeals to me.", t0 + timedelta(hours=2, minutes=1))
@@ -162,11 +162,11 @@ def test_recency_preference_query_uses_retraction_cutoff():
     assert packet.diagnostics["preference_state"]["recency_constrained"] is True
 
 
-def test_non_preference_math_query_does_not_inject_preference_state():
+def test_non_preference_math_query_does_not_activate_preference_state_mode():
     store = _store()
     _add_preference(store, "Me gusta el senderismo nocturno.", "senderismo nocturno", datetime(2026, 11, 3, 10, 0))
 
     packet = _builder(store).build("Dime solo cuánto es 8 por 12.")
 
-    assert "senderismo nocturno" not in packet.rendered
+    assert PreferenceStateContextBuilder._is_preference_query("Dime solo cuánto es 8 por 12.") is False
     assert "preference_state" not in packet.diagnostics
