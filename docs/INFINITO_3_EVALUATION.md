@@ -74,7 +74,8 @@ All live runs below used `gpt-5.6-luna`, reasoning effort `none`, isolated in-me
 | Initial smoke test | 4 standard | hash | 4 / 0 / 0 | 0.125 | 1.000 | +0.875 | 1.000 | 50.75 | +61 |
 | Extended baseline | 20 extended | hash | 14 / 6 / 0 | 0.175 | 0.800 | +0.625 | 0.778 | 51.25 | +54.45 |
 | Semantic retrieval | 20 extended | `text-embedding-3-small` | 15 / 5 / 0 | 0.175 | 0.850 | +0.675 | 0.838 | 56.25 | +67 |
-| After benchmark-derived fixes | 20 extended | `text-embedding-3-small` | **18 / 2 / 0** | **0.175** | **1.000** | **+0.825** | **0.938** | **56.0** | **+68** |
+| After benchmark-derived fixes | 20 extended | `text-embedding-3-small` | 18 / 2 / 0 | 0.175 | 1.000 | +0.825 | 0.938 | 56.0 | +68 |
+| Adaptive Context Builder precision | 20 extended | `text-embedding-3-small` | **18 / 2 / 0** | **0.175** | **1.000** | **+0.825** | **1.000** | **46.95** | **+55.6** |
 
 The final two ties are intentional controls: current-turn information that both arms can answer and an empty-memory negative control. No evaluated scenario is currently won by the baseline.
 
@@ -101,22 +102,41 @@ A probe such as `¿Qué tengo que hacer mañana?` originally matched the phrase 
 
 `SimpleGoalEngine` now rejects information-seeking interrogatives before goal creation while still accepting request forms such as `¿Puedes recordarme mañana llamar al banco?`. The live rerun confirms that only the real seeded goal appears in the final ContextPacket.
 
-### 4. Context precision is now the main measured weakness
+### 4. Context precision experiment
 
-The final 20-scenario run achieved perfect answer score, but context score remained 0.938 rather than 1.0. Four scenarios still selected extra irrelevant user-model memories:
+The previous 20-scenario run had perfect answer score but a context score of 0.938 because four scenarios selected irrelevant user-model memories. The precision experiment changed only `BalancedContextBuilder`; memory storage, gate, goal engine, embeddings and LLM configuration were held fixed.
 
-- `relevance_bike_with_noise`
-- `relevance_food_with_noise`
-- `small_budget_identity`
-- `contradiction_under_noise`
+The new selection policy is adaptive rather than a single global cutoff:
 
-The LLM ignored the noise and answered correctly, but those extra memories cost tokens and could become harmful at larger scale. This should be optimized as a separate retrieval/context-selection experiment rather than hidden by changing benchmark expectations.
+- singular queries normally keep the dominant memory candidate and only allow a very close high-score tie
+- plural queries can keep multiple candidates when they represent the same structured predicate, preserving cases such as jazz + punk
+- stable core facts such as name/location/bike are used as fallback only when the query actually asks for that fact
+- a goal and an ordinary memory containing the same evidence are deduplicated before prompt construction
+- diagnostics expose how many candidates were removed by the precision policy
+
+Observed result:
+
+- answer result stayed **18 / 2 / 0**
+- cognitive answer score stayed **1.000**
+- context score improved **0.938 → 1.000**
+- mean ContextPacket size fell **56.0 → 46.95 tokens** (about **16.2% less context**)
+- mean provider token delta fell **68.0 → 55.6** (about **18.2% less overhead**)
+
+The four previously noisy scenarios now contain only the required evidence. The multi-value music case still retains both `jazz` and `punk`, so the improvement is not a trivial top-1 policy.
+
+The goal scenarios also became smaller because duplicate goal/memory evidence was removed:
+
+- `goal_tomorrow_time`: 2 context items → 1
+- `goal_day_after_tomorrow`: 2 → 1
+- `two_goals_recall`: 4 → 2
 
 ## Interpretation
 
 The current result is an encouraging test of the architecture, not evidence that INFINITO improves general intelligence. The live benchmark is still small, its exact-answer evaluator is intentionally simple, and each configuration has only been run once. Model sampling can vary between runs.
 
-What the experiments do show is narrower and useful: under controlled paired probes, a small amount of selected persistent state repeatedly restores information that the same model cannot answer from its visible short-term history alone. The experiments also successfully exposed concrete implementation defects, and fixing those defects improved the measured result from 14/6/0 to 18/2/0 without creating baseline losses.
+What the experiments do show is narrower and useful: under controlled paired probes, a small amount of selected persistent state repeatedly restores information that the same model cannot answer from its visible short-term history alone. The experiments also successfully exposed concrete implementation defects, and isolated fixes improved both answer quality and context efficiency without creating baseline losses.
+
+The latest precision result should also be treated cautiously because the policy was developed after inspecting this 20-case suite. A new held-out context-precision bank is required before claiming that the pruning rule generalizes rather than merely fitting these cases.
 
 ## Example
 
@@ -151,4 +171,4 @@ print(report.to_json())
 
 ## Next experiments
 
-The next evaluation work should isolate Context Builder precision, add independent multi-turn trajectories, expand to held-out scenario banks, repeat stochastic runs for confidence intervals, add semantic/human pairwise judging, evaluate grounded hallucination, normalize quality by token/cost, and run component ablations for memory, goals and Context Builder separately.
+The next evaluation work should create a **held-out Context Builder precision suite** that was not used to design the adaptive pruning rule. It should include ambiguous singular queries, genuinely multi-fact answers, unrelated urgent goals, semantically close distractors and queries in Spanish/English. After that: independent multi-turn trajectories, repeated runs for confidence intervals, semantic/human pairwise judging, grounded hallucination, quality-per-token normalization and component ablations.
