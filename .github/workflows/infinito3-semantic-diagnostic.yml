@@ -5,6 +5,7 @@ on:
     branches: [eval/trajectory-harness-20260914]
     paths:
       - '.github/workflows/infinito3-semantic-diagnostic.yml'
+      - 'scripts/diagnose_infinito3_semantic_cohort.py'
   workflow_dispatch:
 
 permissions:
