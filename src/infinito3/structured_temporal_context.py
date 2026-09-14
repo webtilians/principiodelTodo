@@ -1,6 +1,7 @@
 from dataclasses import replace
 from typing import Dict, List, Optional, Sequence, Tuple
 
+from .semantic_context import SemanticCohortContextBuilder
 from .semantic_interpreter import StateQueryPlan
 from .temporal_context import TemporalSemanticContextBuilder
 from .types import ContextItem, ContextSource, MemoryKind, MemoryRecord, MemoryStatus
@@ -28,8 +29,19 @@ class StructuredTemporalContextBuilder(TemporalSemanticContextBuilder):
             self.memory_store.search(query, top_k=candidate_k)
         )
         candidates = self._inject_structured_candidates(query, candidates, self._active_plan)
-        packet = super().build(query, memory_candidates=candidates, recent_turns=recent_turns,
-                               max_tokens=max_tokens, candidate_k=candidate_k)
+
+        # Important: call the semantic builder directly. TemporalSemanticContextBuilder.build
+        # would re-wrap historical candidates from storage and discard the explicit
+        # relation=immediately_previous rendering injected above. Dynamic dispatch
+        # still uses this class's _build_pools/_apply_precision_filter methods.
+        packet = SemanticCohortContextBuilder.build(
+            self,
+            query,
+            memory_candidates=candidates,
+            recent_turns=recent_turns,
+            max_tokens=max_tokens,
+            candidate_k=candidate_k,
+        )
         packet.diagnostics["structured_state"] = {
             "predicates": list(self._active_plan.predicates),
             "history": [
