@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from .goal_resolver import StateAwareGoalResolver
 from .semantic_temporal_state import SemanticTemporalCognitiveState
 
@@ -5,7 +7,7 @@ from .semantic_temporal_state import SemanticTemporalCognitiveState
 class ResolvedTemporalCognitiveState(SemanticTemporalCognitiveState):
     """Semantic temporal reducer with explicit state-aware goal resolution."""
 
-    def __init__(self, now_fn, *, goal_resolver=None):
+    def __init__(self, now_fn=datetime.now, *, goal_resolver=None):
         super().__init__(now_fn=now_fn)
         self.goal_resolver = goal_resolver or StateAwareGoalResolver()
 
