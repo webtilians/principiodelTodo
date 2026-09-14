@@ -1,0 +1,4 @@
+run: compact-indices-1
+model: gpt-5.6-luna
+banks: creative,water,sports
+purpose: validate exact JSON membership and token usage before repeating frozen held-out trajectories
