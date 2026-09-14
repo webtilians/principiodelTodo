@@ -3,6 +3,7 @@ import unicodedata
 from datetime import datetime, timedelta
 from typing import List, Optional, Set
 
+from .temporal import parse_explicit_date, parse_weekday_date
 from .types import Goal
 
 
@@ -115,6 +116,8 @@ class SimpleGoalEngine:
                 r"\b(?:manana|pasado manana|semana que viene|proxima semana|tomorrow|next week)\b",
                 normalized,
             )
+            or parse_weekday_date(text, self._now_fn()) is not None
+            or parse_explicit_date(text, self._now_fn()) is not None
         )
         planned_action = bool(
             re.search(
@@ -191,24 +194,33 @@ class SimpleGoalEngine:
     def _parse_due_at(self, text: str) -> Optional[datetime]:
         now = self._now_fn()
 
-        # Most specific phrases first.
+        # Most specific relative phrases first.
         if "pasado mañana" in text:
-            target = now + timedelta(days=2)
+            target_date = (now + timedelta(days=2)).date()
         elif "mañana" in text:
-            target = now + timedelta(days=1)
-        elif "semana que viene" in text or "próxima semana" in text or "proxima semana" in text:
-            target = now + timedelta(days=7)
-        elif "hoy" in text:
-            target = now
+            target_date = (now + timedelta(days=1)).date()
         else:
-            return None
+            explicit = parse_explicit_date(text, now)
+            weekday = parse_weekday_date(text, now)
+            if explicit is not None:
+                target_date = explicit
+            elif weekday is not None:
+                target_date = weekday
+            elif "semana que viene" in text or "próxima semana" in text or "proxima semana" in text:
+                target_date = (now + timedelta(days=7)).date()
+            elif "hoy" in text:
+                target_date = now.date()
+            else:
+                return None
 
         parsed_time = self._parse_clock_time(text)
-        if parsed_time is None:
-            return target
-
-        hour, minute = parsed_time
-        return target.replace(hour=hour, minute=minute, second=0, microsecond=0)
+        hour, minute = parsed_time if parsed_time is not None else (now.hour, now.minute)
+        return datetime.combine(target_date, datetime.min.time()).replace(
+            hour=hour,
+            minute=minute,
+            second=0,
+            microsecond=0,
+        )
 
     @staticmethod
     def _parse_clock_time(text: str):
