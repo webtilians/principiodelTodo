@@ -63,7 +63,7 @@ def test_context_balances_goal_user_model_memory_and_recent():
     builder = BalancedContextBuilder(store, goals, now_fn=lambda: fixed_now)
     packet = builder.build(
         "preparar entrenamiento de descenso",
-        memory_candidates=[relevant],
+        memory_candidates=[user, relevant],
         recent_turns=[ConversationTurn(role="user", content="Hoy hice cuatro bajadas")],
         max_tokens=500,
     )
@@ -75,7 +75,7 @@ def test_context_balances_goal_user_model_memory_and_recent():
     assert ContextSource.RECENT in sources
 
 
-def test_core_user_fact_can_be_included_even_when_retrieval_misses_it():
+def test_core_user_fact_fallback_is_query_gated():
     store = InMemoryMemoryStore()
     goals = SimpleGoalEngine()
     identity = _memory(
@@ -90,9 +90,11 @@ def test_core_user_fact_can_be_included_even_when_retrieval_misses_it():
     store.add(identity)
     builder = BalancedContextBuilder(store, goals)
 
-    packet = builder.build("Explícame esta arquitectura", memory_candidates=[], max_tokens=300)
+    relevant_packet = builder.build("¿Cómo me llamo?", memory_candidates=[], max_tokens=300)
+    unrelated_packet = builder.build("Explícame esta arquitectura", memory_candidates=[], max_tokens=300)
 
-    assert any(item.memory_id == identity.id for item in packet.items)
+    assert any(item.memory_id == identity.id for item in relevant_packet.items)
+    assert all(item.memory_id != identity.id for item in unrelated_packet.items)
 
 
 def test_unrelated_preference_is_not_forced_into_every_context():
@@ -113,6 +115,113 @@ def test_unrelated_preference_is_not_forced_into_every_context():
     packet = builder.build("arquitectura de software", memory_candidates=[], max_tokens=300)
 
     assert all(item.memory_id != preference.id for item in packet.items)
+
+
+def test_singular_query_prunes_weaker_user_model_noise():
+    store = InMemoryMemoryStore()
+    goals = SimpleGoalEngine()
+    bike = _memory(
+        "Me gusta mi bici Specialized Demo",
+        kind=MemoryKind.USER_MODEL,
+        importance=0.8,
+        confidence=1.0,
+        fact_subject="user",
+        fact_predicate="likes",
+        fact_value="mi bici specialized demo",
+    )
+    coffee = _memory(
+        "Me gusta el café",
+        kind=MemoryKind.USER_MODEL,
+        importance=0.8,
+        confidence=1.0,
+        fact_subject="user",
+        fact_predicate="likes",
+        fact_value="café",
+    )
+    movies = _memory(
+        "Prefiero las películas de ciencia ficción",
+        kind=MemoryKind.USER_MODEL,
+        importance=0.8,
+        confidence=1.0,
+        fact_subject="user",
+        fact_predicate="prefers",
+        fact_value="películas de ciencia ficción",
+    )
+    builder = BalancedContextBuilder(store, goals)
+
+    packet = builder.build(
+        "¿Qué bici uso?",
+        memory_candidates=[bike, coffee, movies],
+        max_tokens=300,
+    )
+
+    ids = {item.memory_id for item in packet.items}
+    assert bike.id in ids
+    assert coffee.id not in ids
+    assert movies.id not in ids
+    assert packet.diagnostics["precision_dropped"] == 2
+
+
+def test_plural_query_keeps_multiple_values_of_same_predicate():
+    store = InMemoryMemoryStore()
+    goals = SimpleGoalEngine()
+    jazz = _memory(
+        "Me gusta el jazz",
+        kind=MemoryKind.USER_MODEL,
+        importance=0.8,
+        confidence=1.0,
+        fact_subject="user",
+        fact_predicate="likes",
+        fact_value="jazz",
+    )
+    punk = _memory(
+        "Me gusta el punk",
+        kind=MemoryKind.USER_MODEL,
+        importance=0.8,
+        confidence=1.0,
+        fact_subject="user",
+        fact_predicate="likes",
+        fact_value="punk",
+    )
+    train = _memory(
+        "Prefiero viajar en tren",
+        kind=MemoryKind.USER_MODEL,
+        importance=0.8,
+        confidence=1.0,
+        fact_subject="user",
+        fact_predicate="prefers",
+        fact_value="viajar en tren",
+    )
+    builder = BalancedContextBuilder(store, goals)
+
+    packet = builder.build(
+        "¿Qué estilos de música me gustan?",
+        memory_candidates=[jazz, punk, train],
+        max_tokens=300,
+    )
+
+    ids = {item.memory_id for item in packet.items}
+    assert jazz.id in ids
+    assert punk.id in ids
+    assert train.id not in ids
+
+
+def test_goal_duplicate_memory_is_suppressed():
+    fixed_now = datetime(2026, 9, 14, 9, 0)
+    goals = SimpleGoalEngine(now_fn=lambda: fixed_now)
+    goals.ingest("Mañana tengo que llamar al dentista a las 09:30")
+    duplicate = _memory("Mañana tengo que llamar al dentista a las 09:30")
+    builder = BalancedContextBuilder(InMemoryMemoryStore(), goals, now_fn=lambda: fixed_now)
+
+    packet = builder.build(
+        "¿Qué tengo que hacer mañana?",
+        memory_candidates=[duplicate],
+        max_tokens=300,
+    )
+
+    assert any(item.source == ContextSource.GOAL for item in packet.items)
+    assert all(item.memory_id != duplicate.id for item in packet.items)
+    assert packet.diagnostics["precision_dropped"] == 1
 
 
 def test_memory_is_rendered_as_untrusted_quoted_data():
