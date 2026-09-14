@@ -1,7 +1,8 @@
+from dataclasses import asdict
 from typing import Optional, Sequence
 
+from .cognitive_events import CognitiveEventType, RuleBasedCognitiveEventExtractor
 from .generalized_context_builder import GeneralizedContextBuilder
-from .goals import SimpleGoalEngine
 from .interfaces import (
     ContextBuilder,
     EmbeddingProvider,
@@ -12,21 +13,26 @@ from .interfaces import (
 )
 from .memory import InMemoryMemoryStore, RuleBasedMemoryGate
 from .safety import SensitiveInformationFilter
+from .temporal_goals import TemporalGoalEngine
+from .temporal_state import TemporalCognitiveState
 from .types import CognitiveDecision, ConversationTurn, MemoryRecord, SafetyLevel
 
 
 class CognitiveEngine:
     """Orchestrates the INFINITO 3.0 cognitive layer.
 
-    Processing order is deliberate:
+    Current processing order:
     1. Safety inspection
-    2. Retrieval from existing memory
-    3. Memory-gate evaluation
-    4. Goal extraction
-    5. Context construction from pre-write state + active goals
-    6. Persistence, only when policy allows it
+    2. Retrieval from pre-write memory state
+    3. Cognitive-event extraction
+    4. Temporal state reduction and projection
+    5. Legacy gate/parser fallback for unstructured turns
+    6. Context construction
+    7. Legacy persistence only when no structured event already projected state
 
-    No LLM provider or UI dependency belongs here.
+    Secrets are blocked before any cognitive subsystem. Retrieval stays pre-write
+    so a user's current statement cannot retrieve itself as if it were old
+    evidence, while newly-created goals may still be visible immediately.
     """
 
     def __init__(
@@ -36,11 +42,15 @@ class CognitiveEngine:
         safety_filter: Optional[SafetyFilter] = None,
         goal_engine: Optional[GoalEngine] = None,
         context_builder: Optional[ContextBuilder] = None,
+        event_extractor=None,
+        temporal_state: Optional[TemporalCognitiveState] = None,
     ):
         self.memory_store = memory_store or InMemoryMemoryStore()
         self.memory_gate = memory_gate or RuleBasedMemoryGate()
         self.safety_filter = safety_filter or SensitiveInformationFilter()
-        self.goal_engine = goal_engine or SimpleGoalEngine()
+        self.goal_engine = goal_engine or TemporalGoalEngine()
+        self.event_extractor = event_extractor or RuleBasedCognitiveEventExtractor()
+        self.temporal_state = temporal_state or TemporalCognitiveState()
         self.context_builder = context_builder or GeneralizedContextBuilder(
             memory_store=self.memory_store,
             goal_engine=self.goal_engine,
@@ -53,10 +63,10 @@ class CognitiveEngine:
         embedding_provider: Optional[EmbeddingProvider] = None,
         **kwargs,
     ) -> "CognitiveEngine":
-        """Create an engine backed by the real persistent v3 memory."""
-        from .persistent_memory import SQLiteCognitiveMemoryStore
+        """Create an engine backed by temporal-aware persistent v3 memory."""
+        from .temporal_memory import TemporalAwareSQLiteMemoryStore
 
-        store = SQLiteCognitiveMemoryStore(
+        store = TemporalAwareSQLiteMemoryStore(
             path=db_path,
             embedding_provider=embedding_provider,
         )
@@ -72,7 +82,6 @@ class CognitiveEngine:
     ) -> CognitiveDecision:
         safety = self.safety_filter.inspect(text)
 
-        # Secrets are blocked before any cognitive subsystem receives them.
         if safety.level == SafetyLevel.FORBIDDEN:
             return CognitiveDecision(
                 input_text=text,
@@ -82,19 +91,33 @@ class CognitiveEngine:
                 context_packet=None,
             )
 
-        # Retrieve before writing so the current message cannot retrieve itself.
         query = safety.redacted_text if safety.redacted_text else text
-        context = self.memory_store.search(query, top_k=top_k)
-
+        include_history = self.temporal_state.wants_history(query)
+        context = self._search_memory(query, top_k=top_k, include_history=include_history)
         gate = self.memory_gate.evaluate(query)
-
-        # Conservative v3 policy: sensitive PII can be used in the current
-        # interaction but is never written to long-term memory by default.
         allow_persistence = safety.level == SafetyLevel.SAFE
 
-        # Goals are available to the context builder immediately, while the
-        # current message still has not been persisted as long-term memory.
-        created_goals = self.goal_engine.ingest(query) if allow_persistence else []
+        events = self.event_extractor.extract(query) if allow_persistence else []
+        transitions = self.temporal_state.apply(
+            events,
+            memory_store=self.memory_store if allow_persistence else None,
+            goal_engine=self.goal_engine if allow_persistence else None,
+        ) if events else []
+
+        event_goal_types = {
+            CognitiveEventType.CREATE_GOAL,
+            CognitiveEventType.COMPLETE_GOAL,
+            CognitiveEventType.CANCEL_GOAL,
+            CognitiveEventType.RESCHEDULE_GOAL,
+        }
+        structured_goal_event = any(event.type in event_goal_types for event in events)
+
+        # Preserve the original parser as a fallback for goal forms that the new
+        # event extractor does not yet understand. Avoid double-creating a goal
+        # when an explicit structured event already handled the turn.
+        created_goals = []
+        if allow_persistence and not structured_goal_event:
+            created_goals = self.goal_engine.ingest(query)
 
         context_packet = self.context_builder.build(
             query,
@@ -103,8 +126,24 @@ class CognitiveEngine:
             max_tokens=context_budget_tokens,
         )
 
+        structured_persistence = any(
+            event.type in {
+                CognitiveEventType.ASSERT_FACT,
+                CognitiveEventType.REPLACE_FACT,
+                CognitiveEventType.RETRACT_FACT,
+                CognitiveEventType.ASSERT_PREFERENCE,
+                CognitiveEventType.RETRACT_PREFERENCE,
+                CognitiveEventType.CREATE_GOAL,
+                CognitiveEventType.COMPLETE_GOAL,
+                CognitiveEventType.CANCEL_GOAL,
+                CognitiveEventType.RESCHEDULE_GOAL,
+                CognitiveEventType.STORE_NOTE,
+            }
+            for event in events
+        )
+
         stored_memory_id = None
-        if allow_persistence and gate.should_store:
+        if allow_persistence and gate.should_store and not structured_persistence:
             record = MemoryRecord(
                 content=query,
                 kind=gate.kind,
@@ -114,12 +153,30 @@ class CognitiveEngine:
             stored = self.memory_store.add(record)
             stored_memory_id = stored.id
 
+        created_goal_ids = [goal.id for goal in created_goals]
+        create_event_ids = {
+            event.id for event in events if event.type == CognitiveEventType.CREATE_GOAL
+        }
+        for transition in transitions:
+            if transition.event_id in create_event_ids:
+                created_goal_ids.extend(transition.goal_ids)
+
         return CognitiveDecision(
             input_text=text,
             safety=safety,
             gate=gate,
             stored_memory_id=stored_memory_id,
-            created_goal_ids=[goal.id for goal in created_goals],
+            created_goal_ids=created_goal_ids,
+            cognitive_event_ids=[event.id for event in events],
+            temporal_transitions=[asdict(transition) for transition in transitions],
             context=context,
             context_packet=context_packet,
         )
+
+    def _search_memory(self, query: str, *, top_k: int, include_history: bool):
+        if include_history:
+            try:
+                return self.memory_store.search(query, top_k=top_k, include_inactive=True)
+            except TypeError:
+                pass
+        return self.memory_store.search(query, top_k=top_k)
