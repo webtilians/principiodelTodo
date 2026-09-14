@@ -188,9 +188,7 @@ for example Utrecht in 'where did I live before Utrecht?'. Never answer the ques
 
     @staticmethod
     def _normalize(text: str) -> str:
-        return " ".join(
-            "".join(char for char in unicodedata.normalize("NFKD", text.lower()) if not unicodedata.combining(char)).split()
-        )
+        return " ".join("".join(char for char in unicodedata.normalize("NFKD", text.lower()) if not unicodedata.combining(char)).split())
 
 
 class StructuredStateRetriever:
@@ -225,11 +223,11 @@ class StructuredStateRetriever:
                 for version in active_versions:
                     record = by_id.get(version.memory_id)
                     if record is not None:
-                        selected.append(self._annotate(record, relation="current"))
+                        selected.append(self._annotate(record, relation="current", display_value=version.value))
                 continue
             for record in records:
                 if record.status == MemoryStatus.ACTIVE and record.fact_predicate == predicate:
-                    selected.append(self._annotate(record, relation="current"))
+                    selected.append(self._annotate(record, relation="current", display_value=record.fact_value))
         seen, unique = set(), []
         for record in selected:
             if not record.id or record.id in seen:
@@ -271,16 +269,29 @@ class StructuredStateRetriever:
         record = by_id.get(predecessor.memory_id)
         if record is None:
             return None
-        return self._annotate(record, relation="immediately_previous", before_value=versions[target_index].value)
+        return self._annotate(
+            record,
+            relation="immediately_previous",
+            before_value=versions[target_index].value,
+            display_value=predecessor.value,
+        )
 
     @staticmethod
-    def _annotate(record: MemoryRecord, *, relation: str, before_value: Optional[str] = None) -> MemoryRecord:
+    def _annotate(record: MemoryRecord, *, relation: str, before_value: Optional[str] = None, display_value: Optional[str] = None) -> MemoryRecord:
         metadata = dict(record.metadata)
         metadata["structured_state"] = True
         metadata["temporal_relation"] = relation
         if before_value:
             metadata["temporal_before_value"] = before_value
-        return replace(record, status=MemoryStatus.ACTIVE, importance=max(record.importance, 0.98), confidence=max(record.confidence, 0.98), metadata=metadata)
+        if display_value:
+            metadata["structured_display_value"] = display_value
+        return replace(
+            record,
+            status=MemoryStatus.ACTIVE,
+            importance=max(record.importance, 0.98),
+            confidence=max(record.confidence, 0.98),
+            metadata=metadata,
+        )
 
     def _all_records(self) -> List[MemoryRecord]:
         getter = getattr(self.memory_store, "all", None)
@@ -293,6 +304,4 @@ class StructuredStateRetriever:
 
     @staticmethod
     def _normalize(text: str) -> str:
-        return " ".join(
-            "".join(char for char in unicodedata.normalize("NFKD", str(text).lower()) if not unicodedata.combining(char)).split()
-        )
+        return " ".join("".join(char for char in unicodedata.normalize("NFKD", str(text).lower()) if not unicodedata.combining(char)).split())
