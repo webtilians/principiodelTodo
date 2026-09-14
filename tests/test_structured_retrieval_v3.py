@@ -80,4 +80,5 @@ def test_structured_history_follows_lineage_and_renderer_states_relation_explici
     assert "TEMPORAL FACT" in packet.rendered
     assert "relation=immediately_previous" in packet.rendered
     assert "before=Utrecht" in packet.rendered
-    assert "value=lyon" in packet.rendered
+    assert "value=Lyon" in packet.rendered
+    assert 'user_model: "I live in Utrecht."' not in packet.rendered
