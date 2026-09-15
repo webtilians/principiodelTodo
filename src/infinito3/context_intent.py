@@ -54,6 +54,7 @@ class ContextIntent:
     future_only: bool = False
     history_cue: Optional[str] = None
     goal_status: Optional[str] = None
+    goal_status_check: bool = False
 
     @property
     def retrieve(self):
@@ -97,11 +98,12 @@ def resolve_context_intent(text: str, now: Optional[datetime] = None) -> Context
     open_status = bool(re.search(
         r"\b(still open|open|pending|outstanding|remaining|unfinished|"
         r"sigue abierto|sigue pendiente|abiert\w*|pendiente\w*)\b", q))
-    lifecycle_contrast = bool(
-        (closed_status and open_status)
-        or re.search(r"\b(?:is|was|esta|sigue)\b.{0,80}\b(?:completed|done|finished|cancelled|canceled|pending|still open)\b", q)
+    lifecycle_check = bool(
+        re.match(r"^(?:is|are|was|were|esta|estan|sigue|siguen)\b", q)
+        and (closed_status or open_status)
     )
-    goals = explicit_goals or lifecycle_contrast
+    lifecycle_contrast = bool(closed_status and open_status)
+    goals = explicit_goals or lifecycle_check or lifecycle_contrast
     goal_status = "any" if closed_status and open_status else "closed" if closed_status else "open" if open_status else None
 
     preferences = bool(re.search(
@@ -154,4 +156,5 @@ def resolve_context_intent(text: str, now: Optional[datetime] = None) -> Context
     return ContextIntent(
         mode=mode, historical=historical, recent=recent, predicates=frozenset(predicates),
         window=window, future_only=future, history_cue=history_cue, goal_status=goal_status,
+        goal_status_check=lifecycle_check,
     )
