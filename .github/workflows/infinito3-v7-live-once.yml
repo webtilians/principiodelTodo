@@ -1,0 +1,58 @@
+name: INFINITO 3.0 V7 Live One-Shot
+
+on:
+  push:
+    branches: [feat/context-intent-v2-20260915]
+    paths:
+      - '.github/infinito3-v7-live-trigger'
+
+permissions:
+  contents: read
+
+jobs:
+  v7-live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout exact frozen candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ab6678b0cbde899226535514bd7f24e67bd3b4cb
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install frozen direct dependencies
+        run: python -m pip install openai==3.14.0 pytest==9.1.1
+
+      - name: Verify secret is configured
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: test -n "$OPENAI_API_KEY"
+
+      - name: V7 preflight without replay
+        run: python scripts/run_infinito3_trajectory_holdout_v7.py
+
+      - name: Execute V7 exactly once
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: >-
+          python scripts/run_infinito3_trajectory_holdout_v7.py
+          --authorize-live-v7
+          --expected-revision ab6678b0cbde899226535514bd7f24e67bd3b4cb
+          --output-dir trajectory-holdout-v7-results
+
+      - name: Publish report summary
+        if: always() && hashFiles('trajectory-holdout-v7-results/report.md') != ''
+        run: cat trajectory-holdout-v7-results/report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload V7 audit evidence
+        if: always() && hashFiles('trajectory-holdout-v7-results/**') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: infinito3-v7-live-one-shot
+          path: trajectory-holdout-v7-results/
+          if-no-files-found: error
+          retention-days: 30
