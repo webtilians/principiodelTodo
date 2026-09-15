@@ -101,11 +101,10 @@ class IntentContextBuilder(PreferenceStateContextBuilder):
         return pools
 
     def _select_preference_items(self, query, items):
-        # A successful empty semantic classification is authoritative, not a
-        # request to fall back to unrelated embedding neighbours.
-        if self.reranker is None or len(items) <= 1:
-            return super()._select_preference_items(query, items)
-        if self._is_historical_preference_query(query):
+        # Historical operator wording (lost interest / no longer enjoy / etc.) is
+        # structured intent evidence. Use it before any semantic fallback so the
+        # reranker is not asked to infer a relation that the query states directly.
+        if self._is_historical_preference_query(query) and len(items) > 1:
             intent = self.resolve_intent(query)
             if intent.history_cue and intent.history_cue != "predecessor":
                 cue_matches = []
@@ -121,6 +120,11 @@ class IntentContextBuilder(PreferenceStateContextBuilder):
             matched = self._historical_evidence_match(query, items)
             if matched:
                 return matched
+
+        # A successful empty semantic classification is authoritative, not a
+        # request to fall back to unrelated embedding neighbours.
+        if self.reranker is None or len(items) <= 1:
+            return super()._select_preference_items(query, items)
         result = self.reranker.rerank(query, items)
         self._record_preference_reranker_event(result, len(items), kind="preference_membership")
         if result.success:
