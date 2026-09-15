@@ -1,3 +1,5 @@
+import re
+
 from .cognitive_events import CognitiveEventType
 from .temporal_state import TemporalCognitiveState
 from .types import MemoryKind, MemoryRecord
@@ -12,6 +14,16 @@ class SemanticTemporalCognitiveState(TemporalCognitiveState):
     that tombstone against active values without silently forgetting the user's
     explicit negative update.
     """
+
+    _SCHEDULE_TEXT_RE = re.compile(
+        r"(?:\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday|"
+        r"lunes|martes|miercoles|miércoles|jueves|viernes|sabado|sábado|domingo|"
+        r"january|february|march|april|may|june|july|august|september|october|november|december|"
+        r"enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre|"
+        r"today|tomorrow|tonight|hoy|manana|mañana)\b|"
+        r"\b\d{1,2}:\d{2}\b|\b\d{1,2}[/-]\d{1,2}(?:[/-]\d{2,4})?\b)",
+        re.I,
+    )
 
     def _apply_retraction(self, event, transition, memory_store) -> None:
         affected = []
@@ -48,13 +60,12 @@ class SemanticTemporalCognitiveState(TemporalCognitiveState):
         self._store_retraction_tombstone(event, transition, memory_store, resolved_ids=[])
 
     def _apply_goal_lifecycle(self, event, transition, goal_engine, *, memory_store=None) -> None:
-        """Treat rescheduling as a time mutation, not a goal-identity rewrite.
+        """Treat rescheduling as a time mutation without stale schedule wording.
 
-        ``Goal.description`` remains the original auditable identity. A successful
-        reschedule also stores a ``canonical_label`` derived from the lifecycle
-        target; context rendering uses that label together with the authoritative
-        ``due_at``. This prevents an old weekday/time embedded in the original
-        sentence from contradicting the new structured due date.
+        Stable identity text is preserved when it contains no embedded schedule.
+        If the original description carries an old weekday/date/time, it moves to
+        ``audit_description`` and the live description becomes the matched
+        lifecycle target. Structured ``due_at`` is then the sole current schedule.
         """
         if event.type != CognitiveEventType.RESCHEDULE_GOAL or goal_engine is None:
             return super()._apply_goal_lifecycle(
@@ -83,17 +94,24 @@ class SemanticTemporalCognitiveState(TemporalCognitiveState):
             candidate = self._canonical_goal_label(event.value or "")
             candidate_terms = self._content_terms(candidate)
             original_terms = self._content_terms(original)
-            if candidate and candidate_terms and candidate_terms & original_terms:
-                canonical_label = candidate
-            else:
-                canonical_label = self._canonical_goal_label(original)
+            candidate_is_identity = bool(candidate and candidate_terms and candidate_terms & original_terms)
+            canonical_label = candidate if candidate_is_identity else self._canonical_goal_label(original)
 
-            goal.description = original
+            if candidate_is_identity and self._description_has_embedded_schedule(original):
+                goal.metadata["audit_description"] = original
+                goal.description = canonical_label
+            else:
+                goal.description = original
+
             goal.metadata["canonical_label"] = canonical_label
             goal.metadata["canonical_due_at"] = goal.due_at.isoformat() if goal.due_at else None
             for version in self._goal_history[history_start:]:
                 if version.goal_id == goal_id:
                     version.description = canonical_label
+
+    @classmethod
+    def _description_has_embedded_schedule(cls, description: str) -> bool:
+        return bool(cls._SCHEDULE_TEXT_RE.search(description or ""))
 
     def _store_retraction_tombstone(self, event, transition, memory_store, *, resolved_ids) -> None:
         if memory_store is None or not event.predicate or not event.value:
