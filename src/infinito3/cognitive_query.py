@@ -1,4 +1,5 @@
 """Typed cognitive query planning over the existing ContextIntent contract."""
+import re
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from enum import Enum
@@ -10,6 +11,8 @@ _LITERAL_PREDICATES = frozenset((
     "test_phrase", "verification_phrase", "literal_test_phrase",
     "literal_verification_phrase",
 ))
+
+_IMPERATIVE_READ_RE = re.compile(r"^\s*(?:state|report)\b", re.I)
 
 
 class CognitiveQueryOperator(str, Enum):
@@ -74,8 +77,19 @@ class CognitiveQueryPlan:
         }
 
 
-def build_cognitive_query_plan(text: str, now: Optional[datetime] = None):
+def _resolve_plan_intent(text: str, now: Optional[datetime]) -> ContextIntent:
     intent = resolve_context_intent(text, now)
+    if intent.mode == "unknown" and _IMPERATIVE_READ_RE.match(text):
+        # ContextIntent deliberately treats non-question prose conservatively.
+        # Explicit read imperatives such as "State only my current home city"
+        # are nevertheless queries, not mutations. Appending a question marker
+        # lets the shared contract classify their predicates without entity rules.
+        intent = resolve_context_intent(text.rstrip(" .") + "?", now)
+    return intent
+
+
+def build_cognitive_query_plan(text: str, now: Optional[datetime] = None):
+    intent = _resolve_plan_intent(text, now)
     steps = []
     if not intent.retrieve:
         return CognitiveQueryPlan(
