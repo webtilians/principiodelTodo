@@ -1,0 +1,58 @@
+name: INFINITO 3.0 V9 Live One-Shot
+
+on:
+  push:
+    branches: [run/v9-live-one-shot-20260915]
+    paths:
+      - '.github/infinito3-v9-live-trigger'
+
+permissions:
+  contents: read
+
+jobs:
+  v9-live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout exact frozen V9 candidate
+        uses: actions/checkout@v4
+        with:
+          ref: 744f133ee3fac690076e2a1d3018414e01e9ace9
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install frozen direct dependencies
+        run: python -m pip install openai==3.14.0 pytest==9.1.1
+
+      - name: Verify secret is configured
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: test -n "$OPENAI_API_KEY"
+
+      - name: V9 preflight without replay
+        run: python scripts/run_infinito3_trajectory_holdout_v9.py
+
+      - name: Execute V9 exactly once
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: >-
+          python scripts/run_infinito3_trajectory_holdout_v9.py
+          --authorize-live-v9
+          --expected-revision 744f133ee3fac690076e2a1d3018414e01e9ace9
+          --output-dir trajectory-holdout-v9-results
+
+      - name: Publish report summary
+        if: always() && hashFiles('trajectory-holdout-v9-results/report.md') != ''
+        run: cat trajectory-holdout-v9-results/report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload V9 audit evidence
+        if: always() && hashFiles('trajectory-holdout-v9-results/**') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: infinito3-v9-live-one-shot
+          path: trajectory-holdout-v9-results/
+          if-no-files-found: error
+          retention-days: 30
