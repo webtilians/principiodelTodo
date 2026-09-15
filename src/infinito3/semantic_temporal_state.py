@@ -50,10 +50,11 @@ class SemanticTemporalCognitiveState(TemporalCognitiveState):
     def _apply_goal_lifecycle(self, event, transition, goal_engine, *, memory_store=None) -> None:
         """Treat rescheduling as a time mutation, not a goal-identity rewrite.
 
-        Lifecycle target text exists to locate the goal. It must not replace the
-        canonical description after a successful match; otherwise harmless parser
-        cleanup can permanently degrade the stored goal label. Completion and
-        cancellation keep the base behavior unchanged.
+        ``Goal.description`` remains the original auditable identity. A successful
+        reschedule also stores a ``canonical_label`` derived from the lifecycle
+        target; context rendering uses that label together with the authoritative
+        ``due_at``. This prevents an old weekday/time embedded in the original
+        sentence from contradicting the new structured due date.
         """
         if event.type != CognitiveEventType.RESCHEDULE_GOAL or goal_engine is None:
             return super()._apply_goal_lifecycle(
@@ -78,10 +79,21 @@ class SemanticTemporalCognitiveState(TemporalCognitiveState):
             goal = goals_by_id.get(goal_id)
             if original is None or goal is None:
                 continue
+
+            candidate = self._canonical_goal_label(event.value or "")
+            candidate_terms = self._content_terms(candidate)
+            original_terms = self._content_terms(original)
+            if candidate and candidate_terms and candidate_terms & original_terms:
+                canonical_label = candidate
+            else:
+                canonical_label = self._canonical_goal_label(original)
+
             goal.description = original
+            goal.metadata["canonical_label"] = canonical_label
+            goal.metadata["canonical_due_at"] = goal.due_at.isoformat() if goal.due_at else None
             for version in self._goal_history[history_start:]:
                 if version.goal_id == goal_id:
-                    version.description = original
+                    version.description = canonical_label
 
     def _store_retraction_tombstone(self, event, transition, memory_store, *, resolved_ids) -> None:
         if memory_store is None or not event.predicate or not event.value:
