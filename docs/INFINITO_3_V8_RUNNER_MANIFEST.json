@@ -1,0 +1,39 @@
+{
+  "evaluation_version": "V8",
+  "post_v7_diagnostic_holdout": true,
+  "case_commit": "1ba759214467c06ce74ed7d8bab789a3a61b87d6",
+  "suite_git_blob_sha1": "a7dc174fa173ef248cb732144f6a1e319dd23fc6",
+  "config": {
+    "answer_gate": 0.85,
+    "answer_model": "gpt-5.6-luna",
+    "answer_output_floor": 1024,
+    "answer_reasoning_effort": "none",
+    "context_gate": 0.9,
+    "embedding_model": "text-embedding-3-small",
+    "event_max_output_tokens": 260,
+    "event_min_confidence": 0.72,
+    "event_model": "gpt-5.6-luna",
+    "event_output_floor": 2048,
+    "max_provider_calls": 1500,
+    "openai_sdk_version": "3.14.0",
+    "protocol_revision": "v8_r1_mixed_state_boundaries",
+    "reranker_max_output_tokens": 160,
+    "reranker_model": "gpt-5.6-luna",
+    "reranker_output_floor": 512,
+    "sdk_max_retries": 0,
+    "timeout_seconds": 90,
+    "win_epsilon": 0.05
+  },
+  "git_blob_sha1": {
+    "scripts/run_infinito3_trajectory_holdout_v8.py": "1622cf2f2671e3b50e1db542735b9c9b669f596b",
+    "scripts/run_infinito3_trajectory_holdout_v6_r2.py": "7578957437a1c6942053191df806ab19c2afd54a",
+    "src/infinito3/trajectory_holdout_v8_cases.py": "a7dc174fa173ef248cb732144f6a1e319dd23fc6",
+    "src/infinito3/context_intent.py": "e96c56dac3b728d389b81732b14ff0bec235f3d2",
+    "src/infinito3/intent_context.py": "0d30727f679a0340d1e73cfb5d3385f0fa3283e8",
+    "src/infinito3/semantic_event_extractor.py": "20f31b62253c5f65bc23aa66d14cd87de0ec7520",
+    "src/infinito3/semantic_temporal_state.py": "c6b692c2201fda1cb7956df7d606df07de600d8a",
+    "src/infinito3/cognitive_events.py": "811acd4ba4a47edc430626e0bf718f06c1d487ed",
+    "src/infinito3/temporal_state.py": "58fe3a4b105d9f6d5afcfc19da2e55b947aad086",
+    "src/infinito3/trajectory_evaluation.py": "9324bb2ab84ba2839401ca8ff3807e3404775f9d"
+  }
+}
