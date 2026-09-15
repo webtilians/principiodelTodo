@@ -1,14 +1,15 @@
 """Deterministic, entity-independent read intent for experimental context routing.
 
-ContextIntent v2 centralizes bounded language routing for retrieval, historical
-state, goals, preferences and unambiguous standalone requests. Unknown requests
-still retain retrieval; the parser deliberately prefers false negatives over
-silently hiding potentially relevant personal state.
+ContextIntent v3 centralizes bounded language routing for retrieval, historical
+state, goals, preferences, multi-slot profile reads, literal-data reads and
+unambiguous standalone requests. Unknown requests still retain retrieval; the
+parser deliberately prefers false negatives over silently hiding potentially
+relevant personal state.
 """
 import re
 import unicodedata
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 from typing import FrozenSet, Optional, Tuple
 
 from .temporal import parse_explicit_date, parse_weekday_date, parse_weekday_range
@@ -18,6 +19,33 @@ _NOTE_PREDICATE_ALIASES = frozenset((
     "test_phrase", "verification_phrase", "literal_test_phrase",
     "literal_verification_phrase",
 ))
+
+_REQUEST_PREFIX_RE = re.compile(
+    r"^(?:what|which|where|when|how|is|are|do i|did i|tell me|recall|remind me|show|list|"
+    r"read back|read|repeat|quote|report|identify|name|return|give|explain|define|calculate|"
+    r"dime|que|cual|donde|cuando|explica|calcula|nombra|recuerda|muestra|lista|repite|lee)\b"
+)
+
+_LATEST_ORDER_RE = re.compile(
+    r"\b(?:most recently|most recent|latest|newest|last added|added last|mas recientemente|"
+    r"más recientemente|mas reciente|más reciente|ultimo anadid\w*|último añadid\w*)\b"
+)
+
+_DAYPART_PATTERNS = (
+    ("morning", re.compile(r"\b(?:this morning|morning|esta manana|esta mañana|por la manana|por la mañana)\b")),
+    ("afternoon", re.compile(r"\b(?:this afternoon|afternoon|esta tarde|por la tarde)\b")),
+    ("evening", re.compile(r"\b(?:this evening|evening|esta noche tempran\w*|al atardecer)\b")),
+    ("tonight", re.compile(r"\b(?:tonight|esta noche)\b")),
+)
+
+_DAYPART_CLOCKS = {
+    # Deliberately explicit protocol semantics. ``morning`` includes the local
+    # noon shoulder through 12:59, avoiding a hard 12:00 boundary mismatch.
+    "morning": (time(5, 0), time(13, 0)),
+    "afternoon": (time(13, 0), time(18, 0)),
+    "evening": (time(18, 0), time(22, 0)),
+    "tonight": (time(18, 0), time.max),
+}
 
 
 def normalize(text):
@@ -32,7 +60,12 @@ def detect_history_cue(text: str) -> Optional[str]:
         ("lost_interest", r"\b(?:lost|lose|lost my) interest\b|\bperdi interes\b"),
         ("lost_appeal", r"\b(?:lost|lose|losing) (?:its |the )?appeal\b|\bdejo de atraerme\b"),
         ("no_longer_interest", r"\b(?:doesn'?t|does not|no longer) interest\b|\bya no me interesa\b"),
-        ("no_longer_enjoy", r"\b(?:no longer|don'?t|do not) enjoy\b|\bya no disfruto\b"),
+        ("no_longer_enjoy", (
+            r"\b(?:no longer|don'?t|do not) enjoy\b|"
+            r"\b(?:isn'?t|is not|wasn'?t|was not)\b.{0,36}\benjoy\b.{0,20}\banymore\b|"
+            r"\b(?:not something i enjoy anymore|something i no longer enjoy)\b|"
+            r"\bya no disfruto\b"
+        )),
         ("stopped", r"\b(?:stop|stopped|stopping)\b|\b(?:deje|pare)\b"),
         ("dropped", r"\b(?:drop|dropped|abandon(?:ed)?)\b|\babandone\b"),
         ("predecessor", r"\b(?:precede[ds]?|preceding|predecessor|previous|previously|prior|former|formerly|earlier|came before|before)\b|\b(?:anterior|antes|precedio|previo)\b"),
@@ -43,9 +76,26 @@ def detect_history_cue(text: str) -> Optional[str]:
     return None
 
 
+def _daypart(q: str) -> Optional[str]:
+    for name, pattern in _DAYPART_PATTERNS:
+        if pattern.search(q):
+            return name
+    return None
+
+
+def _daypart_window(day, name: str) -> Tuple[datetime, datetime]:
+    start_clock, end_clock = _DAYPART_CLOCKS[name]
+    start = datetime.combine(day, start_clock)
+    if end_clock == time.max:
+        end = datetime.combine(day + timedelta(days=1), time.min)
+    else:
+        end = datetime.combine(day, end_clock)
+    return start, end
+
+
 @dataclass(frozen=True)
 class ContextIntent:
-    version: str = "context_intent_v2"
+    version: str = "context_intent_v3"
     mode: str = "unknown"
     historical: bool = False
     recent: bool = False
@@ -55,6 +105,8 @@ class ContextIntent:
     history_cue: Optional[str] = None
     goal_status: Optional[str] = None
     goal_status_check: bool = False
+    ordering: Optional[str] = None
+    daypart: Optional[str] = None
 
     @property
     def retrieve(self):
@@ -64,14 +116,12 @@ class ContextIntent:
 def resolve_context_intent(text: str, now: Optional[datetime] = None) -> ContextIntent:
     now = now or datetime.now()
     q = normalize(text)
-    question = bool("?" in q or re.match(
-        r"^(what|which|where|when|how|is|are|do i|did i|tell me|recall|remind me|show|list|"
-        r"name|return|give|explain|define|calculate|dime|que|cual|donde|cuando|explica|"
-        r"calcula|nombra|recuerda|muestra|lista)\b", q))
+    question = bool("?" in q or _REQUEST_PREFIX_RE.match(q))
     history_cue = detect_history_cue(q)
     historical = bool(history_cue or re.search(
         r"\b(histor\w*|used to|no longer|retracted|ya no|historico|historica)\b", q))
-    recent = bool(re.search(r"\b(newer|recent\w*|new|nuev\w*|reciente\w*)\b", q))
+    ordering = "latest" if _LATEST_ORDER_RE.search(q) else None
+    recent = bool(ordering or re.search(r"\b(newer|recent\w*|new|nuev\w*|reciente\w*)\b", q))
     personal = bool(re.search(r"\b(my|mine|me|i|our|mi|mis|mio|mios|nuestro|nuestra)\b", q))
     mutation = bool(re.search(r"\b(remember|store|save|mark|cancel|move|reschedule|"
                               r"recuerda|guarda|marca|cancela|mueve|reprograma)\b", q))
@@ -87,7 +137,8 @@ def resolve_context_intent(text: str, now: Optional[datetime] = None) -> Context
             return ContextIntent(mode="standalone")
 
     if not question:
-        return ContextIntent(historical=historical, history_cue=history_cue)
+        return ContextIntent(historical=historical, recent=recent, history_cue=history_cue,
+                             ordering=ordering)
 
     explicit_goals = bool(re.search(
         r"\b(calendar|agenda|commitment\w*|appointment\w*|goals?|tasks?|scheduled|pending|"
@@ -109,6 +160,10 @@ def resolve_context_intent(text: str, now: Optional[datetime] = None) -> Context
     preferences = bool(re.search(
         r"\b(hobb\w*|interest\w*|preference\w*|activit\w*|pastime\w*|leisure|enjoy\w*|"
         r"aficion\w*|actividad\w*|pasatiempo\w*|preferencia\w*)\b|me gusta|gustan", q))
+    if not preferences and personal and ordering == "latest":
+        preferences = bool(re.search(
+            r"\b(?:add|added|adding|take up|taken up|started?|begin|began|picked up|"
+            r"anadi|anadido|añadi|añadido|empece|empecé|comence|comencé)\b", q))
 
     predicates = set()
     if personal or historical or "current" in q or "profile" in q or "perfil" in q:
@@ -135,6 +190,7 @@ def resolve_context_intent(text: str, now: Optional[datetime] = None) -> Context
 
     window = None
     future = bool(re.search(r"\b(future|upcoming|futur\w*|proxim\w*)\b", q))
+    daypart = _daypart(q)
     if goals:
         focus = text.rsplit("¿", 1)[-1]
         span = parse_weekday_range(focus, now)
@@ -144,17 +200,16 @@ def resolve_context_intent(text: str, now: Optional[datetime] = None) -> Context
                       datetime.combine(span[1] + timedelta(days=1), datetime.min.time()))
         elif target and re.search(r"\b(before|antes de)\b", q):
             window = (datetime.min, datetime.combine(target, datetime.min.time()))
-        elif target or re.search(r"\b(today|hoy|this morning|esta manana)\b", q):
+        elif daypart:
+            window = _daypart_window(target or now.date(), daypart)
+        elif target or re.search(r"\b(today|hoy)\b", q):
             day = target or now.date()
             start = datetime.combine(day, datetime.min.time())
-            end = start + timedelta(days=1)
-            if "this morning" in q or "esta manana" in q:
-                end = start + timedelta(hours=12)
-            window = (start, end)
+            window = (start, start + timedelta(days=1))
 
     mode = "goals" if goals else "preferences" if preferences else "facts" if predicates else "unknown"
     return ContextIntent(
         mode=mode, historical=historical, recent=recent, predicates=frozenset(predicates),
         window=window, future_only=future, history_cue=history_cue, goal_status=goal_status,
-        goal_status_check=lifecycle_check,
+        goal_status_check=lifecycle_check, ordering=ordering, daypart=daypart,
     )
