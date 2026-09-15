@@ -15,6 +15,11 @@ def main():
     run(["git", "checkout", "--force", "--detach", FROZEN])
     python = "/usr/bin/python3.12"
     run([python, "-m", "pip", "install", "openai==3.14.0", "pytest==9.1.1"])
+    tests = sorted(str(path.relative_to(ROOT)) for path in (ROOT / "tests").glob("*_v3.py"))
+    run([
+        python, "-m", "pytest", "-q", *tests, "--disable-warnings", "-k",
+        "not test_v7_preflight_accepts_frozen_manifest and not test_v8_preflight_accepts_frozen_manifest and not test_v9_preflight_accepts_frozen_manifest",
+    ])
     run([python, "scripts/run_infinito3_trajectory_holdout_v10.py"])
     run([
         python,
