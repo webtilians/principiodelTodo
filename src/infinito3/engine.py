@@ -39,7 +39,11 @@ class CognitiveEngine:
             return CognitiveDecision(input_text=text, safety=safety, gate=None, context=[], context_packet=None)
 
         query = safety.redacted_text if safety.redacted_text else text
-        context = self._search_memory(query, top_k=top_k, include_history=self.temporal_state.wants_history(query))
+        resolver = getattr(self.context_builder, "resolve_intent", None)
+        intent = resolver(query) if resolver else None
+        include_history = intent.historical if intent else self.temporal_state.wants_history(query)
+        context = [] if intent and not intent.retrieve else self._search_memory(
+            query, top_k=top_k, include_history=include_history)
         gate = self.memory_gate.evaluate(query)
         allow_persistence = safety.level == SafetyLevel.SAFE
         events = self.event_extractor.extract(query) if allow_persistence else []
@@ -49,6 +53,11 @@ class CognitiveEngine:
                       CognitiveEventType.CANCEL_GOAL, CognitiveEventType.RESCHEDULE_GOAL}
         structured_goal = any(event.type in goal_types for event in events)
         created_goals = self.goal_engine.ingest(query) if allow_persistence and not structured_goal else []
+
+        if intent and intent.retrieve and transitions:
+            # SQLite search returns snapshots. Re-read after mutation so stale
+            # pre-transition candidates cannot reappear as active evidence.
+            context = self._search_memory(query, top_k=top_k, include_history=include_history)
 
         context_packet = self.context_builder.build(query, memory_candidates=context, recent_turns=recent_turns,
                                                     max_tokens=context_budget_tokens)
