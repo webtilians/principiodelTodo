@@ -1,5 +1,8 @@
 from datetime import datetime
 
+import pytest
+
+from scripts import run_infinito3_trajectory_holdout_v7 as v7_runner
 from src.infinito3.cognitive_events import CognitiveEvent, CognitiveEventType
 from src.infinito3.intent_context import IntentContextBuilder, IntentEventExtractor
 from src.infinito3.persistent_memory import HashEmbeddingProvider
@@ -85,8 +88,7 @@ def test_reschedule_target_cleanup_is_token_safe_and_goal_identity_is_preserved(
     extractor = _extractor(now)
     events = extractor.extract("Reschedule the camera tripod return to 14 May at 16:10.")
     event = next(item for item in events if item.type == CognitiveEventType.RESCHEDULE_GOAL)
-    assert "camera tripod return" in event.value
-    assert "mera" not in event.value
+    assert event.value == "camera tripod return"
     assert event.due_at == datetime(2027, 5, 14, 16, 10)
 
     store = TemporalAwareSQLiteMemoryStore(":memory:", embedding_provider=HashEmbeddingProvider())
@@ -109,3 +111,8 @@ def test_reschedule_target_cleanup_is_token_safe_and_goal_identity_is_preserved(
     assert goal.due_at == datetime(2027, 5, 14, 16, 10)
     assert goal.metadata["lifecycle"] == "rescheduled"
     store.close()
+
+
+def test_frozen_v7_preflight_rejects_the_modified_development_candidate():
+    with pytest.raises(SystemExit, match="Frozen file changed"):
+        v7_runner.preflight()
