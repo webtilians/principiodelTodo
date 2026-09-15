@@ -1,0 +1,4 @@
+authorized_by_user=true
+evaluation=V8
+frozen_revision=ea0f499dc1415c77d49f1bc2fa5495d1a2cf7305
+execution_policy=one_shot
