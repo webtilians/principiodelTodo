@@ -1,5 +1,5 @@
-run: v4-resolved-targeted-1
+run: v4-explicit-state-targeted-1
 frozen_case_commit: ef689e8adece7aa265c236ac9f50db0ebac45469
 suite_sha256: 8825f79527a36da808915f6b085fcee349e808da98879c8947ed807df5390979
-candidate_implementation_commit: f57a1ce48dd3ed9e35c057883ab6a132fa1a8f33
+candidate_implementation_commit: e92ebe994bc790306209a539c5242ba541f9d247
 scenarios: goals,preferences
