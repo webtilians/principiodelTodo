@@ -1,8 +1,8 @@
 """Post-V9 deterministic context candidate."""
-import re
 from datetime import datetime
 
 from .intent_context import IntentContextBuilder, IntentEventExtractor
+from .preference_ordering import membership_query
 from .types import MemoryStatus
 
 
@@ -20,11 +20,16 @@ class DeterministicIntentContextBuilder(IntentContextBuilder):
         return [record for record in active if record.id not in suppressed_ids]
 
     def _select_preference_items(self, query, items):
-        selected = super()._select_preference_items(query, items)
-        if self.resolve_intent(query).ordering != "latest" or len(selected) <= 1:
+        intent = self.resolve_intent(query)
+        semantic_query = membership_query(query) if intent.ordering == "latest" else query
+        selected = super()._select_preference_items(semantic_query, items)
+        if intent.ordering != "latest" or len(selected) <= 1:
+            if intent.ordering == "latest" and selected:
+                selected[0].metadata["structured_preference_order"] = "latest"
             return selected
         by_id = {record.id: record for record in self._all_with_inactive()}
         selected.sort(key=lambda item: self._valid_from(by_id[item.memory_id]) if item.memory_id in by_id else datetime.min, reverse=True)
+        selected[0].metadata["structured_preference_order"] = "latest"
         return selected[:1]
 
 
