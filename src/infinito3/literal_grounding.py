@@ -10,6 +10,19 @@ _LITERAL_PREDICATES = {
 }
 
 
+def _lossless_literal_value(item):
+    """Return literal payload without semantic normalization.
+
+    ``fact_value`` is intentionally normalized for matching and must never be
+    used as the output representation of user-supplied literal data. The memory
+    content is the lossless payload for STORE_NOTE records.
+    """
+    content = str(item.content or "").strip()
+    if content:
+        return content
+    return str(item.metadata.get("fact_value") or "").strip()
+
+
 def literal_value_from_decision(text, decision):
     intent = resolve_context_intent(text)
     if not (set(intent.predicates) & _LITERAL_PREDICATES):
@@ -21,7 +34,7 @@ def literal_value_from_decision(text, decision):
     for item in packet.items:
         if item.metadata.get("fact_predicate") not in _LITERAL_PREDICATES:
             continue
-        value = str(item.metadata.get("fact_value") or item.content).strip()
+        value = _lossless_literal_value(item)
         if value and value not in values:
             values.append(value)
     return values[0] if len(values) == 1 else None
