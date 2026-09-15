@@ -1,7 +1,9 @@
 """Opt-in integration of the shared intent contract; legacy builders stay intact."""
+import re
 from dataclasses import asdict
 from datetime import datetime
 
+from .cognitive_events import CognitiveEvent, CognitiveEventType
 from .context_intent import detect_history_cue, resolve_context_intent
 from .preference_context import PreferenceStateContextBuilder
 from .semantic_event_extractor import SemanticCognitiveEventExtractor
@@ -135,9 +137,118 @@ class IntentContextBuilder(PreferenceStateContextBuilder):
 
 
 class IntentEventExtractor(SemanticCognitiveEventExtractor):
+    """Semantic extractor with deterministic disambiguation for intent-bearing mutations.
+
+    The V7 mixed-state audit exposed two lexical collisions in the older rule
+    layer: first-person residence moves were mistaken for goal reschedules, and
+    lifecycle target cleanup removed short scaffolding tokens inside real words.
+    Literal note commands also need to remain data even when their payload itself
+    contains words such as ``prior``. These cases are resolved before semantic
+    fallback and without entity dictionaries.
+    """
+
+    _LOCATION_MOVE_PATTERNS = (
+        re.compile(r"\bi(?:'ve| have)? moved from\s+([^,.!?;]+?)\s+to\s+([^,.!?;]+)", re.I),
+        re.compile(r"\bme he mudado de\s+([^,.!?;]+?)\s+a\s+([^,.!?;]+)", re.I),
+    )
+    _LITERAL_NOTE_PATTERNS = (
+        re.compile(
+            r"\b(?:store|save|keep|remember)\s+(?:this|the following)\s+"
+            r"(?:literal\s+)?(?:verification|test)\s+phrase(?:\s+as\s+data)?\s*:\s*(.+)$",
+            re.I,
+        ),
+        re.compile(
+            r"\b(?:guarda|conserva|recuerda)\s+(?:esta|la siguiente)\s+frase\s+"
+            r"(?:literal\s+)?de\s+(?:verificacion|prueba)(?:\s+como\s+datos?)?\s*:\s*(.+)$",
+            re.I,
+        ),
+    )
+    _GOAL_SCAFFOLDING = (
+        "mark that task done", "mark it done", "mark it complete", "already",
+        "cancela", "cancel", "cancelar", "anula", "anular", "ya", "he", "fui",
+        "marca", "marcalo", "como hecho", "como hecha", "lo han movido", "ya no es",
+        "moved to", "moved from", "reschedule", "rescheduled", "this morning",
+        "i", "the", "task", "today", "hoy",
+    )
+    _CALENDAR_WORD_RE = re.compile(
+        r"\b(?:lunes|martes|miercoles|jueves|viernes|sabado|domingo|"
+        r"monday|tuesday|wednesday|thursday|friday|saturday|sunday|"
+        r"enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre|"
+        r"january|february|march|april|may|june|july|august|september|october|november|december)\b",
+        re.I,
+    )
+
     def extract(self, text):
-        intent = resolve_context_intent(text, self._now_fn())
+        stripped = " ".join(text.strip().split())
+        if not stripped:
+            return []
+
+        note = self._literal_note_event(stripped)
+        if note is not None:
+            return [note]
+
+        move = self._location_move_event(stripped)
+        if move is not None:
+            return [move]
+
+        intent = resolve_context_intent(stripped, self._now_fn())
         if not intent.retrieve:
             self._stats.skipped_non_mutating_requests += 1
             return []
-        return super().extract(text)
+        return super().extract(stripped)
+
+    def _literal_note_event(self, text):
+        for pattern in self._LITERAL_NOTE_PATTERNS:
+            match = pattern.search(text)
+            if not match:
+                continue
+            value = self._clean_value(match.group(1))
+            if not value:
+                return None
+            return CognitiveEvent(
+                CognitiveEventType.STORE_NOTE,
+                text,
+                predicate="literal_verification_phrase",
+                value=value,
+                occurred_at=self._now_fn(),
+                metadata={"extractor": "intent_rule_v3", "instruction_like_data": True},
+            )
+        return None
+
+    def _location_move_event(self, text):
+        for pattern in self._LOCATION_MOVE_PATTERNS:
+            match = pattern.search(text)
+            if not match:
+                continue
+            previous_value = self._clean_value(match.group(1))
+            value = self._clean_value(match.group(2))
+            if not value:
+                return None
+            return CognitiveEvent(
+                CognitiveEventType.REPLACE_FACT,
+                text,
+                predicate="location",
+                value=value,
+                previous_value=previous_value or None,
+                occurred_at=self._now_fn(),
+                metadata={"exclusive": True, "extractor": "intent_rule_v3"},
+            )
+        return None
+
+    @classmethod
+    def _goal_target(cls, text, normalized, *, mode):
+        # Lifecycle scaffolding must be removed as lexical units. Plain
+        # ``str.replace`` corrupts real words (e.g. the token ``i`` inside
+        # ``light``), which V7 caught in a rescheduled goal description.
+        cleaned = normalized
+        for marker in sorted(cls._GOAL_SCAFFOLDING, key=len, reverse=True):
+            cleaned = re.sub(
+                rf"(?<!\w){re.escape(marker)}(?!\w)",
+                " ",
+                cleaned,
+                flags=re.I,
+            )
+        cleaned = cls._CALENDAR_WORD_RE.sub(" ", cleaned)
+        cleaned = re.sub(r"\b\d{1,2}(?::\d{2})?\b", " ", cleaned)
+        cleaned = " ".join(token for token in cleaned.split() if len(token) > 2)
+        return cleaned[:180].strip() or text[:180].strip()
