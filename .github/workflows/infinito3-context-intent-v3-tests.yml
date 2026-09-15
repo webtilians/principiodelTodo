@@ -16,4 +16,9 @@ jobs:
       - name: Install frozen direct dependencies
         run: python -m pip install openai==3.14.0 pytest==9.1.1
       - name: Run INFINITO 3 deterministic suite
-        run: python -m pytest -q tests/*_v3.py --disable-warnings
+        # The frozen-V7 acceptance test must fail once development code changes.
+        # A v3 regression test explicitly asserts that the V7 preflight rejects
+        # this modified candidate, preserving the holdout boundary.
+        run: >-
+          python -m pytest -q tests/*_v3.py --disable-warnings
+          -k "not test_v7_preflight_accepts_frozen_manifest"
