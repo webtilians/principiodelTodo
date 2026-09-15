@@ -1,7 +1,7 @@
 import re
 from dataclasses import replace
 from datetime import datetime
-from typing import Dict, List, Sequence
+from typing import List, Sequence
 
 from .temporal_context import TemporalSemanticContextBuilder
 from .types import ContextItem, ContextSource, MemoryStatus
@@ -11,7 +11,7 @@ class StructuredTemporalContextBuilder(TemporalSemanticContextBuilder):
     """Temporal context with explicit state-oriented query handling.
 
     This layer stays domain-neutral: it recognizes relations such as preference,
-    recency, retraction, arithmetic, and calendar scope.  Category membership
+    recency, retraction, arithmetic, and calendar scope. Category membership
     (creative, outdoor, radio-related, etc.) remains delegated to embeddings and
     the injectable semantic membership reranker.
     """
@@ -55,6 +55,19 @@ class StructuredTemporalContextBuilder(TemporalSemanticContextBuilder):
                 q,
             )
         )
+
+    @classmethod
+    def _requested_core_facts(cls, query: str) -> set:
+        requested = set(super()._requested_core_facts(query))
+        q = " ".join(cls._normalized(query).split())
+        # English imperative "Name my X" means "identify X", not "tell me my
+        # personal name". Keep identity-name retrieval only for explicit name or
+        # form-of-address queries.
+        if re.match(r"^name\s+my\b", q) and not re.search(
+            r"\b(?:my name|preferred name|what .* call me|how .* call me)\b", q
+        ):
+            requested.discard("name")
+        return requested
 
     def _build_pools(self, query, candidates, recent_turns):
         pools = super()._build_pools(query, candidates, recent_turns)
