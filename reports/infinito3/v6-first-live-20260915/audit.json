@@ -1,0 +1,250 @@
+{
+  "status": "incomplete_before_first_probe",
+  "run_id": 34984319827,
+  "job_id": 104432393789,
+  "artifact_id": 10401759912,
+  "target_revision": "a2388ce0ddfd4659356b436ec937c9935f4e6e2c",
+  "launch_revision": "00992b953dbc64bd462db818bf0fcb5b9210bece",
+  "artifact_sha256": "56e0774951a36ba0c7ce7511db2a580ad2f750a6d167a08450d8a74389f3eb9d",
+  "audit_jsonl_sha256": "a9b8ae24b58a0296e7084c9941f1ba8fb324de973a242d9542d9d7b0bd497e8c",
+  "completed_paired_turns": 5,
+  "user_inputs_exposed": 6,
+  "baseline_answers_completed": 6,
+  "cognitive_answers_completed": 5,
+  "probes_completed": 0,
+  "total_probes": 28,
+  "usage": {
+    "baseline_answers": {
+      "calls": 6,
+      "input_tokens": 968,
+      "output_tokens": 162,
+      "total_tokens": 1130
+    },
+    "cognitive_answers": {
+      "calls": 6,
+      "input_tokens": 1289,
+      "output_tokens": 162,
+      "total_tokens": 1451
+    },
+    "embeddings": {
+      "calls": 15,
+      "input_tokens": 129,
+      "output_tokens": 0,
+      "total_tokens": 129
+    },
+    "events": {
+      "calls": 5,
+      "input_tokens": 1907,
+      "output_tokens": 304,
+      "total_tokens": 2211
+    }
+  },
+  "total_provider_tokens": 4921,
+  "failing_call": {
+    "call_id": 32,
+    "category": "cognitive_answers",
+    "reason": "max_output_tokens",
+    "output_token_limit": 96,
+    "response_id": "resp_0d85029ff7646e44006aa95b4b736887d28cf85fab455fec55"
+  },
+  "probe_audit": [
+    {
+      "trajectory": "v6_profile_register",
+      "label": "v6 profile register",
+      "status": "not_reached",
+      "raw_score": null,
+      "semantic_review": null
+    },
+    {
+      "trajectory": "v6_profile_register",
+      "label": "v6 revised profile",
+      "status": "not_reached",
+      "raw_score": null,
+      "semantic_review": null
+    },
+    {
+      "trajectory": "v6_profile_register",
+      "label": "v6 city predecessor",
+      "status": "not_reached",
+      "raw_score": null,
+      "semantic_review": null
+    },
+    {
+      "trajectory": "v6_profile_register",
+      "label": "v6 bicycle predecessor",
+      "status": "not_reached",
+      "raw_score": null,
+      "semantic_review": null
+    },
+    {
+      "trajectory": "v6_profile_register",
+      "label": "v6 latest residence",
+      "status": "not_reached",
+      "raw_score": null,
+      "semantic_review": null
+    },
+    {
+      "trajectory": "v6_profile_register",
+      "label": "v6 second predecessor",
+      "status": "not_reached",
+      "raw_score": null,
+      "semantic_review": null
+    },
+    {
+      "trajectory": "v6_profile_register",
+      "label": "v6 profile isolation",
+      "status": "not_reached",
+      "raw_score": null,
+      "semantic_review": null
+    },
+    {
+      "trajectory": "v6_schedule_register",
+      "label": "v6 calendar interval",
+      "status": "not_reached",
+      "raw_score": null,
+      "semantic_review": null
+    },
+    {
+      "trajectory": "v6_schedule_register",
+      "label": "v6 remaining appointments",
+      "status": "not_reached",
+      "raw_score": null,
+      "semantic_review": null
+    },
+    {
+      "trajectory": "v6_schedule_register",
+      "label": "v6 friday only",
+      "status": "not_reached",
+      "raw_score": null,
+      "semantic_review": null
+    },
+    {
+      "trajectory": "v6_schedule_register",
+      "label": "v6 elapsed morning",
+      "status": "not_reached",
+      "raw_score": null,
+      "semantic_review": null
+    },
+    {
+      "trajectory": "v6_schedule_register",
+      "label": "v6 closed violin",
+      "status": "not_reached",
+      "raw_score": null,
+      "semantic_review": null
+    },
+    {
+      "trajectory": "v6_schedule_register",
+      "label": "v6 future map",
+      "status": "not_reached",
+      "raw_score": null,
+      "semantic_review": null
+    },
+    {
+      "trajectory": "v6_schedule_register",
+      "label": "v6 calendar isolation",
+      "status": "not_reached",
+      "raw_score": null,
+      "semantic_review": null
+    },
+    {
+      "trajectory": "v6_preference_register",
+      "label": "v6 crafts",
+      "status": "not_reached",
+      "raw_score": null,
+      "semantic_review": null
+    },
+    {
+      "trajectory": "v6_preference_register",
+      "label": "v6 instrument",
+      "status": "not_reached",
+      "raw_score": null,
+      "semantic_review": null
+    },
+    {
+      "trajectory": "v6_preference_register",
+      "label": "v6 retracted bird",
+      "status": "not_reached",
+      "raw_score": null,
+      "semantic_review": null
+    },
+    {
+      "trajectory": "v6_preference_register",
+      "label": "v6 retracted skating",
+      "status": "not_reached",
+      "raw_score": null,
+      "semantic_review": null
+    },
+    {
+      "trajectory": "v6_preference_register",
+      "label": "v6 new craft",
+      "status": "not_reached",
+      "raw_score": null,
+      "semantic_review": null
+    },
+    {
+      "trajectory": "v6_preference_register",
+      "label": "v6 current nature",
+      "status": "not_reached",
+      "raw_score": null,
+      "semantic_review": null
+    },
+    {
+      "trajectory": "v6_preference_register",
+      "label": "v6 preference isolation",
+      "status": "not_reached",
+      "raw_score": null,
+      "semantic_review": null
+    },
+    {
+      "trajectory": "v6_mixed_register",
+      "label": "v6 mixed profile",
+      "status": "not_reached",
+      "raw_score": null,
+      "semantic_review": null
+    },
+    {
+      "trajectory": "v6_mixed_register",
+      "label": "v6 literal data",
+      "status": "not_reached",
+      "raw_score": null,
+      "semantic_review": null
+    },
+    {
+      "trajectory": "v6_mixed_register",
+      "label": "v6 pet scope",
+      "status": "not_reached",
+      "raw_score": null,
+      "semantic_review": null
+    },
+    {
+      "trajectory": "v6_mixed_register",
+      "label": "v6 mixed predecessor",
+      "status": "not_reached",
+      "raw_score": null,
+      "semantic_review": null
+    },
+    {
+      "trajectory": "v6_mixed_register",
+      "label": "v6 mixed retraction",
+      "status": "not_reached",
+      "raw_score": null,
+      "semantic_review": null
+    },
+    {
+      "trajectory": "v6_mixed_register",
+      "label": "v6 mixed future",
+      "status": "not_reached",
+      "raw_score": null,
+      "semantic_review": null
+    },
+    {
+      "trajectory": "v6_mixed_register",
+      "label": "v6 injection isolation",
+      "status": "not_reached",
+      "raw_score": null,
+      "semantic_review": null
+    }
+  ],
+  "integration_status": "NOT_APPROVED",
+  "retry_performed": false
+}
