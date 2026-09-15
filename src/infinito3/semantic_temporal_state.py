@@ -1,3 +1,4 @@
+from .cognitive_events import CognitiveEventType
 from .temporal_state import TemporalCognitiveState
 from .types import MemoryKind, MemoryRecord
 
@@ -45,6 +46,42 @@ class SemanticTemporalCognitiveState(TemporalCognitiveState):
         # the base attempt so it cannot be mistaken for the target being closed.
         super()._apply_retraction(event, transition, memory_store)
         self._store_retraction_tombstone(event, transition, memory_store, resolved_ids=[])
+
+    def _apply_goal_lifecycle(self, event, transition, goal_engine, *, memory_store=None) -> None:
+        """Treat rescheduling as a time mutation, not a goal-identity rewrite.
+
+        Lifecycle target text exists to locate the goal. It must not replace the
+        canonical description after a successful match; otherwise harmless parser
+        cleanup can permanently degrade the stored goal label. Completion and
+        cancellation keep the base behavior unchanged.
+        """
+        if event.type != CognitiveEventType.RESCHEDULE_GOAL or goal_engine is None:
+            return super()._apply_goal_lifecycle(
+                event, transition, goal_engine, memory_store=memory_store
+            )
+
+        original_descriptions = {
+            goal.id: goal.description
+            for goal in goal_engine.all()
+            if not goal.completed
+        }
+        history_start = len(self._goal_history)
+        super()._apply_goal_lifecycle(
+            event, transition, goal_engine, memory_store=memory_store
+        )
+        if not transition.goal_ids:
+            return
+
+        goals_by_id = {goal.id: goal for goal in goal_engine.all()}
+        for goal_id in transition.goal_ids:
+            original = original_descriptions.get(goal_id)
+            goal = goals_by_id.get(goal_id)
+            if original is None or goal is None:
+                continue
+            goal.description = original
+            for version in self._goal_history[history_start:]:
+                if version.goal_id == goal_id:
+                    version.description = original
 
     def _store_retraction_tombstone(self, event, transition, memory_store, *, resolved_ids) -> None:
         if memory_store is None or not event.predicate or not event.value:
