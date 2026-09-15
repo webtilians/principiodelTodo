@@ -1,0 +1,55 @@
+name: INFINITO 3.0 Manual Frozen V6
+
+on:
+  workflow_dispatch:
+    inputs:
+      revision:
+        description: 'Full frozen runner commit SHA to evaluate'
+        required: true
+        type: string
+      authorization:
+        description: 'After explicit approval, enter RUN_FIRST_FROZEN_V6'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: infinito3-first-frozen-v6
+  cancel-in-progress: false
+
+jobs:
+  heldout-v6:
+    if: inputs.authorization == 'RUN_FIRST_FROZEN_V6' && github.ref == 'refs/heads/feat/context-intent-contract-20260915'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.revision }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install frozen direct dependencies
+        run: python -m pip install openai==3.14.0 pytest==9.1.1
+      - name: Deterministic tests and freeze preflight (no V6 replay)
+        run: |
+          python -m pytest -q tests/*_v3.py --disable-warnings
+          python scripts/run_infinito3_trajectory_holdout_v6.py
+      - name: Authorized first V6 execution
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          V6_EXPECTED_REVISION: ${{ inputs.revision }}
+        run: >-
+          python scripts/run_infinito3_trajectory_holdout_v6.py
+          --authorize-live-v6 --expected-revision "$V6_EXPECTED_REVISION"
+          --output-dir trajectory-holdout-v6-results
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: infinito3-heldout-v6-${{ github.run_id }}-${{ github.run_attempt }}
+          path: trajectory-holdout-v6-results/
+          if-no-files-found: warn
+          retention-days: 30
