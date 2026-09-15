@@ -1,5 +1,8 @@
 from types import SimpleNamespace
 
+import pytest
+
+from scripts import run_infinito3_trajectory_holdout_v10 as v10_runner
 from src.infinito3.cognitive_events import CognitiveEvent, CognitiveEventType
 from src.infinito3.cognitive_query import CognitiveQueryOperator, build_cognitive_query_plan
 from src.infinito3.literal_grounding import literal_value_from_decision
@@ -80,3 +83,8 @@ def test_exclusive_assertion_projects_canonical_current_fact_without_stale_value
     # Storage projection changes representation only; provenance remains the
     # original semantic event rather than rewriting history.
     assert state.events()[0].type == CognitiveEventType.ASSERT_FACT
+
+
+def test_frozen_v10_preflight_rejects_post_v10_candidate():
+    with pytest.raises(SystemExit, match="Frozen file changed"):
+        v10_runner.preflight()
