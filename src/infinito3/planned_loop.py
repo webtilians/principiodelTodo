@@ -1,6 +1,6 @@
 from .cognitive_loop import CognitiveLoop
 from .cognitive_query import CognitiveQueryOperator, build_cognitive_query_plan
-from .literal_grounding import LiteralDataFastPathAdapter
+from .literal_grounding import LiteralDataFastPathAdapter, _lossless_literal_value
 
 _LITERAL_PREDICATES = {
     "test_phrase", "verification_phrase", "literal_test_phrase",
@@ -19,7 +19,7 @@ def planned_literal_value(text, decision):
     for item in packet.items:
         if item.metadata.get("fact_predicate") not in _LITERAL_PREDICATES:
             continue
-        value = str(item.metadata.get("fact_value") or item.content).strip()
+        value = _lossless_literal_value(item)
         if value and value not in values:
             values.append(value)
     return values[0] if len(values) == 1 else None
