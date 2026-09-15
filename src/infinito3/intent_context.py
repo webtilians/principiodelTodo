@@ -63,7 +63,7 @@ class IntentContextBuilder(PreferenceStateContextBuilder):
         selected = list(items)
         if intent.goal_status == "closed":
             selected = [item for item in selected if item.metadata.get("closed_goal")]
-        elif intent.goal_status == "open":
+        elif intent.goal_status == "open" and not intent.goal_status_check:
             selected = [item for item in selected if not item.metadata.get("closed_goal")]
         if intent.window:
             start, end = intent.window
@@ -79,7 +79,8 @@ class IntentContextBuilder(PreferenceStateContextBuilder):
     def _build_pools(self, query, candidates, recent_turns):
         pools = super()._build_pools(query, candidates, recent_turns)
         intent = self.resolve_intent(query)
-        if intent.mode == "goals" and intent.goal_status in ("closed", "any"):
+        include_closed = intent.goal_status in ("closed", "any") or intent.goal_status_check
+        if intent.mode == "goals" and include_closed:
             # Closed state is positive evidence. Match arbitrary goal descriptions
             # using only remaining content words; if none remain, the user asked
             # for the closed cohort as a whole.
