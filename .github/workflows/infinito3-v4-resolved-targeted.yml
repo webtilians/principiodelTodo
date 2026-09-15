@@ -1,4 +1,4 @@
-name: INFINITO 3.0 Frozen V4 Resolved Targeted
+name: INFINITO 3.0 Frozen V4 Explicit State Targeted
 
 on:
   workflow_dispatch:
@@ -19,25 +19,25 @@ jobs:
         run: python -m pip install openai pytest
       - name: Deterministic tests before paid run
         run: python -m pytest tests/test_*v3.py -q
-      - name: Frozen V4 targeted resolved-state regression
+      - name: Frozen V4 targeted explicit-state regression
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: >-
-          python scripts/run_infinito3_v4_resolved_targeted.py
+          python scripts/run_infinito3_v4_explicit_targeted.py
           --model gpt-5.6-luna
           --embedding-model text-embedding-3-small
           --event-model gpt-5.6-luna
           --reranker-model gpt-5.6-luna
-          --output-dir v4-resolved-targeted-results
+          --output-dir v4-explicit-targeted-results
       - name: Summary
         if: always()
         run: |
-          if [ -d v4-resolved-targeted-results ]; then
-            find v4-resolved-targeted-results -name '*.md' -exec cat {} \; >> "$GITHUB_STEP_SUMMARY"
+          if [ -d v4-explicit-targeted-results ]; then
+            find v4-explicit-targeted-results -name '*.md' -exec cat {} \; >> "$GITHUB_STEP_SUMMARY"
           fi
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: infinito3-v4-resolved-targeted
-          path: v4-resolved-targeted-results/
+          name: infinito3-v4-explicit-targeted
+          path: v4-explicit-targeted-results/
           retention-days: 30
