@@ -1,4 +1,5 @@
 import re
+from dataclasses import replace
 
 from .cognitive_events import CognitiveEventType
 from .temporal_state import TemporalCognitiveState
@@ -24,6 +25,21 @@ class SemanticTemporalCognitiveState(TemporalCognitiveState):
         r"\b\d{1,2}:\d{2}\b|\b\d{1,2}[/-]\d{1,2}(?:[/-]\d{2,4})?\b)",
         re.I,
     )
+
+    def _apply_fact_event(self, event, transition, memory_store) -> None:
+        """Render exclusive current facts from their canonical value, never stale source prose.
+
+        Semantic extraction can legitimately emit ``ASSERT_FACT`` with
+        ``metadata['exclusive']=True``. The base reducer used to preserve the full
+        source sentence for ASSERT_FACT, which allowed superseded values embedded
+        in update prose to leak back into current-only context. Keep the event log
+        unchanged, but project the storage mutation with REPLACE_FACT semantics so
+        the active memory contains only the canonical current value.
+        """
+        if event.type == CognitiveEventType.ASSERT_FACT and bool(event.metadata.get("exclusive")):
+            projected = replace(event, type=CognitiveEventType.REPLACE_FACT)
+            return super()._apply_fact_event(projected, transition, memory_store)
+        return super()._apply_fact_event(event, transition, memory_store)
 
     def _apply_retraction(self, event, transition, memory_store) -> None:
         affected = []
