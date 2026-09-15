@@ -148,7 +148,7 @@ def test_literal_note_aliases_share_one_retrieval_family():
     assert "amber lighthouse 73" in packet.rendered
 
 
-@pytest.mark.parametrize((text, expected), [
+@pytest.mark.parametrize(("text", "expected"), [
     ("I lost interest in rowing.", "lost_interest"),
     ("Ceramics has lost its appeal.", "lost_appeal"),
     ("I no longer enjoy fencing.", "no_longer_enjoy"),
