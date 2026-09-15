@@ -95,7 +95,7 @@ def _daypart_window(day, name: str) -> Tuple[datetime, datetime]:
 
 @dataclass(frozen=True)
 class ContextIntent:
-    version: str = "context_intent_v3"
+    version: str = "context_intent_v2"
     mode: str = "unknown"
     historical: bool = False
     recent: bool = False
