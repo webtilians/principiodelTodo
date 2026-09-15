@@ -18,7 +18,7 @@ def test_v10_frozen_structure_and_control_count():
 
 def test_v10_does_not_reuse_v9_named_entities():
     text = "\n".join(
-        step.text
+        step.user_text or ""
         for scenario in independent_trajectory_holdout_v10_suite()
         for step in scenario.steps
     ).lower()
