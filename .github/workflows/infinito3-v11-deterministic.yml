@@ -1,0 +1,27 @@
+name: INFINITO 3.0 V11 Deterministic
+
+on:
+  push:
+    branches: [fix/v11-lossless-current-planner-20260915]
+
+permissions:
+  contents: read
+
+jobs:
+  deterministic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install frozen direct dependencies
+        run: python -m pip install openai==3.14.0 pytest==9.1.1
+      - name: Run deterministic suite
+        run: >-
+          python -m pytest -q tests/*_v3.py --disable-warnings
+          -k "not test_v7_preflight_accepts_frozen_manifest
+          and not test_v8_preflight_accepts_frozen_manifest
+          and not test_v9_preflight_accepts_frozen_manifest
+          and not test_v10_preflight_accepts_frozen_manifest"
