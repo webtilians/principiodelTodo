@@ -316,3 +316,21 @@ simuladas, con los mismos costes/condiciones que sus baselines.
 mundo es artificial y la utilidad homeostática se programa; el
 modelo aprende únicamente dinámicas de transición. El baseline
 reactivo escrito por el diseñador todavía supera la política aprendida.
+
+
+## F7 — Valor de información, detección de cambios y auditoría de rumbo
+
+**Rama experimental únicamente**: agent-based information gathering inspirado
+en el coste de preservar capacidad futura de EcoDispatch. No hay prueba de
+conciencia ni nueva teoría matemática.
+
+- [Diseño F7 preregistrado](docs/INFINITO_F7_ACTIVE_INFORMATION_PROTOCOL.md)
+- [F7b: nuevo protocolo EXPLORATORIO tras descubrir limitación F7](docs/INFINITO_F7B_RECALIBRATION_PROTOCOL.md)
+- [Resultados F7/F7b y auditoría F3–F6 con criterios de continuidad](docs/INFINITO_F7_RESULTS_AND_RESEARCH_DIRECTION_2026-10-23.md)
+- [Implementación F7](observatory/active_information_f7.py)
+- [Implementación F7b](observatory/active_recalibration_f7b.py)
+
+El hallazgo operativo: comprar información puede mejorar la decisión cuando
+el sensor es útil, pero ante un cambio oculto de fiabilidad, un agente puramente
+codicioso con VOI estimado queda mal calibrado. La recalibración por sorpresa
+lo corrige en pruebas exploratorias; hacen falta confirmaciones independientes.
