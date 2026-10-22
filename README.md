@@ -277,3 +277,14 @@ estadísticos. No atribuye conciencia a sus resultados.
 Guía: [docs/INFINITO_EMERGENCE_OBSERVATORY.md](docs/INFINITO_EMERGENCE_OBSERVATORY.md)
 
 Prueba sintética: python -m observatory demo --output-dir observatory_results/demo
+
+
+### Experimentos controlados de memoria V5.1 — Octubre 2026
+
+- [Protocolo F1/F2: reinyectar memoria y probar recuerdo diferido](docs/INFINITO_V51_EARLY_MEMORY_FEEDBACK_PROTOCOL.md)
+- [Resultados F1/F2: techo corto, fallo de recuerdo largo y señal residual en memoria](docs/INFINITO_V51_MEMORY_FEEDBACK_F1_F2_RESULTS_2026-10-22.md)
+- [Resultados F3: al impedir sobrescrituras, recuerdo largo decodificable del 50% al 81,25%](docs/INFINITO_V51_MEMORY_OVERWRITE_F3_RESULTS_2026-10-22.md)
+
+**Importante:** pruebas exploratorias sobre un modelo V5.1 reducido,
+sin entrenar para la tarea. El decodificador lineal sí se entrena.
+Ningún resultado prueba conciencia ni curiosidad intrínseca.
