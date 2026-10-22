@@ -175,7 +175,8 @@ def measure_phi_calculator(mod, seed, counterfactual, version):
     with torch.no_grad():
         for step in range(24):
             states = [torch.randn(2, 5, 16) * 0.3 for _ in range(4)]
-            weights = torch.softmax(torch.randn(2, 2, 5, 5), dim=-1)
+            weights = torch.softmax(torch.randn(2, 5, 5), dim=-1)
+            # Torch MultiheadAttention returns [batch, target, source] by default.
             # Column permutation changes who attends to whom, while
             # preserving each row's sum and mean attention weight.
             permuted = weights[..., torch.randperm(5)]
