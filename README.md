@@ -288,3 +288,13 @@ Prueba sintética: python -m observatory demo --output-dir observatory_results/d
 **Importante:** pruebas exploratorias sobre un modelo V5.1 reducido,
 sin entrenar para la tarea. El decodificador lineal sí se entrena.
 Ningún resultado prueba conciencia ni curiosidad intrínseca.
+
+
+### F4 — Memoria selectiva que aprende sin saber qué será relevante
+
+[Informe F4: resultados, control negativo y metodología](docs/INFINITO_F4_SELECTIVE_MEMORY_RESULTS_2026-10-23.md).
+Un controlador de escritura **independiente** aprende de preguntas pasadas
+qué clases de acontecimientos serán útiles, ante capacidad 3/8 y relevancia
+que cambia sin aviso. Sus pruebas con 24 semillas y control de consultas
+uniformes se ejecutan en GitHub Actions. No modifica el V5.1 histórico
+ni atribuye conciencia a ninguna puntuación.
