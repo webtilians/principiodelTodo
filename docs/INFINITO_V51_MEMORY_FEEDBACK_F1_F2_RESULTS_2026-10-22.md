@@ -41,6 +41,25 @@ el test corto y 16 en el largo.
 clasificador tuvo medias de entre **41,7 % y 52,8 %** (según condición),
 lo que no indica una decodificación consistente de etiqueta.
 
+## Pista nueva: información presente pero poco decodificable en el workspace
+
+En la prueba **larga**, el probe entrenado directamente sobre la lectura
+de memoria obtuvo **81,25 % / 68,75 % / 62,5 %**, media **70,8 %**
+para las semillas 11, 29 y 47, mientras que el probe del workspace
+final obtuvo **50,0 %** de media.
+
+Al borrar la memoria, el probe de la lectura cae al **50,0 %** de
+media. Esto es compatible con la existencia de información antigua
+en el almacenamiento que no llega de forma suficientemente
+discriminable al espacio posterior.
+
+**No** debe interpretarse como que memoria y workspace puedan
+compararse en igualdad de condiciones: son vectores de diferente
+dimensión, geometría y distribución, cada uno evaluado con su
+propio probe de la misma familia. El contraste es exploratorio y
+requiere confirmación con semillas/episodios independientes, controles
+de capacidad del decodificador y pruebas de transferencia.
+
 ## Qué sí se demuestra
 
 - V5.1 original retiene información decodificable de una pista reciente,
