@@ -298,3 +298,21 @@ qué clases de acontecimientos serán útiles, ante capacidad 3/8 y relevancia
 que cambia sin aviso. Sus pruebas con 24 semillas y control de consultas
 uniformes se ejecutan en GitHub Actions. No modifica el V5.1 histórico
 ni atribuye conciencia a ninguna puntuación.
+
+
+## F6 — Aprender a anticipar consecuencias (EcoDispatch × RL)
+
+En la rama experimental F6, un agente aprende por observación las
+consecuencias de **esperar, beber, descansar o buscar agua** y
+planifica hasta tres pasos futuros para controlar variables internas
+simuladas, con los mismos costes/condiciones que sus baselines.
+
+- [Protocolo de evaluación fijado antes de ejecutar](docs/INFINITO_F6_HOMEOSTATIC_MODEL_BASED_RL_PROTOCOL.md)
+- [Resultados F6 verificados: mejora al planificar; fallo ante cambios del mundo](docs/INFINITO_F6_HOMEOSTATIC_RESULTS_2026-10-23.md)
+- [Implementación independiente](scripts/f6_homeostatic_rl.py)
+- [Tests unitarios](tests/test_f6_homeostatic_rl.py)
+
+**Sin afirmaciones de conciencia ni curiosidad intrínseca.** El
+mundo es artificial y la utilidad homeostática se programa; el
+modelo aprende únicamente dinámicas de transición. El baseline
+reactivo escrito por el diseñador todavía supera la política aprendida.
