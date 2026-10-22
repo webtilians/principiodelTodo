@@ -19,9 +19,7 @@ import torch
 
 from scripts.infinito_replay_probes import load_version
 
-MODES = ("historical", "early_feedback", "early_feedback_memory_cut")
-N_STEPS = 5
-QUERY_STEP = 4
+MODES = ("historical", "historical_memory_cut", "early_feedback", "early_feedback_memory_cut")
 
 
 class EarlyMemoryFeedback:
@@ -93,7 +91,7 @@ def reset_episode(model):
         model.noether_proxy.prev_phi = None
 
 
-def structured_input(seed: int, label: int, *, batch: int = 2, seq_len: int = 5):
+def structured_input(seed: int, label: int, *, steps: int = 5, distractor_sd: float = 0.12, batch: int = 2, seq_len: int = 5):
     """One cue; three independent distractors; identical-label-free query.
 
     Target only appears in frame 0. The final frame has exactly the same
@@ -101,11 +99,11 @@ def structured_input(seed: int, label: int, *, batch: int = 2, seq_len: int = 5)
     """
     rng = np.random.default_rng(seed)
     frames = []
-    for step in range(N_STEPS):
-        frame = rng.normal(0, 0.12, size=(batch, seq_len, 257)).astype("float32")
+    for step in range(steps):
+        frame = rng.normal(0, distractor_sd, size=(batch, seq_len, 257)).astype("float32")
         if step == 0:
             frame[:, :, :64] += (1 if label else -1) * 0.7
-        if step == QUERY_STEP:
+        if step == steps - 1:
             frame[:, :, :256] = 0.0
         frame[:, :, -1] = np.linspace(0, 1, seq_len, dtype="float32")[None, :]
         frames.append(torch.from_numpy(frame))
@@ -120,7 +118,7 @@ def one_episode(model, wrapper, frames, *, mode: str, stochastic_seed: int):
     features, reads, memory_norm = [], [], []
     with torch.no_grad(), contextlib.redirect_stdout(io.StringIO()):
         for step, frame in enumerate(frames):
-            if mode == "early_feedback_memory_cut" and step >= 1:
+            if mode.endswith("memory_cut") and step >= 1:
                 # The early recurrent pathway remains active. Remove only
                 # the memory-store contribution after the cue.
                 model.memory.memory.zero_()
@@ -149,7 +147,7 @@ def ridge_probe(train_x, train_y, test_x, test_y, *, reg: float = 0.5):
     return float(np.mean(predictions == np.asarray(test_y)))
 
 
-def run_seed(model_seed: int, train_count: int, test_count: int, gain: float):
+def run_seed(model_seed: int, train_count: int, test_count: int, gain: float, steps: int, distractor_sd: float):
     torch.manual_seed(model_seed)
     np.random.seed(model_seed)
     random.seed(model_seed)
@@ -160,12 +158,12 @@ def run_seed(model_seed: int, train_count: int, test_count: int, gain: float):
     labels = [n % 2 for n in range(train_count + test_count)]
     episode_seeds = [model_seed * 100000 + i * 97 + 7 for i in range(len(labels))]
     # The same frame sequence is supplied to all variants for each case.
-    cases = [structured_input(seed, label) for seed, label in zip(episode_seeds, labels)]
+    cases = [structured_input(seed, label, steps=steps, distractor_sd=distractor_sd) for seed, label in zip(episode_seeds, labels)]
     modes = {}
     final_states = {}
     for mode in MODES:
         final, queries, store_norms = [], [], []
-        with EarlyMemoryFeedback(model, gain=0.0 if mode == "historical" else gain) as wrapper:
+        with EarlyMemoryFeedback(model, gain=0.0 if mode.startswith("historical") else gain) as wrapper:
             for idx, frames in enumerate(cases):
                 states, reads, norms = one_episode(
                     model, wrapper, frames, mode=mode,
@@ -208,6 +206,8 @@ def run_seed(model_seed: int, train_count: int, test_count: int, gain: float):
     comparisons["ablation"] = {
         "mean_l2_difference_feedback_vs_memory_cut": float(
             np.linalg.norm(ablation, axis=-1).mean()),
+        "mean_l2_difference_historical_vs_memory_cut": float(
+            np.linalg.norm(final_states["historical"] - final_states["historical_memory_cut"], axis=-1).mean()),
     }
     return {
         "seed": model_seed, "modes": modes, "comparisons": comparisons,
@@ -225,9 +225,13 @@ def main():
     parser.add_argument("--train", type=int, default=24)
     parser.add_argument("--test", type=int, default=24)
     parser.add_argument("--gain", type=float, default=0.5)
+    parser.add_argument("--steps", type=int, default=5)
+    parser.add_argument("--distractor-sd", type=float, default=0.12)
     args = parser.parse_args()
     if args.train < 4 or args.test < 4 or args.train % 2 or args.test % 2:
         raise ValueError("train/test counts must be even and at least 4")
+    if args.steps < 3 or args.steps > 64 or not (0 <= args.distractor_sd <= 2):
+        raise ValueError("steps must be 3..64 and distractor_sd 0..2")
     if not (0 <= args.gain <= 2):
         raise ValueError("feedback gain must be between 0 and 2")
     torch.set_num_threads(1)
@@ -235,7 +239,7 @@ def main():
     results = []
     for seed in args.seeds:
         print("RUN", seed, flush=True)
-        result = run_seed(seed, args.train, args.test, args.gain)
+        result = run_seed(seed, args.train, args.test, args.gain, args.steps, args.distractor_sd)
         results.append(result)
         print("DONE", seed, {
             key: round(value["heldout_cue_accuracy"], 3)
@@ -246,7 +250,8 @@ def main():
         "architecture": "ConsciousnessBoostNet hidden_dim 64; 4 original modules; 16 memory slots",
         "stimulus": "signed cue -> 3 distractors -> label-free query",
         "protocol": {"train": args.train, "test": args.test, "gain": args.gain,
-                     "seeds": args.seeds, "query_step": QUERY_STEP},
+                     "seeds": args.seeds, "steps": args.steps, "distractor_sd": args.distractor_sd,
+                     "query_step": args.steps - 1},
         "results": results,
         "mean_accuracy": {
             mode: float(np.mean([result["modes"][mode]["heldout_cue_accuracy"]
