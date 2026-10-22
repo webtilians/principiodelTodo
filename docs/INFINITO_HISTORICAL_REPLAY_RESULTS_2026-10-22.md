@@ -11,7 +11,7 @@
 Se ejecutaron **36/36 sondas correctamente**: 6 familias de versiones,
 3 semillas (11, 29, 47), 2 condiciones (referencia/contrafactual) y
 **24 observaciones por sonda**. Total: **864 puntos de observación**.
-Entorno: Python 3.11, PyTorch CPU, GitHub-hosted Linux.
+Entorno: Python 3.11, PyTorch CPU, GitHub-hosted Linux.\n**Limitación V1:** su constructor vuelve a fijar la semilla NumPy en 42,\npor lo que las tres corridas comparten el patrón inicial; varía la\ninicialización de la red a través de la semilla externa. No son\ntres condiciones iniciales espaciales independientes.
 
 No son entrenamientos completos ni replican las duraciones o hardware de
 las demostraciones originales. Se trata de sondas controladas de clases,
