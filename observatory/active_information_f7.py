@@ -43,7 +43,7 @@ class Episode:
     signals: tuple[int, int]  # Not passed unless a probe is purchased.
 
 
-def world_rules(seed: int, *, unlearnable: bool, swapped: bool = False) -> WorldRules:
+def world_rules(seed: int, *, unlearnable: bool = False, swapped: bool = False) -> WorldRules:
     informative = random.Random(seed * 1307 + 89).randrange(2)
     if swapped:
         informative = 1 - informative
@@ -185,8 +185,6 @@ def act(ep: Episode, model: BayesianCalibration, inspected: int | None,
 def evaluate(seed: int, *, unlearnable: bool = False, change: bool = False,
              train_n: int = TRAIN_N, test_n: int = TEST_N) -> dict:
     calibration = episodes(seed, train_n, unlearnable=unlearnable)
-    test = episodes(seed + 1171, test_n, unlearnable=unlearnable,
-                    change_at=test_n // 2 if change else None)
     # Source assignment MUST match between calibration and test:
     # use same source world rules (seed) but independent draws.
     # We generate evaluation traces with a per-episode independent RNG,
