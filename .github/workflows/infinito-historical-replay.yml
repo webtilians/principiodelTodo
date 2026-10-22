@@ -1,0 +1,58 @@
+name: INFINITO Historical Replay — V1 to V5.1
+
+on:
+  push:
+    branches:
+      - "experiment/emergence-observatory-*"
+    paths:
+      - ".github/workflows/infinito-historical-replay.yml"
+      - "scripts/infinito_replay_probes.py"
+      - "observatory/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  historical-replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: CPU dependencies for historical experiments
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install numpy scipy matplotlib sympy pygame
+      - name: Historical probes with paired controls
+        run: |
+          python scripts/infinito_replay_probes.py --output observatory_results/historical --timeout 55
+      - name: Check completeness and display summary
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path("observatory_results/historical/manifest.json")
+          manifest = json.loads(p.read_text())
+          good = [r for r in manifest["results"] if r["status"] == "ok"]
+          bad = [r for r in manifest["results"] if r["status"] != "ok"]
+          print("SUCCESSFUL PROBES:", len(good), "/", len(manifest["results"]))
+          for r in bad:
+              print("NON-PASS:", r["run_id"], r["status"], r.get("error", "")[-700:])
+          PY
+      - name: Save evidence (exclude private blind key)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: infinito-historical-replay
+          path: |
+            observatory_results/historical/manifest.json
+            observatory_results/historical/raw.jsonl
+            observatory_results/historical/blind.jsonl
+            observatory_results/historical/observatory_report.json
+          if-no-files-found: warn
