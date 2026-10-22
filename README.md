@@ -298,3 +298,19 @@ qué clases de acontecimientos serán útiles, ante capacidad 3/8 y relevancia
 que cambia sin aviso. Sus pruebas con 24 semillas y control de consultas
 uniformes se ejecutan en GitHub Actions. No modifica el V5.1 histórico
 ni atribuye conciencia a ninguna puntuación.
+
+
+### F5 — Experiencias con consecuencias futuras (inspirado en EcoDispatch)
+
+La nueva rama experimental estudia si un modelo aprendido de consecuencias
+futuras puede elegir qué recuerdos mantener (3 slots frente a 12 eventos
+presentados en orden aleatorio). Compara el potencial predictivo contra FIFO,
+azar, novedad y selección sin contexto. Incluye datos no vistos, un control
+de resultados aleatorios, relaciones no lineales y un cambio oculto de las
+reglas que revela un caso importante en el que la optimización empeora.
+
+- [Protocolo F5 anterior a los resultados](docs/INFINITO_F5_ECODISPATCH_PREDICTIVE_MEMORY_PROTOCOL.md)
+- [Informe y resultados F5 verificados](docs/INFINITO_F5_ECODISPATCH_PREDICTIVE_MEMORY_RESULTS_2026-10-23.md)
+- [Código experimental](observatory/predictive_memory.py)
+
+No está integrado en V5.1 y no constituye evidencia de conciencia.
