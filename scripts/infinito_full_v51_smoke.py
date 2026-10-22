@@ -32,6 +32,11 @@ def main():
     trainer = mod.InfinitoV51ConsciousnessBreakthrough(args)
     # Original method appends a metric key not initialized in constructor.
     trainer.metrics_history.setdefault("biological_plausibility", deque(maxlen=2000))
+    # The historical trainer adds FactDecoder as optimizer param group AFTER
+    # instantiating CosineAnnealingWarmRestarts. Sync the schedule base LR.
+    if len(trainer.scheduler.base_lrs) != len(trainer.optimizer.param_groups):
+        trainer.scheduler.base_lrs = [group["lr"] for group in trainer.optimizer.param_groups]
+        trainer.scheduler._last_lr = list(trainer.scheduler.base_lrs)
     for i in range(1, opts.steps + 1):
         with contextlib.redirect_stdout(io.StringIO()) as buffer:
             metrics = trainer.train_step(i)
