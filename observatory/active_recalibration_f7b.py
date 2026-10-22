@@ -17,7 +17,7 @@ from pathlib import Path
 from observatory.active_information_f7 import (
     PROBE_COST, BayesianCalibration, act, calibrated_model, choose_probe,
     episodes, episodes_with_independent_noise, evaluate as original_evaluate,
-    bootstrap_differences, world_rules,
+    bootstrap_differences, world_rules, public_view,
 )
 
 WINDOW = 24
@@ -47,9 +47,10 @@ def test_recalibration(seed: int, *, unlearnable=False, change=False,
             next_forced_source = 1 - next_forced_source
             forced_left -= 1
         else:
-            sensor = choose_probe("voi_adaptive", model, ep, rng)
+            sensor = choose_probe("voi_adaptive", model, public_view(ep), rng)
         expected = model.sensor_accuracy(sensor) if sensor is not None else None
-        action = act(ep, model, sensor)
+        action = act(public_view(ep), model, sensor,
+                     ep.signals[sensor] if sensor is not None else None)
         success = int(action == ep.latent)
         rule = world_rules(seed, unlearnable=unlearnable,
                            swapped=change and t >= test_n // 2)
