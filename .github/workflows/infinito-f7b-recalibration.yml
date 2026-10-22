@@ -1,0 +1,46 @@
+name: INFINITO F7b — Surprise-triggered Recalibration
+on:
+  push:
+    branches: ["experiment/f7-active-information-value"]
+    paths:
+      - ".github/workflows/infinito-f7b-recalibration.yml"
+      - "observatory/active_recalibration_f7b.py"
+      - "tests/test_f7b_recalibration.py"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  reassessment:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Verify intervention only on observed prediction errors
+        run: PYTHONPATH=. python -m unittest discover -s tests -p 'test_f7b_recalibration.py' -v
+      - name: Repeat exact F7 stable, reversal and noise scenarios
+        run: |
+          python -m observatory.active_recalibration_f7b \
+            --seeds 24 --train 240 --test 600 \
+            --output observatory_results/recalibration_f7b
+      - name: Report all outcomes and predefined exploratory endpoints
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path("observatory_results/recalibration_f7b/report.json").read_text())
+          for condition,d in r["conditions"].items():
+              print("CASE",condition,"TRIGGERS",d["mean_detector_triggers"],
+                    "REWARD",d["mean_reward"],
+                    "FORCED",d["mean_forced_rate"])
+              print("LATE_VS_BASELINES",d["comparison"]["after_last_100"])
+              print("ALL_VS_BASELINES",d["comparison"]["all"])
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: infinito-f7b-active-recalibration-evidence
+          path: observatory_results/recalibration_f7b/report.json
+          if-no-files-found: warn
