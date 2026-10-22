@@ -1,0 +1,56 @@
+name: INFINITO F6 Predictive Homeostasis
+
+on:
+  push:
+    branches: ["experiment/f6-homeostatic-world-model"]
+    paths:
+      - ".github/workflows/infinito-f6-homeostatic.yml"
+      - "scripts/f6_homeostatic_rl.py"
+      - "tests/test_f6_homeostatic_rl.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  model-based-rl:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install isolated numeric dependency
+        run: python -m pip install numpy==2.3.5
+      - name: Unit controls
+        run: PYTHONPATH=. python -m unittest discover -s tests -p 'test_f6_homeostatic_rl.py' -v
+      - name: Predeclared full experiment
+        run: |
+          PYTHONPATH=. python scripts/f6_homeostatic_rl.py \
+            --seeds 8 --train-episodes 110 --test-episodes 12 \
+            --horizon 48 --output observatory_results/homeostasis_f6
+      - name: Print results and check claims against prerecorded criteria
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path("observatory_results/homeostasis_f6/report.json").read_text())
+          assert d["protocol"]["seeds"] == 8
+          assert len(d["per_seed"]) == 8
+          for name in ("in_distribution", "shifted_mechanisms"):
+              r=d[name]
+              print("CONDITION", name)
+              for policy, vals in r["policies"].items():
+                  print(" ", policy, "cost", round(vals["mean_cost_per_step"], 5),
+                        "thirst", round(vals["high_thirst_fraction"], 5))
+              for policy, val in r["paired_vs_model_based_3"].items():
+                  print(" DIFF", policy, val)
+          print("PREDICTION_RMSE", d["model_prediction_rmse_mean"])
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: infinito-f6-homeostasis-rl-heldout
+          path: observatory_results/homeostasis_f6/report.json
+          if-no-files-found: warn
