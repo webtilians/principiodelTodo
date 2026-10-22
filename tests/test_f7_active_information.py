@@ -5,7 +5,7 @@ from observatory.active_information_f7 import (
     BayesianCalibration, Episode, PROBE_COST, WorldRules, act,
     bootstrap_differences, calibrated_model, choose_probe, episodes,
     episodes_with_independent_noise, evaluate, expected_inspection_value,
-    expected_terminal_value, world_rules,
+    expected_terminal_value, world_rules, public_view,
 )
 
 
@@ -26,7 +26,7 @@ class F7ValueOfInformationTests(unittest.TestCase):
         ep = Episode(1, 1, 0, 1, (1, 0))
         model = BayesianCalibration()
         before = (model.sensor_accuracy(0), model.sensor_accuracy(1))
-        choose_probe("voi_adaptive", model, ep, __import__("random").Random(1))
+        choose_probe("voi_adaptive", model, public_view(ep), __import__("random").Random(1))
         self.assertEqual(before, (model.sensor_accuracy(0), model.sensor_accuracy(1)))
         model.observe(ep, 0)
         self.assertGreater(model.sensor_accuracy(0), before[0])
