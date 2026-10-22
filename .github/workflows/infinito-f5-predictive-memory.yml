@@ -1,0 +1,59 @@
+name: INFINITO F5 — EcoDispatch Predictive Memory
+
+on:
+  push:
+    branches: ["experiment/f5-ecodispatch-predictive-memory"]
+    paths:
+      - "observatory/predictive_memory.py"
+      - "tests/test_predictive_memory.py"
+      - ".github/workflows/infinito-f5-predictive-memory.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  predictive-memory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install numerical runtime
+        run: python -m pip install "numpy>=1.24,<3"
+      - name: Test no lookahead, model learning, reproducibility and controls
+        run: python -m unittest discover -s tests -p 'test_predictive_memory.py' -v
+      - name: Frozen paired protocol — 20 seeds, 960 train, 240 test
+        run: |
+          python -m observatory.predictive_memory \
+            --seeds 20 --train 960 --test 240 \
+            --output observatory_results/f5_predictive_memory
+      - name: Validate conditions and preregistered outcomes
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('observatory_results/f5_predictive_memory/report.json')
+          report=json.loads(p.read_text())
+          assert report['seeds']==20
+          assert report['train_per_seed']==960
+          assert report['test_per_scenario_per_seed']==240
+          assert set(('stable','shift','null','nonlinear')).issubset(report['conditions'])
+          assert report['memory_slots']==3 and report['event_types']==12
+          for scenario in ('stable','shift','null','nonlinear'):
+              print('SCENARIO',scenario)
+              c=report['conditions'][scenario]
+              for name,metrics in c['policies'].items():
+                  print(' ',name,'MSE',metrics['mse'],'SIGN',metrics['sign_accuracy'])
+              print(' PAIRED CI',c['comparisons_vs_lambda1'])
+          print('PREDECLARED',report['conditions']['predeclared_success'])
+          PY
+      - name: Publish raw seed-wise evidence and protocol results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: infinito-f5-ecodispatch-predictive-memory
+          path: observatory_results/f5_predictive_memory/report.json
+          if-no-files-found: warn
