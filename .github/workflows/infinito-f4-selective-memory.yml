@@ -1,0 +1,51 @@
+name: INFINITO F4 Selective Memory
+on:
+  push:
+    branches: ["experiment/emergence-observatory-*"]
+    paths:
+      - "observatory/selective_memory.py"
+      - "tests/test_selective_memory.py"
+      - ".github/workflows/infinito-f4-selective-memory.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  memory-policy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Independent reproducibility and causality-boundary tests
+        run: python -m unittest discover -s tests -p 'test_selective_memory.py' -v
+      - name: Frozen heldout benchmark with regime switches and negative control
+        run: |
+          python -m observatory.selective_memory \
+            --seeds 24 --output observatory_results/selective_memory
+      - name: Verify result report and print paired confidence intervals
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          r = json.loads(Path("observatory_results/selective_memory/report.json").read_text())
+          assert r["seeds"] == 24
+          assert r["capacity"] == 3 and r["keys"] == 8
+          for condition in ("drifting_relevance", "uniform_negative_control"):
+              x = r["conditions"][condition]
+              assert set(x["strategies"]) == {
+                  "adaptive", "static_first_regime", "fifo", "reservoir"}
+              print("CONDITION", condition)
+              print("STRATEGIES", x["strategies"])
+              print("PAIRED", x["paired_differences"])
+              print("DYNAMICS", x["regime_learning"]["adaptive"])
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: infinito-f4-selective-memory-learned
+          path: |
+            observatory_results/selective_memory/report.json
+            observatory_results/selective_memory/*.jsonl
+          if-no-files-found: warn
