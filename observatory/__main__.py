@@ -7,6 +7,7 @@ import random
 from pathlib import Path
 
 from .blinding import blind_runs
+from .adapters import export_jsonl, parse_legacy_log, read_scalar_csv
 from .core import analyze, load_jsonl, save_json
 
 
@@ -60,8 +61,26 @@ def main() -> None:
     scan.add_argument("--alpha", type=float, default=0.05)
     scan.add_argument("--min-effect", type=float, default=1.0)
     scan.add_argument("--seed", type=int, default=42)
+    ingest_log = commands.add_parser("import-log", help="Import original INFINITO console logs")
+    ingest_log.add_argument("--input", type=Path, required=True)
+    ingest_log.add_argument("--output", type=Path, required=True)
+    ingest_log.add_argument("--run-id", required=True)
+    ingest_csv = commands.add_parser("import-csv", help="Import a scalar time series")
+    ingest_csv.add_argument("--input", type=Path, required=True)
+    ingest_csv.add_argument("--output", type=Path, required=True)
+    ingest_csv.add_argument("--run-id", required=True)
+    ingest_csv.add_argument("--step-column", default="")
     args = parser.parse_args()
-    if args.command == "demo":
+    if args.command == "import-log":
+        content = args.input.read_text(encoding="utf-8-sig")
+        rows = parse_legacy_log(content, run_id=args.run_id)
+        export_jsonl(args.output, rows)
+        result = {"output": str(args.output), "observations": len(rows)}
+    elif args.command == "import-csv":
+        rows = read_scalar_csv(args.input, run_id=args.run_id, step_column=args.step_column)
+        export_jsonl(args.output, rows)
+        result = {"output": str(args.output), "observations": len(rows)}
+    elif args.command == "demo":
         result = generate_demo(args.output_dir, args.seed)
     elif args.command == "blind":
         result = blind_runs(load_jsonl(args.input), output_path=args.output, key_file=args.key_file)
