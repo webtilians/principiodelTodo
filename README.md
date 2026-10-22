@@ -263,3 +263,17 @@ MIT License - Ver [LICENSE](LICENSE)
 
 **Última actualización**: Noviembre 2025  
 **Versión**: 2.0 (Cerebro Motor)
+
+
+---
+
+## Experimento aislado: Observatorio de Emergencia v0.1 (octubre 2026)
+
+Esta rama añade un módulo de observación **sin modificar el código histórico
+de INFINITO**. Importa métricas y logs, anonimiza versiones para comparaciones
+ciegas e identifica transiciones temporales candidatas mediante controles
+estadísticos. No atribuye conciencia a sus resultados.
+
+Guía: [docs/INFINITO_EMERGENCE_OBSERVATORY.md](docs/INFINITO_EMERGENCE_OBSERVATORY.md)
+
+Prueba sintética: python -m observatory demo --output-dir observatory_results/demo
