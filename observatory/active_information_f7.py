@@ -36,11 +36,22 @@ class WorldRules:
 
 @dataclass(frozen=True)
 class Episode:
-    latent: int     # Not passed to decision function.
+    latent: int     # simulator-only
     cue: int
     difficulty: int
     stakes: float
-    signals: tuple[int, int]  # Not passed unless a probe is purchased.
+    signals: tuple[int, int]  # simulator-only
+
+
+@dataclass(frozen=True)
+class PublicObservation:
+    cue: int
+    difficulty: int
+    stakes: float
+
+
+def public_view(ep: Episode) -> PublicObservation:
+    return PublicObservation(ep.cue, ep.difficulty, ep.stakes)
 
 
 def world_rules(seed: int, *, unlearnable: bool = False, swapped: bool = False) -> WorldRules:
@@ -141,7 +152,7 @@ def expected_inspection_value(p: float, stake: float, reliability: float) -> flo
     return expect - PROBE_COST
 
 
-def choose_probe(name: str, model: BayesianCalibration, ep: Episode,
+def choose_probe(name: str, model: BayesianCalibration, ep: PublicObservation,
                  rng: random.Random, oracle: WorldRules | None = None) -> int | None:
     if name == "never":
         return None
@@ -168,17 +179,22 @@ def choose_probe(name: str, model: BayesianCalibration, ep: Episode,
     raise ValueError("unknown policy: " + name)
 
 
-def act(ep: Episode, model: BayesianCalibration, inspected: int | None,
+def act(ep: PublicObservation, model: BayesianCalibration,
+        inspected: int | None, signal: int | None,
         oracle: WorldRules | None = None):
+    if inspected is None and signal is not None:
+        raise ValueError("unpaid sensor observation")
+    if inspected is not None and signal is None:
+        raise ValueError("missing paid sensor observation")
     if oracle:
         q = oracle.cue_accuracies[ep.difficulty]
         p = q if ep.cue else 1.0 - q
         if inspected is not None:
-            p = assimilate(p, ep.signals[inspected], oracle.reliabilities[inspected])
+            p = assimilate(p, signal, oracle.reliabilities[inspected])
     else:
         p = posterior(ep.cue, ep.difficulty, model)
         if inspected is not None:
-            p = assimilate(p, ep.signals[inspected], model.sensor_accuracy(inspected))
+            p = assimilate(p, signal, model.sensor_accuracy(inspected))
     return int(p >= 0.5)
 
 
@@ -206,8 +222,10 @@ def evaluate(seed: int, *, unlearnable: bool = False, change: bool = False,
             rules = world_rules(seed, unlearnable=unlearnable,
                                 swapped=change and t >= test_n // 2)
             oracle = rules if name == "oracle_voi" else None
-            sensor = choose_probe(name, model, ep, rng, oracle=oracle)
-            selected = act(ep, model, sensor, oracle=oracle)
+            visible = public_view(ep)
+            sensor = choose_probe(name, model, visible, rng, oracle=oracle)
+            signal = ep.signals[sensor] if sensor is not None else None
+            selected = act(visible, model, sensor, signal, oracle=oracle)
             correct = int(selected == ep.latent)
             reward.append(ep.stakes * (2 * correct - 1) -
                           (PROBE_COST if sensor is not None else 0.0))
