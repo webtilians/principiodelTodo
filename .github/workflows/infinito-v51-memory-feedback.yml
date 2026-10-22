@@ -38,12 +38,18 @@ jobs:
             --seeds 11 29 47 --train 16 --test 16 --gain 0.5 \
             --steps 17 --distractor-sd 0.55 \
             --output observatory_results/memory_feedback/long
+      - name: No-cue label-leakage negative control
+        run: |
+          PYTHONPATH=. python scripts/infinito_v51_memory_feedback.py \
+            --seeds 11 29 47 --train 12 --test 12 --gain 0.5 \
+            --steps 5 --distractor-sd 0.12 --cue-amplitude 0 \
+            --output observatory_results/memory_feedback/null
       - name: Inspect result schema and report controls
         run: |
           python - <<'PY'
           import json
           from pathlib import Path
-          for label in ("short", "long"):
+          for label in ("short", "long", "null"):
               p = Path(f"observatory_results/memory_feedback/{label}/report.json")
               d = json.loads(p.read_text())
               assert len(d["results"]) == 3
