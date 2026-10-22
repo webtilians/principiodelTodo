@@ -1,0 +1,27 @@
+name: INFINITO V1–V5.1 Full Path Smoke
+on:
+  push:
+    branches: ["experiment/emergence-observatory-*"]
+    paths:
+      - ".github/workflows/infinito-full-compare.yml"
+      - "scripts/infinito_full_v51_smoke.py"
+      - "scripts/infinito_full_compare.py"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: |
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install numpy scipy matplotlib sympy pygame
+      - name: V5.1 original train_step smoke
+        run: PYTHONPATH=. python scripts/infinito_full_v51_smoke.py --steps 2
