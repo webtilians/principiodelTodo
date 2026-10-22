@@ -122,6 +122,15 @@ def run_v51(seed, mode, steps, shock, out, hidden_dim):
     for name in ("visual", "auditory", "motor", "executive"):
         handles.append(getattr(model, name + "_module").register_forward_hook(
             internal_module_hook(name, state_cache, mode, iteration, shock)))
+    # Observe post-integration workspace where external memory enters.
+    def workspace_hook(module, inputs, output):
+        with torch.no_grad():
+            state_cache["workspace"] = output.detach().mean(dim=0).float().cpu().numpy()
+    def memory_hook(module, inputs, output):
+        with torch.no_grad():
+            state_cache["memory_read"] = output[0].detach().mean(dim=0).float().cpu().numpy()
+    handles.append(model.consciousness_processor[-1].register_forward_hook(workspace_hook))
+    handles.append(model.memory.register_forward_hook(memory_hook))
     rows, states = [], []
     old = None
     original_step = trainer.train_step
@@ -143,7 +152,7 @@ def run_v51(seed, mode, steps, shock, out, hidden_dim):
         result = original_step(step)  # all native train-step pathways execute
         states4 = np.stack([state_cache[name] for name in
                             ("visual", "auditory", "motor", "executive")])
-        flat = states4.reshape(-1)
+        flat = np.concatenate((states4.reshape(-1), state_cache["workspace"]))
         features = stats_state(flat, old)
         norms = np.linalg.norm(states4, axis=1)
         s = states4 / np.maximum(norms[:, None], 1e-9)
@@ -151,6 +160,8 @@ def run_v51(seed, mode, steps, shock, out, hidden_dim):
         features.update({
             "module_differentiation": float(np.mean(1 - sim[np.triu_indices(4, 1)])),
             "module_output_sd": float(states4.std()),
+            "workspace_norm": float(np.linalg.norm(state_cache["workspace"])),
+            "memory_read_norm": float(np.linalg.norm(state_cache["memory_read"])),
             "memory_norm": float(model.memory.memory.detach().float().norm().item()),
             "lstm_hidden_norm": float(sum(getattr(model, name + "_module").h_state.detach().float().norm().item()
                                         for name in ("visual", "auditory", "motor", "executive"))),
