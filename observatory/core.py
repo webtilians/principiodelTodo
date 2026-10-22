@@ -35,6 +35,7 @@ class Candidate:
     p_value: float
     q_value: float
     flagged: bool
+    event_id: str = ""
     label: str = "unclassified_transition"
 
 
@@ -167,6 +168,9 @@ def analyze(
                 run_id=run_id, metric=metric, step=at_step, delta=delta,
                 effect_size=effect, p_value=p_value, q_value=q_value,
                 flagged=q_value <= alpha and effect >= min_effect,
+                event_id="E-" + hashlib.sha256(
+                    ("%s|%s|%s" % (run_id, metric, at_step)).encode()
+                ).hexdigest()[:12].upper(),
             ))
     recurring = _recurrence(findings, recurrence_tolerance, min_replicates)
     return {
