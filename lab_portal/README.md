@@ -95,3 +95,7 @@ sus resultados.
 de transiciones mediante calibración offline y actualiza online su creencia
 sobre un régimen oculto. Todavía NO modifica online el modelo de la física,
 NO descubre regímenes arbitrarios y NO demuestra conciencia subjetiva.
+
+## Auditoría y aceptación del despliegue
+
+Consulta [la auditoría del flujo y las instrucciones de aceptación](../docs/LAB_FLOW_AUDIT_2026-10-23.md). Incluye el mecanismo real definido en el kit VPS, los pasos manuales de Docker, las comprobaciones pendientes en producción y un comprobador HTTP que no imprime credenciales. La existencia del kit en GitHub no demuestra que el temporizador esté activo en tu servidor.
