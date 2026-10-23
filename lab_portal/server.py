@@ -7,12 +7,13 @@ import os
 import re
 import signal
 import subprocess
+import time
 import sys
 import uuid
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
-from threading import Lock
+from threading import Lock, Thread
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, Response
@@ -53,6 +54,43 @@ def require_auth(x_lab_token: str | None = Header(default=None)):
         raise HTTPException(401, detail="Clave de acceso incorrecta")
 
 
+def process_alive(pid: int):
+    if os.name != "nt":
+        os.kill(pid, 0)
+        return True
+    # os.kill(pid, 0) terminates processes on Windows; query a handle instead.
+    import ctypes
+    from ctypes import wintypes
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+    kernel.OpenProcess.restype = wintypes.HANDLE
+    kernel.WaitForSingleObject.argtypes = [wintypes.HANDLE, wintypes.DWORD]
+    kernel.WaitForSingleObject.restype = wintypes.DWORD
+    kernel.CloseHandle.argtypes = [wintypes.HANDLE]
+    handle = kernel.OpenProcess(0x00100000, False, pid)
+    if not handle:
+        if ctypes.get_last_error() == 5:
+            return True  # Access denied is not proof of termination.
+        return False
+    try:
+        return kernel.WaitForSingleObject(handle, 0) == 258
+    finally:
+        kernel.CloseHandle(handle)
+
+
+def revision():
+    try:
+        return subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True,
+            stderr=subprocess.DEVNULL, timeout=3).strip()
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+
+# Capture loaded code, rather than a checkout that an updater may later change.
+CODE_REVISION = revision()
+
+
 def read_job(folder: Path):
     try:
         job = json.loads((folder / "job.json").read_text(encoding="utf8"))
@@ -65,10 +103,12 @@ def read_job(folder: Path):
     elif job["status"] in ("queued", "running"):
         try:
             pid = int((folder / "worker.pid").read_text())
-            os.kill(pid, 0)
+            if not process_alive(pid):
+                job["status"] = "interrupted"
         except (OSError, ValueError):
             # Allow the worker time to spawn immediately after writing metadata.
-            if (folder / "worker.pid").exists():
+            if ((folder / "worker.pid").exists() or
+                    time.time() - (folder / "job.json").stat().st_mtime > 30):
                 job["status"] = "interrupted"
     return job
 
@@ -86,11 +126,12 @@ def list_jobs():
     folders = sorted((p for p in workspace().iterdir()
                       if p.is_dir() and JOB_ID.fullmatch(p.name)), reverse=True)
     result = []
-    for p in folders[:100]:
+    for p in folders:
         try:
             result.append(read_job(p))
         except HTTPException:
             pass
+    result.sort(key=lambda job: job.get("created_at", ""), reverse=True)
     return result
 
 
@@ -115,7 +156,8 @@ def asset(asset: str):
 
 @app.get("/api/ping", dependencies=[Depends(require_auth)])
 def ping():
-    return {"ok": True, "workspace": str(workspace()), "experiments": len(EXPERIMENTS)}
+    return {"ok": True, "workspace": str(workspace()), "experiments": len(EXPERIMENTS),
+            "revision": CODE_REVISION}
 
 
 @app.get("/api/catalog", dependencies=[Depends(require_auth)])
@@ -150,18 +192,25 @@ def start(submission: Submission):
         info = {"id": job_id, "experiment": submission.experiment,
                 "params": params, "status": "queued", "created_at": now(),
                 "started_at": None, "finished_at": None, "exit_code": None,
-                "note": EXPERIMENTS[submission.experiment].warning}
+                "note": EXPERIMENTS[submission.experiment].warning,
+                "revision": CODE_REVISION}
         (folder / "job.json").write_text(json.dumps(info, indent=2), encoding="utf8")
         seconds = min(max(int(os.environ.get("LAB_MAX_SECONDS", "14400")), 60), 86400)
-        proc = subprocess.Popen(
-            [sys.executable, "-m", "lab_portal.worker", "--job-dir", str(folder),
-             "--repo-root", str(ROOT), "--timeout", str(seconds)],
-            cwd=ROOT, env={**os.environ, "PYTHONPATH": str(ROOT)},
-            stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL, start_new_session=(os.name != "nt"),
-            creationflags=(subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0),
-        )
+        try:
+            proc = subprocess.Popen(
+                [sys.executable, "-m", "lab_portal.worker", "--job-dir", str(folder),
+                 "--repo-root", str(ROOT), "--timeout", str(seconds)],
+                cwd=ROOT, env={**os.environ, "PYTHONPATH": str(ROOT)},
+                stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL, start_new_session=(os.name != "nt"),
+                creationflags=(subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0),
+            )
+        except OSError as error:
+            info.update(status="failed", finished_at=now(), error=type(error).__name__)
+            (folder / "job.json").write_text(json.dumps(info, indent=2), encoding="utf8")
+            raise HTTPException(503, "No se pudo iniciar el trabajador") from error
         (folder / "worker.pid").write_text(str(proc.pid))
+        Thread(target=proc.wait, daemon=True).start()
         return info
 
 
