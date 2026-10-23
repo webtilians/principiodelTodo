@@ -359,3 +359,20 @@ Nunca expongas el ejecutor a Internet sin protegerlo.
 **Estado científico:** F8 integrado aún no se ha programado; el
 portal reúne los ejecutables existentes. F6 requiere correcciones
 de diseño antes de interpretar sus resultados como confirmatorios.
+
+
+### INFINITO F8 — Laboratorio web y agente predictivo activo
+
+La rama `experiment/f8-laboratory-portal` contiene un **portal FastAPI ejecutable**
+con los experimentos F4–F8 y el primer **mundo integrado F8**:
+el agente aprende consecuencias de acciones, infiere el estado oculto
+a partir de experiencias y decide cuándo pagar por una observación.
+
+- [Portal: instalación y ejecución](lab_portal/README.md)
+- [F8: experimento y resultados con controles negativos](docs/INFINITO_F8_INTEGRATED_WORLD_RESULTS_2026-10-23.md)
+- [Simulador F8](observatory/active_world_f8.py)
+- [Pruebas del simulador F8](tests/test_f8_active_world.py)
+
+**Límites:** es un entorno sintético; F8 actual adapta online la creencia
+sobre el régimen, no los parámetros de la física. No representa una
+prueba de emergencia inesperada ni de conciencia.
