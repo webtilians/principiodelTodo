@@ -20,8 +20,12 @@ Base auditada: `cc4777f93c89c391d06a4e7fbbdf730d9de0e862`, rama
 - Pruebas remotas autenticadas por HTTPS: F4 `e5eff332920343f38fee94b1c6970c37`
   y F8 `232cf5c32c8a4808bef35d1f69c7c3e9` completadas; informes, resúmenes y ZIP
   descargados y comprobados, sin registrar la clave. La interfaz autenticada muestra
-  las seis familias, las ejecuciones, logs y gráficas. Se lanzó además F4 desde el navegador.
-- No se ha reiniciado el VPS. Falta conexión SSH autorizada para esta auditoría.
+  las seis familias, las ejecuciones, logs y gráficas. Se lanzó además F4 `456bf67f8b2241e49d2bbe0393d4cc6a` desde el navegador,
+  terminó y mostró logs y gráficas.
+- GitHub Actions en Linux/Python 3.11 pasó los tests del portal y el smoke F4:
+  https://github.com/webtilians/principiodelTodo/actions/runs/39938603053
+- No se ha reiniciado el VPS. Falta conexión SSH autorizada para esta auditoría;
+  no existe archivo SSH config en el perfil local inspeccionado.
   La configuración efectiva de systemd/Caddy, el volumen de producción y la versión
   del backend remoto siguen sin verificar (ping todavía no devuelve SHA). El HTML público no demuestra la versión del backend.
 
