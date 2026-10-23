@@ -91,10 +91,10 @@ class LearnedDynamics:
         rng = random.Random(seed*4241 + 107)
         config = rules(seed)
         buckets = {}
+        combos = list(itertools.product(range(2), range(N_ACT), range(2), range(2)))
         for i in range(n):
             # Stratified calibration: every (mode, action, heat, availability)
             # has equal initial representation; no stochastic empty cells.
-            combos = list(itertools.product(range(2),range(N_ACT),range(2),range(2)))
             mode, action, heat, available = combos[i % len(combos)]
             water = rng.uniform(.28, .43) if available else rng.uniform(.06, .18)
             state = (rng.uniform(.26, .57), rng.uniform(.26, .57), water, heat)
