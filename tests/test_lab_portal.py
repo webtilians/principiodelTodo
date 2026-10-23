@@ -18,7 +18,7 @@ from lab_portal.summaries import summarize
 
 class CatalogTests(unittest.TestCase):
     def test_all_experiments_have_valid_presets(self):
-        self.assertEqual(set(EXPERIMENTS), {"f4", "f5", "f6", "f7", "f7b"})
+        self.assertEqual(set(EXPERIMENTS), {"f4", "f5", "f6", "f7", "f7b", "f8"})
         for key, exp in EXPERIMENTS.items():
             for preset in exp.presets.values():
                 normalize(key, preset)
@@ -36,6 +36,21 @@ class CatalogTests(unittest.TestCase):
         self.assertEqual(args[:2], ["-m", "observatory.active_information_f7"])
         self.assertEqual(args[-2:], ["--output", "/safe/output"])
         self.assertNotIn("shell", str(args))
+
+    def test_f8_safe_parameters_and_summary(self):
+        params=normalize("f8",{"seeds":4,"train":320,"test-episodes":3,
+                               "horizon":18,"seed-offset":1000})
+        call=command("f8",params,"/safe/results")
+        self.assertEqual(call[:2],["-m","observatory.active_world_f8"])
+        for key in ("--seed-offset","--test-episodes","--horizon"):
+            self.assertIn(key,call)
+        with self.assertRaises(ParameterError):
+            normalize("f8",{"seed-offset":";rm -rf"})
+        from lab_portal.summaries import summarize
+        report={"scenarios":{"switch":{"policies":{
+            "voi":{"return_mean":-.9},"never":{"return_mean":-1.1}}}}}
+        result=summarize("f8",report)
+        self.assertEqual(result["scenarios"]["switch"]["voi"],-.9)
 
     def test_test_cases_need_even_length(self):
         with self.assertRaises(ParameterError):
@@ -63,7 +78,7 @@ class APIConfigTests(unittest.TestCase):
 
     def test_catalog_lists_only_implemented_protocols(self):
         data = self.client.get("/api/catalog", headers=self.headers).json()
-        self.assertEqual(len(data["experiments"]), 5)
+        self.assertEqual(len(data["experiments"]), 6)
         self.assertEqual(data["max_concurrent"], 1)
 
     def test_create_job_uses_detached_allowlisted_worker(self):
@@ -87,7 +102,7 @@ class APIConfigTests(unittest.TestCase):
                                     json={"experiment":"f6","params":{"seeds":8},"command":"bash"})
         self.assertEqual(response.status_code,422)
         response = self.client.post("/api/jobs", headers=self.headers,
-                                    json={"experiment":"f8","params":{}})
+                                    json={"experiment":"nonexistent","params":{}})
         self.assertEqual(response.status_code,422)
 
     def test_report_and_summary_only_from_own_job(self):
