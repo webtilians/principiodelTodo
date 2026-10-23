@@ -92,6 +92,27 @@ EXPERIMENTS = {
                  "estandar": {"seeds": 24, "train": 240, "test": 600},
                  "largo": {"seeds": 80, "train": 900, "test": 2200}},
     ),
+    "f8": Experiment(
+        name="F8 · Mundo activo integrado",
+        description="Predecir consecuencias, detectar cambios y decidir cuándo observar",
+        command=("-m","observatory.active_world_f8"),
+        params={
+            "seeds": IntegerParam("Semillas independientes",12,4,120),
+            "train": IntegerParam("Transiciones de calibración por mundo",1800,300,15000),
+            "test-episodes": IntegerParam("Episodios de prueba por escenario",10,3,40),
+            "horizon": IntegerParam("Decisiones por episodio",42,18,80),
+            "seed-offset": IntegerParam("Semilla inicial (para replicaciones)",1000,0,100000),
+        },
+        unit="recompensa neta por paso",
+        scenario="estable · cambio oculto · sensores de ruido",
+        warning=("Mundo sintético con hipótesis de dos regímenes predefinida. "
+                 "No equivale a curiosidad consciente; comprobar controles y CI."),
+        presets={
+            "rapido":{"seeds":4,"train":320,"test-episodes":3,"horizon":18,"seed-offset":1000},
+            "estandar":{"seeds":12,"train":1800,"test-episodes":10,"horizon":42,"seed-offset":1000},
+            "largo":{"seeds":48,"train":5000,"test-episodes":24,"horizon":60,"seed-offset":10000},
+        },
+    ),
 }
 
 
