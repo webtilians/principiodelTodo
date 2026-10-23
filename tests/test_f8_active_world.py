@@ -24,8 +24,8 @@ class IntegratedWorldTests(unittest.TestCase):
 
     def test_sensor_has_positive_value_only_when_action_changes(self):
         sensors=LearnedSensors()
-        sensors.right=[95.,2.]
-        sensors.wrong=[5.,98.]
+        sensors.right=[95.,50.]
+        sensors.wrong=[5.,50.]
         scores=[(0,1.,0.),(1,0.,1.)]
         self.assertEqual(choose_information(scores,.5,sensors),0)
         sensors.right=[50.,50.]
