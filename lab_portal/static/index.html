@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#080d14">
+  <meta name="description" content="INFINITO Research Laboratory — ejecuciones reproducibles, seguimiento de experimentos y resultados.">
+  <title>INFINITO / Laboratorio</title>
+  <link rel="stylesheet" href="/assets/lab.css">
+  <script defer src="/assets/lab.js"></script>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <a class="brand" href="/" aria-label="INFINITO Laboratorio">
+        <span class="brand-icon"><span class="orbit"></span><span class="core"></span></span>
+        <span><strong>INFINITO</strong><small>RESEARCH LAB</small></span>
+      </a>
+      <div class="nav-heading">ESPACIO DE TRABAJO</div>
+      <nav class="sidebar-nav" aria-label="Laboratorios">
+        <a class="nav-link selected" href="#experiments"><span class="nav-symbol">⌘</span> Experimentos <span class="nav-arrow">↗</span></a>
+        <a class="nav-link" href="#runs"><span class="nav-symbol">≋</span> Ejecuciones</a>
+        <a class="nav-link" href="#results"><span class="nav-symbol">◈</span> Resultados</a>
+      </nav>
+      <div class="nav-heading exp-heading">MÓDULOS DISPONIBLES</div>
+      <div id="modules-nav" class="module-list" aria-label="Tipos de experimento"></div>
+      <div class="sidebar-bottom">
+        <div class="research-badge"><span class="pulse-dot"></span><span>LAB LOCAL<span class="sub-label">1 experimento a la vez</span></span></div>
+        <button id="logout" class="outline-button" type="button">Desconectar</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="breadcrumbs"><span>WORKSPACE</span><span class="crumb-slash">/</span><strong>Laboratorio</strong></div>
+        <div class="top-actions"><span class="live-indicator" id="server-status"><i></i> DESVINCULADO</span><a href="https://github.com/webtilians/principiodelTodo" target="_blank" rel="noreferrer" class="github-link">Repositorio <span>↗</span></a></div>
+      </header>
+
+      <div class="content">
+        <section class="hero" id="experiments">
+          <div class="eyebrow"><span class="small-diamond"></span> LABORATORIO DE INVESTIGACIÓN · BETA</div>
+          <h1>Explora los límites<br><em>de lo que emerge.</em></h1>
+          <p>Lanza experimentos reproducibles, amplía el horizonte de observación y compara hipótesis con controles. No confundimos una mejora estadística con conciencia.</p>
+          <div class="hero-coordinates" aria-hidden="true">Φ ≠ CONCIENCIA&nbsp;&nbsp; / &nbsp;&nbsp;OBSERVAR → CONTRASTAR → COMPRENDER</div>
+        </section>
+
+        <div class="stats" aria-label="Estado del laboratorio">
+          <div class="stat"><div class="stat-top">EXPERIMENTOS</div><strong id="stat-modules">—</strong><span>Protocolos disponibles</span></div>
+          <div class="stat"><div class="stat-top">EJECUCIONES</div><strong id="stat-runs">—</strong><span>Con resultados independientes</span></div>
+          <div class="stat"><div class="stat-top">EN CURSO</div><strong id="stat-running">—</strong><span>Un trabajo simultáneo</span></div>
+          <div class="stat"><div class="stat-top">ENTORNO</div><strong class="small-stat">CPU / PYTHON</strong><span>Datos guardados en tu equipo</span></div>
+        </div>
+
+        <div class="section-title"><span>01 / CONFIGURAR</span><h2>Nuevo experimento</h2><p>Elige un protocolo y ajusta la profundidad de la ejecución.</p></div>
+        <section class="configure layout-grid" aria-label="Configurar experimento">
+          <div class="panel experiment-selector">
+            <div class="panel-title"><span>SELECCIONA EL PROTOCOLO</span><span class="panel-icon">⊞</span></div>
+            <div id="experiment-cards" class="experiment-cards"></div>
+          </div>
+          <div class="panel configuration">
+            <div class="panel-title"><span>PARÁMETROS DE EJECUCIÓN</span><span class="panel-icon">⚙</span></div>
+            <h3 id="current-exp">Selecciona un experimento</h3>
+            <p class="muted" id="exp-description">Cada ejecución utiliza sus propias semillas y escribe resultados en una carpeta independiente.</p>
+            <div class="presets" role="group" aria-label="Perfil de duración">
+              <button type="button" data-preset="rapido" class="preset">PRUEBA</button>
+              <button type="button" data-preset="estandar" class="preset active">ESTÁNDAR</button>
+              <button type="button" data-preset="largo" class="preset">LARGO</button>
+            </div>
+            <form id="run-form">
+              <div id="fields" class="fields"></div>
+              <div class="lab-warning"><span>ⓘ</span><span id="exp-warning">Revisa las limitaciones de cada experimento antes de interpretar sus resultados.</span></div>
+              <button class="launch-button" id="launch" type="submit"><span>▶</span> INICIAR EJECUCIÓN <span class="button-tail">↗</span></button>
+            </form>
+          </div>
+        </section>
+
+        <div class="section-title second" id="runs"><span>02 / MONITORIZAR</span><h2>Ejecuciones</h2><p>Consulta el progreso, los registros y los resultados disponibles.</p></div>
+        <div class="layout-grid monitor-grid">
+          <section class="panel runs-panel" aria-label="Historial de ejecuciones">
+            <div class="panel-title"><span>HISTORIAL</span><button type="button" id="refresh" class="icon-button" aria-label="Actualizar">↻</button></div>
+            <div id="runs-list" class="runs-list"><div class="empty">Todavía no hay ejecuciones.</div></div>
+          </section>
+          <section class="panel console-panel" aria-label="Detalle y registros">
+            <div class="panel-title"><span id="detail-title">TERMINAL / RESULTADOS</span><span id="job-state" class="pill">SIN SELECCIÓN</span></div>
+            <div class="job-meta" id="job-meta">Selecciona una ejecución para mostrar su actividad.</div>
+            <pre id="terminal" class="terminal">$ esperando experimento…<span class="cursor">_</span></pre>
+            <div class="console-actions">
+              <button type="button" id="cancel" class="tiny-button danger" disabled>Detener</button>
+              <button type="button" id="download" class="tiny-button" disabled>↓ Descargar datos</button>
+              <button type="button" id="report" class="tiny-button" disabled>↓ Informe JSON</button>
+            </div>
+          </section>
+        </div>
+
+        <section id="results" class="results-section">
+          <div class="section-title"><span>03 / EVIDENCIA</span><h2>Comparar resultados</h2><p>Las gráficas proceden directamente del informe de la ejecución seleccionada.</p></div>
+          <div class="panel results-panel"><div class="panel-title"><span>COMPARATIVA EXPERIMENTAL</span><span class="panel-icon">◫</span></div>
+            <div id="results-empty" class="empty evidence-empty">Completa o selecciona una ejecución con informe para visualizar los resultados.</div>
+            <div id="results-data" hidden><div class="results-header"><strong id="metric-title"></strong><select id="scenario" aria-label="Escenario"></select></div><div id="bars" class="bars"></div><p class="chart-footnote" id="metric-note"></p></div>
+          </div>
+        </section>
+        <footer>INFINITO LABORATORY <span>·</span> RESULTADOS NO EQUIVALEN A CONCIENCIA <span>·</span> REPRODUCIBILIDAD ANTES QUE TITULARES</footer>
+      </div>
+    </main>
+  </div>
+
+  <div id="auth-modal" class="auth-modal" aria-modal="true" role="dialog" aria-labelledby="auth-title">
+    <div class="auth-card"><div class="auth-symbol">◉</div><div class="eyebrow">ACCESO PRIVADO</div><h2 id="auth-title">Conecta tu laboratorio</h2><p>Introduce la clave configurada en <code>LAB_API_TOKEN</code>. Se conserva únicamente en esta pestaña.</p>
+      <form id="auth-form"><label for="token-input">CLAVE DEL LABORATORIO</label><input type="password" id="token-input" autocomplete="off" placeholder="Tu clave privada" required><button class="launch-button" type="submit">DESBLOQUEAR PANEL ↗</button></form><div id="auth-error" role="alert"></div>
+      <p class="auth-tip">Los experimentos se ejecutan en tu propio servidor, no en el navegador.</p>
+    </div>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
