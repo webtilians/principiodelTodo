@@ -44,4 +44,13 @@ def summarize(experiment: str, report: dict[str, Any]) -> dict:
                     name: {"recalibration": _finite(sec["mean_reward"]["all"]),
                            "late": _finite(sec["mean_reward"]["after_last_100"])}
                     for name, sec in report["conditions"].items()}}
+    if experiment == "f8":
+        return {"label": "Recompensa neta por paso (más es mejor)",
+                "unit": "recompensa", "scale": 1,
+                "scenarios": {
+                    scenario: {
+                        name: _finite(metrics["return_mean"])
+                        for name, metrics in section["policies"].items()
+                    } for scenario, section in report["scenarios"].items()
+                }}
     return {"label": "Resultados", "unit": "", "scale": 1, "scenarios": {}}
