@@ -47,8 +47,8 @@ def now():
 
 def require_auth(x_lab_token: str | None = Header(default=None)):
     expected = os.environ.get("LAB_API_TOKEN", "")
-    if not expected:
-        raise HTTPException(503, detail="Configura LAB_API_TOKEN en el servidor")
+    if not expected or expected.startswith("REEMPLAZAR_"):
+        raise HTTPException(503, detail="Configura una clave privada real en LAB_API_TOKEN")
     if not x_lab_token or not hmac.compare_digest(x_lab_token, expected):
         raise HTTPException(401, detail="Clave de acceso incorrecta")
 
