@@ -1,0 +1,50 @@
+name: INFINITO F8 — Integrated Active World
+on:
+  push:
+    branches: ["experiment/f8-laboratory-portal"]
+    paths:
+      - "observatory/active_world_f8.py"
+      - "tests/test_f8_active_world.py"
+      - "lab_portal/catalog.py"
+      - "lab_portal/summaries.py"
+      - "lab_portal/static/lab.js"
+      - ".github/workflows/infinito-f8-integrated.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  integrated-world:
+    runs-on: ubuntu-latest
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Check F8 world invariants and live integration
+        run: python -m unittest discover -s tests -p 'test_f8_active_world.py' -v
+      - name: Run paired unseen worlds and negative controls
+        run: |
+          python -m observatory.active_world_f8 \
+            --seeds 12 --train 1800 --test-episodes 10 \
+            --horizon 42 --seed-offset 1000 \
+            --output observatory_results/f8_active_world
+      - name: Report all conditions without hiding negative findings
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path("observatory_results/f8_active_world/report.json").read_text())
+          assert len(r["per_seed"]) == 12
+          for name, value in r["scenarios"].items():
+              print("SCENARIO",name)
+              print("POLICIES", value["policies"])
+              print("PAIRED",value["voi_minus"])
+          print("CHECKS",r["checks"])
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: infinito-f8-predictive-active-world
+          path: observatory_results/f8_active_world/report.json
+          if-no-files-found: warn
