@@ -1,8 +1,8 @@
 # INFINITO Laboratory — portal de experimentos
 
-Portal web **real y autoalojado**, con FastAPI y ejecutor de procesos independientes. Permite ejecutar los protocolos existentes **F4, F5, F6, F7 y F7b** con más semillas y episodios sin cambiar sus algoritmos ni fingir que F8 ya está implementado.
+Portal web **real y autoalojado**, con FastAPI y ejecutor de procesos independientes. Permite ejecutar **F4, F5, F6, F7, F7b y F8** con más semillas y episodios. F8 combina inferencia del estado oculto, planificación predictiva e inspección costosa en un mundo simulado separado de V5.1.
 
-[Plan de F8](../docs/INFINITO_NEXT_STEP_F8_2026-10-23.md). Esta rama desarrolla la infraestructura necesaria antes de implementar F8.
+[Plan de F8](../docs/INFINITO_NEXT_STEP_F8_2026-10-23.md). [F8 — Primeros resultados verificados](../docs/INFINITO_F8_INTEGRATED_WORLD_RESULTS_2026-10-23.md). El siguiente objetivo F8b (adaptación física online bajo cambios desconocidos) sigue pendiente.
 
 ## Ejecutar en tu PC o servidor
 
@@ -40,7 +40,7 @@ El contenedor enlaza el puerto **solo a 127.0.0.1 del servidor**. Para acceder d
 
 ## Qué puedes hacer
 
-- Seleccionar cinco familias de experimentos ya existentes (la ejecución F8 completa **no está disponible aún**).
+- Seleccionar seis familias de experimentos, incluido F8 (el mundo integrado de inferencia de régimen y sensores; no es el motor histórico V5.1).
 - Elegir preajustes **prueba / estándar / largo** y personalizar solo parámetros permitidos dentro de límites definidos.
 - Lanzar un experimento por vez como **proceso independiente**, sin depender de que la pestaña permanezca abierta.
 - Ver estado, terminal, errores, resultados tabulados y barras de comparación por escenario. Descargar reporte JSON o ZIP de logs y resultados con las semillas usadas.
@@ -62,3 +62,32 @@ python -m unittest discover -s tests -p 'test_lab_portal.py' -v
 ```
 
 El workflow `INFINITO Lab Portal` ejecuta esas pruebas en GitHub Actions. Para generar resultados largos desde la web, el portal debe estar ejecutándose en tu ordenador o en tu servidor; **GitHub Pages es estático y no puede lanzar estos procesos por sí solo**.
+
+
+## Ejecutar F8 desde el portal
+
+Selecciona **F8 · Mundo activo integrado** en el catálogo. Prueba primero el
+perfil **rápido**. Después, elige estándar o largo y ajusta la semilla inicial
+para ejecutar replicaciones independientes. El panel muestra la recompensa
+neta de las ocho políticas por escenario y permite descargar el informe
+completo con diferencias emparejadas por semilla.
+
+**Actualizar el portal si ya lo habías arrancado:** detén el servidor web,
+abre una terminal en la raíz del repositorio y ejecuta:
+
+~~~bash
+git switch experiment/f8-laboratory-portal
+git pull origin experiment/f8-laboratory-portal
+python -m lab_portal
+~~~
+
+Si instalaste el portal usando únicamente el ZIP anterior, necesitarás
+descargar/actualizar el repositorio completo: el paquete previo contenía
+el portal, pero no necesariamente los módulos de simulación. No actualices
+el código mientras haya una simulación en curso: termina y descarga primero
+sus resultados.
+
+**F8 es exploratorio y tiene limitaciones explícitas.** Aprende parámetros
+de transiciones mediante calibración offline y actualiza online su creencia
+sobre un régimen oculto. Todavía NO modifica online el modelo de la física,
+NO descubre regímenes arbitrarios y NO demuestra conciencia subjetiva.
