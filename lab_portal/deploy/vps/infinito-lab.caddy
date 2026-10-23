@@ -1,0 +1,16 @@
+# Written by setup.sh into /etc/caddy/sites.d/. Caddy gets and renews the HTTPS certificate.
+__HOST__ {
+	encode gzip
+	request_body {
+		max_size 1MB
+	}
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy no-referrer
+		X-Robots-Tag "noindex, nofollow"
+		-Server
+	}
+	reverse_proxy 127.0.0.1:8200
+}

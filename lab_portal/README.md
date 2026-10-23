@@ -38,6 +38,10 @@ El contenedor enlaza el puerto **solo a 127.0.0.1 del servidor**. Para acceder d
 
 **Restricción Docker predeterminada**: 2 CPU, 4 GB RAM. Ajusta estos límites conscientemente si necesitas pruebas más largas. No requiere GPU para F4–F7b.
 
+### Servidor con HTTPS y actualización automática
+
+Para tenerlo siempre en línea, sin Docker, detrás de Caddy con HTTPS y **actualizándose solo con cada commit de GitHub**, usa el kit de [`deploy/vps`](deploy/vps/README.md). Es el que publica el laboratorio en el servidor de LAIN. Si hay un experimento en marcha, la actualización espera a que termine.
+
 ## Qué puedes hacer
 
 - Seleccionar seis familias de experimentos, incluido F8 (el mundo integrado de inferencia de régimen y sensores; no es el motor histórico V5.1).

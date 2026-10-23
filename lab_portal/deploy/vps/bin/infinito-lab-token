@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# The key the portal asks for (LAB_API_TOKEN).
+#   infinito-lab-token          show it
+#   infinito-lab-token nueva    replace it (whoever has the old one can no longer get in)
+set -euo pipefail
+env_file=/etc/infinito-lab/lab.env
+case "${1:-}" in
+  "") grep '^LAB_API_TOKEN=' "$env_file" | cut -d= -f2- ;;
+  nueva)
+    if pgrep -u infinito-lab -f 'lab_portal\.worker' >/dev/null; then
+      echo "Hay un experimento en marcha y reiniciar lo cortaría. Espera a que termine o cancélalo." >&2
+      exit 1
+    fi
+    token=$(python3 -c 'import secrets; print(secrets.token_urlsafe(36))')
+    sed -i "s/^LAB_API_TOKEN=.*/LAB_API_TOKEN=$token/" "$env_file"
+    systemctl restart infinito-lab
+    echo "Clave nueva guardada. Para verla: infinito-lab-token" ;;
+  *) echo "Uso: infinito-lab-token [nueva]" >&2; exit 2 ;;
+esac
