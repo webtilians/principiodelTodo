@@ -334,3 +334,28 @@ El hallazgo operativo: comprar información puede mejorar la decisión cuando
 el sensor es útil, pero ante un cambio oculto de fiabilidad, un agente puramente
 codicioso con VOI estimado queda mal calibrado. La recalibración por sorpresa
 lo corrige en pruebas exploratorias; hacen falta confirmaciones independientes.
+
+
+## INFINITO Laboratory — Portal web de experimentación
+
+Se ha creado un **portal de laboratorio autoalojado** en la rama
+[experiment/f8-laboratory-portal](https://github.com/webtilians/principiodelTodo/tree/experiment/f8-laboratory-portal).
+
+Permite ejecutar experimentos F4, F5, F6, F7 y F7b con perfiles
+**prueba / estándar / largo**, ver logs y comparativas, cancelar
+ejecuciones y descargar ZIP/JSON. Es un panel real (FastAPI +
+procesos independientes), no una página estática.
+
+**[Guía de instalación y seguridad](lab_portal/README.md)**
+
+Inicio rápido: instala \`lab_portal/requirements.txt\`, genera
+una clave aleatoria en la variable \`LAB_API_TOKEN\`, inicia
+\`python -m lab_portal\` y abre **http://127.0.0.1:8765**.
+
+Para acceso remoto en tu servidor utiliza Docker Compose
+(\`lab_portal/docker-compose.yml\`) y túnel SSH o HTTPS autenticado.
+Nunca expongas el ejecutor a Internet sin protegerlo.
+
+**Estado científico:** F8 integrado aún no se ha programado; el
+portal reúne los ejecutables existentes. F6 requiere correcciones
+de diseño antes de interpretar sus resultados como confirmatorios.
