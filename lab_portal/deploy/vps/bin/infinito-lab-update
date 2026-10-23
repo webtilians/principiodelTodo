@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+# Keeps the INFINITO Laboratory in step with its GitHub branch (/etc/infinito-lab/branch).
+# infinito-lab-update.timer runs it every 2 minutes. It does nothing while GitHub has no new commit,
+# and waits while an experiment is running, because restarting the service would kill it.
+# If a new version does not start, it goes back to the previous one and skips that commit.
+#   infinito-lab-update                           install the newest commit, if there is one
+#   infinito-lab-update --force                   reinstall even without a new commit
+#   LAB_BRANCH=experiment/x infinito-lab-update   follow another branch from now on
+set -euo pipefail
+REPO=https://github.com/webtilians/principiodelTodo.git
+APP=/opt/infinito-lab
+VENV=/opt/infinito-lab-venv
+CONF=/etc/infinito-lab
+STATE=/var/lib/infinito-lab-deploy
+PORT=8200
+
+[ "$(id -u)" -eq 0 ] || { echo "Ejecuta este comando como root." >&2; exit 1; }
+exec 9>/run/infinito-lab-update.lock
+flock -n 9 || { echo "Ya hay una actualización en curso."; exit 0; }
+cd /
+install -d -m 755 "$STATE"
+force=""; [ "${1:-}" = "--force" ] && force=1
+if [ -n "${LAB_BRANCH:-}" ]; then echo "$LAB_BRANCH" > "$CONF/branch"; force=1; fi
+branch=$(cat "$CONF/branch" 2>/dev/null || echo experiment/f8-laboratory-portal)
+
+remote=$(git ls-remote "$REPO" "refs/heads/$branch" | cut -f1)
+[ -n "$remote" ] || { echo "La rama $branch no existe en GitHub." >&2; exit 1; }
+if [ -z "$force" ]; then
+  [ "$remote" = "$(cat "$STATE/deployed" 2>/dev/null || true)" ] && exit 0
+  # This commit already failed to start: wait for the next one.
+  [ "$remote" = "$(cat "$STATE/bad" 2>/dev/null || true)" ] && exit 0
+fi
+if pgrep -u infinito-lab -f 'lab_portal\.worker' >/dev/null; then
+  # Said once per commit, not every 2 minutes.
+  if [ "$remote" != "$(cat "$STATE/waiting" 2>/dev/null || true)" ]; then
+    echo "Hay un experimento en marcha: ${remote:0:7} se instalará cuando termine."
+    echo "$remote" > "$STATE/waiting"
+  fi
+  exit 0
+fi
+
+healthy() { curl -fs --max-time 3 -o /dev/null "http://127.0.0.1:$PORT/"; }
+previous=$(git -C "$APP" rev-parse -q --verify HEAD 2>/dev/null || true)
+new=""
+rollback() {
+  echo "La versión ${new:0:7} no arranca (${1}); se vuelve a la anterior ${previous:0:7}." >&2
+  [ -n "$new" ] && echo "$new" > "$STATE/bad"
+  if [ -n "$previous" ]; then
+    git -C "$APP" reset -q --hard "$previous"
+    systemctl restart infinito-lab || true
+  fi
+  journalctl -u infinito-lab -n 20 --no-pager -o cat >&2 || true
+  exit 1
+}
+
+echo "Actualizando $branch: ${previous:0:7} -> ${remote:0:7}"
+[ -d "$APP/.git" ] || git clone -q --depth 1 --branch "$branch" "$REPO" "$APP"
+git -C "$APP" fetch -q --depth 1 origin "+refs/heads/$branch:refs/remotes/origin/$branch"
+git -C "$APP" checkout -q -B "$branch" "origin/$branch"
+git -C "$APP" reset -q --hard "origin/$branch"
+new=$(git -C "$APP" rev-parse HEAD)
+
+[ -f "$APP/lab_portal/requirements.txt" ] || rollback "falta lab_portal/requirements.txt"
+[ -x "$VENV/bin/python" ] || python3 -m venv "$VENV"
+req=$(sha256sum "$APP/lab_portal/requirements.txt" | cut -d' ' -f1)
+if [ "$req" != "$(cat "$STATE/requirements" 2>/dev/null || true)" ]; then
+  "$VENV/bin/pip" install -q --disable-pip-version-check -r "$APP/lab_portal/requirements.txt" \
+    || rollback "pip install"
+  echo "$req" > "$STATE/requirements"
+fi
+# Import it as the service user before touching the running service.
+runuser -u infinito-lab -- env -C "$APP" PYTHONPATH="$APP" PYTHONDONTWRITEBYTECODE=1 \
+  LAB_API_TOKEN=import-check-only LAB_DATA_DIR=/var/lib/infinito-lab/runs \
+  "$VENV/bin/python" -c 'import lab_portal.server, lab_portal.worker' || rollback "error al importar"
+
+systemctl restart infinito-lab
+for _ in $(seq 1 30); do healthy && break; sleep 1; done
+healthy || rollback "no responde en el puerto $PORT"
+echo "$new" > "$STATE/deployed"
+rm -f "$STATE/bad" "$STATE/waiting"
+git -C "$APP" log -1 --format='Instalado: %h %s (%cd)' --date=format:'%Y-%m-%d %H:%M'
