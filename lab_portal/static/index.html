@@ -26,7 +26,7 @@
       <div id="modules-nav" class="module-list" aria-label="Tipos de experimento"></div>
       <div class="sidebar-bottom">
         <div class="research-badge"><span class="pulse-dot"></span><span>LAB LOCAL<span class="sub-label">1 experimento a la vez</span></span></div>
-        <button id="logout" class="outline-button" type="button">Desconectar</button>
+        <button id="logout" class="outline-button" type="button">Cerrar sesión</button>
       </div>
     </aside>
 
@@ -105,7 +105,7 @@
   </div>
 
   <div id="auth-modal" class="auth-modal" aria-modal="true" role="dialog" aria-labelledby="auth-title">
-    <div class="auth-card"><div class="auth-symbol">◉</div><div class="eyebrow">ACCESO PRIVADO</div><h2 id="auth-title">Conecta tu laboratorio</h2><p>Introduce la clave configurada en <code>LAB_API_TOKEN</code>. Se conserva únicamente en esta pestaña.</p>
+    <div class="auth-card"><div class="auth-symbol">◉</div><div class="eyebrow">ACCESO PRIVADO</div><h2 id="auth-title">Conecta tu laboratorio</h2><p>Introduce la clave configurada en <code>LAB_API_TOKEN</code>. Recordaremos el acceso en este navegador hasta que cierres sesión.</p>
       <form id="auth-form"><label for="token-input">CLAVE DEL LABORATORIO</label><input type="password" id="token-input" autocomplete="off" placeholder="Tu clave privada" required><button class="launch-button" type="submit">DESBLOQUEAR PANEL ↗</button></form><div id="auth-error" role="alert"></div>
       <p class="auth-tip">Los experimentos se ejecutan en tu propio servidor, no en el navegador.</p>
     </div>

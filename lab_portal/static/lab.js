@@ -1,6 +1,14 @@
 'use strict';
 const $ = (id) => document.getElementById(id);
-const state = {token: sessionStorage.getItem('infinito-lab-token') || '', catalog: [], selected: null,
+const accessKey = 'infinito-lab-token';
+function savedAccess() {
+  try { return localStorage.getItem(accessKey) || sessionStorage.getItem(accessKey) || ''; }
+  catch { return ''; }
+}
+function forgetAccess() {
+  try { localStorage.removeItem(accessKey); sessionStorage.removeItem(accessKey); } catch {}
+}
+const state = {token: savedAccess(), catalog: [], selected: null,
                jobs: [], job: null, poll: null, renderedReport: null};
 const icons = {f4:'◇', f5:'◈', f6:'⌁', f7:'⊙', f7b:'⟡', f8:'◎'};
 const labels = {f4:'MEMORIA', f5:'PREDICCIÓN', f6:'MODELO / RL', f7:'INFORMACIÓN', f7b:'RECALIBRACIÓN', f8:'MUNDO ACTIVO'};
@@ -23,10 +31,11 @@ async function api(path, options = {}) {
   try { response = await fetch('/api/' + path, {...options, headers, cache:'no-store'}); }
   catch (e) { throw Error('No se puede contactar con el servidor local.'); }
   if (response.status === 401) {
+    forgetAccess();
     if (!$('auth-modal').hidden) throw Error('Clave incorrecta');
     $('auth-modal').hidden = false;
     state.token = '';
-    sessionStorage.removeItem('infinito-lab-token');
+    forgetAccess();
     throw Error('Sesión caducada o clave incorrecta');
   }
   if (!response.ok) {
@@ -170,6 +179,9 @@ function renderBars(summary,scenario) {
 async function load() {
   try{
     await json('ping');setStatus(true);
+    try { localStorage.setItem(accessKey, state.token); sessionStorage.removeItem(accessKey); }
+    catch { notify('El navegador no permite recordar el acceso en este dispositivo.'); }
+    $('token-input').value='';
     state.catalog=(await json('catalog')).experiments;
     $('auth-modal').hidden=true;drawCatalog();await refreshJobs();
     clearInterval(state.poll);
@@ -180,10 +192,9 @@ async function load() {
 }
 $('auth-form').onsubmit=async event=>{
   event.preventDefault();state.token=$('token-input').value.trim();
-  sessionStorage.setItem('infinito-lab-token',state.token);
   $('auth-error').textContent='';await load();
 };
-$('logout').onclick=()=>{clearInterval(state.poll);sessionStorage.removeItem('infinito-lab-token');state.token='';$('auth-modal').hidden=false;};
+$('logout').onclick=()=>{clearInterval(state.poll);forgetAccess();state.token='';$('token-input').value='';setStatus(false);$('auth-modal').hidden=false;};
 document.querySelectorAll('[data-preset]').forEach(btn=>btn.onclick=()=>setPreset(btn.dataset.preset));
 $('run-form').onsubmit=async event=>{
   event.preventDefault();const exp=expById(state.selected);if(!exp)return;

@@ -23,7 +23,7 @@ $env:LAB_API_TOKEN = (py -c "import secrets; print(secrets.token_urlsafe(36))")
 py -m lab_portal
 ```
 
-Abre **http://127.0.0.1:8765/** y pega el valor de `LAB_API_TOKEN` cuando te lo pida. Por defecto el servidor escucha **solo en localhost**, no está publicado en Internet. La clave queda en `sessionStorage` de esa pestaña del navegador, no se envía a GitHub.
+Abre **http://127.0.0.1:8765/** y pega el valor de `LAB_API_TOKEN` cuando te lo pida. Por defecto el servidor escucha **solo en localhost**, no está publicado en Internet. El navegador recuerda la clave en `localStorage` después de validar el acceso. Puedes volver a entrar sin escribirla hasta pulsar **Cerrar sesión**, borrar los datos del sitio o cambiar la clave del servidor. El acceso se guarda por navegador y dispositivo; no se envía a GitHub.
 
 ### Docker en tu propio servidor
 
