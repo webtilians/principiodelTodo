@@ -13,7 +13,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
-from lab_portal.server import app, process_alive, read_job
+from lab_portal.server import app, process_alive, read_job, revision
 from lab_portal.catalog import EXPERIMENTS
 
 
@@ -49,6 +49,10 @@ class FlowTests(unittest.TestCase):
         self.assertEqual(response.status_code, 409)
         spawn.assert_not_called()
         self.assertEqual(len(self.client.get('/api/jobs', headers=self.headers).json()['jobs']), 102)
+
+    def test_revision_for_deployment_owned_by_another_user(self):
+        with patch.dict(os.environ, GIT_TEST_ASSUME_DIFFERENT_OWNER="1"):
+            self.assertRegex(revision() or "", r"^[0-9a-f]{40}$")
 
     def test_history_sorted_by_creation_not_random_uuid(self):
         self.record('f' * 32, created='2026-01-01')

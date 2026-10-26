@@ -81,7 +81,8 @@ def process_alive(pid: int):
 def revision():
     try:
         return subprocess.check_output(
-            ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True,
+            ["git", "-c", f"safe.directory={ROOT.as_posix()}", "rev-parse", "HEAD"],
+            cwd=ROOT, text=True,
             stderr=subprocess.DEVNULL, timeout=3).strip()
     except (OSError, subprocess.SubprocessError):
         return None
@@ -95,7 +96,7 @@ def read_job(folder: Path):
     try:
         job = json.loads((folder / "job.json").read_text(encoding="utf8"))
     except (OSError, ValueError):
-        raise HTTPException(404, "Ejecución no encontrada")
+        raise HTTPException(404, "EjecuciÃ³n no encontrada")
     # A cancelled job must remain cancelled even if the worker was terminated
     # before writing final metadata.
     if (folder / "cancel.request").exists():
@@ -115,10 +116,10 @@ def read_job(folder: Path):
 
 def find_job(job_id: str):
     if not JOB_ID.fullmatch(job_id):
-        raise HTTPException(404, "ID inválido")
+        raise HTTPException(404, "ID invÃ¡lido")
     folder = workspace() / job_id
     if not folder.is_dir():
-        raise HTTPException(404, "Ejecución no encontrada")
+        raise HTTPException(404, "EjecuciÃ³n no encontrada")
     return folder
 
 
@@ -185,7 +186,7 @@ def start(submission: Submission):
     with START_LOCK:
         active = pending_job()
         if active:
-            raise HTTPException(409, f"Ya se ejecuta {active['id'][:8]}; espera o cancélala")
+            raise HTTPException(409, f"Ya se ejecuta {active['id'][:8]}; espera o cancÃ©lala")
         job_id = uuid.uuid4().hex
         folder = workspace() / job_id
         folder.mkdir(mode=0o700)
@@ -223,7 +224,7 @@ def job_detail(job_id: str):
 def log(job_id: str):
     file = find_job(job_id) / "stdout.log"
     if not file.exists():
-        return {"log": "Iniciando…"}
+        return {"log": "Iniciandoâ€¦"}
     with file.open("rb") as fp:
         fp.seek(0, 2)
         fp.seek(max(0, fp.tell() - 25000), 0)
@@ -236,7 +237,7 @@ def summary(job_id: str):
     folder = find_job(job_id)
     path = folder / "output" / "report.json"
     if not path.is_file():
-        raise HTTPException(404, "Informe aún no disponible")
+        raise HTTPException(404, "Informe aÃºn no disponible")
     try:
         contents = json.loads(path.read_text(encoding="utf8"))
         return summarize(read_job(folder)["experiment"], contents)
@@ -248,7 +249,7 @@ def summary(job_id: str):
 def report(job_id: str):
     path = find_job(job_id) / "output" / "report.json"
     if not path.is_file():
-        raise HTTPException(404, "Informe aún no disponible")
+        raise HTTPException(404, "Informe aÃºn no disponible")
     return FileResponse(path, filename=f"infinito_{job_id[:8]}_report.json",
                         media_type="application/json")
 
@@ -277,7 +278,7 @@ def cancel(job_id: str):
     folder = find_job(job_id)
     job = read_job(folder)
     if job["status"] in TERMINAL:
-        raise HTTPException(409, "Ejecución ya terminada")
+        raise HTTPException(409, "EjecuciÃ³n ya terminada")
     (folder / "cancel.request").write_text(now())
     try:
         pid = int((folder / "worker.pid").read_text())
