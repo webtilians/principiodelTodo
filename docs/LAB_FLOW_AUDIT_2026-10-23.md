@@ -4,7 +4,39 @@ Base auditada: `cc4777f93c89c391d06a4e7fbbdf730d9de0e862`, rama
 `experiment/f8-laboratory-portal`. Correcciones aisladas en
 `fix/lab-flow-audit-20261023`; no se cambia master ni se despliega producción.
 
-## Evidencia y límites
+## Actualización verificada — 26/10/2026
+
+El bloqueo SSH descrito más abajo quedó resuelto. Se entró mediante una clave local,
+sin copiar ni publicar su contenido. Lo que sigue es evidencia del servidor real:
+
+- Servicio Python/systemd, no Docker; código en `/opt/infinito-lab` y resultados en
+  `/var/lib/infinito-lab/runs`. Temporizador de actualización activo, cada dos minutos.
+- Antes: rama `experiment/f8-laboratory-portal`, SHA `cc4777f`. Después: rama
+  `fix/lab-flow-audit-20261023`, revisión funcional verificada `e3d483f5d7f18db1c6377b0fb8f862920cb8299a`.
+  Se eligió explícitamente esa rama; master permanece intacta y el PR #4 no se fusionó.
+- Se respaldaron datos antes de actualizar, se paró solo el laboratorio durante el
+  mantenimiento y se ejecutó el servicio real del actualizador. Se restauró el temporizador.
+- Se detectó y corrigió un problema real de versión nula: Git rechazaba consultar un
+  checkout propiedad de root desde el usuario del servicio. La excepción safe.directory
+  se limita a la ruta del propio código y a esa invocación; no modifica configuración global.
+- 20 tests locales correctos; CI Linux aprobado:
+  https://github.com/webtilians/principiodelTodo/actions/runs/40373424437
+- Ejecuciones HTTPS posteriores a la corrección: F4 `c19c19c3be594479a1bdf428c1c8a81d`
+  y F8 `909f761bb99b435b9454bf29af59b543`. Completadas con informe, resumen y ZIP.
+  Ping y metadatos de ambas indican el SHA verificado.
+- Se reinició otra vez el servicio: los siete informes existentes conservaron su SHA-256;
+  los dos nuevos también se recuperaron por HTTPS con idéntica huella tras reinicio.
+- LAIN, DH Trails y Caddy conservaron sus PID durante estas operaciones y siguen activos.
+- Evidencias/backup del servidor: `/var/lib/infinito-lab-deploy/audit-20261026T175728Z`.
+  La carpeta anterior `audit-20261026T175543Z` conserva el respaldo inicial.
+
+El siguiente protocolo está preparado en [F8b](INFINITO_F8B_PROTOCOL_2026-10-26.md).
+F8b aún no está implementado ni aparece en el catálogo; no se afirma haber probado el
+registro/despliegue de un nuevo F8b. Las seis familias existentes sí se han comprobado.
+Docker sigue siendo una alternativa documentada, no el despliegue observado.
+Los apartados posteriores preservan el estado histórico del 23 de octubre.
+
+## Evidencia y límites (23/10/2026)
 
 - HTTPS público: `GET /` devuelve 200; `/assets/lab.js` y `/assets/lab.css` son accesibles.
 - Sin credenciales, `/api/ping`, `/api/catalog` y `/api/jobs` devuelven 401.
