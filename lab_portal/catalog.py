@@ -160,6 +160,25 @@ EXPERIMENTS = {
                  "estandar":{"seeds":3,"timesteps":20000,"eval-episodes":50},
                  "largo":{"seeds":5,"timesteps":100000,"eval-episodes":200}},
     ),
+    "f9b_memory_baselines": Experiment(
+        name="F9-B · Referencias MiniGrid Memory",
+        description="Entrenar PPO y LSTM externos hasta establecer una referencia competente antes de probar F4",
+        command=("-m", "observatory.f9b_causal_memory", "--phase", "baselines"),
+        params={
+            "seeds": IntegerParam("Semillas de entrenamiento", 1, 1, 5),
+            "timesteps": IntegerParam("Pasos por modelo y semilla", 20000, 20000, 300000, step=20000),
+            "eval-episodes": IntegerParam("Episodios de desarrollo por semilla", 50, 50, 500),
+        },
+        unit="tasa de éxito", scenario="MiniGrid Memory S7 · prueba de desarrollo",
+        warning=("Solo entrena PPO y LSTM externos, NO INFINITO. "
+                 "Umbral preregistrado: LSTM ≥70% y ventaja sobre random ≥15 pp en ≥4 semillas. "
+                 "Test reservado cerrado; ejecución pesada en PC Windows."),
+        presets={
+            "rapido": {"seeds":1,"timesteps":20000,"eval-episodes":50},
+            "estandar": {"seeds":4,"timesteps":100000,"eval-episodes":50},
+            "largo": {"seeds":5,"timesteps":300000,"eval-episodes":100},
+        },
+    ),
 }
 
 
