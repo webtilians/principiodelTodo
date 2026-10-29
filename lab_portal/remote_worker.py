@@ -26,7 +26,7 @@ from pathlib import Path
 from lab_portal.catalog import EXPERIMENTS, command, normalize
 
 ROOT = Path(__file__).resolve().parents[1]
-TASKS = frozenset(("f9_memory", "f9_doorkey", "f9_dynamic"))
+TASKS = frozenset(("f9_memory", "f9_doorkey", "f9_dynamic", "f9b_memory_baselines"))
 MAX_UPLOAD = 64 * 1024 * 1024
 
 
