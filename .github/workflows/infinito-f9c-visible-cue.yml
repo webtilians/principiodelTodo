@@ -1,0 +1,62 @@
+name: INFINITO F9-C — Cue Visibility and Delayed Recall
+on:
+  push:
+    branches: ["experiment/f9c-visible-cue-learning"]
+    paths:
+      - "observatory/f9c_visible_cue.py"
+      - "tests/test_f9c_visible_cue.py"
+      - ".github/workflows/infinito-f9c-visible-cue.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  controlled-memory-assay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install genuine MiniGrid, PPO and RecurrentPPO
+        run: python -m pip install -r observatory/requirements_f9.txt
+      - name: Verify native cue visibility and causal safeguards
+        run: python -m unittest discover -s tests -p 'test_f9c_visible_cue.py' -v
+      - name: Train both external agents, without access to hidden labels
+        run: |
+          python -m observatory.f9c_visible_cue \
+            --timesteps 20000 --seeds 1 --eval-episodes 100 \
+            --output observatory_results/f9c_visible_cue_20k
+      - name: Publish both paired cue interventions on S7 and S13
+        run: |
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          report=json.loads(Path('observatory_results/f9c_visible_cue_20k/report.json').read_text())
+          assert report['phase']=='development_diagnostic'
+          assert report['heldout_opened'] is False
+          assert report['not_original_navigation_benchmark'] is True
+          table=['# INFINITO F9-C: memory assay, 20k steps per model',
+                 'Controlled start cue, delayed fork, **not original navigation benchmark**.',
+                 'No reserved heldout opened. No INFINITO F4 modules in this benchmark.',
+                 '', '| Policy | S7 original | S7 swapped cue | S7 changed decision | S13 original | S13 changed decision |',
+                 '|---|---:|---:|---:|---:|---:|']
+          for model in ('ppo','lstm'):
+              s7=report['per_seed'][0][model]['S7']
+              s13=report['per_seed'][0][model]['S13']
+              table.append(f'| {model} | {s7["original_success_rate"]:.0%} | {s7["counterfactual_success_rate"]:.0%} | {s7["decision_flips"]}/{s7["episodes"]} | {s13["original_success_rate"]:.0%} | {s13["decision_flips"]}/{s13["episodes"]} |')
+              print('F9C_OBSERVED',model,json.dumps({
+                  's7_success':s7['original_success_rate'],
+                  's7_swap_success':s7['counterfactual_success_rate'],
+                  's7_decision_flips':s7['decision_flips'],
+                  's13_success':s13['original_success_rate'],
+                  's13_decision_flips':s13['decision_flips']}))
+          Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text('\n'.join(table)+'\n')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: f9c-genuine-visible-cue-20k-dev-only
+          path: observatory_results/f9c_visible_cue_20k/
+          if-no-files-found: warn
+          retention-days: 30
