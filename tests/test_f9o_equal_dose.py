@@ -1,5 +1,7 @@
 """F9-O exact-dose control, frozen model parity and partition isolation."""
 import unittest
+import tempfile
+import hashlib
 import numpy as np
 from pathlib import Path
 
@@ -54,6 +56,46 @@ class F9OContracts(unittest.TestCase):
         finally:
             a.get_env().close()
             b.get_env().close()
+
+    def test_validation_gate_accepts_six_exact_frames_per_demonstration(self):
+        # Synthetic files only; verify gate BEFORE any expensive PPO / confirmation.
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)
+            arms={}
+            for arm in ARMS:
+                details={
+                    "initial_policy_sha256":"matched",
+                    "parameters":380552,
+                    "input_width":660,
+                    "actual_rl_steps":20096,
+                    "bc_mask_stats":{
+                        "episodes":1200,"incomplete":0,
+                        "scheduled":7200,"effective":7200,
+                        "teacher_sha256":"same-demo",
+                    },
+                }
+                for phase,field in (("after_bc","bc_sha256"),
+                                    ("after_rl","rl_sha256")):
+                    path=root/f"{arm}_{phase}.zip"
+                    payload=(arm+phase).encode()
+                    path.write_bytes(payload)
+                    details[field]=hashlib.sha256(payload).hexdigest()
+                arms[arm]=details
+            report={
+                "index":0,"training_seed_base":500000,
+                "worlds":600,"epochs":40,
+                "requested_rl_steps":20000,
+                "training_dose_per_teacher_episode":6,
+                "ppo_blackout":False,
+                "heldout_opened":False,
+                "confirmation_opened":False,
+                "teacher_training_only":True,
+                "arms":arms,
+            }
+            validate_training(report,root,0)
+            report["arms"]["fragmented6"]["bc_mask_stats"]["effective"]=7199
+            with self.assertRaises(AssertionError):
+                validate_training(report,root,0)
 
     def test_sealed_new_partitions(self):
         self.assertEqual(train_seed(0,0),500000)
