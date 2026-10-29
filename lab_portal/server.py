@@ -274,10 +274,15 @@ def download(job_id: str):
         output = folder / "output"
         if output.exists():
             for p in output.rglob("*"):
+                relative = p.relative_to(output)
+                regular = p.suffix in (".json", ".jsonl", ".log", ".csv", ".txt", ".npy")
+                checkpoint = (read_job(folder)["experiment"].startswith("f9_")
+                              and relative.parts[0] == "checkpoints"
+                              and p.suffix == ".zip" and p.stat().st_size < 50_000_000)
                 if (p.is_file() and not p.is_symlink()
-                    and p.suffix in (".json", ".jsonl", ".log", ".csv", ".txt", ".npy")
+                    and (regular or checkpoint)
                     and p.stat().st_size < 250_000_000):
-                    z.write(p, str(Path("output") / p.relative_to(output)))
+                    z.write(p, str(Path("output") / relative))
     return FileResponse(archive, filename=f"infinito_lab_{job_id[:8]}.zip",
                         media_type="application/zip")
 
