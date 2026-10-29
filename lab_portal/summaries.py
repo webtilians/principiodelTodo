@@ -53,7 +53,7 @@ def summarize(experiment: str, report: dict[str, Any]) -> dict:
                         for name, metrics in section["policies"].items()
                     } for scenario, section in report["scenarios"].items()
                 }}
-    if experiment.startswith("f9_"):
+    if experiment.startswith(("f9_", "f9b_")):
         return {
             "label": "Éxito por episodio (más es mejor) · PPO / LSTM externos",
             "unit": "%", "scale": 100,
