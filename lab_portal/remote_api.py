@@ -6,6 +6,7 @@ own independent LAB_WORKER_TOKEN; transport requires HTTPS.
 """
 from __future__ import annotations
 
+import hashlib
 import hmac
 import json
 import os
@@ -194,6 +195,21 @@ def validate_bundle(archive: Path, destination: Path):
             raise ValueError("Solo se aceptan informes de desarrollo F9")
         if not isinstance(manifest, dict) or manifest.get("stage") != "development_complete":
             raise ValueError("Manifiesto F9 inválido")
+        for model in manifest.get("models", {}).values():
+            if not isinstance(model, dict):
+                raise ValueError("Metadatos de checkpoint inválidos")
+            checkpoint = "checkpoints/" + str(model.get("model_path", ""))
+            expected = str(model.get("model_sha256", ""))
+            if not CHECKPOINT.fullmatch(checkpoint) or checkpoint not in names:
+                raise ValueError("Falta un checkpoint declarado")
+            if not re.fullmatch(r"[0-9a-f]{64}", expected):
+                raise ValueError("Checksum de checkpoint inválido")
+            digest = hashlib.sha256()
+            with z.open(checkpoint) as payload:
+                while chunk := payload.read(1 << 20):
+                    digest.update(chunk)
+            if digest.hexdigest() != expected:
+                raise ValueError("Checksum de checkpoint no coincide")
         destination.mkdir(exist_ok=True)
         for name, info in records:
             target = destination.joinpath(*PurePosixPath(name).parts)
