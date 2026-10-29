@@ -10,8 +10,8 @@ function forgetAccess() {
 }
 const state = {token: savedAccess(), catalog: [], selected: null,
                jobs: [], job: null, poll: null, renderedReport: null};
-const icons = {f4:'◇', f5:'◈', f6:'⌁', f7:'⊙', f7b:'⟡', f8:'◎'};
-const labels = {f4:'MEMORIA', f5:'PREDICCIÓN', f6:'MODELO / RL', f7:'INFORMACIÓN', f7b:'RECALIBRACIÓN', f8:'MUNDO ACTIVO'};
+const icons = {f4:'◇', f5:'◈', f6:'⌁', f7:'⊙', f7b:'⟡', f8:'◎', f9_memory:'▣', f9_doorkey:'⚿', f9_dynamic:'↝'};
+const labels = {f4:'MEMORIA', f5:'PREDICCIÓN', f6:'MODELO / RL', f7:'INFORMACIÓN', f7b:'RECALIBRACIÓN', f8:'MUNDO ACTIVO', f9_memory:'EXTERNO: MEMORIA', f9_doorkey:'EXTERNO: PLAN', f9_dynamic:'EXTERNO: DINÁMICA'};
 function elem(tag, className, content) {
   const el = document.createElement(tag);
   if (className) el.className = className;
