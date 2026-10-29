@@ -35,7 +35,7 @@ class MiniGridHarnessTests(unittest.TestCase):
                     self.assertTrue((a == b).all())
                     self.assertTrue(env.observation_space.contains(a))
                     self.assertTrue((0 <= a).all() and (a <= 1).all())
-                    self.assertEqual(env.action_space.n, 7)
+                    self.assertEqual(env.action_space.n, 3 if task == 'dynamic' else 7)
                 finally:
                     env.close()
 
