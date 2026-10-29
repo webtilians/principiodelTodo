@@ -22,7 +22,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import BaseModel, Field
 
 router = APIRouter(prefix="/api/worker", tags=["remote-execution"], include_in_schema=False)
-ALLOWED = frozenset(("f9_memory", "f9_doorkey", "f9_dynamic"))
+ALLOWED = frozenset(("f9_memory", "f9_doorkey", "f9_dynamic", "f9b_memory_baselines"))
 MAX_BUNDLE = 64 * 1024 * 1024
 MAX_EXTRACTED = 90 * 1024 * 1024
 MAX_FILES = 45
@@ -194,7 +194,8 @@ def validate_bundle(archive: Path, destination: Path):
         manifest = json.loads(z.read("frozen_manifest.json"))
         if not isinstance(parsed, dict) or parsed.get("phase") != "development":
             raise ValueError("Solo se aceptan informes de desarrollo F9")
-        if not isinstance(manifest, dict) or manifest.get("stage") != "development_complete":
+        if not isinstance(manifest, dict) or manifest.get("stage") not in (
+                "development_complete", "f9b_baseline_development"):
             raise ValueError("Manifiesto F9 inválido")
         for model in manifest.get("models", {}).values():
             if not isinstance(model, dict):
@@ -266,10 +267,18 @@ async def finish(job_id: str, request: Request,
             except (ValueError, OSError, zipfile.BadZipFile, KeyError, UnicodeError) as exc:
                 shutil.rmtree(staging, ignore_errors=True)
                 raise HTTPException(422, "Resultados inválidos: " + type(exc).__name__) from exc
-            if parsed.get("task") != {"f9_memory": "memory", "f9_doorkey": "doorkey",
-                                     "f9_dynamic": "dynamic"}[job["experiment"]]:
+            expected_task = {"f9_memory": "memory", "f9_doorkey": "doorkey",
+                             "f9_dynamic": "dynamic",
+                             "f9b_memory_baselines": "memory"}[job["experiment"]]
+            expected_stage = ("f9b_baseline_development"
+                              if job["experiment"] == "f9b_memory_baselines"
+                              else "development_complete")
+            if (parsed.get("task") != expected_task or
+                    manifest.get("stage") != expected_stage or
+                    (job["experiment"] == "f9b_memory_baselines" and
+                     parsed.get("stage") != "baselines")):
                 shutil.rmtree(staging, ignore_errors=True)
-                raise HTTPException(422, "Informe de otro experimento")
+                raise HTTPException(422, "Informe o manifiesto de otro protocolo")
             # stdout is also the live log visible in the web UI.
             uploaded_log = folder / "remote-validated" / "stdout.log"
             if uploaded_log.is_file():
