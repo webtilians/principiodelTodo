@@ -2,7 +2,7 @@
 
 **Fecha:** 29-10-2026. **Estado:** ejecución de desarrollo completa y aprobada.
 **CI final:** [GitHub Actions #40946831488](https://github.com/webtilians/principiodelTodo/actions/runs/40946831488), **success** (integridad, cuatro semillas, agregado).
-**JSON agregado:** [artifact #12928654315](https://github.com/webtilians/principiodelTodo/actions/runs/40946831488/artifacts/12928654315).
+**JSON agregado versionado:** [F9-K all 36 conditions](https://github.com/webtilians/principiodelTodo/blob/experiment/f9k-temporal-recurrent-probes/docs/INFINITO_F9K_RESULTS_2026-10-29.json). **Artifact CI original:** [#12928654315](https://github.com/webtilians/principiodelTodo/actions/runs/40946831488/artifacts/12928654315).
 **PR:** [#18](https://github.com/webtilians/principiodelTodo/pull/18) (borrador sobre F9-J #17).
 
 ## Pregunta
