@@ -113,6 +113,53 @@ EXPERIMENTS = {
             "largo":{"seeds":48,"train":5000,"test-episodes":24,"horizon":60,"seed-offset":10000},
         },
     ),
+    "f9_memory": Experiment(
+        name="F9-A · MiniGrid Memory",
+        description="Benchmark externo: PPO vs LSTM real, sin módulos INFINITO todavía",
+        command=("-m","observatory.f9_external_minigrid","--phase","development","--task","memory"),
+        params={
+            "seeds": IntegerParam("Semillas de entrenamiento",1,1,5),
+            "timesteps": IntegerParam("Pasos por política y semilla",128,128,200000),
+            "eval-episodes": IntegerParam("Episodios de validación",3,1,500),
+        },
+        unit="tasa de éxito", scenario="MiniGrid Memory · validación de desarrollo",
+        warning=("F9-A son baselines externos PPO/LSTM, no INFINITO. "
+                 "Requiere LAB_F9_ENABLED=1 y entorno Python F9 separado con memoria suficiente. "
+                 "No abrir test retenido al ajustar hiperparámetros."),
+        presets={"rapido":{"seeds":1,"timesteps":128,"eval-episodes":3},
+                 "estandar":{"seeds":3,"timesteps":20000,"eval-episodes":50},
+                 "largo":{"seeds":5,"timesteps":100000,"eval-episodes":200}},
+    ),
+    "f9_doorkey": Experiment(
+        name="F9-A · MiniGrid DoorKey",
+        description="Benchmark externo de planificación llave, puerta y meta",
+        command=("-m","observatory.f9_external_minigrid","--phase","development","--task","doorkey"),
+        params={
+            "seeds": IntegerParam("Semillas de entrenamiento",1,1,5),
+            "timesteps": IntegerParam("Pasos por política y semilla",128,128,200000),
+            "eval-episodes": IntegerParam("Episodios de validación",3,1,500),
+        },
+        unit="tasa de éxito", scenario="MiniGrid DoorKey · validación de desarrollo",
+        warning="F9-A: solo PPO/LSTM externos. Necesita entorno F9 y memoria suficiente; no demuestra mejoras de INFINITO.",
+        presets={"rapido":{"seeds":1,"timesteps":128,"eval-episodes":3},
+                 "estandar":{"seeds":3,"timesteps":20000,"eval-episodes":50},
+                 "largo":{"seeds":5,"timesteps":100000,"eval-episodes":200}},
+    ),
+    "f9_dynamic": Experiment(
+        name="F9-A · MiniGrid Obstáculos",
+        description="Benchmark externo: navegación ante obstáculos móviles",
+        command=("-m","observatory.f9_external_minigrid","--phase","development","--task","dynamic"),
+        params={
+            "seeds": IntegerParam("Semillas de entrenamiento",1,1,5),
+            "timesteps": IntegerParam("Pasos por política y semilla",128,128,200000),
+            "eval-episodes": IntegerParam("Episodios de validación",3,1,500),
+        },
+        unit="tasa de éxito", scenario="MiniGrid DynamicObstacles · desarrollo",
+        warning="F9-A: solo PPO/LSTM externos. En servidor compartido se deshabilita hasta habilitación explícita.",
+        presets={"rapido":{"seeds":1,"timesteps":128,"eval-episodes":3},
+                 "estandar":{"seeds":3,"timesteps":20000,"eval-episodes":50},
+                 "largo":{"seeds":5,"timesteps":100000,"eval-episodes":200}},
+    ),
 }
 
 
