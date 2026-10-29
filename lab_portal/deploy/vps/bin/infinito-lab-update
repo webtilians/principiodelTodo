@@ -30,7 +30,32 @@ if [ -z "$force" ]; then
   # This commit already failed to start: wait for the next one.
   [ "$remote" = "$(cat "$STATE/bad" 2>/dev/null || true)" ] && exit 0
 fi
-if pgrep -u infinito-lab -f 'lab_portal\.worker' >/dev/null; then
+# A Windows F9 run has no local supervisor process. Protect its persistent
+# queued/running state too; otherwise this timer could restart the API halfway
+# through a remote training job and strand the worker.
+remote_job_active() {
+  [ -x "$VENV/bin/python" ] || return 1
+  "$VENV/bin/python" - <<'PY'
+import json, time
+from pathlib import Path
+root=Path("/var/lib/infinito-lab/runs")
+for path in root.glob("*/job.json"):
+    try:
+        j=json.loads(path.read_text())
+        if j.get("executor") != "remote_windows":
+            continue
+        status=j.get("status")
+        if status not in ("queued","running"):
+            continue
+        stamp=j.get("heartbeat_epoch") if status=="running" else j.get("created_epoch")
+        if stamp is not None and time.time()-float(stamp) < (300 if status=="running" else 1800):
+            raise SystemExit(0)
+    except (OSError, ValueError, TypeError):
+        continue
+raise SystemExit(1)
+PY
+}
+if remote_job_active || pgrep -u infinito-lab -f 'lab_portal\.worker' >/dev/null; then
   # Said once per commit, not every 2 minutes.
   if [ "$remote" != "$(cat "$STATE/waiting" 2>/dev/null || true)" ]; then
     echo "Hay un experimento en marcha: ${remote:0:7} se instalará cuando termine."
