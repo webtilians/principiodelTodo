@@ -1,0 +1,1270 @@
+{
+  "experiment": "F9-P PPO with sustained exogenous F4 blackout versus sham",
+  "original_BC_source_run": 40957255987,
+  "new_train_base": 550000,
+  "new_confirm_base": 700000,
+  "historical_holdout_opened": false,
+  "prior_confirmations_reused": false,
+  "training_replica_seeds": [
+    0,
+    1,
+    2,
+    3
+  ],
+  "metrics": {
+    "S13/cue_lost_continuous": {
+      "bc_anchor": {
+        "pairs": 160,
+        "episodes": 320,
+        "counts": {
+          "cue_seen": 320,
+          "junction_arrived": 316,
+          "first_committed": 316,
+          "first_choice_correct": 163,
+          "first_choice_wrong": 153,
+          "success": 163,
+          "timeout": 4,
+          "arm_without_center": 0,
+          "terminal_without_center": 0,
+          "scheduled_masks": 3518,
+          "effective_masks": 3518,
+          "episodes_intervened": 316,
+          "clock_4_complete": 0
+        },
+        "pair_counts": {
+          "both_seen": 160,
+          "both_junction": 156,
+          "both_committed": 156,
+          "opposite_first_commits": 65,
+          "both_first_correct": 36,
+          "both_final_success": 36
+        },
+        "both_first_correct_by_seed": [
+          15,
+          14,
+          0,
+          7
+        ],
+        "first_correct_by_seed": [
+          0.6875,
+          0.55,
+          0.45,
+          0.35
+        ],
+        "junction_by_seed": [
+          1,
+          1,
+          0.95,
+          1
+        ],
+        "success_by_seed": [
+          0.6875,
+          0.55,
+          0.45,
+          0.35
+        ],
+        "first_correct_conditional": 0.5158227848101266,
+        "hidden_reset_applied_episodes": null
+      },
+      "ppo_sham": {
+        "pairs": 160,
+        "episodes": 320,
+        "counts": {
+          "cue_seen": 298,
+          "junction_arrived": 263,
+          "first_committed": 263,
+          "first_choice_correct": 130,
+          "first_choice_wrong": 133,
+          "success": 130,
+          "timeout": 57,
+          "arm_without_center": 0,
+          "terminal_without_center": 0,
+          "scheduled_masks": 34647,
+          "effective_masks": 34647,
+          "episodes_intervened": 298,
+          "clock_4_complete": 0
+        },
+        "pair_counts": {
+          "both_seen": 149,
+          "both_junction": 123,
+          "both_committed": 123,
+          "opposite_first_commits": 37,
+          "both_first_correct": 20,
+          "both_final_success": 20
+        },
+        "both_first_correct_by_seed": [
+          0,
+          0,
+          0,
+          20
+        ],
+        "first_correct_by_seed": [
+          0.0875,
+          0.5,
+          0.5,
+          0.5375
+        ],
+        "junction_by_seed": [
+          0.2875,
+          1,
+          1,
+          1
+        ],
+        "success_by_seed": [
+          0.0875,
+          0.5,
+          0.5,
+          0.5375
+        ],
+        "first_correct_conditional": 0.49429657794676807,
+        "hidden_reset_applied_episodes": null
+      },
+      "ppo_blackout": {
+        "pairs": 160,
+        "episodes": 320,
+        "counts": {
+          "cue_seen": 282,
+          "junction_arrived": 320,
+          "first_committed": 320,
+          "first_choice_correct": 160,
+          "first_choice_wrong": 160,
+          "success": 160,
+          "timeout": 0,
+          "arm_without_center": 0,
+          "terminal_without_center": 0,
+          "scheduled_masks": 3251,
+          "effective_masks": 3251,
+          "episodes_intervened": 282,
+          "clock_4_complete": 0
+        },
+        "pair_counts": {
+          "both_seen": 141,
+          "both_junction": 160,
+          "both_committed": 160,
+          "opposite_first_commits": 0,
+          "both_first_correct": 0,
+          "both_final_success": 0
+        },
+        "both_first_correct_by_seed": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "first_correct_by_seed": [
+          0.5,
+          0.5,
+          0.5,
+          0.5
+        ],
+        "junction_by_seed": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "success_by_seed": [
+          0.5,
+          0.5,
+          0.5,
+          0.5
+        ],
+        "first_correct_conditional": 0.5,
+        "hidden_reset_applied_episodes": null
+      },
+      "treatment_minus_control_by_seed": [
+        0,
+        0,
+        0,
+        -20
+      ],
+      "treatment_minus_control_total": -20
+    },
+    "S13/normal": {
+      "bc_anchor": {
+        "pairs": 160,
+        "episodes": 320,
+        "counts": {
+          "cue_seen": 320,
+          "junction_arrived": 316,
+          "first_committed": 316,
+          "first_choice_correct": 302,
+          "first_choice_wrong": 14,
+          "success": 302,
+          "timeout": 4,
+          "arm_without_center": 0,
+          "terminal_without_center": 0,
+          "scheduled_masks": 0,
+          "effective_masks": 0,
+          "episodes_intervened": 0,
+          "clock_4_complete": 0
+        },
+        "pair_counts": {
+          "both_seen": 160,
+          "both_junction": 156,
+          "both_committed": 156,
+          "opposite_first_commits": 146,
+          "both_first_correct": 146,
+          "both_final_success": 146
+        },
+        "both_first_correct_by_seed": [
+          40,
+          35,
+          31,
+          40
+        ],
+        "first_correct_by_seed": [
+          1,
+          0.9375,
+          0.8375,
+          1
+        ],
+        "junction_by_seed": [
+          1,
+          1,
+          0.95,
+          1
+        ],
+        "success_by_seed": [
+          1,
+          0.9375,
+          0.8375,
+          1
+        ],
+        "first_correct_conditional": 0.9556962025316456,
+        "hidden_reset_applied_episodes": null
+      },
+      "ppo_sham": {
+        "pairs": 160,
+        "episodes": 320,
+        "counts": {
+          "cue_seen": 298,
+          "junction_arrived": 303,
+          "first_committed": 303,
+          "first_choice_correct": 264,
+          "first_choice_wrong": 39,
+          "success": 264,
+          "timeout": 17,
+          "arm_without_center": 0,
+          "terminal_without_center": 0,
+          "scheduled_masks": 0,
+          "effective_masks": 0,
+          "episodes_intervened": 0,
+          "clock_4_complete": 0
+        },
+        "pair_counts": {
+          "both_seen": 149,
+          "both_junction": 143,
+          "both_committed": 143,
+          "opposite_first_commits": 104,
+          "both_first_correct": 104,
+          "both_final_success": 104
+        },
+        "both_first_correct_by_seed": [
+          0,
+          30,
+          34,
+          40
+        ],
+        "first_correct_by_seed": [
+          0.5,
+          0.875,
+          0.925,
+          1
+        ],
+        "junction_by_seed": [
+          0.7875,
+          1,
+          1,
+          1
+        ],
+        "success_by_seed": [
+          0.5,
+          0.875,
+          0.925,
+          1
+        ],
+        "first_correct_conditional": 0.8712871287128713,
+        "hidden_reset_applied_episodes": null
+      },
+      "ppo_blackout": {
+        "pairs": 160,
+        "episodes": 320,
+        "counts": {
+          "cue_seen": 282,
+          "junction_arrived": 320,
+          "first_committed": 286,
+          "first_choice_correct": 171,
+          "first_choice_wrong": 115,
+          "success": 171,
+          "timeout": 34,
+          "arm_without_center": 0,
+          "terminal_without_center": 0,
+          "scheduled_masks": 0,
+          "effective_masks": 0,
+          "episodes_intervened": 0,
+          "clock_4_complete": 0
+        },
+        "pair_counts": {
+          "both_seen": 141,
+          "both_junction": 160,
+          "both_committed": 142,
+          "opposite_first_commits": 29,
+          "both_first_correct": 29,
+          "both_final_success": 29
+        },
+        "both_first_correct_by_seed": [
+          0,
+          0,
+          8,
+          21
+        ],
+        "first_correct_by_seed": [
+          0.5,
+          0.275,
+          0.6,
+          0.7625
+        ],
+        "junction_by_seed": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "success_by_seed": [
+          0.5,
+          0.275,
+          0.6,
+          0.7625
+        ],
+        "first_correct_conditional": 0.5979020979020979,
+        "hidden_reset_applied_episodes": null
+      },
+      "treatment_minus_control_by_seed": [
+        0,
+        -30,
+        -26,
+        -19
+      ],
+      "treatment_minus_control_total": -75
+    },
+    "S13/fixed_4": {
+      "bc_anchor": {
+        "pairs": 160,
+        "episodes": 320,
+        "counts": {
+          "cue_seen": 320,
+          "junction_arrived": 320,
+          "first_committed": 320,
+          "first_choice_correct": 320,
+          "first_choice_wrong": 0,
+          "success": 320,
+          "timeout": 0,
+          "arm_without_center": 0,
+          "terminal_without_center": 0,
+          "scheduled_masks": 1280,
+          "effective_masks": 1280,
+          "episodes_intervened": 320,
+          "clock_4_complete": 320
+        },
+        "pair_counts": {
+          "both_seen": 160,
+          "both_junction": 160,
+          "both_committed": 160,
+          "opposite_first_commits": 160,
+          "both_first_correct": 160,
+          "both_final_success": 160
+        },
+        "both_first_correct_by_seed": [
+          40,
+          40,
+          40,
+          40
+        ],
+        "first_correct_by_seed": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "junction_by_seed": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "success_by_seed": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "first_correct_conditional": 1,
+        "hidden_reset_applied_episodes": null
+      },
+      "ppo_sham": {
+        "pairs": 160,
+        "episodes": 320,
+        "counts": {
+          "cue_seen": 310,
+          "junction_arrived": 303,
+          "first_committed": 303,
+          "first_choice_correct": 263,
+          "first_choice_wrong": 40,
+          "success": 263,
+          "timeout": 17,
+          "arm_without_center": 0,
+          "terminal_without_center": 0,
+          "scheduled_masks": 1280,
+          "effective_masks": 1280,
+          "episodes_intervened": 320,
+          "clock_4_complete": 320
+        },
+        "pair_counts": {
+          "both_seen": 155,
+          "both_junction": 143,
+          "both_committed": 143,
+          "opposite_first_commits": 103,
+          "both_first_correct": 103,
+          "both_final_success": 103
+        },
+        "both_first_correct_by_seed": [
+          0,
+          25,
+          38,
+          40
+        ],
+        "first_correct_by_seed": [
+          0.5,
+          0.8125,
+          0.975,
+          1
+        ],
+        "junction_by_seed": [
+          0.7875,
+          1,
+          1,
+          1
+        ],
+        "success_by_seed": [
+          0.5,
+          0.8125,
+          0.975,
+          1
+        ],
+        "first_correct_conditional": 0.8679867986798679,
+        "hidden_reset_applied_episodes": null
+      },
+      "ppo_blackout": {
+        "pairs": 160,
+        "episodes": 320,
+        "counts": {
+          "cue_seen": 286,
+          "junction_arrived": 314,
+          "first_committed": 282,
+          "first_choice_correct": 159,
+          "first_choice_wrong": 123,
+          "success": 159,
+          "timeout": 38,
+          "arm_without_center": 0,
+          "terminal_without_center": 0,
+          "scheduled_masks": 1280,
+          "effective_masks": 1280,
+          "episodes_intervened": 320,
+          "clock_4_complete": 320
+        },
+        "pair_counts": {
+          "both_seen": 143,
+          "both_junction": 157,
+          "both_committed": 141,
+          "opposite_first_commits": 18,
+          "both_first_correct": 18,
+          "both_final_success": 18
+        },
+        "both_first_correct_by_seed": [
+          0,
+          0,
+          0,
+          18
+        ],
+        "first_correct_by_seed": [
+          0.5,
+          0.3,
+          0.5,
+          0.6875
+        ],
+        "junction_by_seed": [
+          1,
+          1,
+          1,
+          0.925
+        ],
+        "success_by_seed": [
+          0.5,
+          0.3,
+          0.5,
+          0.6875
+        ],
+        "first_correct_conditional": 0.5638297872340425,
+        "hidden_reset_applied_episodes": null
+      },
+      "treatment_minus_control_by_seed": [
+        0,
+        -25,
+        -38,
+        -22
+      ],
+      "treatment_minus_control_total": -85
+    },
+    "S13/cue_lost_hidden_reset_at_junction": {
+      "ppo_sham": {
+        "pairs": 160,
+        "episodes": 320,
+        "counts": {
+          "cue_seen": 298,
+          "junction_arrived": 263,
+          "first_committed": 240,
+          "first_choice_correct": 122,
+          "first_choice_wrong": 118,
+          "success": 122,
+          "timeout": 80,
+          "arm_without_center": 0,
+          "terminal_without_center": 0,
+          "scheduled_masks": 48858,
+          "effective_masks": 48858,
+          "episodes_intervened": 298,
+          "clock_4_complete": 0
+        },
+        "pair_counts": {
+          "both_seen": 149,
+          "both_junction": 123,
+          "both_committed": 120,
+          "opposite_first_commits": 40,
+          "both_first_correct": 21,
+          "both_final_success": 21
+        },
+        "both_first_correct_by_seed": [
+          0,
+          0,
+          0,
+          21
+        ],
+        "first_correct_by_seed": [
+          0,
+          0.5,
+          0.5,
+          0.525
+        ],
+        "junction_by_seed": [
+          0.2875,
+          1,
+          1,
+          1
+        ],
+        "success_by_seed": [
+          0,
+          0.5,
+          0.5,
+          0.525
+        ],
+        "first_correct_conditional": 0.5083333333333333,
+        "hidden_reset_applied_episodes": 263
+      },
+      "ppo_blackout": {
+        "pairs": 160,
+        "episodes": 320,
+        "counts": {
+          "cue_seen": 282,
+          "junction_arrived": 320,
+          "first_committed": 320,
+          "first_choice_correct": 160,
+          "first_choice_wrong": 160,
+          "success": 160,
+          "timeout": 0,
+          "arm_without_center": 0,
+          "terminal_without_center": 0,
+          "scheduled_masks": 4691,
+          "effective_masks": 4691,
+          "episodes_intervened": 282,
+          "clock_4_complete": 0
+        },
+        "pair_counts": {
+          "both_seen": 141,
+          "both_junction": 160,
+          "both_committed": 160,
+          "opposite_first_commits": 0,
+          "both_first_correct": 0,
+          "both_final_success": 0
+        },
+        "both_first_correct_by_seed": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "first_correct_by_seed": [
+          0.5,
+          0.5,
+          0.5,
+          0.5
+        ],
+        "junction_by_seed": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "success_by_seed": [
+          0.5,
+          0.5,
+          0.5,
+          0.5
+        ],
+        "first_correct_conditional": 0.5,
+        "hidden_reset_applied_episodes": 320
+      },
+      "treatment_minus_control_by_seed": [
+        0,
+        0,
+        0,
+        -21
+      ],
+      "treatment_minus_control_total": -21
+    },
+    "S7/cue_lost_continuous": {
+      "bc_anchor": {
+        "pairs": 80,
+        "episodes": 160,
+        "counts": {
+          "cue_seen": 160,
+          "junction_arrived": 76,
+          "first_committed": 76,
+          "first_choice_correct": 41,
+          "first_choice_wrong": 35,
+          "success": 41,
+          "timeout": 84,
+          "arm_without_center": 0,
+          "terminal_without_center": 0,
+          "scheduled_masks": 13632,
+          "effective_masks": 13632,
+          "episodes_intervened": 160,
+          "clock_4_complete": 0
+        },
+        "pair_counts": {
+          "both_seen": 80,
+          "both_junction": 36,
+          "both_committed": 36,
+          "opposite_first_commits": 3,
+          "both_first_correct": 3,
+          "both_final_success": 3
+        },
+        "both_first_correct_by_seed": [
+          3,
+          0,
+          0,
+          0
+        ],
+        "first_correct_by_seed": [
+          0.2,
+          0.4,
+          0.425,
+          0
+        ],
+        "junction_by_seed": [
+          0.25,
+          0.8,
+          0.85,
+          0
+        ],
+        "success_by_seed": [
+          0.2,
+          0.4,
+          0.425,
+          0
+        ],
+        "first_correct_conditional": 0.5394736842105263,
+        "hidden_reset_applied_episodes": null
+      },
+      "ppo_sham": {
+        "pairs": 80,
+        "episodes": 160,
+        "counts": {
+          "cue_seen": 160,
+          "junction_arrived": 40,
+          "first_committed": 40,
+          "first_choice_correct": 20,
+          "first_choice_wrong": 20,
+          "success": 20,
+          "timeout": 120,
+          "arm_without_center": 0,
+          "terminal_without_center": 0,
+          "scheduled_masks": 14735,
+          "effective_masks": 14735,
+          "episodes_intervened": 160,
+          "clock_4_complete": 0
+        },
+        "pair_counts": {
+          "both_seen": 80,
+          "both_junction": 20,
+          "both_committed": 20,
+          "opposite_first_commits": 0,
+          "both_first_correct": 0,
+          "both_final_success": 0
+        },
+        "both_first_correct_by_seed": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "first_correct_by_seed": [
+          0,
+          0,
+          0.5,
+          0
+        ],
+        "junction_by_seed": [
+          0,
+          0,
+          1,
+          0
+        ],
+        "success_by_seed": [
+          0,
+          0,
+          0.5,
+          0
+        ],
+        "first_correct_conditional": 0.5,
+        "hidden_reset_applied_episodes": null
+      },
+      "ppo_blackout": {
+        "pairs": 80,
+        "episodes": 160,
+        "counts": {
+          "cue_seen": 160,
+          "junction_arrived": 71,
+          "first_committed": 71,
+          "first_choice_correct": 38,
+          "first_choice_wrong": 33,
+          "success": 38,
+          "timeout": 89,
+          "arm_without_center": 0,
+          "terminal_without_center": 0,
+          "scheduled_masks": 10435,
+          "effective_masks": 10435,
+          "episodes_intervened": 152,
+          "clock_4_complete": 0
+        },
+        "pair_counts": {
+          "both_seen": 80,
+          "both_junction": 31,
+          "both_committed": 31,
+          "opposite_first_commits": 0,
+          "both_first_correct": 0,
+          "both_final_success": 0
+        },
+        "both_first_correct_by_seed": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "first_correct_by_seed": [
+          0.5,
+          0,
+          0.45,
+          0
+        ],
+        "junction_by_seed": [
+          1,
+          0,
+          0.775,
+          0
+        ],
+        "success_by_seed": [
+          0.5,
+          0,
+          0.45,
+          0
+        ],
+        "first_correct_conditional": 0.5352112676056338,
+        "hidden_reset_applied_episodes": null
+      },
+      "treatment_minus_control_by_seed": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "treatment_minus_control_total": 0
+    },
+    "S7/normal": {
+      "bc_anchor": {
+        "pairs": 80,
+        "episodes": 160,
+        "counts": {
+          "cue_seen": 160,
+          "junction_arrived": 100,
+          "first_committed": 100,
+          "first_choice_correct": 69,
+          "first_choice_wrong": 31,
+          "success": 69,
+          "timeout": 60,
+          "arm_without_center": 0,
+          "terminal_without_center": 0,
+          "scheduled_masks": 0,
+          "effective_masks": 0,
+          "episodes_intervened": 0,
+          "clock_4_complete": 0
+        },
+        "pair_counts": {
+          "both_seen": 80,
+          "both_junction": 38,
+          "both_committed": 38,
+          "opposite_first_commits": 7,
+          "both_first_correct": 7,
+          "both_final_success": 7
+        },
+        "both_first_correct_by_seed": [
+          7,
+          0,
+          0,
+          0
+        ],
+        "first_correct_by_seed": [
+          0.675,
+          0.4,
+          0.5,
+          0.15
+        ],
+        "junction_by_seed": [
+          0.75,
+          0.8,
+          0.8,
+          0.15
+        ],
+        "success_by_seed": [
+          0.675,
+          0.4,
+          0.5,
+          0.15
+        ],
+        "first_correct_conditional": 0.69,
+        "hidden_reset_applied_episodes": null
+      },
+      "ppo_sham": {
+        "pairs": 80,
+        "episodes": 160,
+        "counts": {
+          "cue_seen": 160,
+          "junction_arrived": 40,
+          "first_committed": 21,
+          "first_choice_correct": 11,
+          "first_choice_wrong": 10,
+          "success": 11,
+          "timeout": 139,
+          "arm_without_center": 0,
+          "terminal_without_center": 0,
+          "scheduled_masks": 0,
+          "effective_masks": 0,
+          "episodes_intervened": 0,
+          "clock_4_complete": 0
+        },
+        "pair_counts": {
+          "both_seen": 80,
+          "both_junction": 9,
+          "both_committed": 7,
+          "opposite_first_commits": 0,
+          "both_first_correct": 0,
+          "both_final_success": 0
+        },
+        "both_first_correct_by_seed": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "first_correct_by_seed": [
+          0,
+          0.1,
+          0,
+          0.175
+        ],
+        "junction_by_seed": [
+          0,
+          0.2,
+          0.075,
+          0.725
+        ],
+        "success_by_seed": [
+          0,
+          0.1,
+          0,
+          0.175
+        ],
+        "first_correct_conditional": 0.5238095238095238,
+        "hidden_reset_applied_episodes": null
+      },
+      "ppo_blackout": {
+        "pairs": 80,
+        "episodes": 160,
+        "counts": {
+          "cue_seen": 160,
+          "junction_arrived": 79,
+          "first_committed": 67,
+          "first_choice_correct": 36,
+          "first_choice_wrong": 31,
+          "success": 36,
+          "timeout": 93,
+          "arm_without_center": 0,
+          "terminal_without_center": 0,
+          "scheduled_masks": 0,
+          "effective_masks": 0,
+          "episodes_intervened": 0,
+          "clock_4_complete": 0
+        },
+        "pair_counts": {
+          "both_seen": 80,
+          "both_junction": 36,
+          "both_committed": 29,
+          "opposite_first_commits": 0,
+          "both_first_correct": 0,
+          "both_final_success": 0
+        },
+        "both_first_correct_by_seed": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "first_correct_by_seed": [
+          0.5,
+          0.225,
+          0,
+          0.175
+        ],
+        "junction_by_seed": [
+          1,
+          0.8,
+          0,
+          0.175
+        ],
+        "success_by_seed": [
+          0.5,
+          0.225,
+          0,
+          0.175
+        ],
+        "first_correct_conditional": 0.5373134328358209,
+        "hidden_reset_applied_episodes": null
+      },
+      "treatment_minus_control_by_seed": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "treatment_minus_control_total": 0
+    },
+    "S7/fixed_4": {
+      "bc_anchor": {
+        "pairs": 80,
+        "episodes": 160,
+        "counts": {
+          "cue_seen": 160,
+          "junction_arrived": 130,
+          "first_committed": 130,
+          "first_choice_correct": 82,
+          "first_choice_wrong": 48,
+          "success": 82,
+          "timeout": 30,
+          "arm_without_center": 0,
+          "terminal_without_center": 0,
+          "scheduled_masks": 640,
+          "effective_masks": 640,
+          "episodes_intervened": 160,
+          "clock_4_complete": 160
+        },
+        "pair_counts": {
+          "both_seen": 80,
+          "both_junction": 61,
+          "both_committed": 61,
+          "opposite_first_commits": 13,
+          "both_first_correct": 13,
+          "both_final_success": 13
+        },
+        "both_first_correct_by_seed": [
+          2,
+          0,
+          11,
+          0
+        ],
+        "first_correct_by_seed": [
+          0.475,
+          0.4,
+          0.7,
+          0.475
+        ],
+        "junction_by_seed": [
+          0.85,
+          0.8,
+          0.85,
+          0.75
+        ],
+        "success_by_seed": [
+          0.475,
+          0.4,
+          0.7,
+          0.475
+        ],
+        "first_correct_conditional": 0.6307692307692307,
+        "hidden_reset_applied_episodes": null
+      },
+      "ppo_sham": {
+        "pairs": 80,
+        "episodes": 160,
+        "counts": {
+          "cue_seen": 160,
+          "junction_arrived": 75,
+          "first_committed": 49,
+          "first_choice_correct": 24,
+          "first_choice_wrong": 25,
+          "success": 24,
+          "timeout": 111,
+          "arm_without_center": 0,
+          "terminal_without_center": 0,
+          "scheduled_masks": 640,
+          "effective_masks": 640,
+          "episodes_intervened": 160,
+          "clock_4_complete": 160
+        },
+        "pair_counts": {
+          "both_seen": 80,
+          "both_junction": 32,
+          "both_committed": 21,
+          "opposite_first_commits": 0,
+          "both_first_correct": 0,
+          "both_final_success": 0
+        },
+        "both_first_correct_by_seed": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "first_correct_by_seed": [
+          0,
+          0,
+          0.375,
+          0.225
+        ],
+        "junction_by_seed": [
+          0,
+          0.1,
+          0.775,
+          1
+        ],
+        "success_by_seed": [
+          0,
+          0,
+          0.375,
+          0.225
+        ],
+        "first_correct_conditional": 0.4897959183673469,
+        "hidden_reset_applied_episodes": null
+      },
+      "ppo_blackout": {
+        "pairs": 80,
+        "episodes": 160,
+        "counts": {
+          "cue_seen": 160,
+          "junction_arrived": 116,
+          "first_committed": 100,
+          "first_choice_correct": 53,
+          "first_choice_wrong": 47,
+          "success": 53,
+          "timeout": 60,
+          "arm_without_center": 0,
+          "terminal_without_center": 0,
+          "scheduled_masks": 640,
+          "effective_masks": 640,
+          "episodes_intervened": 160,
+          "clock_4_complete": 160
+        },
+        "pair_counts": {
+          "both_seen": 80,
+          "both_junction": 49,
+          "both_committed": 39,
+          "opposite_first_commits": 2,
+          "both_first_correct": 0,
+          "both_final_success": 0
+        },
+        "both_first_correct_by_seed": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "first_correct_by_seed": [
+          0.5,
+          0.3,
+          0.4,
+          0.125
+        ],
+        "junction_by_seed": [
+          1,
+          0.775,
+          0.95,
+          0.175
+        ],
+        "success_by_seed": [
+          0.5,
+          0.3,
+          0.4,
+          0.125
+        ],
+        "first_correct_conditional": 0.53,
+        "hidden_reset_applied_episodes": null
+      },
+      "treatment_minus_control_by_seed": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "treatment_minus_control_total": 0
+    },
+    "S7/cue_lost_hidden_reset_at_junction": {
+      "ppo_sham": {
+        "pairs": 80,
+        "episodes": 160,
+        "counts": {
+          "cue_seen": 160,
+          "junction_arrived": 40,
+          "first_committed": 40,
+          "first_choice_correct": 20,
+          "first_choice_wrong": 20,
+          "success": 20,
+          "timeout": 120,
+          "arm_without_center": 0,
+          "terminal_without_center": 0,
+          "scheduled_masks": 14935,
+          "effective_masks": 14935,
+          "episodes_intervened": 160,
+          "clock_4_complete": 0
+        },
+        "pair_counts": {
+          "both_seen": 80,
+          "both_junction": 20,
+          "both_committed": 20,
+          "opposite_first_commits": 0,
+          "both_first_correct": 0,
+          "both_final_success": 0
+        },
+        "both_first_correct_by_seed": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "first_correct_by_seed": [
+          0,
+          0,
+          0.5,
+          0
+        ],
+        "junction_by_seed": [
+          0,
+          0,
+          1,
+          0
+        ],
+        "success_by_seed": [
+          0,
+          0,
+          0.5,
+          0
+        ],
+        "first_correct_conditional": 0.5,
+        "hidden_reset_applied_episodes": 40
+      },
+      "ppo_blackout": {
+        "pairs": 80,
+        "episodes": 160,
+        "counts": {
+          "cue_seen": 160,
+          "junction_arrived": 71,
+          "first_committed": 71,
+          "first_choice_correct": 38,
+          "first_choice_wrong": 33,
+          "success": 38,
+          "timeout": 89,
+          "arm_without_center": 0,
+          "terminal_without_center": 0,
+          "scheduled_masks": 10435,
+          "effective_masks": 10435,
+          "episodes_intervened": 152,
+          "clock_4_complete": 0
+        },
+        "pair_counts": {
+          "both_seen": 80,
+          "both_junction": 31,
+          "both_committed": 31,
+          "opposite_first_commits": 0,
+          "both_first_correct": 0,
+          "both_final_success": 0
+        },
+        "both_first_correct_by_seed": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "first_correct_by_seed": [
+          0.5,
+          0,
+          0.45,
+          0
+        ],
+        "junction_by_seed": [
+          1,
+          0,
+          0.775,
+          0
+        ],
+        "success_by_seed": [
+          0.5,
+          0,
+          0.45,
+          0
+        ],
+        "first_correct_conditional": 0.5352112676056338,
+        "hidden_reset_applied_episodes": 71
+      },
+      "treatment_minus_control_by_seed": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "treatment_minus_control_total": 0
+    }
+  },
+  "preregistered_primary": {
+    "both_first_correct_sham": 20,
+    "both_first_correct_blackout": 0,
+    "by_seed_delta": [
+      0,
+      0,
+      0,
+      -20
+    ],
+    "positive_seeds": 0,
+    "total_gain": -20,
+    "criterion_met": false
+  },
+  "source_workflow_run_id": 40960267485,
+  "source_aggregate_job_id": 123754716741,
+  "provenance_note": "Verbatim F9P_AGGREGATE from successful GitHub Actions log; identifiers appended"
+}
