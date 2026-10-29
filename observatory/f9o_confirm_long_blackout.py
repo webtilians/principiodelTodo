@@ -56,7 +56,7 @@ def validate_training(report,root,index):
         masks=d["bc_mask_stats"]
         if (masks["episodes"]!=TRAIN_WORLDS*2 or masks["incomplete"]!=0 or
                 masks["scheduled"]!=TRAIN_WORLDS*2*6 or
-                masks["effective"]!=TRAIN_WORLDS*2*8):
+                masks["effective"]!=TRAIN_WORLDS*2*6):
             raise AssertionError("Training exposure not exactly matched")
         digests.append(masks["teacher_sha256"])
         for phase,key in (("after_bc","bc_sha256"),("after_rl","rl_sha256")):
