@@ -10,8 +10,8 @@ function forgetAccess() {
 }
 const state = {token: savedAccess(), catalog: [], selected: null,
                jobs: [], job: null, poll: null, renderedReport: null};
-const icons = {f4:'◇', f5:'◈', f6:'⌁', f7:'⊙', f7b:'⟡', f8:'◎', f9_memory:'▣', f9_doorkey:'⚿', f9_dynamic:'↝'};
-const labels = {f4:'MEMORIA', f5:'PREDICCIÓN', f6:'MODELO / RL', f7:'INFORMACIÓN', f7b:'RECALIBRACIÓN', f8:'MUNDO ACTIVO', f9_memory:'EXTERNO: MEMORIA', f9_doorkey:'EXTERNO: PLAN', f9_dynamic:'EXTERNO: DINÁMICA'};
+const icons = {f4:'◇', f5:'◈', f6:'⌁', f7:'⊙', f7b:'⟡', f8:'◎', f9_memory:'▣', f9_doorkey:'⚿', f9_dynamic:'↝', f9b_memory_baselines:'◎'};
+const labels = {f4:'MEMORIA', f5:'PREDICCIÓN', f6:'MODELO / RL', f7:'INFORMACIÓN', f7b:'RECALIBRACIÓN', f8:'MUNDO ACTIVO', f9_memory:'EXTERNO: MEMORIA', f9_doorkey:'EXTERNO: PLAN', f9_dynamic:'EXTERNO: DINÁMICA', f9b_memory_baselines:'F9-B: BASELINES'};
 function elem(tag, className, content) {
   const el = document.createElement(tag);
   if (className) el.className = className;
@@ -69,7 +69,7 @@ function updateWorkerIndicator(catalog) {
   target.replaceChildren(elem('i'),
     document.createTextNode(ready ? ' F9 PC CONECTADO' :
       state.f9RemoteEnabled ? ' F9 PC DESCONECTADO' : ' F9 DESACTIVADO'));
-  if (state.selected?.startsWith('f9_')) {
+  if ((state.selected?.startsWith('f9_') || state.selected?.startsWith('f9b_'))) {
     const exp = expById(state.selected);
     $('exp-warning').textContent = exp.warning + ' ' +
       (ready ? 'Worker Windows conectado, listo para ejecutar.' :
@@ -87,7 +87,7 @@ function selectExperiment(id) {
   $('current-exp').textContent = exp.name;
   $('exp-description').textContent = exp.description;
   $('exp-warning').textContent = exp.warning;
-  if (id.startsWith('f9_')) {
+  if ((id.startsWith('f9_') || id.startsWith('f9b_'))) {
     $('exp-warning').textContent += ' ' +
       (state.f9RemoteEnabled
         ? state.f9Worker?.online ? 'PC conectado.' : 'PC desconectado; ejecución en cola.'
