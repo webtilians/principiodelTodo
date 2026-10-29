@@ -1,0 +1,41 @@
+name: INFINITO F9-B — Development Baselines (100k)
+on:
+  push:
+    branches: ["experiment/f9b-causal-memory"]
+    paths:
+      - ".github/workflows/infinito-f9b-baseline-development-100k.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  baseline-development:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install separate MiniGrid RL dependencies
+        run: python -m pip install -r observatory/requirements_f9.txt
+      - name: Run second preregistered baseline budget — 100k per model
+        run: |
+          python -m observatory.f9b_causal_memory \
+            --phase baselines --seeds 1 --timesteps 100000 \
+            --eval-episodes 50 --output observatory_results/f9b_baseline_100k_ci
+      - name: Publish every outcome without selecting successful seeds
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path('observatory_results/f9b_baseline_100k_ci/report.json').read_text())
+          print('F9-B 100K DEVELOPMENT SCORES:',r['summary'])
+          print('F9-B 100K COMPETENCE GATE:',r['gate'])
+          assert r['phase']=='development' and r['gate']['ready'] is False
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: f9b-memory-baselines-100k-development-not-heldout
+          path: observatory_results/f9b_baseline_100k_ci/
+          if-no-files-found: warn
