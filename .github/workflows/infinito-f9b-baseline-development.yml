@@ -1,0 +1,43 @@
+name: INFINITO F9-B — Development Baselines (20k)
+on:
+  push:
+    branches: ["experiment/f9b-causal-memory"]
+    paths:
+      - ".github/workflows/infinito-f9b-baseline-development.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  baseline-development:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install separate external RL environment
+        run: python -m pip install -r observatory/requirements_f9.txt
+      - name: Train PPO and LSTM on external MiniGrid Memory
+        run: |
+          python -m observatory.f9b_causal_memory \
+            --phase baselines --seeds 1 --timesteps 20000 \
+            --eval-episodes 50 --output observatory_results/f9b_baseline_20k_ci
+      - name: Report all scores including failures
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          report=json.loads(Path('observatory_results/f9b_baseline_20k_ci/report.json').read_text())
+          print("F9-B DEVELOPMENT GATE:",report['gate'])
+          print("F9-B DEVELOPMENT SCORES:",report['summary'])
+          assert report['phase']=='development' and report['stage']=='baselines'
+          assert len(report['per_seed'])==1
+          assert report['gate']['ready'] is False
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: f9b-memory-baselines-20k-development-not-heldout
+          path: observatory_results/f9b_baseline_20k_ci/
+          if-no-files-found: warn
