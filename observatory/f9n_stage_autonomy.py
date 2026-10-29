@@ -99,9 +99,11 @@ class StageObserver:
                     first_commit_step=self.first_commit_step)
 
 
-def autonomous_episode(model,index,size,seed,reverse,condition):
+def autonomous_episode(model,index,size,seed,reverse,condition,reset_hidden_on_fork=False):
     if condition not in CONDITIONS or size not in PAIRS_BY_SIZE or index not in range(4):
         raise ValueError("Unapproved F9-N comparison")
+    if reset_hidden_on_fork and condition!="cue_lost_continuous":
+        raise ValueError("Hidden reset diagnostic only under cue-loss intervention")
     env=build_env(size)
     writer=SelectiveF4("context",CAPACITY,seed=81000+index)
     state=None
@@ -113,6 +115,7 @@ def autonomous_episode(model,index,size,seed,reverse,condition):
     final_reward=0.
     first_seen_step=None
     observer=None
+    reset_applied=False
     try:
         raw,_=env.reset(seed=seed)
         labels=get_world_labels(env)
@@ -129,7 +132,11 @@ def autonomous_episode(model,index,size,seed,reverse,condition):
             input_vector,masked,changed=mask_actor(encoded,condition,t,seen,visible)
             scheduled+=int(masked)
             effective+=int(changed)
-            action,state=frozen_action(model,input_vector,state,first=t==0)
+            reset_now=bool(reset_hidden_on_fork and not reset_applied and
+                           observer.junction_step is not None and observer.junction_step==t)
+            if reset_now:
+                reset_applied=True
+            action,state=frozen_action(model,input_vector,state,first=t==0 or reset_now)
             raw,reward,terminated,truncated,_=env.step(action)
             total+=float(reward)
             final_reward=float(reward)
@@ -166,6 +173,8 @@ def autonomous_episode(model,index,size,seed,reverse,condition):
                 else t-result["first_commit_step"],
             "final_reward":final_reward,
         })
+        if reset_hidden_on_fork:
+            result["hidden_reset_applied"]=bool(reset_applied)
         if condition=="normal" and scheduled!=0:
             raise AssertionError("Sham normal was unexpectedly masked")
         if condition=="fixed_4" and scheduled!=len(CLOCK_TIMES.intersection(range(t))):
