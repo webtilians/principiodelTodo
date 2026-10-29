@@ -131,6 +131,14 @@ class RemoteWorkerFlowTests(unittest.TestCase):
         self.assertEqual(wrong.status_code,422,wrong.text)
         self.assertEqual(self.client.get(
             f"/api/jobs/{job['id']}",headers=self.browser).json()["status"], "running")
+        # Retrying after malformed and wrong-task uploads must not reuse stale
+        # checkpoint/report files from their rejected staging directories.
+        valid = self.client.post(endpoint, content=self.archive(task="memory"),
+                                 headers=headers)
+        self.assertEqual(valid.status_code, 200, valid.text)
+        self.assertEqual(self.client.get(
+            f"/api/jobs/{job['id']}/report",
+            headers=self.browser).json()["task"], "memory")
 
     def test_cancel_does_not_touch_vps_process(self):
         job=self.post_browser().json()
