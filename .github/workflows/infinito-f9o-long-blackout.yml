@@ -32,7 +32,7 @@ jobs:
         run: |
           python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
           python -m pip install -r observatory/requirements_f9.txt gymnasium==1.4.0
-      - name: Confirm S13 TRAIN-only eight-effective-masks dose and split seal
+      - name: Confirm S13 TRAIN-only six-effective-masks dose and split seal
         run: python -m unittest discover -s tests -p 'test_f9o_equal_dose.py' -v
       - name: Preserve predecessor training/evaluator integrity
         run: |
@@ -56,7 +56,7 @@ jobs:
         run: |
           python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
           python -m pip install -r observatory/requirements_f9.txt gymnasium==1.4.0
-      - name: Eight genuinely NEW S13 TRAIN models, equal eight-frame blackout exposure
+      - name: Eight genuinely NEW S13 TRAIN models, equal six-frame blackout exposure
         run: |
           python -m observatory.f9o_long_blackout_training \
             --index ${{ matrix.seed }} --worlds 600 --epochs 40 \
@@ -148,7 +148,7 @@ jobs:
           assert r["index"]==index and r["confirmation_seed_base"]==600000
           assert not r["training_performed"] and not r["original_holdout_opened"]
           assert not r["F9M_F9N_confirmation_reused"]
-          assert set(r["arms"])=={"fragmented8","continuous8"}
+          assert set(r["arms"])=={"fragmented6","continuous6"}
           keys={f"S{s}/{c}" for s in (13,7)
                 for c in ("cue_lost_continuous","normal","fixed_4")}
           for arm in r["arms"].values():
@@ -196,7 +196,7 @@ jobs:
           }
           lines=["# F9-O — Independent S13 retention under equal training blackout dose",
                  "",
-                 "Eight NEW S13-trained context8 policies; 8 effective masked BC frames",
+                 "Eight NEW S13-trained context8 policies; 6 effective masked BC frames",
                  "per teacher demonstration in both arms, followed by CLEAN PPO.",
                  "Independent 600000+ confirmation, original holdout unopened.",
                  "",
@@ -208,7 +208,7 @@ jobs:
                           for c in ("cue_lost_continuous","normal","fixed_4")])
               for key in keys:
                   d={}
-                  for arm in ("fragmented8","continuous8"):
+                  for arm in ("fragmented6","continuous6"):
                       summaries=[r["arms"][arm][phase][key]["summary"] for r in rows]
                       n=sum(x["episodes"] for x in summaries)
                       pairs=sum(x["pairs"] for x in summaries)
@@ -245,11 +245,11 @@ jobs:
                           f'{paircounts["both_final_success"]}/{pairs} |')
                   d["long_minus_fragmented_both_first_by_seed"]=[
                       a-b for a,b in zip(
-                          d["continuous8"]["both_first_correct_by_seed"],
-                          d["fragmented8"]["both_first_correct_by_seed"])]
+                          d["continuous6"]["both_first_correct_by_seed"],
+                          d["fragmented6"]["both_first_correct_by_seed"])]
                   d["long_minus_fragmented_both_first_total"]=(
-                      d["continuous8"]["pair_counts"]["both_first_correct"]-
-                      d["fragmented8"]["pair_counts"]["both_first_correct"])
+                      d["continuous6"]["pair_counts"]["both_first_correct"]-
+                      d["fragmented6"]["pair_counts"]["both_first_correct"])
                   output["metrics"][f"{phase}/{key}"]=d
           primary=output["metrics"]["after_rl/S13/cue_lost_continuous"]
           delta=primary["long_minus_fragmented_both_first_by_seed"]
