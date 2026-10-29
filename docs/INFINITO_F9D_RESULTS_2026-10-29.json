@@ -1,0 +1,3264 @@
+{
+  "run_id": 40902425412,
+  "executed_commit": "ac036e4b6e90009f1830844759e3c303b17563e9",
+  "gate": {
+    "competent": false,
+    "f4_executed": false,
+    "heldout_opened": false
+  },
+  "per_seed": [
+    {
+      "experiment": "F9-D autonomous native navigation",
+      "base_sha": "bb0508bea461f82c5ea067def25fad70fb40efe8",
+      "index": 0,
+      "heldout_opened": false,
+      "shaping": false,
+      "native_actions": 7,
+      "phase": "development",
+      "dependencies": {
+        "python": "3.11.17",
+        "gymnasium": "1.4.0",
+        "minigrid": "3.2.0",
+        "stable_baselines3": "2.9.2",
+        "sb3_contrib": "2.9.2",
+        "torch": "2.15.0+cpu",
+        "numpy": "2.4.6"
+      },
+      "config": {
+        "index": 0,
+        "worlds": 600,
+        "epochs": 40,
+        "timesteps": 20000,
+        "episodes": 10,
+        "output": "observatory_results/f9d/seed0"
+      },
+      "models": {
+        "random": {
+          "S7/normal": {
+            "episodes_per_condition": 10,
+            "original_success": 0.2,
+            "swapped_success": 0.1,
+            "both_correct": 0,
+            "valid_side_flips": 0,
+            "cue_seen_rate": 0.8,
+            "mean_native_return": 0.1406326530612245,
+            "timeout_rate": 0.7,
+            "success_by_cue": {
+              "key": {
+                "successes": 1,
+                "episodes": 10
+              },
+              "ball": {
+                "successes": 2,
+                "episodes": 10
+              }
+            }
+          },
+          "S13/normal": {
+            "episodes_per_condition": 10,
+            "original_success": 0.3,
+            "swapped_success": 0,
+            "both_correct": 0,
+            "valid_side_flips": 0,
+            "cue_seen_rate": 0.9,
+            "mean_native_return": 0.09658579881656805,
+            "timeout_rate": 0.7,
+            "success_by_cue": {
+              "key": {
+                "successes": 1,
+                "episodes": 10
+              },
+              "ball": {
+                "successes": 2,
+                "episodes": 10
+              }
+            }
+          }
+        },
+        "ppo_scratch": {
+          "parameters": 27912,
+          "actual_rl_steps": 20096,
+          "checkpoint_sha256": "fc995d34093c6d338280c7577c31b7012ef1c47348b6206a02fbf4b3729f128e",
+          "after_rl": {
+            "S7/normal": {
+              "episodes_per_condition": 10,
+              "original_success": 0.3,
+              "swapped_success": 0.7,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0.1,
+              "mean_native_return": 0.4917346938775511,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 8,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 2,
+                  "episodes": 10
+                }
+              }
+            },
+            "S7/mask_cue": {
+              "episodes_per_condition": 10,
+              "original_success": 0.3,
+              "swapped_success": 0.7,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0.1,
+              "mean_native_return": 0.4917346938775511,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 8,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 2,
+                  "episodes": 10
+                }
+              }
+            },
+            "S13/normal": {
+              "episodes_per_condition": 10,
+              "original_success": 0,
+              "swapped_success": 0,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0,
+              "mean_native_return": 0,
+              "timeout_rate": 1,
+              "success_by_cue": {
+                "key": {
+                  "successes": 0,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 0,
+                  "episodes": 10
+                }
+              }
+            },
+            "S13/mask_cue": {
+              "episodes_per_condition": 10,
+              "original_success": 0,
+              "swapped_success": 0,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0,
+              "mean_native_return": 0,
+              "timeout_rate": 1,
+              "success_by_cue": {
+                "key": {
+                  "successes": 0,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 0,
+                  "episodes": 10
+                }
+              }
+            }
+          }
+        },
+        "ppo_bc": {
+          "parameters": 27912,
+          "bc_loss": [
+            1.644952698757774,
+            1.0364397325013812,
+            0.6935339883754128,
+            0.458286315202713,
+            0.36648554080411005,
+            0.3341862308351617,
+            0.31988871411273356,
+            0.31284879853850917,
+            0.308205667294954,
+            0.30526881625777796,
+            0.3031538066111113,
+            0.30190735898519816,
+            0.3000996991207725,
+            0.2990353828982303,
+            0.2992266526347713,
+            0.2990320356268632,
+            0.2971676446889576,
+            0.29634999601464523,
+            0.296293401404431,
+            0.2959984133118077,
+            0.2954545491620114,
+            0.2958014795654698,
+            0.2956389424047972,
+            0.2947497461971484,
+            0.29454336825170013,
+            0.29515365393538223,
+            0.294664193140833,
+            0.2946674447310598,
+            0.2943964224112661,
+            0.2937405862306294,
+            0.2938778149454217,
+            0.293676672797454,
+            0.29346833574144465,
+            0.2934675734294088,
+            0.2931841737345645,
+            0.29343757190202413,
+            0.29325712040850993,
+            0.2932787474833037,
+            0.29384025147086695,
+            0.2932077897222419
+          ],
+          "before_rl": {
+            "S7/normal": {
+              "episodes_per_condition": 10,
+              "original_success": 0.7,
+              "swapped_success": 0.3,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0.1,
+              "mean_native_return": 0.4917346938775511,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 2,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 8,
+                  "episodes": 10
+                }
+              }
+            },
+            "S7/mask_cue": {
+              "episodes_per_condition": 10,
+              "original_success": 0.7,
+              "swapped_success": 0.3,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0.1,
+              "mean_native_return": 0.4917346938775511,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 2,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 8,
+                  "episodes": 10
+                }
+              }
+            },
+            "S13/normal": {
+              "episodes_per_condition": 10,
+              "original_success": 0.7,
+              "swapped_success": 0.3,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0,
+              "mean_native_return": 0.496112426035503,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 2,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 8,
+                  "episodes": 10
+                }
+              }
+            },
+            "S13/mask_cue": {
+              "episodes_per_condition": 10,
+              "original_success": 0.7,
+              "swapped_success": 0.3,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0,
+              "mean_native_return": 0.496112426035503,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 2,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 8,
+                  "episodes": 10
+                }
+              }
+            }
+          },
+          "actual_rl_steps": 20096,
+          "checkpoint_sha256": "a07bd707245f0eecc21e3a17bc0b3451e793f80b7c7533311ee5fc7c50fcccd0",
+          "after_rl": {
+            "S7/normal": {
+              "episodes_per_condition": 10,
+              "original_success": 0.7,
+              "swapped_success": 0.3,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0.1,
+              "mean_native_return": 0.4917346938775511,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 2,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 8,
+                  "episodes": 10
+                }
+              }
+            },
+            "S7/mask_cue": {
+              "episodes_per_condition": 10,
+              "original_success": 0.7,
+              "swapped_success": 0.3,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0.1,
+              "mean_native_return": 0.4917346938775511,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 2,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 8,
+                  "episodes": 10
+                }
+              }
+            },
+            "S13/normal": {
+              "episodes_per_condition": 10,
+              "original_success": 0.7,
+              "swapped_success": 0.3,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0,
+              "mean_native_return": 0.496112426035503,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 2,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 8,
+                  "episodes": 10
+                }
+              }
+            },
+            "S13/mask_cue": {
+              "episodes_per_condition": 10,
+              "original_success": 0.7,
+              "swapped_success": 0.3,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0,
+              "mean_native_return": 0.496112426035503,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 2,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 8,
+                  "episodes": 10
+                }
+              }
+            }
+          }
+        },
+        "lstm_scratch": {
+          "parameters": 118408,
+          "actual_rl_steps": 20096,
+          "checkpoint_sha256": "1a5bd2a2d2c9a0154643d793fc8aa55e2c50fd5bdba5bbcb6ec5cc6541772ddf",
+          "after_rl": {
+            "S7/normal": {
+              "episodes_per_condition": 10,
+              "original_success": 0,
+              "swapped_success": 0,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0.1,
+              "mean_native_return": 0,
+              "timeout_rate": 1,
+              "success_by_cue": {
+                "key": {
+                  "successes": 0,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 0,
+                  "episodes": 10
+                }
+              }
+            },
+            "S7/mask_cue": {
+              "episodes_per_condition": 10,
+              "original_success": 0,
+              "swapped_success": 0,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0.1,
+              "mean_native_return": 0,
+              "timeout_rate": 1,
+              "success_by_cue": {
+                "key": {
+                  "successes": 0,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 0,
+                  "episodes": 10
+                }
+              }
+            },
+            "S7/reset_memory": {
+              "episodes_per_condition": 10,
+              "original_success": 0,
+              "swapped_success": 0,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0.1,
+              "mean_native_return": 0,
+              "timeout_rate": 1,
+              "success_by_cue": {
+                "key": {
+                  "successes": 0,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 0,
+                  "episodes": 10
+                }
+              }
+            },
+            "S13/normal": {
+              "episodes_per_condition": 10,
+              "original_success": 0,
+              "swapped_success": 0,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0,
+              "mean_native_return": 0,
+              "timeout_rate": 1,
+              "success_by_cue": {
+                "key": {
+                  "successes": 0,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 0,
+                  "episodes": 10
+                }
+              }
+            },
+            "S13/mask_cue": {
+              "episodes_per_condition": 10,
+              "original_success": 0,
+              "swapped_success": 0,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0,
+              "mean_native_return": 0,
+              "timeout_rate": 1,
+              "success_by_cue": {
+                "key": {
+                  "successes": 0,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 0,
+                  "episodes": 10
+                }
+              }
+            },
+            "S13/reset_memory": {
+              "episodes_per_condition": 10,
+              "original_success": 0,
+              "swapped_success": 0,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0,
+              "mean_native_return": 0,
+              "timeout_rate": 1,
+              "success_by_cue": {
+                "key": {
+                  "successes": 0,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 0,
+                  "episodes": 10
+                }
+              }
+            }
+          }
+        },
+        "lstm_bc": {
+          "parameters": 118408,
+          "bc_loss": [
+            1.6986048535296792,
+            1.0980139280620373,
+            0.9952664500788638,
+            0.9087220085294623,
+            0.711621249976911,
+            0.45732906147053365,
+            0.25042190441959783,
+            0.14263637403124257,
+            0.10463703776660718,
+            0.09099761043724261,
+            0.08503083531793795,
+            0.08171623121750982,
+            0.0797894918604901,
+            0.0779956990950986,
+            0.07861148056231047,
+            0.07603421532794048,
+            0.07537300571015007,
+            0.07432131626104053,
+            0.07410481297656109,
+            0.07352142153601897,
+            0.07350982215843703,
+            0.07377178182727412,
+            0.07302905227008619,
+            0.07312780697094767,
+            0.07307241621770356,
+            0.07337335457927302,
+            0.07248585200623463,
+            0.07249462212386884,
+            0.07182544391406209,
+            0.07164474890420311,
+            0.07177883739534177,
+            0.07172593160679466,
+            0.07194076478481293,
+            0.07131666572470415,
+            0.07127099092069425,
+            0.07167457436260424,
+            0.07126313526379435,
+            0.07182376243566212,
+            0.07162467547153172,
+            0.07079637246696573
+          ],
+          "before_rl": {
+            "S7/normal": {
+              "episodes_per_condition": 10,
+              "original_success": 0.7,
+              "swapped_success": 0.3,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 1,
+              "mean_native_return": 0.48402040816326525,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 2,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 8,
+                  "episodes": 10
+                }
+              }
+            },
+            "S7/mask_cue": {
+              "episodes_per_condition": 10,
+              "original_success": 0.7,
+              "swapped_success": 0.3,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 1,
+              "mean_native_return": 0.48402040816326525,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 2,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 8,
+                  "episodes": 10
+                }
+              }
+            },
+            "S7/reset_memory": {
+              "episodes_per_condition": 10,
+              "original_success": 0,
+              "swapped_success": 0,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 1,
+              "mean_native_return": 0,
+              "timeout_rate": 1,
+              "success_by_cue": {
+                "key": {
+                  "successes": 0,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 0,
+                  "episodes": 10
+                }
+              }
+            },
+            "S13/normal": {
+              "episodes_per_condition": 10,
+              "original_success": 0.3,
+              "swapped_success": 0.7,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 1,
+              "mean_native_return": 0.48897633136094676,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 8,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 2,
+                  "episodes": 10
+                }
+              }
+            },
+            "S13/mask_cue": {
+              "episodes_per_condition": 10,
+              "original_success": 0.3,
+              "swapped_success": 0.7,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 1,
+              "mean_native_return": 0.48897633136094676,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 8,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 2,
+                  "episodes": 10
+                }
+              }
+            },
+            "S13/reset_memory": {
+              "episodes_per_condition": 10,
+              "original_success": 0,
+              "swapped_success": 0,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0.6,
+              "mean_native_return": 0,
+              "timeout_rate": 1,
+              "success_by_cue": {
+                "key": {
+                  "successes": 0,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 0,
+                  "episodes": 10
+                }
+              }
+            }
+          },
+          "actual_rl_steps": 20096,
+          "checkpoint_sha256": "e1b0e995c5bfb8e5f81f5f41d6d2c3f30bfff73832a2bb2d04f5b61311a7118a",
+          "after_rl": {
+            "S7/normal": {
+              "episodes_per_condition": 10,
+              "original_success": 0.7,
+              "swapped_success": 0.3,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 1,
+              "mean_native_return": 0.48402040816326525,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 2,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 8,
+                  "episodes": 10
+                }
+              }
+            },
+            "S7/mask_cue": {
+              "episodes_per_condition": 10,
+              "original_success": 0.7,
+              "swapped_success": 0.3,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 1,
+              "mean_native_return": 0.48402040816326525,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 2,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 8,
+                  "episodes": 10
+                }
+              }
+            },
+            "S7/reset_memory": {
+              "episodes_per_condition": 10,
+              "original_success": 0,
+              "swapped_success": 0,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 1,
+              "mean_native_return": 0,
+              "timeout_rate": 1,
+              "success_by_cue": {
+                "key": {
+                  "successes": 0,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 0,
+                  "episodes": 10
+                }
+              }
+            },
+            "S13/normal": {
+              "episodes_per_condition": 10,
+              "original_success": 0.7,
+              "swapped_success": 0.3,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 1,
+              "mean_native_return": 0.48940236686390526,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 2,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 8,
+                  "episodes": 10
+                }
+              }
+            },
+            "S13/mask_cue": {
+              "episodes_per_condition": 10,
+              "original_success": 0.7,
+              "swapped_success": 0.3,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 1,
+              "mean_native_return": 0.4885502958579881,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 2,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 8,
+                  "episodes": 10
+                }
+              }
+            },
+            "S13/reset_memory": {
+              "episodes_per_condition": 10,
+              "original_success": 0,
+              "swapped_success": 0,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0.6,
+              "mean_native_return": 0,
+              "timeout_rate": 1,
+              "success_by_cue": {
+                "key": {
+                  "successes": 0,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 0,
+                  "episodes": 10
+                }
+              }
+            }
+          }
+        }
+      },
+      "teacher": "Privileged geometry/target for training action labels only",
+      "f4_status": "Gated on four competent recurrent seeds; no F4 claim",
+      "source_sha256": "0a1933b9b81f61b2c68c6fc5d2d26523e84d71525a2926af67573ca42b4c89dd"
+    },
+    {
+      "experiment": "F9-D autonomous native navigation",
+      "base_sha": "bb0508bea461f82c5ea067def25fad70fb40efe8",
+      "index": 1,
+      "heldout_opened": false,
+      "shaping": false,
+      "native_actions": 7,
+      "phase": "development",
+      "dependencies": {
+        "python": "3.11.17",
+        "gymnasium": "1.4.0",
+        "minigrid": "3.2.0",
+        "stable_baselines3": "2.9.2",
+        "sb3_contrib": "2.9.2",
+        "torch": "2.15.0+cpu",
+        "numpy": "2.4.6"
+      },
+      "config": {
+        "index": 1,
+        "worlds": 600,
+        "epochs": 40,
+        "timesteps": 20000,
+        "episodes": 10,
+        "output": "observatory_results/f9d/seed1"
+      },
+      "models": {
+        "random": {
+          "S7/normal": {
+            "episodes_per_condition": 10,
+            "original_success": 0.2,
+            "swapped_success": 0.6,
+            "both_correct": 0,
+            "valid_side_flips": 0,
+            "cue_seen_rate": 0.7,
+            "mean_native_return": 0.2997142857142857,
+            "timeout_rate": 0.2,
+            "success_by_cue": {
+              "key": {
+                "successes": 3,
+                "episodes": 10
+              },
+              "ball": {
+                "successes": 5,
+                "episodes": 10
+              }
+            }
+          },
+          "S13/normal": {
+            "episodes_per_condition": 10,
+            "original_success": 0.3,
+            "swapped_success": 0.4,
+            "both_correct": 0,
+            "valid_side_flips": 0,
+            "cue_seen_rate": 0.8,
+            "mean_native_return": 0.3019644970414201,
+            "timeout_rate": 0.3,
+            "success_by_cue": {
+              "key": {
+                "successes": 3,
+                "episodes": 10
+              },
+              "ball": {
+                "successes": 4,
+                "episodes": 10
+              }
+            }
+          }
+        },
+        "ppo_scratch": {
+          "parameters": 27912,
+          "actual_rl_steps": 20096,
+          "checkpoint_sha256": "b24d77de629fa0cf3e06bb62446dace5ef0f80a9bbc034849f54b915ae9f80b0",
+          "after_rl": {
+            "S7/normal": {
+              "episodes_per_condition": 10,
+              "original_success": 0.2,
+              "swapped_success": 0.8,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0.1,
+              "mean_native_return": 0.4919183673469387,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 6,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 4,
+                  "episodes": 10
+                }
+              }
+            },
+            "S7/mask_cue": {
+              "episodes_per_condition": 10,
+              "original_success": 0.2,
+              "swapped_success": 0.8,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0.1,
+              "mean_native_return": 0.4919183673469387,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 6,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 4,
+                  "episodes": 10
+                }
+              }
+            },
+            "S13/normal": {
+              "episodes_per_condition": 10,
+              "original_success": 0.2,
+              "swapped_success": 0.8,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0.1,
+              "mean_native_return": 0.4962721893491125,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 6,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 4,
+                  "episodes": 10
+                }
+              }
+            },
+            "S13/mask_cue": {
+              "episodes_per_condition": 10,
+              "original_success": 0.2,
+              "swapped_success": 0.8,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0.1,
+              "mean_native_return": 0.4962721893491125,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 6,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 4,
+                  "episodes": 10
+                }
+              }
+            }
+          }
+        },
+        "ppo_bc": {
+          "parameters": 27912,
+          "bc_loss": [
+            1.6481968415410895,
+            1.0370596427666514,
+            0.7081108030519987,
+            0.4791135772278434,
+            0.3836469336559898,
+            0.34521038438144486,
+            0.32798126967329727,
+            0.3170272017780103,
+            0.31036530984075444,
+            0.3057231526625784,
+            0.3024914358791552,
+            0.30037481376999303,
+            0.29937249735782023,
+            0.29803594946861267,
+            0.2968438079482631,
+            0.2961699727334474,
+            0.2947000076896266,
+            0.29427124010889155,
+            0.2940571841440703,
+            0.2937052547931671,
+            0.2931765239489706,
+            0.2926104147183268,
+            0.29227154349025924,
+            0.2925202642616473,
+            0.2926013281470851,
+            0.2916245256599627,
+            0.29168481262106644,
+            0.2915686510111156,
+            0.291713789889687,
+            0.29158011706251846,
+            0.2911500899415267,
+            0.2913490298547243,
+            0.29082697159365606,
+            0.2917072333787617,
+            0.2915316663290325,
+            0.2911614885455684,
+            0.29149637410515233,
+            0.2912895742215608,
+            0.29050111456921224,
+            0.2902783437779075
+          ],
+          "before_rl": {
+            "S7/normal": {
+              "episodes_per_condition": 10,
+              "original_success": 0.4,
+              "swapped_success": 0.6,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0.7,
+              "mean_native_return": 0.48971428571428566,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 0,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 10,
+                  "episodes": 10
+                }
+              }
+            },
+            "S7/mask_cue": {
+              "episodes_per_condition": 10,
+              "original_success": 0.4,
+              "swapped_success": 0.6,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0.7,
+              "mean_native_return": 0.48971428571428566,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 0,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 10,
+                  "episodes": 10
+                }
+              }
+            },
+            "S13/normal": {
+              "episodes_per_condition": 10,
+              "original_success": 0.2,
+              "swapped_success": 0.8,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0.1,
+              "mean_native_return": 0.4962721893491125,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 6,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 4,
+                  "episodes": 10
+                }
+              }
+            },
+            "S13/mask_cue": {
+              "episodes_per_condition": 10,
+              "original_success": 0.2,
+              "swapped_success": 0.8,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0.1,
+              "mean_native_return": 0.4962721893491125,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 6,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 4,
+                  "episodes": 10
+                }
+              }
+            }
+          },
+          "actual_rl_steps": 20096,
+          "checkpoint_sha256": "7665398bf489cd1332c38b5f9f53ff7825d46b821d461d42678e610abc91c43b",
+          "after_rl": {
+            "S7/normal": {
+              "episodes_per_condition": 10,
+              "original_success": 0.2,
+              "swapped_success": 0.8,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0.1,
+              "mean_native_return": 0.4919183673469387,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 6,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 4,
+                  "episodes": 10
+                }
+              }
+            },
+            "S7/mask_cue": {
+              "episodes_per_condition": 10,
+              "original_success": 0.2,
+              "swapped_success": 0.8,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0.1,
+              "mean_native_return": 0.4919183673469387,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 6,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 4,
+                  "episodes": 10
+                }
+              }
+            },
+            "S13/normal": {
+              "episodes_per_condition": 10,
+              "original_success": 0.2,
+              "swapped_success": 0.8,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0.1,
+              "mean_native_return": 0.4962721893491125,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 6,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 4,
+                  "episodes": 10
+                }
+              }
+            },
+            "S13/mask_cue": {
+              "episodes_per_condition": 10,
+              "original_success": 0.2,
+              "swapped_success": 0.8,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0.1,
+              "mean_native_return": 0.4962721893491125,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 6,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 4,
+                  "episodes": 10
+                }
+              }
+            }
+          }
+        },
+        "lstm_scratch": {
+          "parameters": 118408,
+          "actual_rl_steps": 20096,
+          "checkpoint_sha256": "506f7c57a908ef0faffc3c9209609efb7c42a1f270f00f9d20fc61a22122c5c7",
+          "after_rl": {
+            "S7/normal": {
+              "episodes_per_condition": 10,
+              "original_success": 0,
+              "swapped_success": 0.2,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0.5,
+              "mean_native_return": 0.09853061224489797,
+              "timeout_rate": 0.8,
+              "success_by_cue": {
+                "key": {
+                  "successes": 0,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 2,
+                  "episodes": 10
+                }
+              }
+            },
+            "S7/mask_cue": {
+              "episodes_per_condition": 10,
+              "original_success": 0,
+              "swapped_success": 0.2,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0.5,
+              "mean_native_return": 0.09853061224489797,
+              "timeout_rate": 0.8,
+              "success_by_cue": {
+                "key": {
+                  "successes": 0,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 2,
+                  "episodes": 10
+                }
+              }
+            },
+            "S7/reset_memory": {
+              "episodes_per_condition": 10,
+              "original_success": 0,
+              "swapped_success": 0,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0.1,
+              "mean_native_return": 0,
+              "timeout_rate": 1,
+              "success_by_cue": {
+                "key": {
+                  "successes": 0,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 0,
+                  "episodes": 10
+                }
+              }
+            },
+            "S13/normal": {
+              "episodes_per_condition": 10,
+              "original_success": 0,
+              "swapped_success": 0,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0.1,
+              "mean_native_return": 0,
+              "timeout_rate": 1,
+              "success_by_cue": {
+                "key": {
+                  "successes": 0,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 0,
+                  "episodes": 10
+                }
+              }
+            },
+            "S13/mask_cue": {
+              "episodes_per_condition": 10,
+              "original_success": 0,
+              "swapped_success": 0,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0.1,
+              "mean_native_return": 0,
+              "timeout_rate": 1,
+              "success_by_cue": {
+                "key": {
+                  "successes": 0,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 0,
+                  "episodes": 10
+                }
+              }
+            },
+            "S13/reset_memory": {
+              "episodes_per_condition": 10,
+              "original_success": 0,
+              "swapped_success": 0,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0.1,
+              "mean_native_return": 0,
+              "timeout_rate": 1,
+              "success_by_cue": {
+                "key": {
+                  "successes": 0,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 0,
+                  "episodes": 10
+                }
+              }
+            }
+          }
+        },
+        "lstm_bc": {
+          "parameters": 118408,
+          "bc_loss": [
+            1.7071756751913774,
+            1.1132839039752358,
+            0.9881831909480848,
+            0.8713503479957581,
+            0.6670901712618376,
+            0.418888110863535,
+            0.22215641486017326,
+            0.13004562572429054,
+            0.10107166241658361,
+            0.0904783853574803,
+            0.08445222126810174,
+            0.08109535669025622,
+            0.07999824928609948,
+            0.07911854864735353,
+            0.07660485333517979,
+            0.07501887530088425,
+            0.07417439551729905,
+            0.0737957460315604,
+            0.0737024439792884,
+            0.07297868556097935,
+            0.07269377810390372,
+            0.07243933254166653,
+            0.0718714681110884,
+            0.0718939704330344,
+            0.07280402748208296,
+            0.07215706572720879,
+            0.0718153864145279,
+            0.07142811190140874,
+            0.0710142090132362,
+            0.07169321885234431,
+            0.07078527188614796,
+            0.07133507258013676,
+            0.07039649980632882,
+            0.0712430739873334,
+            0.07030269503593445,
+            0.07047972279159646,
+            0.07030592074519709,
+            0.07089744351412121,
+            0.07046089595869968,
+            0.0706126187977038
+          ],
+          "before_rl": {
+            "S7/normal": {
+              "episodes_per_condition": 10,
+              "original_success": 0.8,
+              "swapped_success": 0.2,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 1,
+              "mean_native_return": 0.4801632653061225,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 4,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 6,
+                  "episodes": 10
+                }
+              }
+            },
+            "S7/mask_cue": {
+              "episodes_per_condition": 10,
+              "original_success": 0.8,
+              "swapped_success": 0.2,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 1,
+              "mean_native_return": 0.4801632653061225,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 4,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 6,
+                  "episodes": 10
+                }
+              }
+            },
+            "S7/reset_memory": {
+              "episodes_per_condition": 10,
+              "original_success": 0,
+              "swapped_success": 0,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 1,
+              "mean_native_return": 0,
+              "timeout_rate": 1,
+              "success_by_cue": {
+                "key": {
+                  "successes": 0,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 0,
+                  "episodes": 10
+                }
+              }
+            },
+            "S13/normal": {
+              "episodes_per_condition": 10,
+              "original_success": 0.8,
+              "swapped_success": 0.2,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 1,
+              "mean_native_return": 0.4883905325443787,
+              "timeout_rate": 0.05,
+              "success_by_cue": {
+                "key": {
+                  "successes": 4,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 6,
+                  "episodes": 10
+                }
+              }
+            },
+            "S13/mask_cue": {
+              "episodes_per_condition": 10,
+              "original_success": 0.8,
+              "swapped_success": 0.2,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 1,
+              "mean_native_return": 0.48849704142011835,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 4,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 6,
+                  "episodes": 10
+                }
+              }
+            },
+            "S13/reset_memory": {
+              "episodes_per_condition": 10,
+              "original_success": 0,
+              "swapped_success": 0,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0.5,
+              "mean_native_return": 0,
+              "timeout_rate": 1,
+              "success_by_cue": {
+                "key": {
+                  "successes": 0,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 0,
+                  "episodes": 10
+                }
+              }
+            }
+          },
+          "actual_rl_steps": 20096,
+          "checkpoint_sha256": "3646e0046f7264b470531019baa9efdc7446f4a29c2468fe1cffc2581c28b537",
+          "after_rl": {
+            "S7/normal": {
+              "episodes_per_condition": 10,
+              "original_success": 0.2,
+              "swapped_success": 0.8,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 1,
+              "mean_native_return": 0.48383673469387756,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 6,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 4,
+                  "episodes": 10
+                }
+              }
+            },
+            "S7/mask_cue": {
+              "episodes_per_condition": 10,
+              "original_success": 0.2,
+              "swapped_success": 0.8,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 1,
+              "mean_native_return": 0.48383673469387756,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 6,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 4,
+                  "episodes": 10
+                }
+              }
+            },
+            "S7/reset_memory": {
+              "episodes_per_condition": 10,
+              "original_success": 0,
+              "swapped_success": 0,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 1,
+              "mean_native_return": 0,
+              "timeout_rate": 1,
+              "success_by_cue": {
+                "key": {
+                  "successes": 0,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 0,
+                  "episodes": 10
+                }
+              }
+            },
+            "S13/normal": {
+              "episodes_per_condition": 10,
+              "original_success": 0,
+              "swapped_success": 0.3,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0.7,
+              "mean_native_return": 0.14840236686390534,
+              "timeout_rate": 0.7,
+              "success_by_cue": {
+                "key": {
+                  "successes": 2,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 1,
+                  "episodes": 10
+                }
+              }
+            },
+            "S13/mask_cue": {
+              "episodes_per_condition": 10,
+              "original_success": 0,
+              "swapped_success": 0.3,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0.7,
+              "mean_native_return": 0.14840236686390534,
+              "timeout_rate": 0.7,
+              "success_by_cue": {
+                "key": {
+                  "successes": 2,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 1,
+                  "episodes": 10
+                }
+              }
+            },
+            "S13/reset_memory": {
+              "episodes_per_condition": 10,
+              "original_success": 0,
+              "swapped_success": 0,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0.5,
+              "mean_native_return": 0,
+              "timeout_rate": 1,
+              "success_by_cue": {
+                "key": {
+                  "successes": 0,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 0,
+                  "episodes": 10
+                }
+              }
+            }
+          }
+        }
+      },
+      "teacher": "Privileged geometry/target for training action labels only",
+      "f4_status": "Gated on four competent recurrent seeds; no F4 claim",
+      "source_sha256": "0a1933b9b81f61b2c68c6fc5d2d26523e84d71525a2926af67573ca42b4c89dd"
+    },
+    {
+      "experiment": "F9-D autonomous native navigation",
+      "base_sha": "bb0508bea461f82c5ea067def25fad70fb40efe8",
+      "index": 2,
+      "heldout_opened": false,
+      "shaping": false,
+      "native_actions": 7,
+      "phase": "development",
+      "dependencies": {
+        "python": "3.11.17",
+        "gymnasium": "1.4.0",
+        "minigrid": "3.2.0",
+        "stable_baselines3": "2.9.2",
+        "sb3_contrib": "2.9.2",
+        "torch": "2.15.0+cpu",
+        "numpy": "2.4.6"
+      },
+      "config": {
+        "index": 2,
+        "worlds": 600,
+        "epochs": 40,
+        "timesteps": 20000,
+        "episodes": 10,
+        "output": "observatory_results/f9d/seed2"
+      },
+      "models": {
+        "random": {
+          "S7/normal": {
+            "episodes_per_condition": 10,
+            "original_success": 0.2,
+            "swapped_success": 0.2,
+            "both_correct": 0,
+            "valid_side_flips": 0,
+            "cue_seen_rate": 0.7,
+            "mean_native_return": 0.155734693877551,
+            "timeout_rate": 0.6,
+            "success_by_cue": {
+              "key": {
+                "successes": 1,
+                "episodes": 10
+              },
+              "ball": {
+                "successes": 3,
+                "episodes": 10
+              }
+            }
+          },
+          "S13/normal": {
+            "episodes_per_condition": 10,
+            "original_success": 0.1,
+            "swapped_success": 0.3,
+            "both_correct": 0,
+            "valid_side_flips": 0,
+            "cue_seen_rate": 0.8,
+            "mean_native_return": 0.1485562130177515,
+            "timeout_rate": 0.6,
+            "success_by_cue": {
+              "key": {
+                "successes": 2,
+                "episodes": 10
+              },
+              "ball": {
+                "successes": 2,
+                "episodes": 10
+              }
+            }
+          }
+        },
+        "ppo_scratch": {
+          "parameters": 27912,
+          "actual_rl_steps": 20096,
+          "checkpoint_sha256": "2c08c9155680e9dca340b8aa6e707d2553b8b1c05876522610149bd6fef44288",
+          "after_rl": {
+            "S7/normal": {
+              "episodes_per_condition": 10,
+              "original_success": 0,
+              "swapped_success": 0,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0.1,
+              "mean_native_return": 0,
+              "timeout_rate": 1,
+              "success_by_cue": {
+                "key": {
+                  "successes": 0,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 0,
+                  "episodes": 10
+                }
+              }
+            },
+            "S7/mask_cue": {
+              "episodes_per_condition": 10,
+              "original_success": 0,
+              "swapped_success": 0,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0.1,
+              "mean_native_return": 0,
+              "timeout_rate": 1,
+              "success_by_cue": {
+                "key": {
+                  "successes": 0,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 0,
+                  "episodes": 10
+                }
+              }
+            },
+            "S13/normal": {
+              "episodes_per_condition": 10,
+              "original_success": 0,
+              "swapped_success": 0,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0,
+              "mean_native_return": 0,
+              "timeout_rate": 1,
+              "success_by_cue": {
+                "key": {
+                  "successes": 0,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 0,
+                  "episodes": 10
+                }
+              }
+            },
+            "S13/mask_cue": {
+              "episodes_per_condition": 10,
+              "original_success": 0,
+              "swapped_success": 0,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0,
+              "mean_native_return": 0,
+              "timeout_rate": 1,
+              "success_by_cue": {
+                "key": {
+                  "successes": 0,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 0,
+                  "episodes": 10
+                }
+              }
+            }
+          }
+        },
+        "ppo_bc": {
+          "parameters": 27912,
+          "bc_loss": [
+            1.6668755129763955,
+            1.0437533729954769,
+            0.6850730117998625,
+            0.44906502177840785,
+            0.3599030359795219,
+            0.33187982910557795,
+            0.32014232560207967,
+            0.3130997121334076,
+            0.30839645078307704,
+            0.3051566858040659,
+            0.3028421998023987,
+            0.30160082484546463,
+            0.29924098598329646,
+            0.29871008113810893,
+            0.2979421223464765,
+            0.2976571870477576,
+            0.2965148389339447,
+            0.29625257222275986,
+            0.29574483319332723,
+            0.2949196131605851,
+            0.29487923415083633,
+            0.29439349864658554,
+            0.29495430463238764,
+            0.29447005297008316,
+            0.29442569142893743,
+            0.2942820646260914,
+            0.2938074720533271,
+            0.29362329683805766,
+            0.2936633150828512,
+            0.2934969004831816,
+            0.2931040164671446,
+            0.29321439328946564,
+            0.2930609521112944,
+            0.2924977588026147,
+            0.29213061615040425,
+            0.29288846411203084,
+            0.2928066849708557,
+            0.2930291153882679,
+            0.2922403733981283,
+            0.2927091419696808
+          ],
+          "before_rl": {
+            "S7/normal": {
+              "episodes_per_condition": 10,
+              "original_success": 0.5,
+              "swapped_success": 0.5,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 1,
+              "mean_native_return": 0.4878775510204082,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 6,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 4,
+                  "episodes": 10
+                }
+              }
+            },
+            "S7/mask_cue": {
+              "episodes_per_condition": 10,
+              "original_success": 0.5,
+              "swapped_success": 0.5,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 1,
+              "mean_native_return": 0.4878775510204082,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 6,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 4,
+                  "episodes": 10
+                }
+              }
+            },
+            "S13/normal": {
+              "episodes_per_condition": 10,
+              "original_success": 0.5,
+              "swapped_success": 0.5,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0,
+              "mean_native_return": 0.49483431952662726,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 6,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 4,
+                  "episodes": 10
+                }
+              }
+            },
+            "S13/mask_cue": {
+              "episodes_per_condition": 10,
+              "original_success": 0.5,
+              "swapped_success": 0.5,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0,
+              "mean_native_return": 0.49483431952662726,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 6,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 4,
+                  "episodes": 10
+                }
+              }
+            }
+          },
+          "actual_rl_steps": 20096,
+          "checkpoint_sha256": "8e66365a048e23e747b4b0751546cfec48770b5e3285768d240029eda2c8737e",
+          "after_rl": {
+            "S7/normal": {
+              "episodes_per_condition": 10,
+              "original_success": 0.5,
+              "swapped_success": 0.5,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0.1,
+              "mean_native_return": 0.4915510204081633,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 4,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 6,
+                  "episodes": 10
+                }
+              }
+            },
+            "S7/mask_cue": {
+              "episodes_per_condition": 10,
+              "original_success": 0.5,
+              "swapped_success": 0.5,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0.1,
+              "mean_native_return": 0.4915510204081633,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 4,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 6,
+                  "episodes": 10
+                }
+              }
+            },
+            "S13/normal": {
+              "episodes_per_condition": 10,
+              "original_success": 0.5,
+              "swapped_success": 0.5,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0,
+              "mean_native_return": 0.4958994082840237,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 4,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 6,
+                  "episodes": 10
+                }
+              }
+            },
+            "S13/mask_cue": {
+              "episodes_per_condition": 10,
+              "original_success": 0.5,
+              "swapped_success": 0.5,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0,
+              "mean_native_return": 0.4958994082840237,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 4,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 6,
+                  "episodes": 10
+                }
+              }
+            }
+          }
+        },
+        "lstm_scratch": {
+          "parameters": 118408,
+          "actual_rl_steps": 20096,
+          "checkpoint_sha256": "48efa51f9b0d4da7bb83669f923c43dc96d27be56840802b61cf72b4e5e55a4b",
+          "after_rl": {
+            "S7/normal": {
+              "episodes_per_condition": 10,
+              "original_success": 0,
+              "swapped_success": 0,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0.1,
+              "mean_native_return": 0,
+              "timeout_rate": 1,
+              "success_by_cue": {
+                "key": {
+                  "successes": 0,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 0,
+                  "episodes": 10
+                }
+              }
+            },
+            "S7/mask_cue": {
+              "episodes_per_condition": 10,
+              "original_success": 0,
+              "swapped_success": 0,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0.1,
+              "mean_native_return": 0,
+              "timeout_rate": 1,
+              "success_by_cue": {
+                "key": {
+                  "successes": 0,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 0,
+                  "episodes": 10
+                }
+              }
+            },
+            "S7/reset_memory": {
+              "episodes_per_condition": 10,
+              "original_success": 0,
+              "swapped_success": 0,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0.1,
+              "mean_native_return": 0,
+              "timeout_rate": 1,
+              "success_by_cue": {
+                "key": {
+                  "successes": 0,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 0,
+                  "episodes": 10
+                }
+              }
+            },
+            "S13/normal": {
+              "episodes_per_condition": 10,
+              "original_success": 0,
+              "swapped_success": 0,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0.4,
+              "mean_native_return": 0,
+              "timeout_rate": 1,
+              "success_by_cue": {
+                "key": {
+                  "successes": 0,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 0,
+                  "episodes": 10
+                }
+              }
+            },
+            "S13/mask_cue": {
+              "episodes_per_condition": 10,
+              "original_success": 0,
+              "swapped_success": 0,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0.4,
+              "mean_native_return": 0,
+              "timeout_rate": 1,
+              "success_by_cue": {
+                "key": {
+                  "successes": 0,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 0,
+                  "episodes": 10
+                }
+              }
+            },
+            "S13/reset_memory": {
+              "episodes_per_condition": 10,
+              "original_success": 0,
+              "swapped_success": 0,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0,
+              "mean_native_return": 0,
+              "timeout_rate": 1,
+              "success_by_cue": {
+                "key": {
+                  "successes": 0,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 0,
+                  "episodes": 10
+                }
+              }
+            }
+          }
+        },
+        "lstm_bc": {
+          "parameters": 118408,
+          "bc_loss": [
+            1.7098164181960256,
+            1.1043999132357145,
+            0.9878567739536888,
+            0.8885905397565741,
+            0.6595424539164493,
+            0.3775391437505421,
+            0.1926250496977254,
+            0.12111783262930419,
+            0.09983012354687641,
+            0.08977880956310975,
+            0.08424278936888042,
+            0.0817604829606257,
+            0.0789286870705454,
+            0.07715400073089097,
+            0.07637450765622289,
+            0.07641395612766869,
+            0.07556296728159252,
+            0.07453937436404981,
+            0.07497931193364293,
+            0.07386015355587006,
+            0.07346992704429124,
+            0.07308285291257657,
+            0.07430130321728556,
+            0.07280347025708149,
+            0.07437784107107866,
+            0.0728243287456663,
+            0.07204936131050713,
+            0.07191678136587143,
+            0.07191726173225202,
+            0.07155532899655793,
+            0.07254816042749505,
+            0.07135555971609919,
+            0.07188453250809719,
+            0.07148800751096324,
+            0.07142935379555351,
+            0.07236910885886143,
+            0.07117247346200441,
+            0.07125105473556016,
+            0.07107977490676076,
+            0.07072280935550991
+          ],
+          "before_rl": {
+            "S7/normal": {
+              "episodes_per_condition": 10,
+              "original_success": 0.5,
+              "swapped_success": 0.5,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 1,
+              "mean_native_return": 0.48126530612244894,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 6,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 4,
+                  "episodes": 10
+                }
+              }
+            },
+            "S7/mask_cue": {
+              "episodes_per_condition": 10,
+              "original_success": 0.5,
+              "swapped_success": 0.5,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 1,
+              "mean_native_return": 0.48126530612244894,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 6,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 4,
+                  "episodes": 10
+                }
+              }
+            },
+            "S7/reset_memory": {
+              "episodes_per_condition": 10,
+              "original_success": 0,
+              "swapped_success": 0,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 1,
+              "mean_native_return": 0,
+              "timeout_rate": 1,
+              "success_by_cue": {
+                "key": {
+                  "successes": 0,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 0,
+                  "episodes": 10
+                }
+              }
+            },
+            "S13/normal": {
+              "episodes_per_condition": 10,
+              "original_success": 0.5,
+              "swapped_success": 0.5,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 1,
+              "mean_native_return": 0.48929585798816577,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 6,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 4,
+                  "episodes": 10
+                }
+              }
+            },
+            "S13/mask_cue": {
+              "episodes_per_condition": 10,
+              "original_success": 0.5,
+              "swapped_success": 0.5,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 1,
+              "mean_native_return": 0.48929585798816577,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 6,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 4,
+                  "episodes": 10
+                }
+              }
+            },
+            "S13/reset_memory": {
+              "episodes_per_condition": 10,
+              "original_success": 0,
+              "swapped_success": 0,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0.8,
+              "mean_native_return": 0,
+              "timeout_rate": 1,
+              "success_by_cue": {
+                "key": {
+                  "successes": 0,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 0,
+                  "episodes": 10
+                }
+              }
+            }
+          },
+          "actual_rl_steps": 20096,
+          "checkpoint_sha256": "2fe69cb07c918d3770f27e18ffb525d40c6fefe16912e924a6cb934d46b04aee",
+          "after_rl": {
+            "S7/normal": {
+              "episodes_per_condition": 10,
+              "original_success": 0.5,
+              "swapped_success": 0.5,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 1,
+              "mean_native_return": 0.48493877551020415,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 4,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 6,
+                  "episodes": 10
+                }
+              }
+            },
+            "S7/mask_cue": {
+              "episodes_per_condition": 10,
+              "original_success": 0.5,
+              "swapped_success": 0.5,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 1,
+              "mean_native_return": 0.48493877551020415,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 4,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 6,
+                  "episodes": 10
+                }
+              }
+            },
+            "S7/reset_memory": {
+              "episodes_per_condition": 10,
+              "original_success": 0,
+              "swapped_success": 0,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 1,
+              "mean_native_return": 0,
+              "timeout_rate": 1,
+              "success_by_cue": {
+                "key": {
+                  "successes": 0,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 0,
+                  "episodes": 10
+                }
+              }
+            },
+            "S13/normal": {
+              "episodes_per_condition": 10,
+              "original_success": 0.5,
+              "swapped_success": 0.5,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 1,
+              "mean_native_return": 0.4882307692307692,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 4,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 6,
+                  "episodes": 10
+                }
+              }
+            },
+            "S13/mask_cue": {
+              "episodes_per_condition": 10,
+              "original_success": 0.5,
+              "swapped_success": 0.5,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 1,
+              "mean_native_return": 0.48844378698224855,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 4,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 6,
+                  "episodes": 10
+                }
+              }
+            },
+            "S13/reset_memory": {
+              "episodes_per_condition": 10,
+              "original_success": 0,
+              "swapped_success": 0,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0.8,
+              "mean_native_return": 0,
+              "timeout_rate": 1,
+              "success_by_cue": {
+                "key": {
+                  "successes": 0,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 0,
+                  "episodes": 10
+                }
+              }
+            }
+          }
+        }
+      },
+      "teacher": "Privileged geometry/target for training action labels only",
+      "f4_status": "Gated on four competent recurrent seeds; no F4 claim",
+      "source_sha256": "0a1933b9b81f61b2c68c6fc5d2d26523e84d71525a2926af67573ca42b4c89dd"
+    },
+    {
+      "experiment": "F9-D autonomous native navigation",
+      "base_sha": "bb0508bea461f82c5ea067def25fad70fb40efe8",
+      "index": 3,
+      "heldout_opened": false,
+      "shaping": false,
+      "native_actions": 7,
+      "phase": "development",
+      "dependencies": {
+        "python": "3.11.17",
+        "gymnasium": "1.4.0",
+        "minigrid": "3.2.0",
+        "stable_baselines3": "2.9.2",
+        "sb3_contrib": "2.9.2",
+        "torch": "2.15.0+cpu",
+        "numpy": "2.4.6"
+      },
+      "config": {
+        "index": 3,
+        "worlds": 600,
+        "epochs": 40,
+        "timesteps": 20000,
+        "episodes": 10,
+        "output": "observatory_results/f9d/seed3"
+      },
+      "models": {
+        "random": {
+          "S7/normal": {
+            "episodes_per_condition": 10,
+            "original_success": 0.2,
+            "swapped_success": 0.3,
+            "both_correct": 0,
+            "valid_side_flips": 0,
+            "cue_seen_rate": 1,
+            "mean_native_return": 0.16110204081632654,
+            "timeout_rate": 0.5,
+            "success_by_cue": {
+              "key": {
+                "successes": 3,
+                "episodes": 10
+              },
+              "ball": {
+                "successes": 2,
+                "episodes": 10
+              }
+            }
+          },
+          "S13/normal": {
+            "episodes_per_condition": 10,
+            "original_success": 0.2,
+            "swapped_success": 0.2,
+            "both_correct": 0,
+            "valid_side_flips": 0,
+            "cue_seen_rate": 0.9,
+            "mean_native_return": 0.11697633136094673,
+            "timeout_rate": 0.6,
+            "success_by_cue": {
+              "key": {
+                "successes": 2,
+                "episodes": 10
+              },
+              "ball": {
+                "successes": 2,
+                "episodes": 10
+              }
+            }
+          }
+        },
+        "ppo_scratch": {
+          "parameters": 27912,
+          "actual_rl_steps": 20096,
+          "checkpoint_sha256": "3521861cdbf8ef9d99f00b221f8933258536acd46e4e828e543f7cb39a74c3e0",
+          "after_rl": {
+            "S7/normal": {
+              "episodes_per_condition": 10,
+              "original_success": 0.3,
+              "swapped_success": 0.7,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0.5,
+              "mean_native_return": 0.491,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 7,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 3,
+                  "episodes": 10
+                }
+              }
+            },
+            "S7/mask_cue": {
+              "episodes_per_condition": 10,
+              "original_success": 0.3,
+              "swapped_success": 0.7,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0.5,
+              "mean_native_return": 0.491,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 7,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 3,
+                  "episodes": 10
+                }
+              }
+            },
+            "S13/normal": {
+              "episodes_per_condition": 10,
+              "original_success": 0.3,
+              "swapped_success": 0.7,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0.2,
+              "mean_native_return": 0.4953136094674556,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 7,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 3,
+                  "episodes": 10
+                }
+              }
+            },
+            "S13/mask_cue": {
+              "episodes_per_condition": 10,
+              "original_success": 0.3,
+              "swapped_success": 0.7,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0.2,
+              "mean_native_return": 0.4953136094674556,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 7,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 3,
+                  "episodes": 10
+                }
+              }
+            }
+          }
+        },
+        "ppo_bc": {
+          "parameters": 27912,
+          "bc_loss": [
+            1.6435902118682861,
+            1.022464262811761,
+            0.6604124589970237,
+            0.44323564987433584,
+            0.3544268027732247,
+            0.32665623959742096,
+            0.3148133331223538,
+            0.3087441058535325,
+            0.3053531458503322,
+            0.3029928787758476,
+            0.3008577243277901,
+            0.2986031770706177,
+            0.29780073542343943,
+            0.2964126938267758,
+            0.2963872348007403,
+            0.2952820642998344,
+            0.2950038157011333,
+            0.29525714485268845,
+            0.294783774175142,
+            0.2939122758413616,
+            0.2939149988325019,
+            0.2931566803078902,
+            0.2923252362953989,
+            0.293289956293608,
+            0.29273695381064163,
+            0.2927681458623786,
+            0.29417432295648677,
+            0.29400142870451274,
+            0.29278368228360224,
+            0.2920034966970745,
+            0.292454005856263,
+            0.29154670081640544,
+            0.29215324552435623,
+            0.29149743914604187,
+            0.2912260497871198,
+            0.2915570281053844,
+            0.2910722525496232,
+            0.29118456495435613,
+            0.290849307650014,
+            0.2905596275078623
+          ],
+          "before_rl": {
+            "S7/normal": {
+              "episodes_per_condition": 10,
+              "original_success": 0.8,
+              "swapped_success": 0.2,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0.6,
+              "mean_native_return": 0.4898979591836734,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 0,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 10,
+                  "episodes": 10
+                }
+              }
+            },
+            "S7/mask_cue": {
+              "episodes_per_condition": 10,
+              "original_success": 0.8,
+              "swapped_success": 0.2,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0.6,
+              "mean_native_return": 0.4898979591836734,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 0,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 10,
+                  "episodes": 10
+                }
+              }
+            },
+            "S13/normal": {
+              "episodes_per_condition": 10,
+              "original_success": 0.7,
+              "swapped_success": 0.3,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0.2,
+              "mean_native_return": 0.4953136094674556,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 3,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 7,
+                  "episodes": 10
+                }
+              }
+            },
+            "S13/mask_cue": {
+              "episodes_per_condition": 10,
+              "original_success": 0.7,
+              "swapped_success": 0.3,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0.2,
+              "mean_native_return": 0.4953136094674556,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 3,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 7,
+                  "episodes": 10
+                }
+              }
+            }
+          },
+          "actual_rl_steps": 20096,
+          "checkpoint_sha256": "a44639dee3038b4dcba56f0f5a67124489fe7622397eca7d03f0a52983bb04e2",
+          "after_rl": {
+            "S7/normal": {
+              "episodes_per_condition": 10,
+              "original_success": 0.7,
+              "swapped_success": 0.3,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0.5,
+              "mean_native_return": 0.491,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 3,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 7,
+                  "episodes": 10
+                }
+              }
+            },
+            "S7/mask_cue": {
+              "episodes_per_condition": 10,
+              "original_success": 0.7,
+              "swapped_success": 0.3,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0.5,
+              "mean_native_return": 0.491,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 3,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 7,
+                  "episodes": 10
+                }
+              }
+            },
+            "S13/normal": {
+              "episodes_per_condition": 10,
+              "original_success": 0.7,
+              "swapped_success": 0.3,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0.2,
+              "mean_native_return": 0.4953136094674556,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 3,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 7,
+                  "episodes": 10
+                }
+              }
+            },
+            "S13/mask_cue": {
+              "episodes_per_condition": 10,
+              "original_success": 0.7,
+              "swapped_success": 0.3,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0.2,
+              "mean_native_return": 0.4953136094674556,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 3,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 7,
+                  "episodes": 10
+                }
+              }
+            }
+          }
+        },
+        "lstm_scratch": {
+          "parameters": 118408,
+          "actual_rl_steps": 20096,
+          "checkpoint_sha256": "338be63275af0143eecde016b1f6c46ff3f2be94d182334300440ba2b709c16d",
+          "after_rl": {
+            "S7/normal": {
+              "episodes_per_condition": 10,
+              "original_success": 0,
+              "swapped_success": 0,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0.5,
+              "mean_native_return": 0,
+              "timeout_rate": 1,
+              "success_by_cue": {
+                "key": {
+                  "successes": 0,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 0,
+                  "episodes": 10
+                }
+              }
+            },
+            "S7/mask_cue": {
+              "episodes_per_condition": 10,
+              "original_success": 0,
+              "swapped_success": 0,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0.5,
+              "mean_native_return": 0,
+              "timeout_rate": 1,
+              "success_by_cue": {
+                "key": {
+                  "successes": 0,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 0,
+                  "episodes": 10
+                }
+              }
+            },
+            "S7/reset_memory": {
+              "episodes_per_condition": 10,
+              "original_success": 0,
+              "swapped_success": 0,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0.5,
+              "mean_native_return": 0,
+              "timeout_rate": 1,
+              "success_by_cue": {
+                "key": {
+                  "successes": 0,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 0,
+                  "episodes": 10
+                }
+              }
+            },
+            "S13/normal": {
+              "episodes_per_condition": 10,
+              "original_success": 0,
+              "swapped_success": 0,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0.2,
+              "mean_native_return": 0,
+              "timeout_rate": 1,
+              "success_by_cue": {
+                "key": {
+                  "successes": 0,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 0,
+                  "episodes": 10
+                }
+              }
+            },
+            "S13/mask_cue": {
+              "episodes_per_condition": 10,
+              "original_success": 0,
+              "swapped_success": 0,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0.2,
+              "mean_native_return": 0,
+              "timeout_rate": 1,
+              "success_by_cue": {
+                "key": {
+                  "successes": 0,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 0,
+                  "episodes": 10
+                }
+              }
+            },
+            "S13/reset_memory": {
+              "episodes_per_condition": 10,
+              "original_success": 0,
+              "swapped_success": 0,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0.2,
+              "mean_native_return": 0,
+              "timeout_rate": 1,
+              "success_by_cue": {
+                "key": {
+                  "successes": 0,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 0,
+                  "episodes": 10
+                }
+              }
+            }
+          }
+        },
+        "lstm_bc": {
+          "parameters": 118408,
+          "bc_loss": [
+            1.7228129161031622,
+            1.1123042608562268,
+            0.9868435200891996,
+            0.871834535347788,
+            0.6281946066178774,
+            0.3566759275762658,
+            0.17945279965275213,
+            0.11824227006811845,
+            0.09950193096148341,
+            0.08976408878439351,
+            0.08403251986754567,
+            0.08095627003594448,
+            0.07848132480131953,
+            0.07718163415005333,
+            0.07668500393629074,
+            0.07581403655441184,
+            0.07459784730484612,
+            0.07495937457210139,
+            0.07361949980258942,
+            0.07404803406251104,
+            0.07346048990362569,
+            0.07267203770185772,
+            0.0722973515328608,
+            0.07245445525959919,
+            0.0720126922977598,
+            0.0727604909947044,
+            0.07525190946302916,
+            0.07194916276555312,
+            0.07142832796824605,
+            0.07160507456252449,
+            0.07200975794541209,
+            0.0710755088611653,
+            0.07144037673347875,
+            0.07100383741290946,
+            0.07090923386184793,
+            0.07090730102438676,
+            0.07081312490137,
+            0.07078985713030163,
+            0.07095654857786078,
+            0.07062312646916039
+          ],
+          "before_rl": {
+            "S7/normal": {
+              "episodes_per_condition": 10,
+              "original_success": 0.3,
+              "swapped_success": 0.7,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 1,
+              "mean_native_return": 0.4799795918367348,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 7,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 3,
+                  "episodes": 10
+                }
+              }
+            },
+            "S7/mask_cue": {
+              "episodes_per_condition": 10,
+              "original_success": 0.3,
+              "swapped_success": 0.7,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 1,
+              "mean_native_return": 0.4799795918367348,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 7,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 3,
+                  "episodes": 10
+                }
+              }
+            },
+            "S7/reset_memory": {
+              "episodes_per_condition": 10,
+              "original_success": 0,
+              "swapped_success": 0,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 1,
+              "mean_native_return": 0,
+              "timeout_rate": 1,
+              "success_by_cue": {
+                "key": {
+                  "successes": 0,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 0,
+                  "episodes": 10
+                }
+              }
+            },
+            "S13/normal": {
+              "episodes_per_condition": 10,
+              "original_success": 0.3,
+              "swapped_success": 0.7,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 1,
+              "mean_native_return": 0.49020118343195274,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 7,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 3,
+                  "episodes": 10
+                }
+              }
+            },
+            "S13/mask_cue": {
+              "episodes_per_condition": 10,
+              "original_success": 0.3,
+              "swapped_success": 0.7,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 1,
+              "mean_native_return": 0.49020118343195274,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 7,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 3,
+                  "episodes": 10
+                }
+              }
+            },
+            "S13/reset_memory": {
+              "episodes_per_condition": 10,
+              "original_success": 0,
+              "swapped_success": 0,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0.8,
+              "mean_native_return": 0,
+              "timeout_rate": 1,
+              "success_by_cue": {
+                "key": {
+                  "successes": 0,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 0,
+                  "episodes": 10
+                }
+              }
+            }
+          },
+          "actual_rl_steps": 20096,
+          "checkpoint_sha256": "7a1b5dcc18d7adb36e40a9d4f136f58b15878199c653aa981658d34681f4bfb6",
+          "after_rl": {
+            "S7/normal": {
+              "episodes_per_condition": 10,
+              "original_success": 0.7,
+              "swapped_success": 0.3,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 1,
+              "mean_native_return": 0.4836530612244897,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 3,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 7,
+                  "episodes": 10
+                }
+              }
+            },
+            "S7/mask_cue": {
+              "episodes_per_condition": 10,
+              "original_success": 0.7,
+              "swapped_success": 0.3,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 1,
+              "mean_native_return": 0.4836530612244897,
+              "timeout_rate": 0,
+              "success_by_cue": {
+                "key": {
+                  "successes": 3,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 7,
+                  "episodes": 10
+                }
+              }
+            },
+            "S7/reset_memory": {
+              "episodes_per_condition": 10,
+              "original_success": 0,
+              "swapped_success": 0,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 1,
+              "mean_native_return": 0,
+              "timeout_rate": 1,
+              "success_by_cue": {
+                "key": {
+                  "successes": 0,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 0,
+                  "episodes": 10
+                }
+              }
+            },
+            "S13/normal": {
+              "episodes_per_condition": 10,
+              "original_success": 0,
+              "swapped_success": 0,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 1,
+              "mean_native_return": 0,
+              "timeout_rate": 1,
+              "success_by_cue": {
+                "key": {
+                  "successes": 0,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 0,
+                  "episodes": 10
+                }
+              }
+            },
+            "S13/mask_cue": {
+              "episodes_per_condition": 10,
+              "original_success": 0,
+              "swapped_success": 0,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 1,
+              "mean_native_return": 0,
+              "timeout_rate": 1,
+              "success_by_cue": {
+                "key": {
+                  "successes": 0,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 0,
+                  "episodes": 10
+                }
+              }
+            },
+            "S13/reset_memory": {
+              "episodes_per_condition": 10,
+              "original_success": 0,
+              "swapped_success": 0,
+              "both_correct": 0,
+              "valid_side_flips": 0,
+              "cue_seen_rate": 0.8,
+              "mean_native_return": 0,
+              "timeout_rate": 1,
+              "success_by_cue": {
+                "key": {
+                  "successes": 0,
+                  "episodes": 10
+                },
+                "ball": {
+                  "successes": 0,
+                  "episodes": 10
+                }
+              }
+            }
+          }
+        }
+      },
+      "teacher": "Privileged geometry/target for training action labels only",
+      "f4_status": "Gated on four competent recurrent seeds; no F4 claim",
+      "source_sha256": "0a1933b9b81f61b2c68c6fc5d2d26523e84d71525a2926af67573ca42b4c89dd"
+    }
+  ],
+  "artifacts": [
+    {
+      "id": 12910960345,
+      "name": "f9d-seed-2",
+      "size_in_bytes": 3067246,
+      "url": "https://api.github.com/repos/webtilians/principiodelTodo/actions/artifacts/12910960345",
+      "archive_download_url": "https://api.github.com/repos/webtilians/principiodelTodo/actions/artifacts/12910960345/zip",
+      "expired": false,
+      "created_at": "2026-10-29T15:38:23Z",
+      "expires_at": "2026-11-28T15:38:22Z",
+      "updated_at": "2026-10-29T15:38:23Z",
+      "digest": "sha256:9cbd24fc0d5ff45852dfdb490e8679a756b882c9bf1132f05f49639e3f0fa1fd",
+      "workflow_run": {
+        "id": 40902425412,
+        "repository_id": 1057537680,
+        "head_repository_id": 1057537680,
+        "head_branch": "experiment/f9d-autonomous-navigation",
+        "head_sha": "ac036e4b6e90009f1830844759e3c303b17563e9"
+      }
+    },
+    {
+      "id": 12910950364,
+      "name": "f9d-seed-1",
+      "size_in_bytes": 3008987,
+      "url": "https://api.github.com/repos/webtilians/principiodelTodo/actions/artifacts/12910950364",
+      "archive_download_url": "https://api.github.com/repos/webtilians/principiodelTodo/actions/artifacts/12910950364/zip",
+      "expired": false,
+      "created_at": "2026-10-29T15:38:29Z",
+      "expires_at": "2026-11-28T15:38:28Z",
+      "updated_at": "2026-10-29T15:38:29Z",
+      "digest": "sha256:9864c8009747c3ca8d10c86d31bbd42133997637a3517796fca9b9041b353931",
+      "workflow_run": {
+        "id": 40902425412,
+        "repository_id": 1057537680,
+        "head_repository_id": 1057537680,
+        "head_branch": "experiment/f9d-autonomous-navigation",
+        "head_sha": "ac036e4b6e90009f1830844759e3c303b17563e9"
+      }
+    },
+    {
+      "id": 12910731944,
+      "name": "f9d-seed-3",
+      "size_in_bytes": 3084954,
+      "url": "https://api.github.com/repos/webtilians/principiodelTodo/actions/artifacts/12910731944",
+      "archive_download_url": "https://api.github.com/repos/webtilians/principiodelTodo/actions/artifacts/12910731944/zip",
+      "expired": false,
+      "created_at": "2026-10-29T15:36:40Z",
+      "expires_at": "2026-11-28T15:36:38Z",
+      "updated_at": "2026-10-29T15:36:40Z",
+      "digest": "sha256:8f35d7a250710dea1ab1c8212d756dbf31127e3381c8c4b994cd7d01be226d65",
+      "workflow_run": {
+        "id": 40902425412,
+        "repository_id": 1057537680,
+        "head_repository_id": 1057537680,
+        "head_branch": "experiment/f9d-autonomous-navigation",
+        "head_sha": "ac036e4b6e90009f1830844759e3c303b17563e9"
+      }
+    },
+    {
+      "id": 12910656063,
+      "name": "f9d-seed-0",
+      "size_in_bytes": 3066603,
+      "url": "https://api.github.com/repos/webtilians/principiodelTodo/actions/artifacts/12910656063",
+      "archive_download_url": "https://api.github.com/repos/webtilians/principiodelTodo/actions/artifacts/12910656063/zip",
+      "expired": false,
+      "created_at": "2026-10-29T15:35:39Z",
+      "expires_at": "2026-11-28T15:35:38Z",
+      "updated_at": "2026-10-29T15:35:39Z",
+      "digest": "sha256:f8135403faf5c065efd9074ab50df3b33025b27171aab3a729b4505bd12dc913",
+      "workflow_run": {
+        "id": 40902425412,
+        "repository_id": 1057537680,
+        "head_repository_id": 1057537680,
+        "head_branch": "experiment/f9d-autonomous-navigation",
+        "head_sha": "ac036e4b6e90009f1830844759e3c303b17563e9"
+      }
+    },
+    {
+      "id": 12909334539,
+      "name": "f9d-aggregate",
+      "size_in_bytes": 7282,
+      "url": "https://api.github.com/repos/webtilians/principiodelTodo/actions/artifacts/12909334539",
+      "archive_download_url": "https://api.github.com/repos/webtilians/principiodelTodo/actions/artifacts/12909334539/zip",
+      "expired": false,
+      "created_at": "2026-10-29T15:38:40Z",
+      "expires_at": "2026-11-28T15:38:39Z",
+      "updated_at": "2026-10-29T15:38:40Z",
+      "digest": "sha256:96f1bb46ac6e192d2b700522b5ff4a08cd1ba814628ae15dcda4a863a55d1a96",
+      "workflow_run": {
+        "id": 40902425412,
+        "repository_id": 1057537680,
+        "head_repository_id": 1057537680,
+        "head_branch": "experiment/f9d-autonomous-navigation",
+        "head_sha": "ac036e4b6e90009f1830844759e3c303b17563e9"
+      }
+    }
+  ]
+}
