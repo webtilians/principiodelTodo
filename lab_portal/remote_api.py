@@ -173,7 +173,7 @@ def validate_bundle(archive: Path, destination: Path):
             pure = PurePosixPath(name)
             if (info.is_dir() or name in names or pure.is_absolute() or
                 ".." in pure.parts or "\\" in name or
-                not (name in ("report.json", "frozen_manifest.json")
+                not (name in ("report.json", "frozen_manifest.json", "stdout.log")
                      or CHECKPOINT.fullmatch(name))):
                 raise ValueError("Ruta de archivo prohibida")
             if (info.external_attr >> 16) & 0o170000 == 0o120000:
@@ -248,6 +248,13 @@ async def finish(job_id: str, request: Request,
             raise HTTPException(422, "Informe de otro experimento")
         with sv.START_LOCK:
             job = _job_under_claim(folder, x_lab_claim_id or "")
+            # stdout is also the live log visible in the web UI.
+            uploaded_log = folder / "remote-validated" / "stdout.log"
+            if uploaded_log.is_file():
+                with uploaded_log.open("rb") as source, (folder / "stdout.log").open("wb") as target:
+                    while chunk := source.read(1 << 16):
+                        target.write(chunk)
+                uploaded_log.unlink()
             (folder / "remote-validated").replace(folder / "output")
             job.update(status="completed", finished_at=sv.now(), exit_code=0,
                        claim_id=None)
