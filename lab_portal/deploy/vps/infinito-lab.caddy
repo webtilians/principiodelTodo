@@ -1,7 +1,13 @@
 # Written by setup.sh into /etc/caddy/sites.d/. Caddy gets and renews the HTTPS certificate.
 __HOST__ {
 	encode gzip
-	request_body {
+	# F9 model bundles are bounded and validated by the authenticated worker API.
+	@f9_upload path /api/worker/jobs/*/finish
+	request_body @f9_upload {
+		max_size 64MB
+	}
+	@ordinary not path /api/worker/jobs/*/finish
+	request_body @ordinary {
 		max_size 1MB
 	}
 	header {
