@@ -190,6 +190,8 @@ def start(submission: Submission):
         raise HTTPException(422, detail=str(error))
     remote = (submission.experiment.startswith("f9_") and
               os.environ.get("LAB_F9_REMOTE_ENABLED") == "1")
+    if remote and len(os.environ.get("LAB_WORKER_TOKEN", "")) < 32:
+        raise HTTPException(503, "Configura un LAB_WORKER_TOKEN privado de al menos 32 caracteres")
     if submission.experiment.startswith("f9_") and not remote:
         # Heavy Torch/MiniGrid stacks are never imported into the web process.
         # Local F9 needs an explicitly provisioned interpreter and RAM.
