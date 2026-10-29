@@ -6,7 +6,7 @@ import numpy as np
 from observatory.f9d_autonomous_navigation import checked_seed
 from observatory import f9i_selective_navigation as nav
 from observatory.f9k_temporal_memory_probes import (
-    STAGES, TRAIN_PAIRS, DEV_PAIRS, build_dataset, fit_linear_probe,
+    original_cue_label, STAGES, TRAIN_PAIRS, DEV_PAIRS, build_dataset, fit_linear_probe,
     flatten_hidden, matrix, paired_snapshots, predict_probe, scores,
     stage_indices,
 )
@@ -43,7 +43,7 @@ class FrozenTemporalProbeTests(unittest.TestCase):
                    "M":np.zeros(2), "O":np.zeros(2)}
                 b={"H":np.array([5.0, noise]),
                    "M":np.zeros(2), "O":np.zeros(2)}
-                rows.append({"a":a,"b":b,"raw_equal":True,
+                rows.append({"a":a,"b":b,"labels":(-1.0,1.0),"raw_equal":True,
                              "f4_equal":True,"hidden_distance":10.0,
                              "cue_gap":3})
             return rows
@@ -64,6 +64,13 @@ class FrozenTemporalProbeTests(unittest.TestCase):
         self.assertEqual(evaluated_zero["both_correct"],0)
         np.testing.assert_array_equal(predict_probe(control,np.zeros((2,2))),
                                       np.ones(2))
+
+    def test_cue_identity_is_observer_label_not_inversion_flag(self):
+        # Worlds can start with either cue type; its identity, not whether
+        # a world was flipped, must be the target for a universal probe.
+        labels={original_cue_label(checked_seed("train",0,j),7)
+                for j in range(30)}
+        self.assertEqual(labels, {-1.0,1.0})
 
     def test_hidden_width_and_rejects_drift(self):
         self.assertEqual(flatten_hidden(None).shape, (128,))
