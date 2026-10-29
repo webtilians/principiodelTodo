@@ -59,6 +59,24 @@ function setStatus(online) {
   $('server-status').innerHTML = '';
   const dot = elem('i'); $('server-status').append(dot, document.createTextNode(online ? ' CONECTADO' : ' SIN CONEXIÓN'));
 }
+function updateWorkerIndicator(catalog) {
+  const worker = catalog.f9_worker || {};
+  state.f9Worker = worker;
+  state.f9RemoteEnabled = catalog.f9_remote_enabled === true;
+  const target = $('worker-status');
+  const ready = state.f9RemoteEnabled && worker.online === true;
+  target.classList.toggle('online', ready);
+  target.replaceChildren(elem('i'),
+    document.createTextNode(ready ? ' F9 PC CONECTADO' :
+      state.f9RemoteEnabled ? ' F9 PC DESCONECTADO' : ' F9 DESACTIVADO'));
+  if (state.selected?.startsWith('f9_')) {
+    const exp = expById(state.selected);
+    $('exp-warning').textContent = exp.warning + ' ' +
+      (ready ? 'Worker Windows conectado, listo para ejecutar.' :
+       state.f9RemoteEnabled ? 'El trabajo quedará en cola hasta conectar el PC.' :
+       'El administrador debe activar LAB_F9_REMOTE_ENABLED en el VPS.');
+  }
+}
 function expById(id) { return state.catalog.find(x => x.id === id); }
 function selectExperiment(id) {
   state.selected = id;
@@ -69,6 +87,12 @@ function selectExperiment(id) {
   $('current-exp').textContent = exp.name;
   $('exp-description').textContent = exp.description;
   $('exp-warning').textContent = exp.warning;
+  if (id.startsWith('f9_')) {
+    $('exp-warning').textContent += ' ' +
+      (state.f9RemoteEnabled
+        ? state.f9Worker?.online ? 'PC conectado.' : 'PC desconectado; ejecución en cola.'
+        : 'Worker remoto aún no habilitado en el VPS.');
+  }
   const fields = $('fields'); fields.replaceChildren();
   for (const [name, descriptor] of Object.entries(exp.params)) {
     const row = elem('div','field'); const label=elem('label'); label.htmlFor='param-'+name;
@@ -182,11 +206,16 @@ async function load() {
     try { localStorage.setItem(accessKey, state.token); sessionStorage.removeItem(accessKey); }
     catch { notify('El navegador no permite recordar el acceso en este dispositivo.'); }
     $('token-input').value='';
-    state.catalog=(await json('catalog')).experiments;
-    $('auth-modal').hidden=true;drawCatalog();await refreshJobs();
+    const listing = await json('catalog');
+    state.catalog = listing.experiments;
+    $('auth-modal').hidden=true;drawCatalog();updateWorkerIndicator(listing);await refreshJobs();
     clearInterval(state.poll);
     state.poll=setInterval(async()=>{
-      try {await refreshJobs();setStatus(true);} catch{setStatus(false);}
+      try {
+        await refreshJobs();
+        updateWorkerIndicator(await json('catalog'));
+        setStatus(true);
+      } catch {setStatus(false);}
     },3000);
   }catch(error){setStatus(false);$('auth-modal').hidden=false;$('auth-error').textContent=error.message;}
 }
