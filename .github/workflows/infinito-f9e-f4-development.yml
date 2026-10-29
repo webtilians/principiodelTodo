@@ -1,0 +1,121 @@
+name: INFINITO F9-E — Four-Seed Native F4 Development
+on:
+  push:
+    branches: ["experiment/f9e-f4-autonomous"]
+    paths:
+      - ".github/workflows/infinito-f9e-f4-development.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: f9e-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  integrity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - run: python -m pip install -r observatory/requirements_f9.txt gymnasium==1.4.0
+      - run: python -m unittest discover -s tests -p 'test_f9e_f4_autonomous.py' -v
+  experiment:
+    needs: integrity
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    strategy:
+      fail-fast: false
+      matrix:
+        seed: [0, 1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install CPU-only Torch and MiniGrid
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r observatory/requirements_f9.txt gymnasium==1.4.0
+      - name: Native seven-action recurrent BC and PPO with true Store/FIFO
+        run: |
+          python -m observatory.f9e_f4_autonomous \
+            --index ${{ matrix.seed }} --worlds 600 --epochs 40 \
+            --timesteps 20000 --episodes 10 \
+            --output observatory_results/f9e/seed${{ matrix.seed }}
+      - name: Verify paired experimental contract and holdout closed
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          files=list(Path('observatory_results/f9e').glob('seed*/report.json'))
+          assert len(files)==1
+          r=json.loads(files[0].read_text())
+          assert r['heldout_opened'] is False and r['shaping'] is False
+          assert r['native_actions']==7
+          assert set(r['models'])=={'raw','zero','f4'}
+          assert r['models']['zero']['input_width']==r['models']['f4']['input_width']==160
+          assert r['models']['zero']['parameters']==r['models']['f4']['parameters']
+          assert len({x['rl_steps_actual'] for x in r['models'].values()})==1
+          for mode in ('raw','zero','f4'):
+              print('F9E_SCORE',r['seed_index'],mode,r['models'][mode]['after_rl']['S7/normal'])
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: f9e-f4-development-seed-${{ matrix.seed }}
+          path: observatory_results/f9e/seed${{ matrix.seed }}/
+          if-no-files-found: warn
+          retention-days: 30
+  report:
+    needs: experiment
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: f9e-f4-development-seed-*
+          path: results
+      - name: Aggregate all four independent training seeds
+        run: |
+          python - <<'PY'
+          import json,statistics,os
+          from pathlib import Path
+          paths=sorted(Path('results').glob('f9e-f4-development-seed-*/report.json'))
+          reports=[json.loads(p.read_text()) for p in paths]
+          assert len(reports)==4 and {r['seed_index'] for r in reports}=={0,1,2,3}
+          assert all(r['heldout_opened'] is False for r in reports)
+          lines=['# F9-E F4 Store/FIFO versus matched LSTM','',
+           'Exploratory development: four training seeds, 10 paired original/swapped worlds per size and seed. Heldout CLOSED.','',
+           '| Seed | Agent / control | S7 success | Both right S7 | Flips S7 | Cue seen S7 | S13 success |',
+           '|---|---|---:|---:|---:|---:|---:|']
+          for r in reports:
+              for mode in ('raw','zero','f4'):
+                  stages=r['models'][mode]['after_rl']
+                  conditions=('normal','mask_cue','erase','swap_identity') if mode=='f4' else ('normal',)
+                  for control in conditions:
+                      a=stages['S7/'+control]
+                      b=stages['S13/'+control]
+                      lines.append(f'| {r["seed_index"]} | {mode} / {control} | {a["combined_success"]:.0%} | {a["both_correct"]}/10 | {a["valid_side_flips"]}/10 | {a["cue_seen_rate"]:.0%} | {b["combined_success"]:.0%} |')
+          diffs=[r['models']['f4']['after_rl']['S7/normal']['combined_success'] -
+                 r['models']['zero']['after_rl']['S7/normal']['combined_success']
+                 for r in reports]
+          result={'f4_minus_zero_s7_by_seed':diffs,
+                  'mean_difference':statistics.mean(diffs),
+                  'holdout_opened':False,
+                  'scope':'Real F4 FIFO Store only; not LearnedRelevance or F5',
+                  'confirmatory':False}
+          lines+=['','Paired F4−zero per training seed: '+str(diffs),
+                  'Mean difference: '+str(round(result['mean_difference'],4)),
+                  '','No superiority claim from CI success alone.']
+          Path('results/aggregate_f9e.json').write_text(json.dumps(result,indent=2))
+          Path(os.environ['GITHUB_STEP_SUMMARY']).write_text('\n'.join(lines)+'\n')
+          print('F9E_AGGREGATE',json.dumps(result))
+          print('\n'.join(lines))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: f9e-f4-four-seed-aggregate-development
+          path: results/aggregate_f9e.json
+          retention-days: 30
