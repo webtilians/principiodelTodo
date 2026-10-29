@@ -15,29 +15,29 @@ from observatory.f9m_temporal_dropout_training import parameter_signature
 
 class F9OContracts(unittest.TestCase):
     def test_exact_temporal_difference_equal_mask_dose(self):
-        self.assertEqual(ARMS,("fragmented8","continuous8"))
-        self.assertEqual(len(OFFSETS["fragmented8"]),8)
-        self.assertEqual(len(OFFSETS["continuous8"]),8)
-        self.assertEqual(OFFSETS["continuous8"],frozenset(range(8)))
-        self.assertNotEqual(OFFSETS["continuous8"],OFFSETS["fragmented8"])
+        self.assertEqual(ARMS,("fragmented6","continuous6"))
+        self.assertEqual(len(OFFSETS["fragmented6"]),6)
+        self.assertEqual(len(OFFSETS["continuous6"]),6)
+        self.assertEqual(OFFSETS["continuous6"],frozenset(range(6)))
+        self.assertNotEqual(OFFSETS["continuous6"],OFFSETS["fragmented6"])
         # We inspect TRAIN-only S13 teacher episodes, never 600000 confirmation.
         worlds=[
             demonstration(train_seed(0,j),size=13,reverse=reverse)
-            for j in range(3) for reverse in (False,True)
+            for j in range(600) for reverse in (False,True)
         ]
         for frames,actions,vis in worlds:
-            a,aa=mask_timeline(frames,"fragmented8",0)
-            b,bb=mask_timeline(frames,"continuous8",0)
+            a,aa=mask_timeline(frames,"fragmented6",0)
+            b,bb=mask_timeline(frames,"continuous6",0)
             np.testing.assert_array_equal(a[:,:148],frames)
             np.testing.assert_array_equal(b[:,:148],frames)
             self.assertEqual(aa["scheduled"],bb["scheduled"])
             self.assertEqual(aa["effective"],bb["effective"])
-            self.assertEqual(aa["effective"],8)
-            self.assertEqual(len(set(aa["changed_indices"])),8)
-            self.assertEqual(len(set(bb["changed_indices"])),8)
+            self.assertEqual(aa["effective"],6)
+            self.assertEqual(len(set(aa["changed_indices"])),6)
+            self.assertEqual(len(set(bb["changed_indices"])),6)
             self.assertNotEqual(aa["changed_indices"],bb["changed_indices"])
-        a,sa=prepare_dataset(worlds,"fragmented8",0)
-        b,sb=prepare_dataset(worlds,"continuous8",0)
+        a,sa=prepare_dataset(worlds,"fragmented6",0)
+        b,sb=prepare_dataset(worlds,"continuous6",0)
         self.assertEqual(sa["effective"],sb["effective"])
         self.assertEqual(sa["teacher_sha256"],sb["teacher_sha256"])
         for x,y in zip(a,b):
@@ -45,8 +45,8 @@ class F9OContracts(unittest.TestCase):
             np.testing.assert_array_equal(x[0][:,:148],y[0][:,:148])
 
     def test_identical_new_context8_model_initialization(self):
-        a=make_model("fragmented8",0)
-        b=make_model("continuous8",0)
+        a=make_model("fragmented6",0)
+        b=make_model("continuous6",0)
         try:
             self.assertEqual(a.observation_space.shape,(660,))
             self.assertEqual(parameter_signature(a.policy),parameter_signature(b.policy))
