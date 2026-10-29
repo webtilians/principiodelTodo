@@ -28,3 +28,30 @@ No F4/F5/INFINITO module is used. The camera teleport and 2-action fork interfac
 ## Protocol amendment after initial run — information sufficiency (2026-10-29)
 
 The original 20k run (GitHub #40883765649) used an **east-facing fork**; it omitted a test that the agent could see which object stood at the exit. This invalidates any claim about inability to learn memory, because the missing current clue can make the problem unsolvable. A 100k run (#40884217413) already started on that original code and is not scientifically interpretable for the same reason. The amendment above sets the camera **north** and tests that the correct contextual information is available **before** measuring memory. Do not silently merge old and corrected results; use the new branch SHA/checkpoint hashes to distinguish them. This is an exploratory development repair, not heldout tuning.
+
+## Diagnostic positive controls (explicitly supervised)
+
+After verifying start-cue visibility and the upper candidate's visibility
+at the north-facing fork, use a rule-based expert that extracts only
+**two fixed egocentric pixels from the actual public observation**.
+It must solve all original/counterfactual S7/S13 test cases; if it cannot,
+the problem still omits necessary information and training should be blocked.
+This is an upper-bound *solvability check*, not learned memory or INFINITO.
+
+Separately train a simple **supervised** GRU memory classifier on paired
+original/inverted TRAIN split episodes only, using a generic occupancy map
+of visible key/ball pixels (two binary channels per cell, 98 input features).
+A feedforward supervised policy sees only the final fork frame.
+The training label is the exit that matches the initially visible object,
+used **only in the cross-entropy loss**. At test time both models see only
+visible frames, with no training labels or simulator state.
+
+The supervised control answers a different question than PPO:
+**is cue-dependent memory learnable from the observations at all?**
+High performance would not mean that sparse-reward PPO or a full-navigation
+LSTM has learned the task. Report exact success and cue-swap decision flips
+for both models and zero-shot S13 on independent development seeds; never
+open the reserved heldout.
+
+This was added after the initial 20k PPO/LSTM negative result, so it is a
+*development diagnostic*, not pre-registered confirmation. F4 is not used.
