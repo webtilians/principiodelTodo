@@ -9,8 +9,9 @@ This is an exploratory deterministic contextual-retention policy. It is NOT
 F4 LearnedRelevance, F5, or proof that a learned policy uses the memory.
 
 Three retained slots have the same fixed input width in contextual/zero
-controls: first distinctive view, second distinctive view and newest
-distinctive view. First two are never evicted. The last slot is updated.
+controls: first distinctive view, second distinctive view and cumulative
+spatial key/ball appearance counts across the episode. First two are pinned.
+The third captures differences that become visible only later.
 This explicitly changes the FIFO *admission* policy, but retains real F4
 Event/Store/FIFO as the data structure. No oracle decides which is the cue.
 """
@@ -71,67 +72,115 @@ def unpack_spatial_bits(payload):
     )
 
 
-class ContextualF4:
-    """Store time-stamped visible spatial snapshots in real F4 Store.
+COUNTER_BITS = 12
+COUNTER_MASK = (1 << COUNTER_BITS) - 1
 
-    Slots 0 and 1: first two distinct non-empty observations; slot 2:
-    most recent further distinct observation. No reward-based selection and
-    no hidden location. A changing cue pixel changes the snapshot bitmask.
+
+def pack_counts(counts):
+    """One integer payload, 98 exact nonnegative observation counters."""
+    if len(counts) != PIXELS*TYPES:
+        raise ValueError("Wrong visible histogram width")
+    packed=0
+    for j,value in enumerate(counts):
+        count=int(value)
+        if not 0<=count<=COUNTER_MASK:
+            raise ValueError("Observation frequency overflow")
+        packed |= count << (j*COUNTER_BITS)
+    return packed
+
+
+def unpack_counts(payload):
+    if not isinstance(payload,int) or payload<0:
+        raise ValueError("Invalid cumulative memory payload")
+    counts=np.fromiter(
+        ((payload >> (i*COUNTER_BITS)) & COUNTER_MASK
+         for i in range(PIXELS*TYPES)),
+        dtype=np.float32,
+        count=PIXELS*TYPES,
+    )
+    return counts/(counts+8.0)
+
+
+class ContextualF4:
+    """Contextual Event/Store/FIFO with TWO early anchors and ONE episode summary.
+
+    Snapshot slots 0/1 hold first two *distinct* object-containing
+    egocentric views. Slot 2 keeps 98 cumulative frequency counters by
+    object-type AND egocentric pixel; it updates from EVERY visible frame.
+    This is a deterministic non-evicting fixed-key admission policy, not
+    F4 LearnedRelevance. Counts and views are public observation-only.
     """
-    def __init__(self, mode="context"):
+    def __init__(self,mode="context"):
         if mode not in MODES:
             raise ValueError(mode)
-        self.mode = mode
-        self.selector = FIFO(SLOTS, seed=0)
+        self.mode=mode
+        self.selector=FIFO(SLOTS,seed=0)
         self.reset()
 
     def reset(self):
-        self.store = self.selector.begin()
-        self._last_payload = None
-        self._tick = 0
-        self.timestamps = {}
+        self.store=self.selector.begin()
+        self._tick=0
+        self.timestamps={}
+        self.counts=[0]*(PIXELS*TYPES)
 
-    def encode(self, original):
-        original = np.asarray(original, dtype=np.float32)
-        if original.shape != (OBS_WIDTH,):
+    def encode(self,original):
+        original=np.asarray(original,dtype=np.float32)
+        if original.shape!=(OBS_WIDTH,):
             raise ValueError("Expected original MiniGrid 148-dim vector")
-        payload = visible_spatial_bits(original)
-        if self.mode != "zero" and payload != 0 and payload != self._last_payload:
-            if len(self.store.order) < SLOTS:
-                event_id = len(self.store.order)
-            else:
-                event_id = SLOTS - 1
-            self.selector.consider(self.store, Event(key=event_id, payload=payload))
-            self.timestamps[event_id] = self._tick
-            self._last_payload = payload
-        combined = np.concatenate([original, self.readout()])
-        self._tick += 1
-        return combined.astype(np.float32)
+        payload=visible_spatial_bits(original)
+        if self.mode!="zero" and payload:
+            if 0 not in self.store.saved:
+                self.selector.consider(self.store,Event(key=0,payload=payload))
+                self.timestamps[0]=self._tick
+            elif 1 not in self.store.saved and payload!=self.store.saved[0]:
+                self.selector.consider(self.store,Event(key=1,payload=payload))
+                self.timestamps[1]=self._tick
+
+            for i in range(PIXELS*TYPES):
+                if (payload >> i)&1:
+                    self.counts[i]+=1
+                    if self.counts[i]>COUNTER_MASK:
+                        raise ValueError("Episode exceeds exact histogram counter range")
+
+            self.selector.consider(
+                self.store,Event(key=2,payload=pack_counts(self.counts)))
+            if 2 not in self.timestamps:
+                self.timestamps[2]=self._tick
+
+        result=np.concatenate([original,self.readout()]).astype(np.float32)
+        self._tick+=1
+        return result
 
     def readout(self):
-        out = np.zeros((SLOTS, SLOT_WIDTH), dtype=np.float32)
-        if self.mode in ("zero", "erase"):
+        out=np.zeros((SLOTS,SLOT_WIDTH),dtype=np.float32)
+        if self.mode in ("zero","erase"):
             return out.flatten()
-        for slot, event_id in enumerate(self.store.order[:SLOTS]):
-            bitmask = self.store.saved[event_id]
-            values = unpack_spatial_bits(bitmask)
-            if self.mode == "swap_identity":
-                values = values.reshape(PIXELS, TYPES)[:, ::-1].reshape(-1)
-            out[slot, :PIXELS*TYPES] = values
-            age = self._tick - self.timestamps[event_id]
-            out[slot, PIXELS*TYPES] = min(1.0, age/100.0)
-            out[slot, PIXELS*TYPES+1] = 1.
+        for slot in range(SLOTS):
+            if slot not in self.store.saved:
+                continue
+            payload=self.store.saved[slot]
+            values=(
+                unpack_counts(payload) if slot==2
+                else unpack_spatial_bits(payload)
+            )
+            if self.mode=="swap_identity":
+                values=values.reshape(PIXELS,TYPES)[:,::-1].reshape(-1)
+            out[slot,:PIXELS*TYPES]=values
+            age=self._tick-self.timestamps[slot]
+            out[slot,PIXELS*TYPES]=min(1.0,age/100.0)
+            out[slot,PIXELS*TYPES+1]=1.
         return out.flatten()
 
     def provenance(self):
-        """Debug metadata only: derived from observations and retention order."""
         return {
-            "event_ids": list(self.store.order),
-            "timestamps": [self.timestamps[k] for k in self.store.order],
+            "event_ids":list(self.store.order),
+            "timestamps":[self.timestamps[k] for k in self.store.order],
             "number_of_objects_seen_in_anchor":
                 int(unpack_spatial_bits(self.store.saved[0]).sum())
                 if 0 in self.store.saved else 0,
+            "cumulative_visible_object_pixels":int(sum(self.counts)),
         }
+
 
 
 def demonstration_pair_probe(seed, size):
@@ -211,7 +260,7 @@ def run_gate(worlds=50):
         "passed":passed,
         "training_performed":False,
         "heldout_opened":False,
-        "context_policy":"first two distinct public key/ball spatial views pinned; last distinct view rolling",
+        "context_policy":"first two distinct public key/ball spatial views pinned; third slot accumulates pixel/type appearance counts",
         "f4_integration":"real Event/FIFO/Store with deterministic contextual event admission",
         "not_learned_relevance":True,
         "input_width":TOTAL_WIDTH,
