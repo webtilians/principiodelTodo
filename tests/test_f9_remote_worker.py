@@ -140,6 +140,32 @@ class RemoteWorkerFlowTests(unittest.TestCase):
             f"/api/jobs/{job['id']}/report",
             headers=self.browser).json()["task"], "memory")
 
+    def test_f9b_baselines_can_be_claimed_and_returned_without_ablations(self):
+        job = self.post_browser("f9b_memory_baselines")
+        self.assertEqual(job.status_code, 201, job.text)
+        ident = job.json()["id"]
+        self.assertEqual(self.ping().json()["jobs"][0]["id"], ident)
+        claim = self.claim(ident).json()["claim_id"]
+        endpoint = f"/api/worker/jobs/{ident}/finish"
+        import io, zipfile
+        payload = io.BytesIO()
+        with zipfile.ZipFile(payload, "w") as archive:
+            archive.writestr("report.json", json.dumps({
+                "phase": "development", "stage": "baselines", "task": "memory",
+                "summary": {"policies": {
+                    "ppo": {"success_rate": .45}, "lstm": {"success_rate": .8}}}}))
+            archive.writestr("frozen_manifest.json", json.dumps({
+                "stage": "f9b_baseline_development", "models": {}}))
+        finished = self.client.post(
+            endpoint, content=payload.getvalue(),
+            headers={**self.worker,"X-Lab-Claim-ID":claim,
+                     "X-Lab-Exit-Code":"0","Content-Type":"application/zip"})
+        self.assertEqual(finished.status_code,200,finished.text)
+        summary = self.client.get(
+            f"/api/jobs/{ident}/summary",headers=self.browser)
+        self.assertEqual(summary.status_code,200,summary.text)
+        self.assertEqual(summary.json()["scenarios"]["memory"]["lstm"],.8)
+
     def test_cancel_does_not_touch_vps_process(self):
         job=self.post_browser().json()
         claim=self.claim(job["id"]).json()["claim_id"]
