@@ -2,7 +2,9 @@
 
 Fecha: 29 de octubre de 2026. Análisis de **desarrollo**, retrospectivo, SIN nuevos entrenamientos ni inferencia.
 
-Fuente: cuatro artefactos originales del [run F9-E #40908055330](https://github.com/webtilians/principiodelTodo/actions/runs/40908055330), 4 semillas. Código: observatory/f9f_memory_content_audit.py y tests/test_f9f_memory_content_audit.py. Los checkpoints congelados se comparan con sus SHA-256, y el test reservado sigue cerrado.
+Fuente: cuatro artefactos originales del [run F9-E #40908055330](https://github.com/webtilians/principiodelTodo/actions/runs/40908055330), 4 semillas.
+
+**Reproducción verificada:** [F9-F Actions #40921590660 — Success](https://github.com/webtilians/principiodelTodo/actions/runs/40921590660), 3 tests aprobados, cuatro archivos originales recuperados, 8 checkpoints F4 comprobados por SHA-256 y agregación de 120 pares de desarrollo (40 S7 pre-RL, 40 S7 post-RL, 40 S13 post-RL). [Artifact con resultados detallados](https://github.com/webtilians/principiodelTodo/actions/runs/40921590660/artifacts/12917919446). Código: observatory/f9f_memory_content_audit.py y tests/test_f9f_memory_content_audit.py. Los checkpoints congelados se comparan con sus SHA-256, y el test reservado sigue cerrado.
 
 ## Resultado exacto en S7
 
