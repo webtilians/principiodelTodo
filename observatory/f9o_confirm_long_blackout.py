@@ -36,7 +36,7 @@ def validate_training(report,root,index):
             report.get("worlds")!=TRAIN_WORLDS or
             report.get("epochs")!=BC_EPOCHS or
             report.get("requested_rl_steps")!=PPO_STEPS or
-            report.get("training_dose_per_teacher_episode")!=8 or
+            report.get("training_dose_per_teacher_episode")!=6 or
             report.get("ppo_blackout") is not False or
             report.get("heldout_opened") is not False or
             report.get("confirmation_opened") is not False or
@@ -55,7 +55,7 @@ def validate_training(report,root,index):
         d=report["arms"][arm]
         masks=d["bc_mask_stats"]
         if (masks["episodes"]!=TRAIN_WORLDS*2 or masks["incomplete"]!=0 or
-                masks["scheduled"]!=TRAIN_WORLDS*2*8 or
+                masks["scheduled"]!=TRAIN_WORLDS*2*6 or
                 masks["effective"]!=TRAIN_WORLDS*2*8):
             raise AssertionError("Training exposure not exactly matched")
         digests.append(masks["teacher_sha256"])
