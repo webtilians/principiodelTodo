@@ -1,0 +1,76 @@
+name: INFINITO F9-F — Forensic F4 Memory Content (No Training)
+on:
+  push:
+    branches: ["experiment/f9f-f4-memory-content-audit"]
+    paths:
+      - "observatory/f9f_memory_content_audit.py"
+      - "tests/test_f9f_memory_content_audit.py"
+      - ".github/workflows/infinito-f9f-f4-memory-audit.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  audit-frozen-f9e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Validate forensic analysis without installing Torch or RL packages
+        run: python -m unittest discover -s tests -p 'test_f9f_memory_content_audit.py' -v
+      - name: Download ALL four original F9-E development artifacts without retraining
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 40908055330
+          repository: webtilians/principiodelTodo
+          github-token: ${{ github.token }}
+          pattern: f9e-f4-development-seed-*
+          path: evidence
+          merge-multiple: false
+      - name: Replay F4 Store readouts as forensic evidence only
+        run: |
+          python -m observatory.f9f_memory_content_audit \
+            --input evidence \
+            --output observatory_results/f9f_frozen_f4_memory_audit
+      - name: Report counterfactual memory information loss and source checksums
+        run: |
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          r=json.loads(Path('observatory_results/f9f_frozen_f4_memory_audit/report.json').read_text())
+          assert r['source_workflow_run']==40908055330
+          assert r['phase']=='development_reanalysis_no_training'
+          assert r['heldout_opened'] is False
+          assert r['training_executed'] is False
+          assert r['inference_executed'] is False
+          assert {x['seed_index'] for x in r['by_training_seed']}=={0,1,2,3}
+          counts=r['stage_counts']
+          assert counts['S7_before_rl']['paired_worlds']==40
+          assert counts['S7_after_rl']['paired_worlds']==40
+          assert counts['S13_zero_shot_after_rl']['paired_worlds']==40
+          lines=['# F9-F — What did INFINITO F4 FIFO actually store?',
+                 '',
+                 'Reanalysis of original [F9-E run #40908055330](https://github.com/webtilians/principiodelTodo/actions/runs/40908055330) archives.',
+                 '**No model trained, no inference, no new environments and no heldout accessed.**',
+                 '',
+                 '| Stage | Pairs | Cue seen (both) | Same memory at cue | Both objects at cue | Same memory at final action | Same entire memory history |',
+                 '|---|---:|---:|---:|---:|---:|---:|']
+          for stage,counts in r['stage_counts'].items():
+              n=counts['paired_worlds']
+              lines.append(f'| {stage} | {n} | {counts["both_policies_observed_cue"]}/{n} | {counts["cue_readouts_identical_when_both_observed"]}/{n} | {counts["both_object_types_present_at_first_cue"]}/{n} | {counts["last_readouts_identical"]}/{n} | {counts["entire_f4_readout_sequences_identical"]}/{n} |')
+              print('F9F_VERIFIED',stage,json.dumps(counts,sort_keys=True))
+          lines += ['', 'An identical F4 readout under paired cue inversion cannot by itself identify which initial cue appeared.',
+                    'Original visual frames and LSTM hidden state remain separate sources of information.',
+                    'F4 here means real FIFO/Store only, NOT LearnedRelevance or F5.']
+          Path(os.environ['GITHUB_STEP_SUMMARY']).write_text('\n'.join(lines)+'\n')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: f9f-frozen-f4-memory-information-audit
+          path: observatory_results/f9f_frozen_f4_memory_audit/
+          if-no-files-found: warn
+          retention-days: 30
