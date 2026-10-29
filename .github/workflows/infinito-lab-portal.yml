@@ -1,11 +1,12 @@
 name: INFINITO Lab Portal
 on:
   push:
-    branches: ["experiment/f8-laboratory-portal", "fix/lab-flow-audit-20261023", "experiment/f9-external-minigrid", "experiment/f9-windows-remote-worker"]
+    branches: ["experiment/f8-laboratory-portal", "fix/lab-flow-audit-20261023", "experiment/f9-external-minigrid", "experiment/f9-windows-remote-worker", "experiment/f9b-causal-memory"]
     paths:
       - "lab_portal/**"
       - "tests/test_lab_portal*.py"
       - "tests/test_f9_remote_worker.py"
+      - "tests/test_f9b_causal_memory.py"
       - "observatory/**"
       - "scripts/f6_homeostatic_rl.py"
       - "scripts/check_lab_portal_flow.py"
