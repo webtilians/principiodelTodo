@@ -1,7 +1,7 @@
 """F9-O: equal-count F4 input blackouts, different temporal distribution.
 
 Train eight NEW context8 LSTM policies on NEW S13-only 500000+ train worlds.
-Only supervised imitation sees blackout: exactly eight effective frames per
+Only supervised imitation sees blackout: exactly six effective frames per
 episode for both treatment and control. PPO finetuning runs CLEAN in both
 arms, with the same hyperparameters/step count but not necessarily matching
 on-policy transitions. No F9-M/N confirmation or historical holdout access.
@@ -24,10 +24,10 @@ from observatory.f9e_f4_autonomous import clone
 from observatory.f9i_selective_memory import SelectiveF4, SelectiveObservation, DIM
 from observatory.f9m_temporal_dropout_training import parameter_signature
 
-ARMS=("fragmented8","continuous8")
+ARMS=("fragmented6","continuous6")
 OFFSETS={
-    "fragmented8":frozenset((0,1,3,4,6,7,9,10)),
-    "continuous8":frozenset(range(8)),
+    "fragmented6":frozenset((0,1,3,4,6,7)),
+    "continuous6":frozenset(range(6)),
 }
 TRAIN_BASE=500_000
 TRAIN_WORLDS=600
@@ -106,7 +106,7 @@ def prepare_dataset(demonstrations,arm,index):
             raise AssertionError("Mismatched teacher features")
         digest.update(np.asarray(actions).tobytes())
         digest.update(np.asarray(frames).tobytes())
-        if audit["scheduled"] != 8 or audit["effective"] != 8:
+        if audit["scheduled"] != 6 or audit["effective"] != 6:
             details["incomplete"]+=1
         details["scheduled"]+=audit["scheduled"]
         details["effective"]+=audit["effective"]
@@ -145,13 +145,13 @@ def run(args):
     stats={}
     for arm in ARMS:
         dataset,audit=prepare_dataset(teacher,arm,args.index)
-        if audit["incomplete"] or audit["scheduled"]!=len(teacher)*8 or audit["effective"]!=len(teacher)*8:
+        if audit["incomplete"] or audit["scheduled"]!=len(teacher)*6 or audit["effective"]!=len(teacher)*8:
             raise AssertionError("Equal actual F4 blackout exposure not achieved: "+str((arm,audit)))
         datasets[arm]=dataset
         stats[arm]=audit
-    if stats["fragmented8"]["teacher_sha256"]!=stats["continuous8"]["teacher_sha256"]:
+    if stats["fragmented6"]["teacher_sha256"]!=stats["continuous6"]["teacher_sha256"]:
         raise AssertionError("Teacher actions/frames not paired")
-    for row_a,row_b in zip(datasets["fragmented8"],datasets["continuous8"]):
+    for row_a,row_b in zip(datasets["fragmented6"],datasets["continuous6"]):
         if not np.array_equal(row_a[1],row_b[1]) or not np.array_equal(row_a[0][:,:148],row_b[0][:,:148]):
             raise AssertionError("Control/treated labels or public frames changed")
     report={
@@ -161,7 +161,7 @@ def run(args):
         "teacher_training_only":True,"ppo_blackout":False,
         "worlds":TRAIN_WORLDS,"epochs":BC_EPOCHS,
         "requested_rl_steps":PPO_STEPS,
-        "training_dose_per_teacher_episode":8,
+        "training_dose_per_teacher_episode":6,
         "dependencies":dependencies,
         "arms":{},
     }
