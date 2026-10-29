@@ -18,7 +18,7 @@ from lab_portal.summaries import summarize
 
 class CatalogTests(unittest.TestCase):
     def test_all_experiments_have_valid_presets(self):
-        self.assertEqual(set(EXPERIMENTS), {"f4", "f5", "f6", "f7", "f7b", "f8", "f9_memory", "f9_doorkey", "f9_dynamic"})
+        self.assertEqual(set(EXPERIMENTS), {"f4", "f5", "f6", "f7", "f7b", "f8", "f9_memory", "f9_doorkey", "f9_dynamic", "f9b_memory_baselines"})
         for key, exp in EXPERIMENTS.items():
             for preset in exp.presets.values():
                 normalize(key, preset)
@@ -78,7 +78,7 @@ class APIConfigTests(unittest.TestCase):
 
     def test_catalog_lists_only_implemented_protocols(self):
         data = self.client.get("/api/catalog", headers=self.headers).json()
-        self.assertEqual(len(data["experiments"]), 9)
+        self.assertEqual(len(data["experiments"]), 10)
         self.assertEqual(data["max_concurrent"], 1)
 
     def test_create_job_uses_detached_allowlisted_worker(self):
