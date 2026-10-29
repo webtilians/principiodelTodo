@@ -1,0 +1,59 @@
+name: INFINITO F9-G — Contextual F4 Information Gate (No Training)
+on:
+  push:
+    branches: ["experiment/f9g-contextual-f4"]
+    paths:
+      - "observatory/f9g_contextual_memory.py"
+      - "tests/test_f9g_contextual_memory.py"
+      - ".github/workflows/infinito-f9g-contextual-gate.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  contextual-memory-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install CPU torch and exact MiniGrid dependencies
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r observatory/requirements_f9.txt gymnasium==1.4.0
+      - name: Validate contextual F4 with no oracle and original native seven actions
+        run: python -m unittest discover -s tests -p 'test_f9g_contextual_memory.py' -v
+      - name: Strict paired information sufficiency gate, S7 and S13
+        run: |
+          python -m observatory.f9g_contextual_memory \
+            --worlds 50 --output observatory_results/f9g_contextual_gate
+      - name: Publish actual memory discrimination counts
+        run: |
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          r=json.loads(Path('observatory_results/f9g_contextual_gate/gate.json').read_text())
+          assert r['phase']=='development_only_no_training'
+          assert r['heldout_opened'] is False and r['training_performed'] is False
+          rows=['# F9-G: contextual memory sufficiency, not learning','',
+                'Real MiniGrid S7/S13 paired teacher navigation, **no teleport, no RL**,',
+                'observation-only spatial object fingerprints and temporal ages.',
+                'Not F4 LearnedRelevance or F5. Heldout CLOSED.','',
+                '| Task | Paired worlds | Distinct F4 readout at decision | Same current view at decision |',
+                '|---|---:|---:|---:|']
+          for size,s in r['worlds_by_size'].items():
+              rows.append(f'| {size} | {s["pairs"]} | {s["decision_readout_distinct"]}/{s["pairs"]} | {s["same_public_decision_frame"]}/{s["pairs"]} |')
+              print('F9G_SCIENTIFIC_GATE',size,'distinct',s['decision_readout_distinct'],'/',s['pairs'])
+          rows.append('')
+          rows.append('Gate passed: '+str(r['passed']))
+          Path(os.environ['GITHUB_STEP_SUMMARY']).write_text('\n'.join(rows)+'\n')
+          assert r['passed']
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: f9g-contextual-memory-gate-development
+          path: observatory_results/f9g_contextual_gate/
+          if-no-files-found: warn
+          retention-days: 30
