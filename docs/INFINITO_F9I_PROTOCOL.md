@@ -77,7 +77,7 @@ serial mismatch and frozen-feedback behavior; its benchmark main is never run
 
 ## Interpretation
 F9-H logs verified: S7 F4 95%, zero 50%; S13 F4 per seed 50/25/45/35%,
-mean 36.25%, zero 50/50/5/25%, mean 32.5%. Whole-memory swap did not reduce S7
+mean 38.75%, zero 50/50/5/25%, mean 32.5%. Whole-memory swap did not reduce S7
 F4 success. Source: https://github.com/webtilians/principiodelTodo/actions/runs/40925227783
 Do not extrapolate 95% to S13, assert FIFO causality before auditing eviction,
 or equate technical CI with cognitive benefit. Four seeds are exploratory;
