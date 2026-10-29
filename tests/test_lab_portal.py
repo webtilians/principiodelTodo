@@ -18,7 +18,7 @@ from lab_portal.summaries import summarize
 
 class CatalogTests(unittest.TestCase):
     def test_all_experiments_have_valid_presets(self):
-        self.assertEqual(set(EXPERIMENTS), {"f4", "f5", "f6", "f7", "f7b", "f8"})
+        self.assertEqual(set(EXPERIMENTS), {"f4", "f5", "f6", "f7", "f7b", "f8", "f9_memory", "f9_doorkey", "f9_dynamic"})
         for key, exp in EXPERIMENTS.items():
             for preset in exp.presets.values():
                 normalize(key, preset)
@@ -78,7 +78,7 @@ class APIConfigTests(unittest.TestCase):
 
     def test_catalog_lists_only_implemented_protocols(self):
         data = self.client.get("/api/catalog", headers=self.headers).json()
-        self.assertEqual(len(data["experiments"]), 6)
+        self.assertEqual(len(data["experiments"]), 9)
         self.assertEqual(data["max_concurrent"], 1)
 
     def test_create_job_uses_detached_allowlisted_worker(self):
@@ -119,6 +119,14 @@ class APIConfigTests(unittest.TestCase):
         self.assertEqual(zipfile.status_code,200)
         self.assertTrue(zipfile.content.startswith(b"PK"))
 
+    def test_f9_blocked_by_default_on_small_server(self):
+        with patch.dict(os.environ, {"LAB_F9_ENABLED": "0"}):
+            res = self.client.post("/api/jobs", headers=self.headers,
+                                   json={"experiment":"f9_memory","params":{
+                                       "seeds":1,"timesteps":128,"eval-episodes":3}})
+        self.assertEqual(res.status_code, 503)
+        self.assertEqual(self.client.get("/api/jobs",headers=self.headers).json()["jobs"], [])
+
     def test_prevents_parallel_work(self):
         ident="b"*32
         folder=Path(self.tmp.name,ident)
@@ -130,6 +138,13 @@ class APIConfigTests(unittest.TestCase):
 
 
 class SummaryTests(unittest.TestCase):
+    def test_f9_summary_uses_only_external_baseline_scores(self):
+        data={"task":"memory","summary":{"policies":{
+            "random":{"success_rate":0.0},"ppo":{"success_rate":0.2},
+            "recurrent_ppo":{"success_rate":0.4}}}}
+        parsed=summarize("f9_memory",data)
+        self.assertEqual(parsed["scenarios"]["memory"]["recurrent_ppo"],0.4)
+
     def test_summary_f7b_presentable(self):
         report={"conditions":{"switch":{"mean_reward":{"all":.32,"after_last_100":.35}}}}
         row=summarize("f7b",report)
