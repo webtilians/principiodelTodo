@@ -188,11 +188,11 @@ def start(submission: Submission):
         params = normalize(submission.experiment, submission.params)
     except ParameterError as error:
         raise HTTPException(422, detail=str(error))
-    remote = (submission.experiment.startswith("f9_") and
+    remote = (submission.experiment.startswith(("f9_", "f9b_")) and
               os.environ.get("LAB_F9_REMOTE_ENABLED") == "1")
     if remote and len(os.environ.get("LAB_WORKER_TOKEN", "")) < 32:
         raise HTTPException(503, "Configura un LAB_WORKER_TOKEN privado de al menos 32 caracteres")
-    if submission.experiment.startswith("f9_") and not remote:
+    if submission.experiment.startswith(("f9_", "f9b_")) and not remote:
         # Heavy Torch/MiniGrid stacks are never imported into the web process.
         # Local F9 needs an explicitly provisioned interpreter and RAM.
         if os.environ.get("LAB_F9_ENABLED") != "1":
@@ -294,7 +294,7 @@ def download(job_id: str):
             for p in output.rglob("*"):
                 relative = p.relative_to(output)
                 regular = p.suffix in (".json", ".jsonl", ".log", ".csv", ".txt", ".npy")
-                checkpoint = (read_job(folder)["experiment"].startswith("f9_")
+                checkpoint = (read_job(folder)["experiment"].startswith(("f9_", "f9b_"))
                               and relative.parts[0] == "checkpoints"
                               and p.suffix == ".zip" and p.stat().st_size < 50_000_000)
                 if (p.is_file() and not p.is_symlink()
