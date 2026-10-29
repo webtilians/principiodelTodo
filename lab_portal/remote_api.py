@@ -12,6 +12,7 @@ import json
 import os
 import re
 import secrets
+import shutil
 import time
 import zipfile
 from datetime import datetime, timezone
@@ -244,7 +245,7 @@ async def finish(job_id: str, request: Request,
             job.update(status="failed", exit_code=x_lab_exit_code, finished_at=sv.now())
             _write_job(folder, job)
         return {"status": "failed"}
-    upload = folder / "remote-upload.part"
+    upload = folder / ("remote-upload-" + secrets.token_hex(8) + ".part")
     copied = 0
     try:
         with upload.open("wb") as sink:
@@ -255,15 +256,20 @@ async def finish(job_id: str, request: Request,
                 sink.write(chunk)
         if copied == 0:
             raise HTTPException(422, "Falta paquete de resultados")
-        try:
-            parsed, manifest = validate_bundle(upload, folder / "remote-validated")
-        except (ValueError, OSError, zipfile.BadZipFile, KeyError, UnicodeError) as exc:
-            raise HTTPException(422, "Resultados inválidos: " + type(exc).__name__) from exc
-        if parsed.get("task") != {"f9_memory": "memory", "f9_doorkey": "doorkey",
-                                 "f9_dynamic": "dynamic"}[sv.read_job(folder)["experiment"]]:
-            raise HTTPException(422, "Informe de otro experimento")
         with sv.START_LOCK:
             job = _job_under_claim(folder, x_lab_claim_id or "")
+            staging = folder / "remote-validated"
+            if staging.exists():
+                shutil.rmtree(staging)
+            try:
+                parsed, manifest = validate_bundle(upload, staging)
+            except (ValueError, OSError, zipfile.BadZipFile, KeyError, UnicodeError) as exc:
+                shutil.rmtree(staging, ignore_errors=True)
+                raise HTTPException(422, "Resultados inválidos: " + type(exc).__name__) from exc
+            if parsed.get("task") != {"f9_memory": "memory", "f9_doorkey": "doorkey",
+                                     "f9_dynamic": "dynamic"}[job["experiment"]]:
+                shutil.rmtree(staging, ignore_errors=True)
+                raise HTTPException(422, "Informe de otro experimento")
             # stdout is also the live log visible in the web UI.
             uploaded_log = folder / "remote-validated" / "stdout.log"
             if uploaded_log.is_file():
