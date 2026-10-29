@@ -99,3 +99,61 @@ NO descubre regímenes arbitrarios y NO demuestra conciencia subjetiva.
 ## Auditoría y aceptación del despliegue
 
 Consulta [la auditoría del flujo y las instrucciones de aceptación](../docs/LAB_FLOW_AUDIT_2026-10-23.md). Incluye el mecanismo real definido en el kit VPS, los pasos manuales de Docker, las comprobaciones pendientes en producción y un comprobador HTTP que no imprime credenciales. La existencia del kit en GitHub no demuestra que el temporizador esté activo en tu servidor.
+
+
+## F9 — MiniGrid externo (experimental, todavía NO son módulos INFINITO)
+
+La rama `experiment/f9-external-minigrid` añade tres entradas
+**F9-A · Memory / DoorKey / Obstáculos** al catálogo. Ejecutan **PPO,
+RecurrentPPO LSTM y random reales**, no las redes/memorias V5.1.
+[Protocolo de F9](../docs/INFINITO_F9_EXTERNAL_EVALUATION_PROTOCOL.md) ·
+[Resultados del primer smoke](../docs/INFINITO_F9_STAGE_A_RESULTS_2026-10-29.md).
+
+### Seguridad de recursos
+
+**F9 está deshabilitado por defecto**, aunque aparezca en el catálogo.
+La instalación actual del VPS comparte solo 1 CPU, 2 GB de memoria y
+el servicio tiene `MemoryMax=600M`. PyTorch puede superar ese límite,
+interrumpiendo la ejecución. **No habilitar F9 ni aumentar MemoryMax
+sin inspeccionar previamente memoria libre, procesos activos y carga
+de LAIN y DH Trails.** Para pruebas largas utiliza un host/runner de
+cómputo dedicado; el CI F9 demuestra ejecución de smoke en GitHub Actions.
+
+En un equipo con memoria suficiente, instalar la dependencia pesada
+**fuera del entorno del portal**:
+
+~~~bash
+python3.11 -m venv /opt/infinito-f9-venv
+/opt/infinito-f9-venv/bin/python -m pip install -r /opt/infinito-lab/observatory/requirements_f9.txt
+/opt/infinito-f9-venv/bin/python -c 'import minigrid, torch, stable_baselines3, sb3_contrib; print("F9 ready")'
+~~~
+
+Cuando haya recursos verificados, añadir **a la configuración privada
+del servicio** (`/etc/infinito-lab/lab.env`, sin publicar credenciales):
+
+~~~text
+LAB_F9_ENABLED=1
+LAB_F9_PYTHON=/opt/infinito-f9-venv/bin/python
+~~~
+
+Después reiniciar solo en ventana sin trabajos y confirmar con el
+perfil **rápido** (128 pasos). La activación exige decisión consciente
+del administrador; GitHub **no la activa por sí solo**.
+
+### Datos experimentales
+
+Por cada ejecución F9 la descarga del portal incluye `report.json`,
+`frozen_manifest.json`, logs y checkpoints `*.zip` de modelos
+guardados en `output/checkpoints` cuando cada checkpoint es menor de 50 MB.
+Los informes conservan tasa de éxito, recompensa, duración, cantidad
+de parámetros y semillas.
+
+Una evaluación retenida no se ofrece desde el selector de desarrollo,
+porque abrir el holdout mientras se ajustan parámetros invalidaría
+esa evidencia. Se realiza explícitamente con modelos congelados según
+la guía científica.
+
+**El portal de producción sigue la rama elegida en
+`/etc/infinito-lab/branch`**. Subir F9 a GitHub no actualiza esa rama,
+ni indica que F9 esté desplegado. No cambiar esa configuración mientras
+haya experimentos activos.
