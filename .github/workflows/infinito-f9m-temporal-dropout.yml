@@ -1,0 +1,257 @@
+name: INFINITO F9-M — New F4 Temporal Dropout vs Matched Sham
+
+on:
+  push:
+    branches: ["experiment/f9m-temporal-dropout-training"]
+    paths:
+      - "observatory/f9m_temporal_dropout_training.py"
+      - "observatory/f9m_confirm.py"
+      - "tests/test_f9m_temporal_dropout.py"
+      - "docs/INFINITO_F9M_TEMPORAL_DROPOUT_PROTOCOL.md"
+      - ".github/workflows/infinito-f9m-temporal-dropout.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: f9m-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  integrity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install CPU-only pinned original F9 dependencies
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r observatory/requirements_f9.txt gymnasium==1.4.0
+      - name: Test novel training/confirm contracts without opening confirmation
+        run: python -m unittest discover -s tests -p 'test_f9m_temporal_dropout.py' -v
+      - name: Preserve original F9-L/F9-K integrity
+        run: |
+          python -m unittest discover -s tests -p 'test_f9l_f4_interruption.py' -v
+          python -m unittest discover -s tests -p 'test_f9k_temporal_memory_probes.py' -v
+
+  train:
+    needs: integrity
+    runs-on: ubuntu-latest
+    timeout-minutes: 135
+    strategy:
+      fail-fast: false
+      matrix:
+        seed: [0, 1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: CPU-only training dependencies
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r observatory/requirements_f9.txt gymnasium==1.4.0
+      - name: Two new policies with fully matched architecture, BC and PPO budgets
+        run: |
+          python -m observatory.f9m_temporal_dropout_training \
+            --index ${{ matrix.seed }} --worlds 600 --epochs 40 \
+            --timesteps 20000 --output results/f9m-train-${{ matrix.seed }}
+      - name: Training gate before any confirmation world opens
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from observatory.f9m_confirm import validate_training
+          idx=int("${{ matrix.seed }}")
+          folder=Path(f"results/f9m-train-{idx}")
+          report=json.loads((folder/"report.json").read_text())
+          validate_training(report,folder,idx)
+          assert report["training_only"] and not report["confirmation_opened"]
+          assert report["worlds"]==600 and report["epochs"]==40
+          assert report["requested_rl_steps"]==20000
+          print("F9M_TRAINING_GATE_SUCCESS",idx)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: f9m-training-seed-${{ matrix.seed }}
+          path: results/f9m-train-${{ matrix.seed }}/
+          retention-days: 30
+          if-no-files-found: error
+
+  confirm:
+    needs: train
+    runs-on: ubuntu-latest
+    timeout-minutes: 135
+    strategy:
+      fail-fast: false
+      matrix:
+        seed: [0, 1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: CPU-only independent evaluator dependencies
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r observatory/requirements_f9.txt gymnasium==1.4.0
+      - name: Download completed and gated matched models
+        uses: actions/download-artifact@v4
+        with:
+          name: f9m-training-seed-${{ matrix.seed }}
+          path: evidence/f9m-${{ matrix.seed }}
+      - name: Confirm fixed outcome definitions on never-used new worlds only
+        run: |
+          python -m observatory.f9m_confirm \
+            --index ${{ matrix.seed }} --pairs 20 \
+            --source evidence/f9m-${{ matrix.seed }} \
+            --output results/f9m-confirm-${{ matrix.seed }}
+      - name: Confirm all preregistered conditions, independent split and provenance
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          idx=int("${{ matrix.seed }}")
+          r=json.loads(Path(f"results/f9m-confirm-{idx}/report.json").read_text())
+          assert r["seed_index"]==idx and r["confirmation_opened"]
+          assert not r["historical_heldout_opened"] and not r["policy_retraining_performed"]
+          assert r["confirmation_worlds_per_size"]==20
+          assert r["training_worlds_used_for_probe"]==80
+          for arm in ("sham","dropout"):
+              data=r["arms"][arm]
+              assert set(data["autonomous"]) == {
+                  f"S{s}/{mode}" for s in (7,13)
+                  for mode in ("normal","zero_f4_after_cue")}
+              assert set(data["teacher_fork"]) == {
+                  f"S{s}/{mode}" for s in (7,13)
+                  for mode in ("normal","cut_post_cue","cut_halfway","cut_last_step")}
+              assert all(x["pairs"]==20 for x in data["autonomous"].values())
+              assert all(x["action"]["pairs"]==20 and
+                         x["fixed_probe"]["equal_raw_pairs"]==20 and
+                         x["adapted_probe"]["equal_f4_pairs"]==20
+                         for x in data["teacher_fork"].values())
+          print("F9M_CONFIRMATION_COMPLETE",idx)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: f9m-independent-confirmation-seed-${{ matrix.seed }}
+          path: results/f9m-confirm-${{ matrix.seed }}/
+          retention-days: 30
+          if-no-files-found: warn
+
+  aggregate:
+    needs: confirm
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: f9m-independent-confirmation-seed-*
+          path: archive
+      - name: All four paired policies, independent confirmation results
+        run: |
+          python - <<'PY'
+          import json,os,statistics
+          from pathlib import Path
+          paths=sorted(Path("archive").glob("f9m-independent-confirmation-seed-*/report.json"))
+          records=[json.loads(p.read_text()) for p in paths]
+          assert len(records)==4 and {r["seed_index"] for r in records}==set(range(4))
+          assert all(r["confirmation_opened"] and not r["historical_heldout_opened"]
+                     and not r["policy_retraining_performed"] for r in records)
+          output={
+              "experiment":"F9-M independent confirmation of matched new F4 dropout policies",
+              "confirmatory_within_minigrid":True,
+              "historical_heldout_opened":False,
+              "validation":"prospective new 300000 seed range, S7/S13",
+              "seeds":[0,1,2,3],"autonomous":{},"teacher_fork":{}
+          }
+          lines=["# INFINITO F9-M — Independent prospective confirmation",
+                 "","Two NEW policies per seed, matched training: sham padding versus",
+                 "temporal F4 blackout. Four training seeds, 20 paired new confirmation",
+                 "worlds per seed and size; original historical holdout NEVER opened.",
+                 "","## Native autonomous navigation (primary)",
+                 "| Task | Condition | Sham success | Dropout success | Gain dropout–sham | Sham both correct | Dropout both correct | Intervention applied (sham/dropout) |",
+                 "|---|---|---:|---:|---:|---:|---:|---|"]
+          for size in (7,13):
+              for condition in ("normal","zero_f4_after_cue"):
+                  key=f"S{size}/{condition}"
+                  vals={arm:[r["arms"][arm]["autonomous"][key] for r in records]
+                        for arm in ("sham","dropout")}
+                  record={
+                      arm:{
+                          "success_by_seed":[v["success"] for v in vals[arm]],
+                          "success_mean":statistics.mean(v["success"] for v in vals[arm]),
+                          "both_correct_pairs":sum(v["both_correct"] for v in vals[arm]),
+                          "valid_flips":sum(v["valid_side_flips"] for v in vals[arm]),
+                          "applied_rate":statistics.mean(v["intervention_applied"] for v in vals[arm]),
+                          "timeout_rate":statistics.mean(v["timeout"] for v in vals[arm]),
+                      }
+                      for arm in vals
+                  }
+                  record["paired_success_difference_by_seed"]=[
+                      a-b for a,b in zip(record["dropout"]["success_by_seed"],
+                                          record["sham"]["success_by_seed"])]
+                  record["paired_success_gain_mean"]=statistics.mean(
+                      record["paired_success_difference_by_seed"])
+                  output["autonomous"][key]=record
+                  lines.append(
+                      f'| S{size} | {condition} | {record["sham"]["success_mean"]:.1%} | '
+                      f'{record["dropout"]["success_mean"]:.1%} | '
+                      f'{record["paired_success_gain_mean"]:+.1%} | '
+                      f'{record["sham"]["both_correct_pairs"]}/80 | '
+                      f'{record["dropout"]["both_correct_pairs"]}/80 | '
+                      f'{record["sham"]["applied_rate"]:.0%}/{record["dropout"]["applied_rate"]:.0%} |'
+                  )
+          lines+=["","## Teacher-forced fork (secondary: not autonomous)",
+                  "| Task | F4 input | Sham action | Dropout action | Sham adapted H | Dropout adapted H |",
+                  "|---|---|---:|---:|---:|---:|"]
+          for size in (7,13):
+              for condition in ("normal","cut_post_cue","cut_halfway","cut_last_step"):
+                  key=f"S{size}/{condition}"
+                  vals={arm:[r["arms"][arm]["teacher_fork"][key] for r in records]
+                        for arm in ("sham","dropout")}
+                  record={}
+                  for arm in vals:
+                      record[arm]={
+                          "action_by_seed":[v["action"]["action_accuracy"] for v in vals[arm]],
+                          "action_mean":statistics.mean(v["action"]["action_accuracy"] for v in vals[arm]),
+                          "actor_both_pairs":sum(v["action"]["both_teacher_actions_correct"] for v in vals[arm]),
+                          "actor_flip_pairs":sum(v["action"]["predicted_action_flips"] for v in vals[arm]),
+                          "adapted_probe_by_seed":[v["adapted_probe"]["accuracy"] for v in vals[arm]],
+                          "adapted_probe_mean":statistics.mean(v["adapted_probe"]["accuracy"] for v in vals[arm]),
+                          "fixed_probe_by_seed":[v["fixed_probe"]["accuracy"] for v in vals[arm]],
+                          "fixed_probe_mean":statistics.mean(v["fixed_probe"]["accuracy"] for v in vals[arm]),
+                      }
+                  output["teacher_fork"][key]=record
+                  lines.append(
+                      f'| S{size} | {condition} | {record["sham"]["action_mean"]:.1%} | '
+                      f'{record["dropout"]["action_mean"]:.1%} | '
+                      f'{record["sham"]["adapted_probe_mean"]:.1%} | '
+                      f'{record["dropout"]["adapted_probe_mean"]:.1%} |')
+          primary=output["autonomous"]["S13/zero_f4_after_cue"]
+          improvements=sum(x>0 for x in primary["paired_success_difference_by_seed"])
+          output["preregistered_primary_consistency"]={
+              "improved_seeds":improvements,
+              "improvement_in_at_least_three_of_four_seeds":improvements>=3,
+              "both_correct_gain":primary["dropout"]["both_correct_pairs"] -
+                                  primary["sham"]["both_correct_pairs"],
+          }
+          lines+=["","Primary improved training seeds: "+str(improvements)+"/4.",
+                  "Exploratory 4-seed confidence; no independent training replicates",
+                  "are created by counting the paired evaluation episodes.",
+                  "Teacher forced decodability is not autonomous behavior;",
+                  "confirmatory only within fixed MiniGrid family and this new split."]
+          Path("archive/f9m_aggregate.json").write_text(json.dumps(output,indent=2))
+          Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text("\n".join(lines)+"\n")
+          print("F9M_AGGREGATE",json.dumps(output))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: f9m-four-seed-independent-confirmation-aggregate
+          path: archive/f9m_aggregate.json
+          retention-days: 30
