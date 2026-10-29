@@ -64,11 +64,12 @@ class CueForkEnv:
         if self.phase == 0:
             self.phase = 1
             base = self.world.unwrapped
-            # Native fork x is success_pos[0]. Direction east means the
-            # start-room cue is behind the egocentric field of view.
+            # At the real fork, face NORTH: the upper candidate object must
+            # appear in the observation. The lower candidate and old cue are
+            # behind the camera, so matching still requires initial memory.
             base.agent_pos = np.array((self.labels["success_position"][0],
                                        self.size // 2))
-            base.agent_dir = 0
+            base.agent_dir = 3
             self._current_obs = self.world.observation(base.gen_obs())
             return self._current_obs, 0., False, False, {
                 "diagnostic_stage": "decision"}
@@ -132,7 +133,15 @@ def compare_pair(seed, size=7):
             f"Invalid memory diagnostic seed {seed}: cue_visible={seen_change} fork_equal={fork_equal}")
     if labels[0]["correct_side"] == labels[1]["correct_side"]:
         raise AssertionError("Cue intervention failed to flip the correct target")
-    return {"initial_cue_changed": seen_change, "fork_observation_identical": fork_equal}
+    from minigrid.core.constants import OBJECT_TO_IDX
+    object_indices = np.rint(frames[0][1][:147].reshape(7,7,3)[:,:,0] *
+                            max(OBJECT_TO_IDX.values())).astype(int)
+    upper_visible = int(OBJECT_TO_IDX[labels[0]["upper_object"]]) in object_indices
+    if not upper_visible:
+        raise AssertionError(f"Fork candidate is NOT visible in seed {seed}: invalid diagnostic")
+    return {"initial_cue_changed": seen_change,
+            "fork_observation_identical": fork_equal,
+            "upper_candidate_visible": upper_visible}
 
 
 def train(variant, steps, index, out):
