@@ -43,7 +43,7 @@ if ($InstallOnly) {
   Write-Host "Dependencias instaladas. No se inició el worker."
   exit 0
 }
-if (![string]::IsNullOrWhiteSpace($env:INFINITO_WORKER_TOKEN) -eq $false) {
+if ([string]::IsNullOrWhiteSpace($env:INFINITO_WORKER_TOKEN)) {
   $secure = Read-Host "Pega la clave privada del trabajador (no la clave del navegador)" -AsSecureString
   $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
   try {
