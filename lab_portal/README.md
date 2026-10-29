@@ -157,3 +157,31 @@ la guía científica.
 `/etc/infinito-lab/branch`**. Subir F9 a GitHub no actualiza esa rama,
 ni indica que F9 esté desplegado. No cambiar esa configuración mientras
 haya experimentos activos.
+
+
+## F9: lanzar desde la web, ejecutar con el PC Windows
+
+El flujo VPS→Windows está implementado en la rama
+`experiment/f9-windows-remote-worker`. Requiere instalación del
+actualizador protegido, una **clave de trabajador distinta de la clave
+del navegador** y activar `LAB_F9_REMOTE_ENABLED=1` en el VPS.
+**No está activado automáticamente por publicar GitHub.**
+
+Lee la [guía paso a paso del worker Windows y VPS](../docs/INFINITO_F9_WINDOWS_WORKER_GUIDE.md).
+
+- **PC:** `lab_portal/start_f9_windows.ps1` crea Python F9 separado con
+  PyTorch CPU y conecta la cola vía HTTPS.
+- **VPS:** `lab_portal/remote_api.py` asigna solo F9-A Memory, DoorKey,
+  DynamicObstacles. Acepta el informe, manifiesto SHA256 y checkpoints,
+  siempre sujetos a límites y rutas permitidas.
+- **Sitio web:** la cabecera muestra si el PC está conectado; si no está
+  conectado, el trabajo queda pendiente hasta que llegue el agente, con
+  caducidad de 30 minutos.
+- **Actualizador del VPS:** tras desplegar la rama, **reinstalar el kit** con
+  `sudo bash /opt/infinito-lab/lab_portal/deploy/vps/setup.sh`:
+  el servicio del timer se copia fuera del repositorio y su versión anterior
+  no reconoce entrenamientos F9 que se ejecutan fuera del VPS.
+- El código local y remoto deben coincidir exactamente en SHA Git.
+- **No** hay aún una demostración de que módulos INFINITO superen PPO o LSTM:
+  F9-A sigue siendo entrenamiento de baselines externos y desarrollo.
+
