@@ -1,0 +1,101 @@
+name: INFINITO F9-I selective event memory
+on:
+  push:
+    branches: ["experiment/f9i-selective-event-memory"]
+    paths:
+      - "observatory/f9i_*.py"
+      - "tests/test_f9i_*.py"
+      - ".github/workflows/infinito-f9i-selective.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: f9i-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  integrity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r observatory/requirements_f9.txt gymnasium==1.4.0
+      - run: |
+          python -m unittest discover -s tests -p 'test_f9i_selective_memory.py' -v
+          python -m unittest discover -s tests -p 'test_f9g_context_memory.py' -v
+          python -m unittest discover -s tests -p 'test_f9h_context_memory_navigation.py' -v
+      - name: End-to-end smoke (not scientific)
+        run: |
+          python -m observatory.f9i_selective_navigation --index 0 --capacity 8 --worlds 2 --epochs 1 --timesteps 128 --episodes 1 --output outputs/smoke
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: f9i-integrity
+          path: outputs/smoke
+  development:
+    needs: integrity
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        seed: [0,1,2,3]
+        capacity: [8,64]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r observatory/requirements_f9.txt gymnasium==1.4.0
+      - uses: actions/download-artifact@v4
+        if: matrix.capacity == 64
+        with:
+          name: f9h-development-seed-${{ matrix.seed }}
+          run-id: 40925227783
+          github-token: ${{ github.token }}
+          path: original
+      - name: Diagnose original F9-H frozen checkpoint
+        if: matrix.capacity == 64
+        run: |
+          python -m observatory.f9i_diagnose --index ${{ matrix.seed }} --checkpoint original/f4_after_rl.zip --output outputs/diagnosis-${{ matrix.seed }}
+      - name: Preassigned native training and paired evaluation
+        run: |
+          python -m observatory.f9i_selective_navigation --index ${{ matrix.seed }} --capacity ${{ matrix.capacity }} --worlds 600 --epochs 40 --timesteps 20000 --episodes 10 --output outputs/f9i-${{ matrix.seed }}-${{ matrix.capacity }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: f9i-${{ matrix.seed }}-${{ matrix.capacity }}
+          path: outputs/f9i-${{ matrix.seed }}-${{ matrix.capacity }}
+          if-no-files-found: error
+          retention-days: 30
+      - uses: actions/upload-artifact@v4
+        if: always() && matrix.capacity == 64
+        with:
+          name: f9i-original-diagnosis-${{ matrix.seed }}
+          path: outputs/diagnosis-${{ matrix.seed }}
+          if-no-files-found: error
+          retention-days: 30
+  aggregate:
+    needs: development
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: f9i-*
+          path: archives
+      - run: python -m observatory.f9i_aggregate
+      - uses: actions/upload-artifact@v4
+        with:
+          name: f9i-verified-results
+          path: |
+            f9i_results.json
+            f9i_results.md
+          retention-days: 30
