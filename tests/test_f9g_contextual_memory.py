@@ -17,8 +17,9 @@ def simulated_frame(key_on_left=True):
     image=frame[:147].reshape(49,3)
     objectmax=max(OBJECT_TO_IDX.values())
     green=COLOR_TO_IDX['green']/max(COLOR_TO_IDX.values())
-    for pos, typ in [(9,'key' if key_on_left else 'ball'),
-                     (11,'ball' if key_on_left else 'key')]:
+    for pos, typ in [(9,'key'),
+                     (11,'ball'),
+                     (15,'key' if key_on_left else 'ball')]:
         image[pos]=(OBJECT_TO_IDX[typ]/objectmax,green,0)
     frame[147]=1/3
     return frame
@@ -41,7 +42,7 @@ class ContextualMemoryTests(unittest.TestCase):
         writer=ContextualF4()
         source=simulated_frame(True)
         original=writer.encode(source)[148:].copy()
-        # Move through 25 frames; first snapshot remains pinned.
+        # Move through 25 frames, accumulating later views; first stays pinned.
         for step in range(25):
             if step%3==0:
                 frame=simulated_frame(not bool(step%2))
