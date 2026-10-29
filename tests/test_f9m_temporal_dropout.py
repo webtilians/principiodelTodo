@@ -23,12 +23,15 @@ class MatchedTemporalTrainingTests(unittest.TestCase):
         # Bypass selection probability only for direct deterministic unit tests.
         sham.enabled=drop.enabled=True
         for obj_count in (2,0,0,0,0,0):
+            previous = drop.effective_steps
             a=sham.transform(base[:148],base,obj_count)
             b=drop.transform(base[:148],base,obj_count)
             np.testing.assert_array_equal(a,base)
             np.testing.assert_array_equal(a[:148],b[:148])
-            if 0 < drop.elapsed <= drop.length:
+            if drop.effective_steps > previous:
                 self.assertFalse(np.any(b[148:]))
+            else:
+                np.testing.assert_array_equal(b,base)
         self.assertEqual(sham.effective_steps,0)
         self.assertGreater(drop.effective_steps,0)
         with self.assertRaises(ValueError):
@@ -39,7 +42,7 @@ class MatchedTemporalTrainingTests(unittest.TestCase):
     def test_matched_teacher_sequences_and_initial_weights(self):
         teacher=[
             demonstration(checked_seed("train",0,j),reverse=rev)
-            for j in (0,1) for rev in (False,True)
+            for j in range(20) for rev in (False,True)
         ]
         a, sham=training_dataset(teacher,"sham",0)
         b, drop=training_dataset(teacher,"dropout",0)
