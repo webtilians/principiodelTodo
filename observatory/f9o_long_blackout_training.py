@@ -145,7 +145,7 @@ def run(args):
     stats={}
     for arm in ARMS:
         dataset,audit=prepare_dataset(teacher,arm,args.index)
-        if audit["incomplete"] or audit["scheduled"]!=len(teacher)*6 or audit["effective"]!=len(teacher)*8:
+        if audit["incomplete"] or audit["scheduled"]!=len(teacher)*6 or audit["effective"]!=len(teacher)*6:
             raise AssertionError("Equal actual F4 blackout exposure not achieved: "+str((arm,audit)))
         datasets[arm]=dataset
         stats[arm]=audit
