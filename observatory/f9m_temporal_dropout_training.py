@@ -1,8 +1,8 @@
 """F9-M: matched NEW RecurrentPPO training with public-only temporal F4 dropout.
 
-A randomized augmentation clock uses ONLY public key/ball sightings; it
-never reads target labels, teacher success, fork position, cue_visible,
-or future rewards. Same mode for behavior cloning and policy learning.
+A randomized augmentation clock starts two frames after the first PUBLIC
+key/ball sighting. It never reads target labels, teacher success, fork
+position, cue_visible, or future rewards. Same mode for behavior cloning and policy learning.
 The active-treatment input masks all 512 F4 channels; the sham-treatment
 masks only the already-zero 448-channel tail. F4 writer remains intact.
 """
@@ -55,7 +55,8 @@ class PublicTemporalBlackout:
         rng = np.random.default_rng(500000 + index * 20000 + episode_id)
         self.enabled = bool(rng.random() < DROPOUT_EPISODE_PROB)
         self.length = int(DROPOUT_LENGTHS[int(rng.integers(2))])
-        self.seen_public_event = False
+        self.first_public_event_step = None
+        self.step = 0
         self.started = False
         self.elapsed = 0
         self.scheduled_steps = 0
@@ -71,12 +72,13 @@ class PublicTemporalBlackout:
             raise AssertionError("Policy received nonfinite features")
         if not 0 <= public_events <= 49:
             raise ValueError("Event count must derive from public image only")
-        visible_now = public_events > 0
-        if visible_now:
-            self.seen_public_event = True
-        # Start at the FIRST publicly observable loss of any key/ball event.
-        # Never consume privileged cue visibility or teacher positions.
-        if (self.seen_public_event and not visible_now and not self.started):
+        # Object visibility may persist at other locations, so "no public
+        # key/ball anywhere" is NOT a valid approximation to cue disappearance.
+        # Instead start two observation steps after the FIRST public sighting.
+        if public_events and self.first_public_event_step is None:
+            self.first_public_event_step = self.step
+        if (self.first_public_event_step is not None and
+                self.step >= self.first_public_event_step + 2):
             self.started = True
         active = self.enabled and self.started and self.elapsed < self.length
         out = encoded.copy()
@@ -90,6 +92,7 @@ class PublicTemporalBlackout:
                 out[ACTIVE_END:] = 0.
             self.effective_steps += int(not np.array_equal(out, encoded))
             self.elapsed += 1
+        self.step += 1
         return out
 
 
