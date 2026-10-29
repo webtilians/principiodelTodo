@@ -34,7 +34,11 @@ def execute(folder: Path, root: Path, timeout: int):
         raise ValueError("invalid experiment")
     outdir = folder / "output"
     outdir.mkdir(exist_ok=True)
-    call = [sys.executable, *command(experiment, data["params"], str(outdir))]
+    interpreter = (os.environ.get("LAB_F9_PYTHON", "")
+                   if experiment.startswith("f9_") else sys.executable)
+    if not interpreter or not Path(interpreter).is_file():
+        raise RuntimeError("Intérprete del experimento no disponible")
+    call = [interpreter, *command(experiment, data["params"], str(outdir))]
     environment = dict(os.environ, PYTHONPATH=str(root), PYTHONUNBUFFERED="1")
     write_status(folder, {"status": "running", "started_at": timestamp()})
     code = -1
