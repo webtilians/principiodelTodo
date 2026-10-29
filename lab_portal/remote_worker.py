@@ -166,9 +166,10 @@ def execute_job(client: LabClient, claimed: dict, *, python: str,
             if proc.poll() is None:
                 _kill_process_tree(proc)
             proc.wait()
-    status = proc.returncode
-    if cancelled or timed_out:
-        status = 124 if timed_out else 130
+    if cancelled:
+        print("CANCELADO desde el portal:", job_id[:8], flush=True)
+        return {"status": "cancelled"}
+    status = 124 if timed_out else proc.returncode
     if status == 0:
         try:
             bundle = _output_zip(output)
