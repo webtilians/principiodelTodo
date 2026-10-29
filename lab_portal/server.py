@@ -97,6 +97,13 @@ def read_job(folder: Path):
         job = json.loads((folder / "job.json").read_text(encoding="utf8"))
     except (OSError, ValueError):
         raise HTTPException(404, "Ejecución no encontrada")
+    # Remote Windows jobs never have a local worker.pid; they have a lease.
+    if job.get("executor") == "remote_windows":
+        from lab_portal.remote_api import remote_job_state
+        if (folder / "cancel.request").exists():
+            job["status"] = "cancelled"
+            return job
+        return remote_job_state(folder, job)
     # A cancelled job must remain cancelled even if the worker was terminated
     # before writing final metadata.
     if (folder / "cancel.request").exists():
@@ -163,8 +170,11 @@ def ping():
 
 @app.get("/api/catalog", dependencies=[Depends(require_auth)])
 def catalog():
+    from lab_portal.remote_api import worker_status
     return {"experiments": describe(), "max_concurrent": 1,
-            "timeout_seconds": int(os.environ.get("LAB_MAX_SECONDS", "14400"))}
+            "timeout_seconds": int(os.environ.get("LAB_MAX_SECONDS", "14400")),
+            "f9_remote_enabled": os.environ.get("LAB_F9_REMOTE_ENABLED") == "1",
+            "f9_worker": worker_status()}
 
 
 @app.get("/api/jobs", dependencies=[Depends(require_auth)])
@@ -178,15 +188,17 @@ def start(submission: Submission):
         params = normalize(submission.experiment, submission.params)
     except ParameterError as error:
         raise HTTPException(422, detail=str(error))
-    if submission.experiment.startswith("f9_"):
+    remote = (submission.experiment.startswith("f9_") and
+              os.environ.get("LAB_F9_REMOTE_ENABLED") == "1")
+    if submission.experiment.startswith("f9_") and not remote:
         # Heavy Torch/MiniGrid stacks are never imported into the web process.
-        # Admin must explicitly provision a separate F9 interpreter and RAM.
+        # Local F9 needs an explicitly provisioned interpreter and RAM.
         if os.environ.get("LAB_F9_ENABLED") != "1":
-            raise HTTPException(503, "F9 requiere habilitación del administrador y entorno Python independiente")
+            raise HTTPException(503, "F9 requiere worker remoto o intérprete F9 independiente")
         interpreter = os.environ.get("LAB_F9_PYTHON", "")
         if not interpreter or not Path(interpreter).is_file():
             raise HTTPException(503, "LAB_F9_PYTHON no apunta a un intérprete F9 instalado")
-    else:
+    elif not remote:
         for name in EXPERIMENTS[submission.experiment].dependencies:
             try:
                 __import__(name)
@@ -203,8 +215,12 @@ def start(submission: Submission):
                 "params": params, "status": "queued", "created_at": now(),
                 "started_at": None, "finished_at": None, "exit_code": None,
                 "note": EXPERIMENTS[submission.experiment].warning,
-                "revision": CODE_REVISION}
+                "revision": CODE_REVISION,
+                "executor": "remote_windows" if remote else "server",
+                "created_epoch": time.time()}
         (folder / "job.json").write_text(json.dumps(info, indent=2), encoding="utf8")
+        if remote:
+            return info
         seconds = min(max(int(os.environ.get("LAB_MAX_SECONDS", "14400")), 60), 86400)
         try:
             proc = subprocess.Popen(
@@ -304,3 +320,8 @@ def cancel(job_id: str):
     except (OSError, ValueError, subprocess.TimeoutExpired):
         pass
     return {"status": "cancelled", "id": job_id}
+
+
+# Mounted separately to keep the public user token distinct from the worker's secret.
+from lab_portal.remote_api import router as f9_worker_router
+app.include_router(f9_worker_router)
