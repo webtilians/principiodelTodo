@@ -1,0 +1,1222 @@
+{
+  "experiment": "F9-N frozen policies, stage resolved prospective autonomous S13",
+  "source_f9m_run": 40950579984,
+  "confirmation_seed_base": 400000,
+  "historical_heldout_opened": false,
+  "F9M_confirmation_reused": false,
+  "agent_training": false,
+  "seeds": [
+    0,
+    1,
+    2,
+    3
+  ],
+  "metrics": {
+    "S13/normal": {
+      "sham": {
+        "episodes": 320,
+        "pairs": 160,
+        "counts": {
+          "cue_seen": 308,
+          "junction_arrived": 240,
+          "first_committed": 237,
+          "first_choice_correct": 193,
+          "first_choice_wrong": 44,
+          "success": 193,
+          "timeout": 83,
+          "arm_without_center": 0,
+          "terminal_without_center": 0,
+          "scheduled_masks": 0,
+          "effective_masks": 0,
+          "episodes_intervened": 0,
+          "clock_4_complete": 0
+        },
+        "pair_counts": {
+          "both_seen": 154,
+          "both_junction": 91,
+          "both_committed": 88,
+          "opposite_first_commits": 55,
+          "both_first_correct": 55,
+          "both_final_success": 55
+        },
+        "rate_by_seed": {
+          "junction_arrived": [
+            0.7375,
+            0.7125,
+            1,
+            0.55
+          ],
+          "first_committed": [
+            0.7375,
+            0.675,
+            1,
+            0.55
+          ],
+          "first_choice_correct": [
+            0.6,
+            0.45,
+            0.975,
+            0.3875
+          ],
+          "success": [
+            0.6,
+            0.45,
+            0.975,
+            0.3875
+          ],
+          "clock_4_complete": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "episodes_intervened": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "rates": {
+          "cue_seen": 0.9625,
+          "junction_arrived": 0.75,
+          "first_committed": 0.740625,
+          "first_choice_correct": 0.603125,
+          "first_choice_wrong": 0.1375,
+          "success": 0.603125,
+          "timeout": 0.259375,
+          "arm_without_center": 0,
+          "terminal_without_center": 0,
+          "episodes_intervened": 0,
+          "clock_4_complete": 0
+        },
+        "conditional": {
+          "commit_given_junction": 0.9875,
+          "correct_given_commit": 0.8143459915611815,
+          "n_arrived": 240,
+          "n_committed": 237
+        },
+        "mean_scheduled_mask_steps": 0,
+        "mean_effective_mask_steps": 0
+      },
+      "dropout": {
+        "episodes": 320,
+        "pairs": 160,
+        "counts": {
+          "cue_seen": 302,
+          "junction_arrived": 249,
+          "first_committed": 245,
+          "first_choice_correct": 201,
+          "first_choice_wrong": 44,
+          "success": 201,
+          "timeout": 75,
+          "arm_without_center": 0,
+          "terminal_without_center": 0,
+          "scheduled_masks": 0,
+          "effective_masks": 0,
+          "episodes_intervened": 0,
+          "clock_4_complete": 0
+        },
+        "pair_counts": {
+          "both_seen": 151,
+          "both_junction": 117,
+          "both_committed": 113,
+          "opposite_first_commits": 74,
+          "both_first_correct": 74,
+          "both_final_success": 74
+        },
+        "rate_by_seed": {
+          "junction_arrived": [
+            0.9375,
+            0.6125,
+            0.8875,
+            0.675
+          ],
+          "first_committed": [
+            0.9375,
+            0.6125,
+            0.8875,
+            0.625
+          ],
+          "first_choice_correct": [
+            0.8625,
+            0.55,
+            0.475,
+            0.625
+          ],
+          "success": [
+            0.8625,
+            0.55,
+            0.475,
+            0.625
+          ],
+          "clock_4_complete": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "episodes_intervened": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "rates": {
+          "cue_seen": 0.94375,
+          "junction_arrived": 0.778125,
+          "first_committed": 0.765625,
+          "first_choice_correct": 0.628125,
+          "first_choice_wrong": 0.1375,
+          "success": 0.628125,
+          "timeout": 0.234375,
+          "arm_without_center": 0,
+          "terminal_without_center": 0,
+          "episodes_intervened": 0,
+          "clock_4_complete": 0
+        },
+        "conditional": {
+          "commit_given_junction": 0.9839357429718876,
+          "correct_given_commit": 0.8204081632653061,
+          "n_arrived": 249,
+          "n_committed": 245
+        },
+        "mean_scheduled_mask_steps": 0,
+        "mean_effective_mask_steps": 0
+      },
+      "dropout_minus_sham_by_seed": {
+        "junction_arrived": [
+          0.19999999999999996,
+          -0.09999999999999998,
+          -0.11250000000000004,
+          0.125
+        ],
+        "first_committed": [
+          0.19999999999999996,
+          -0.0625,
+          -0.11250000000000004,
+          0.07499999999999996
+        ],
+        "first_choice_correct": [
+          0.26250000000000007,
+          0.10000000000000003,
+          -0.5,
+          0.2375
+        ],
+        "success": [
+          0.26250000000000007,
+          0.10000000000000003,
+          -0.5,
+          0.2375
+        ]
+      },
+      "dropout_minus_sham_pair_both_first_correct": 19
+    },
+    "S13/cue_lost_continuous": {
+      "sham": {
+        "episodes": 320,
+        "pairs": 160,
+        "counts": {
+          "cue_seen": 308,
+          "junction_arrived": 92,
+          "first_committed": 92,
+          "first_choice_correct": 46,
+          "first_choice_wrong": 46,
+          "success": 46,
+          "timeout": 228,
+          "arm_without_center": 0,
+          "terminal_without_center": 0,
+          "scheduled_masks": 103381,
+          "effective_masks": 103381,
+          "episodes_intervened": 308,
+          "clock_4_complete": 0
+        },
+        "pair_counts": {
+          "both_seen": 154,
+          "both_junction": 17,
+          "both_committed": 17,
+          "opposite_first_commits": 0,
+          "both_first_correct": 0,
+          "both_final_success": 0
+        },
+        "rate_by_seed": {
+          "junction_arrived": [
+            0.6,
+            0.5,
+            0.05,
+            0
+          ],
+          "first_committed": [
+            0.6,
+            0.5,
+            0.05,
+            0
+          ],
+          "first_choice_correct": [
+            0.325,
+            0.225,
+            0.025,
+            0
+          ],
+          "success": [
+            0.325,
+            0.225,
+            0.025,
+            0
+          ],
+          "clock_4_complete": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "episodes_intervened": [
+            0.9,
+            1,
+            0.95,
+            1
+          ]
+        },
+        "rates": {
+          "cue_seen": 0.9625,
+          "junction_arrived": 0.2875,
+          "first_committed": 0.2875,
+          "first_choice_correct": 0.14375,
+          "first_choice_wrong": 0.14375,
+          "success": 0.14375,
+          "timeout": 0.7125,
+          "arm_without_center": 0,
+          "terminal_without_center": 0,
+          "episodes_intervened": 0.9625,
+          "clock_4_complete": 0
+        },
+        "conditional": {
+          "commit_given_junction": 1,
+          "correct_given_commit": 0.5,
+          "n_arrived": 92,
+          "n_committed": 92
+        },
+        "mean_scheduled_mask_steps": 323.065625,
+        "mean_effective_mask_steps": 323.065625
+      },
+      "dropout": {
+        "episodes": 320,
+        "pairs": 160,
+        "counts": {
+          "cue_seen": 302,
+          "junction_arrived": 260,
+          "first_committed": 260,
+          "first_choice_correct": 134,
+          "first_choice_wrong": 126,
+          "success": 134,
+          "timeout": 60,
+          "arm_without_center": 0,
+          "terminal_without_center": 0,
+          "scheduled_masks": 18371,
+          "effective_masks": 18371,
+          "episodes_intervened": 285,
+          "clock_4_complete": 0
+        },
+        "pair_counts": {
+          "both_seen": 151,
+          "both_junction": 121,
+          "both_committed": 121,
+          "opposite_first_commits": 10,
+          "both_first_correct": 7,
+          "both_final_success": 7
+        },
+        "rate_by_seed": {
+          "junction_arrived": [
+            1,
+            0.7125,
+            0.8625,
+            0.675
+          ],
+          "first_committed": [
+            1,
+            0.7125,
+            0.8625,
+            0.675
+          ],
+          "first_choice_correct": [
+            0.5,
+            0.35,
+            0.4875,
+            0.3375
+          ],
+          "success": [
+            0.5,
+            0.35,
+            0.4875,
+            0.3375
+          ],
+          "clock_4_complete": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "episodes_intervened": [
+            1,
+            0.8125,
+            0.95,
+            0.8
+          ]
+        },
+        "rates": {
+          "cue_seen": 0.94375,
+          "junction_arrived": 0.8125,
+          "first_committed": 0.8125,
+          "first_choice_correct": 0.41875,
+          "first_choice_wrong": 0.39375,
+          "success": 0.41875,
+          "timeout": 0.1875,
+          "arm_without_center": 0,
+          "terminal_without_center": 0,
+          "episodes_intervened": 0.890625,
+          "clock_4_complete": 0
+        },
+        "conditional": {
+          "commit_given_junction": 1,
+          "correct_given_commit": 0.5153846153846153,
+          "n_arrived": 260,
+          "n_committed": 260
+        },
+        "mean_scheduled_mask_steps": 57.409375,
+        "mean_effective_mask_steps": 57.409375
+      },
+      "dropout_minus_sham_by_seed": {
+        "junction_arrived": [
+          0.4,
+          0.21250000000000002,
+          0.8125,
+          0.675
+        ],
+        "first_committed": [
+          0.4,
+          0.21250000000000002,
+          0.8125,
+          0.675
+        ],
+        "first_choice_correct": [
+          0.175,
+          0.12499999999999997,
+          0.46249999999999997,
+          0.3375
+        ],
+        "success": [
+          0.175,
+          0.12499999999999997,
+          0.46249999999999997,
+          0.3375
+        ]
+      },
+      "dropout_minus_sham_pair_both_first_correct": 7
+    },
+    "S13/fixed_4": {
+      "sham": {
+        "episodes": 320,
+        "pairs": 160,
+        "counts": {
+          "cue_seen": 308,
+          "junction_arrived": 237,
+          "first_committed": 232,
+          "first_choice_correct": 191,
+          "first_choice_wrong": 41,
+          "success": 191,
+          "timeout": 88,
+          "arm_without_center": 0,
+          "terminal_without_center": 0,
+          "scheduled_masks": 1280,
+          "effective_masks": 1280,
+          "episodes_intervened": 320,
+          "clock_4_complete": 320
+        },
+        "pair_counts": {
+          "both_seen": 154,
+          "both_junction": 84,
+          "both_committed": 79,
+          "opposite_first_commits": 51,
+          "both_first_correct": 51,
+          "both_final_success": 51
+        },
+        "rate_by_seed": {
+          "junction_arrived": [
+            0.7125,
+            0.8375,
+            1,
+            0.4125
+          ],
+          "first_committed": [
+            0.7125,
+            0.775,
+            1,
+            0.4125
+          ],
+          "first_choice_correct": [
+            0.6125,
+            0.55,
+            0.975,
+            0.25
+          ],
+          "success": [
+            0.6125,
+            0.55,
+            0.975,
+            0.25
+          ],
+          "clock_4_complete": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "episodes_intervened": [
+            1,
+            1,
+            1,
+            1
+          ]
+        },
+        "rates": {
+          "cue_seen": 0.9625,
+          "junction_arrived": 0.740625,
+          "first_committed": 0.725,
+          "first_choice_correct": 0.596875,
+          "first_choice_wrong": 0.128125,
+          "success": 0.596875,
+          "timeout": 0.275,
+          "arm_without_center": 0,
+          "terminal_without_center": 0,
+          "episodes_intervened": 1,
+          "clock_4_complete": 1
+        },
+        "conditional": {
+          "commit_given_junction": 0.9789029535864979,
+          "correct_given_commit": 0.8232758620689655,
+          "n_arrived": 237,
+          "n_committed": 232
+        },
+        "mean_scheduled_mask_steps": 4,
+        "mean_effective_mask_steps": 4
+      },
+      "dropout": {
+        "episodes": 320,
+        "pairs": 160,
+        "counts": {
+          "cue_seen": 298,
+          "junction_arrived": 262,
+          "first_committed": 256,
+          "first_choice_correct": 219,
+          "first_choice_wrong": 37,
+          "success": 219,
+          "timeout": 64,
+          "arm_without_center": 0,
+          "terminal_without_center": 0,
+          "scheduled_masks": 1280,
+          "effective_masks": 1280,
+          "episodes_intervened": 320,
+          "clock_4_complete": 320
+        },
+        "pair_counts": {
+          "both_seen": 149,
+          "both_junction": 119,
+          "both_committed": 113,
+          "opposite_first_commits": 84,
+          "both_first_correct": 84,
+          "both_final_success": 84
+        },
+        "rate_by_seed": {
+          "junction_arrived": [
+            0.9375,
+            0.8375,
+            0.8125,
+            0.6875
+          ],
+          "first_committed": [
+            0.9375,
+            0.8375,
+            0.75,
+            0.675
+          ],
+          "first_choice_correct": [
+            0.8625,
+            0.7,
+            0.5,
+            0.675
+          ],
+          "success": [
+            0.8625,
+            0.7,
+            0.5,
+            0.675
+          ],
+          "clock_4_complete": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "episodes_intervened": [
+            1,
+            1,
+            1,
+            1
+          ]
+        },
+        "rates": {
+          "cue_seen": 0.93125,
+          "junction_arrived": 0.81875,
+          "first_committed": 0.8,
+          "first_choice_correct": 0.684375,
+          "first_choice_wrong": 0.115625,
+          "success": 0.684375,
+          "timeout": 0.2,
+          "arm_without_center": 0,
+          "terminal_without_center": 0,
+          "episodes_intervened": 1,
+          "clock_4_complete": 1
+        },
+        "conditional": {
+          "commit_given_junction": 0.9770992366412213,
+          "correct_given_commit": 0.85546875,
+          "n_arrived": 262,
+          "n_committed": 256
+        },
+        "mean_scheduled_mask_steps": 4,
+        "mean_effective_mask_steps": 4
+      },
+      "dropout_minus_sham_by_seed": {
+        "junction_arrived": [
+          0.22499999999999998,
+          0,
+          -0.1875,
+          0.275
+        ],
+        "first_committed": [
+          0.22499999999999998,
+          0.0625,
+          -0.25,
+          0.26250000000000007
+        ],
+        "first_choice_correct": [
+          0.25,
+          0.1499999999999999,
+          -0.475,
+          0.42500000000000004
+        ],
+        "success": [
+          0.25,
+          0.1499999999999999,
+          -0.475,
+          0.42500000000000004
+        ]
+      },
+      "dropout_minus_sham_pair_both_first_correct": 33
+    },
+    "S7/normal": {
+      "sham": {
+        "episodes": 160,
+        "pairs": 80,
+        "counts": {
+          "cue_seen": 160,
+          "junction_arrived": 148,
+          "first_committed": 148,
+          "first_choice_correct": 145,
+          "first_choice_wrong": 3,
+          "success": 145,
+          "timeout": 12,
+          "arm_without_center": 0,
+          "terminal_without_center": 0,
+          "scheduled_masks": 0,
+          "effective_masks": 0,
+          "episodes_intervened": 0,
+          "clock_4_complete": 0
+        },
+        "pair_counts": {
+          "both_seen": 80,
+          "both_junction": 68,
+          "both_committed": 68,
+          "opposite_first_commits": 65,
+          "both_first_correct": 65,
+          "both_final_success": 65
+        },
+        "rate_by_seed": {
+          "junction_arrived": [
+            1,
+            1,
+            1,
+            0.7
+          ],
+          "first_committed": [
+            1,
+            1,
+            1,
+            0.7
+          ],
+          "first_choice_correct": [
+            1,
+            0.925,
+            1,
+            0.7
+          ],
+          "success": [
+            1,
+            0.925,
+            1,
+            0.7
+          ],
+          "clock_4_complete": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "episodes_intervened": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "rates": {
+          "cue_seen": 1,
+          "junction_arrived": 0.925,
+          "first_committed": 0.925,
+          "first_choice_correct": 0.90625,
+          "first_choice_wrong": 0.01875,
+          "success": 0.90625,
+          "timeout": 0.075,
+          "arm_without_center": 0,
+          "terminal_without_center": 0,
+          "episodes_intervened": 0,
+          "clock_4_complete": 0
+        },
+        "conditional": {
+          "commit_given_junction": 1,
+          "correct_given_commit": 0.9797297297297297,
+          "n_arrived": 148,
+          "n_committed": 148
+        },
+        "mean_scheduled_mask_steps": 0,
+        "mean_effective_mask_steps": 0
+      },
+      "dropout": {
+        "episodes": 160,
+        "pairs": 80,
+        "counts": {
+          "cue_seen": 160,
+          "junction_arrived": 160,
+          "first_committed": 160,
+          "first_choice_correct": 160,
+          "first_choice_wrong": 0,
+          "success": 160,
+          "timeout": 0,
+          "arm_without_center": 0,
+          "terminal_without_center": 0,
+          "scheduled_masks": 0,
+          "effective_masks": 0,
+          "episodes_intervened": 0,
+          "clock_4_complete": 0
+        },
+        "pair_counts": {
+          "both_seen": 80,
+          "both_junction": 80,
+          "both_committed": 80,
+          "opposite_first_commits": 80,
+          "both_first_correct": 80,
+          "both_final_success": 80
+        },
+        "rate_by_seed": {
+          "junction_arrived": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "first_committed": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "first_choice_correct": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "success": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "clock_4_complete": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "episodes_intervened": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "rates": {
+          "cue_seen": 1,
+          "junction_arrived": 1,
+          "first_committed": 1,
+          "first_choice_correct": 1,
+          "first_choice_wrong": 0,
+          "success": 1,
+          "timeout": 0,
+          "arm_without_center": 0,
+          "terminal_without_center": 0,
+          "episodes_intervened": 0,
+          "clock_4_complete": 0
+        },
+        "conditional": {
+          "commit_given_junction": 1,
+          "correct_given_commit": 1,
+          "n_arrived": 160,
+          "n_committed": 160
+        },
+        "mean_scheduled_mask_steps": 0,
+        "mean_effective_mask_steps": 0
+      },
+      "dropout_minus_sham_by_seed": {
+        "junction_arrived": [
+          0,
+          0,
+          0,
+          0.30000000000000004
+        ],
+        "first_committed": [
+          0,
+          0,
+          0,
+          0.30000000000000004
+        ],
+        "first_choice_correct": [
+          0,
+          0.07499999999999996,
+          0,
+          0.30000000000000004
+        ],
+        "success": [
+          0,
+          0.07499999999999996,
+          0,
+          0.30000000000000004
+        ]
+      },
+      "dropout_minus_sham_pair_both_first_correct": 15
+    },
+    "S7/cue_lost_continuous": {
+      "sham": {
+        "episodes": 160,
+        "pairs": 80,
+        "counts": {
+          "cue_seen": 160,
+          "junction_arrived": 136,
+          "first_committed": 136,
+          "first_choice_correct": 58,
+          "first_choice_wrong": 78,
+          "success": 58,
+          "timeout": 24,
+          "arm_without_center": 0,
+          "terminal_without_center": 0,
+          "scheduled_masks": 3141,
+          "effective_masks": 3141,
+          "episodes_intervened": 160,
+          "clock_4_complete": 0
+        },
+        "pair_counts": {
+          "both_seen": 80,
+          "both_junction": 60,
+          "both_committed": 60,
+          "opposite_first_commits": 9,
+          "both_first_correct": 2,
+          "both_final_success": 2
+        },
+        "rate_by_seed": {
+          "junction_arrived": [
+            1,
+            1,
+            1,
+            0.4
+          ],
+          "first_committed": [
+            1,
+            1,
+            1,
+            0.4
+          ],
+          "first_choice_correct": [
+            0.475,
+            0.5,
+            0.4,
+            0.075
+          ],
+          "success": [
+            0.475,
+            0.5,
+            0.4,
+            0.075
+          ],
+          "clock_4_complete": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "episodes_intervened": [
+            1,
+            1,
+            1,
+            1
+          ]
+        },
+        "rates": {
+          "cue_seen": 1,
+          "junction_arrived": 0.85,
+          "first_committed": 0.85,
+          "first_choice_correct": 0.3625,
+          "first_choice_wrong": 0.4875,
+          "success": 0.3625,
+          "timeout": 0.15,
+          "arm_without_center": 0,
+          "terminal_without_center": 0,
+          "episodes_intervened": 1,
+          "clock_4_complete": 0
+        },
+        "conditional": {
+          "commit_given_junction": 1,
+          "correct_given_commit": 0.4264705882352941,
+          "n_arrived": 136,
+          "n_committed": 136
+        },
+        "mean_scheduled_mask_steps": 19.631249999999998,
+        "mean_effective_mask_steps": 19.631249999999998
+      },
+      "dropout": {
+        "episodes": 160,
+        "pairs": 80,
+        "counts": {
+          "cue_seen": 160,
+          "junction_arrived": 160,
+          "first_committed": 160,
+          "first_choice_correct": 115,
+          "first_choice_wrong": 45,
+          "success": 115,
+          "timeout": 0,
+          "arm_without_center": 0,
+          "terminal_without_center": 0,
+          "scheduled_masks": 887,
+          "effective_masks": 887,
+          "episodes_intervened": 160,
+          "clock_4_complete": 0
+        },
+        "pair_counts": {
+          "both_seen": 80,
+          "both_junction": 80,
+          "both_committed": 80,
+          "opposite_first_commits": 35,
+          "both_first_correct": 35,
+          "both_final_success": 35
+        },
+        "rate_by_seed": {
+          "junction_arrived": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "first_committed": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "first_choice_correct": [
+            0.675,
+            0.7,
+            0.875,
+            0.625
+          ],
+          "success": [
+            0.675,
+            0.7,
+            0.875,
+            0.625
+          ],
+          "clock_4_complete": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "episodes_intervened": [
+            1,
+            1,
+            1,
+            1
+          ]
+        },
+        "rates": {
+          "cue_seen": 1,
+          "junction_arrived": 1,
+          "first_committed": 1,
+          "first_choice_correct": 0.71875,
+          "first_choice_wrong": 0.28125,
+          "success": 0.71875,
+          "timeout": 0,
+          "arm_without_center": 0,
+          "terminal_without_center": 0,
+          "episodes_intervened": 1,
+          "clock_4_complete": 0
+        },
+        "conditional": {
+          "commit_given_junction": 1,
+          "correct_given_commit": 0.71875,
+          "n_arrived": 160,
+          "n_committed": 160
+        },
+        "mean_scheduled_mask_steps": 5.543749999999999,
+        "mean_effective_mask_steps": 5.543749999999999
+      },
+      "dropout_minus_sham_by_seed": {
+        "junction_arrived": [
+          0,
+          0,
+          0,
+          0.6
+        ],
+        "first_committed": [
+          0,
+          0,
+          0,
+          0.6
+        ],
+        "first_choice_correct": [
+          0.20000000000000007,
+          0.19999999999999996,
+          0.475,
+          0.55
+        ],
+        "success": [
+          0.20000000000000007,
+          0.19999999999999996,
+          0.475,
+          0.55
+        ]
+      },
+      "dropout_minus_sham_pair_both_first_correct": 33
+    },
+    "S7/fixed_4": {
+      "sham": {
+        "episodes": 160,
+        "pairs": 80,
+        "counts": {
+          "cue_seen": 160,
+          "junction_arrived": 145,
+          "first_committed": 145,
+          "first_choice_correct": 81,
+          "first_choice_wrong": 64,
+          "success": 81,
+          "timeout": 15,
+          "arm_without_center": 0,
+          "terminal_without_center": 0,
+          "scheduled_masks": 640,
+          "effective_masks": 640,
+          "episodes_intervened": 160,
+          "clock_4_complete": 160
+        },
+        "pair_counts": {
+          "both_seen": 80,
+          "both_junction": 66,
+          "both_committed": 66,
+          "opposite_first_commits": 6,
+          "both_first_correct": 6,
+          "both_final_success": 6
+        },
+        "rate_by_seed": {
+          "junction_arrived": [
+            1,
+            1,
+            1,
+            0.625
+          ],
+          "first_committed": [
+            1,
+            1,
+            1,
+            0.625
+          ],
+          "first_choice_correct": [
+            0.625,
+            0.5,
+            0.525,
+            0.375
+          ],
+          "success": [
+            0.625,
+            0.5,
+            0.525,
+            0.375
+          ],
+          "clock_4_complete": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "episodes_intervened": [
+            1,
+            1,
+            1,
+            1
+          ]
+        },
+        "rates": {
+          "cue_seen": 1,
+          "junction_arrived": 0.90625,
+          "first_committed": 0.90625,
+          "first_choice_correct": 0.50625,
+          "first_choice_wrong": 0.4,
+          "success": 0.50625,
+          "timeout": 0.09375,
+          "arm_without_center": 0,
+          "terminal_without_center": 0,
+          "episodes_intervened": 1,
+          "clock_4_complete": 1
+        },
+        "conditional": {
+          "commit_given_junction": 1,
+          "correct_given_commit": 0.5586206896551724,
+          "n_arrived": 145,
+          "n_committed": 145
+        },
+        "mean_scheduled_mask_steps": 4,
+        "mean_effective_mask_steps": 4
+      },
+      "dropout": {
+        "episodes": 160,
+        "pairs": 80,
+        "counts": {
+          "cue_seen": 160,
+          "junction_arrived": 160,
+          "first_committed": 160,
+          "first_choice_correct": 150,
+          "first_choice_wrong": 10,
+          "success": 150,
+          "timeout": 0,
+          "arm_without_center": 0,
+          "terminal_without_center": 0,
+          "scheduled_masks": 640,
+          "effective_masks": 640,
+          "episodes_intervened": 160,
+          "clock_4_complete": 160
+        },
+        "pair_counts": {
+          "both_seen": 80,
+          "both_junction": 80,
+          "both_committed": 80,
+          "opposite_first_commits": 70,
+          "both_first_correct": 70,
+          "both_final_success": 70
+        },
+        "rate_by_seed": {
+          "junction_arrived": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "first_committed": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "first_choice_correct": [
+            0.95,
+            0.825,
+            1,
+            0.975
+          ],
+          "success": [
+            0.95,
+            0.825,
+            1,
+            0.975
+          ],
+          "clock_4_complete": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "episodes_intervened": [
+            1,
+            1,
+            1,
+            1
+          ]
+        },
+        "rates": {
+          "cue_seen": 1,
+          "junction_arrived": 1,
+          "first_committed": 1,
+          "first_choice_correct": 0.9375,
+          "first_choice_wrong": 0.0625,
+          "success": 0.9375,
+          "timeout": 0,
+          "arm_without_center": 0,
+          "terminal_without_center": 0,
+          "episodes_intervened": 1,
+          "clock_4_complete": 1
+        },
+        "conditional": {
+          "commit_given_junction": 1,
+          "correct_given_commit": 0.9375,
+          "n_arrived": 160,
+          "n_committed": 160
+        },
+        "mean_scheduled_mask_steps": 4,
+        "mean_effective_mask_steps": 4
+      },
+      "dropout_minus_sham_by_seed": {
+        "junction_arrived": [
+          0,
+          0,
+          0,
+          0.375
+        ],
+        "first_committed": [
+          0,
+          0,
+          0,
+          0.375
+        ],
+        "first_choice_correct": [
+          0.32499999999999996,
+          0.32499999999999996,
+          0.475,
+          0.6
+        ],
+        "success": [
+          0.32499999999999996,
+          0.32499999999999996,
+          0.475,
+          0.6
+        ]
+      },
+      "dropout_minus_sham_pair_both_first_correct": 64
+    }
+  }
+}
