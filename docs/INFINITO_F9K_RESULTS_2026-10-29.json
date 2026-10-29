@@ -1,0 +1,702 @@
+{
+  "experiment": "F9-K frozen temporal memory probes",
+  "confirmatory": false,
+  "heldout_opened": false,
+  "agent_training_performed": false,
+  "auxiliary_probe_training_performed": true,
+  "train_partition": "S7 train",
+  "evaluation_partition": "S7/S13 development",
+  "source_run": 40928547873,
+  "seeds": [
+    0,
+    1,
+    2,
+    3
+  ],
+  "metrics": {
+    "S7/context/post_cue/H": {
+      "accuracy_mean": 1,
+      "accuracy_by_seed": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "both_correct_pairs": 40,
+      "paired_flips": 40,
+      "equal_f4_pairs": 0,
+      "equal_raw_pairs": 40,
+      "cue_gap_by_seed": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "S7/context/post_cue/M": {
+      "accuracy_mean": 1,
+      "accuracy_by_seed": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "both_correct_pairs": 40,
+      "paired_flips": 40,
+      "equal_f4_pairs": 0,
+      "equal_raw_pairs": 40,
+      "cue_gap_by_seed": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "S7/context/post_cue/H+M": {
+      "accuracy_mean": 1,
+      "accuracy_by_seed": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "both_correct_pairs": 40,
+      "paired_flips": 40,
+      "equal_f4_pairs": 0,
+      "equal_raw_pairs": 40,
+      "cue_gap_by_seed": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "S7/context/post_cue/O": {
+      "accuracy_mean": 0.5,
+      "accuracy_by_seed": [
+        0.5,
+        0.5,
+        0.5,
+        0.5
+      ],
+      "both_correct_pairs": 0,
+      "paired_flips": 0,
+      "equal_f4_pairs": 0,
+      "equal_raw_pairs": 40,
+      "cue_gap_by_seed": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "S7/context/halfway/H": {
+      "accuracy_mean": 1,
+      "accuracy_by_seed": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "both_correct_pairs": 40,
+      "paired_flips": 40,
+      "equal_f4_pairs": 0,
+      "equal_raw_pairs": 40,
+      "cue_gap_by_seed": [
+        3,
+        3,
+        3,
+        3
+      ]
+    },
+    "S7/context/halfway/M": {
+      "accuracy_mean": 1,
+      "accuracy_by_seed": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "both_correct_pairs": 40,
+      "paired_flips": 40,
+      "equal_f4_pairs": 0,
+      "equal_raw_pairs": 40,
+      "cue_gap_by_seed": [
+        3,
+        3,
+        3,
+        3
+      ]
+    },
+    "S7/context/halfway/H+M": {
+      "accuracy_mean": 1,
+      "accuracy_by_seed": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "both_correct_pairs": 40,
+      "paired_flips": 40,
+      "equal_f4_pairs": 0,
+      "equal_raw_pairs": 40,
+      "cue_gap_by_seed": [
+        3,
+        3,
+        3,
+        3
+      ]
+    },
+    "S7/context/halfway/O": {
+      "accuracy_mean": 0.5,
+      "accuracy_by_seed": [
+        0.5,
+        0.5,
+        0.5,
+        0.5
+      ],
+      "both_correct_pairs": 0,
+      "paired_flips": 0,
+      "equal_f4_pairs": 0,
+      "equal_raw_pairs": 40,
+      "cue_gap_by_seed": [
+        3,
+        3,
+        3,
+        3
+      ]
+    },
+    "S7/context/fork/H": {
+      "accuracy_mean": 1,
+      "accuracy_by_seed": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "both_correct_pairs": 40,
+      "paired_flips": 40,
+      "equal_f4_pairs": 40,
+      "equal_raw_pairs": 40,
+      "cue_gap_by_seed": [
+        5,
+        5,
+        5,
+        5
+      ]
+    },
+    "S7/context/fork/M": {
+      "accuracy_mean": 0.5,
+      "accuracy_by_seed": [
+        0.5,
+        0.5,
+        0.5,
+        0.5
+      ],
+      "both_correct_pairs": 0,
+      "paired_flips": 0,
+      "equal_f4_pairs": 40,
+      "equal_raw_pairs": 40,
+      "cue_gap_by_seed": [
+        5,
+        5,
+        5,
+        5
+      ]
+    },
+    "S7/context/fork/H+M": {
+      "accuracy_mean": 1,
+      "accuracy_by_seed": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "both_correct_pairs": 40,
+      "paired_flips": 40,
+      "equal_f4_pairs": 40,
+      "equal_raw_pairs": 40,
+      "cue_gap_by_seed": [
+        5,
+        5,
+        5,
+        5
+      ]
+    },
+    "S7/context/fork/O": {
+      "accuracy_mean": 0.5,
+      "accuracy_by_seed": [
+        0.5,
+        0.5,
+        0.5,
+        0.5
+      ],
+      "both_correct_pairs": 0,
+      "paired_flips": 0,
+      "equal_f4_pairs": 40,
+      "equal_raw_pairs": 40,
+      "cue_gap_by_seed": [
+        5,
+        5,
+        5,
+        5
+      ]
+    },
+    "S7/zero/post_cue/H": {
+      "accuracy_mean": 1,
+      "accuracy_by_seed": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "both_correct_pairs": 40,
+      "paired_flips": 40,
+      "equal_f4_pairs": 40,
+      "equal_raw_pairs": 40,
+      "cue_gap_by_seed": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "S7/zero/post_cue/O": {
+      "accuracy_mean": 0.5,
+      "accuracy_by_seed": [
+        0.5,
+        0.5,
+        0.5,
+        0.5
+      ],
+      "both_correct_pairs": 0,
+      "paired_flips": 0,
+      "equal_f4_pairs": 40,
+      "equal_raw_pairs": 40,
+      "cue_gap_by_seed": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "S7/zero/halfway/H": {
+      "accuracy_mean": 0.9125,
+      "accuracy_by_seed": [
+        1,
+        0.75,
+        0.9,
+        1
+      ],
+      "both_correct_pairs": 33,
+      "paired_flips": 33,
+      "equal_f4_pairs": 40,
+      "equal_raw_pairs": 40,
+      "cue_gap_by_seed": [
+        3,
+        3,
+        3,
+        3
+      ]
+    },
+    "S7/zero/halfway/O": {
+      "accuracy_mean": 0.5,
+      "accuracy_by_seed": [
+        0.5,
+        0.5,
+        0.5,
+        0.5
+      ],
+      "both_correct_pairs": 0,
+      "paired_flips": 0,
+      "equal_f4_pairs": 40,
+      "equal_raw_pairs": 40,
+      "cue_gap_by_seed": [
+        3,
+        3,
+        3,
+        3
+      ]
+    },
+    "S7/zero/fork/H": {
+      "accuracy_mean": 0.875,
+      "accuracy_by_seed": [
+        1,
+        0.65,
+        0.85,
+        1
+      ],
+      "both_correct_pairs": 30,
+      "paired_flips": 30,
+      "equal_f4_pairs": 40,
+      "equal_raw_pairs": 40,
+      "cue_gap_by_seed": [
+        5,
+        5,
+        5,
+        5
+      ]
+    },
+    "S7/zero/fork/O": {
+      "accuracy_mean": 0.5,
+      "accuracy_by_seed": [
+        0.5,
+        0.5,
+        0.5,
+        0.5
+      ],
+      "both_correct_pairs": 0,
+      "paired_flips": 0,
+      "equal_f4_pairs": 40,
+      "equal_raw_pairs": 40,
+      "cue_gap_by_seed": [
+        5,
+        5,
+        5,
+        5
+      ]
+    },
+    "S13/context/post_cue/H": {
+      "accuracy_mean": 0.7875,
+      "accuracy_by_seed": [
+        0.95,
+        0.9,
+        0.6,
+        0.7
+      ],
+      "both_correct_pairs": 23,
+      "paired_flips": 23,
+      "equal_f4_pairs": 0,
+      "equal_raw_pairs": 40,
+      "cue_gap_by_seed": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "S13/context/post_cue/M": {
+      "accuracy_mean": 1,
+      "accuracy_by_seed": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "both_correct_pairs": 40,
+      "paired_flips": 40,
+      "equal_f4_pairs": 0,
+      "equal_raw_pairs": 40,
+      "cue_gap_by_seed": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "S13/context/post_cue/H+M": {
+      "accuracy_mean": 0.95,
+      "accuracy_by_seed": [
+        0.95,
+        1,
+        0.95,
+        0.9
+      ],
+      "both_correct_pairs": 36,
+      "paired_flips": 36,
+      "equal_f4_pairs": 0,
+      "equal_raw_pairs": 40,
+      "cue_gap_by_seed": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "S13/context/post_cue/O": {
+      "accuracy_mean": 0.5,
+      "accuracy_by_seed": [
+        0.5,
+        0.5,
+        0.5,
+        0.5
+      ],
+      "both_correct_pairs": 0,
+      "paired_flips": 0,
+      "equal_f4_pairs": 0,
+      "equal_raw_pairs": 40,
+      "cue_gap_by_seed": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "S13/context/halfway/H": {
+      "accuracy_mean": 0.8,
+      "accuracy_by_seed": [
+        0.95,
+        0.75,
+        0.95,
+        0.55
+      ],
+      "both_correct_pairs": 26,
+      "paired_flips": 28,
+      "equal_f4_pairs": 0,
+      "equal_raw_pairs": 40,
+      "cue_gap_by_seed": [
+        6,
+        6,
+        6,
+        6
+      ]
+    },
+    "S13/context/halfway/M": {
+      "accuracy_mean": 1,
+      "accuracy_by_seed": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "both_correct_pairs": 40,
+      "paired_flips": 40,
+      "equal_f4_pairs": 0,
+      "equal_raw_pairs": 40,
+      "cue_gap_by_seed": [
+        6,
+        6,
+        6,
+        6
+      ]
+    },
+    "S13/context/halfway/H+M": {
+      "accuracy_mean": 0.9125,
+      "accuracy_by_seed": [
+        0.95,
+        0.95,
+        0.9,
+        0.85
+      ],
+      "both_correct_pairs": 33,
+      "paired_flips": 33,
+      "equal_f4_pairs": 0,
+      "equal_raw_pairs": 40,
+      "cue_gap_by_seed": [
+        6,
+        6,
+        6,
+        6
+      ]
+    },
+    "S13/context/halfway/O": {
+      "accuracy_mean": 0.5,
+      "accuracy_by_seed": [
+        0.5,
+        0.5,
+        0.5,
+        0.5
+      ],
+      "both_correct_pairs": 0,
+      "paired_flips": 0,
+      "equal_f4_pairs": 0,
+      "equal_raw_pairs": 40,
+      "cue_gap_by_seed": [
+        6,
+        6,
+        6,
+        6
+      ]
+    },
+    "S13/context/fork/H": {
+      "accuracy_mean": 0.9625,
+      "accuracy_by_seed": [
+        1,
+        1,
+        0.95,
+        0.9
+      ],
+      "both_correct_pairs": 37,
+      "paired_flips": 37,
+      "equal_f4_pairs": 40,
+      "equal_raw_pairs": 40,
+      "cue_gap_by_seed": [
+        11,
+        11,
+        11,
+        11
+      ]
+    },
+    "S13/context/fork/M": {
+      "accuracy_mean": 0.5,
+      "accuracy_by_seed": [
+        0.5,
+        0.5,
+        0.5,
+        0.5
+      ],
+      "both_correct_pairs": 0,
+      "paired_flips": 0,
+      "equal_f4_pairs": 40,
+      "equal_raw_pairs": 40,
+      "cue_gap_by_seed": [
+        11,
+        11,
+        11,
+        11
+      ]
+    },
+    "S13/context/fork/H+M": {
+      "accuracy_mean": 0.9625,
+      "accuracy_by_seed": [
+        1,
+        1,
+        0.95,
+        0.9
+      ],
+      "both_correct_pairs": 37,
+      "paired_flips": 37,
+      "equal_f4_pairs": 40,
+      "equal_raw_pairs": 40,
+      "cue_gap_by_seed": [
+        11,
+        11,
+        11,
+        11
+      ]
+    },
+    "S13/context/fork/O": {
+      "accuracy_mean": 0.5,
+      "accuracy_by_seed": [
+        0.5,
+        0.5,
+        0.5,
+        0.5
+      ],
+      "both_correct_pairs": 0,
+      "paired_flips": 0,
+      "equal_f4_pairs": 40,
+      "equal_raw_pairs": 40,
+      "cue_gap_by_seed": [
+        11,
+        11,
+        11,
+        11
+      ]
+    },
+    "S13/zero/post_cue/H": {
+      "accuracy_mean": 0.5,
+      "accuracy_by_seed": [
+        0.5,
+        0.5,
+        0.5,
+        0.5
+      ],
+      "both_correct_pairs": 0,
+      "paired_flips": 0,
+      "equal_f4_pairs": 40,
+      "equal_raw_pairs": 40,
+      "cue_gap_by_seed": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "S13/zero/post_cue/O": {
+      "accuracy_mean": 0.5,
+      "accuracy_by_seed": [
+        0.5,
+        0.5,
+        0.5,
+        0.5
+      ],
+      "both_correct_pairs": 0,
+      "paired_flips": 0,
+      "equal_f4_pairs": 40,
+      "equal_raw_pairs": 40,
+      "cue_gap_by_seed": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "S13/zero/halfway/H": {
+      "accuracy_mean": 0.5,
+      "accuracy_by_seed": [
+        0.5,
+        0.5,
+        0.5,
+        0.5
+      ],
+      "both_correct_pairs": 0,
+      "paired_flips": 0,
+      "equal_f4_pairs": 40,
+      "equal_raw_pairs": 40,
+      "cue_gap_by_seed": [
+        6,
+        6,
+        6,
+        6
+      ]
+    },
+    "S13/zero/halfway/O": {
+      "accuracy_mean": 0.5,
+      "accuracy_by_seed": [
+        0.5,
+        0.5,
+        0.5,
+        0.5
+      ],
+      "both_correct_pairs": 0,
+      "paired_flips": 0,
+      "equal_f4_pairs": 40,
+      "equal_raw_pairs": 40,
+      "cue_gap_by_seed": [
+        6,
+        6,
+        6,
+        6
+      ]
+    },
+    "S13/zero/fork/H": {
+      "accuracy_mean": 0.5,
+      "accuracy_by_seed": [
+        0.5,
+        0.5,
+        0.5,
+        0.5
+      ],
+      "both_correct_pairs": 0,
+      "paired_flips": 0,
+      "equal_f4_pairs": 40,
+      "equal_raw_pairs": 40,
+      "cue_gap_by_seed": [
+        11,
+        11,
+        11,
+        11
+      ]
+    },
+    "S13/zero/fork/O": {
+      "accuracy_mean": 0.5,
+      "accuracy_by_seed": [
+        0.5,
+        0.5,
+        0.5,
+        0.5
+      ],
+      "both_correct_pairs": 0,
+      "paired_flips": 0,
+      "equal_f4_pairs": 40,
+      "equal_raw_pairs": 40,
+      "cue_gap_by_seed": [
+        11,
+        11,
+        11,
+        11
+      ]
+    }
+  }
+}
