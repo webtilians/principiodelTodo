@@ -111,24 +111,22 @@ def make_env(size=7, reverse_cue=False):
     return Wrapped()
 
 
-def visible_single_candidate(observation):
-    """Read ONE *visibly encoded* key/ball; no simulator labels are accessed.
+def visible_object_at(observation, x, y):
+    """Read a pixel from the SAME public partial-view image the policy sees.
 
-    This is a rule-based POSITIVE CONTROL, not a learned policy or INFINITO.
-    It will fail if the visual scene does not reveal a unique cue/candidate.
+    For the fixed *controlled* camera viewpoints, cue is (2,5) and upper
+    candidate is (3,4). This hand-coded spatial selector is an offline
+    solvability positive control, NEVER an input to trained policies.
     """
     import numpy as np
     from minigrid.core.constants import OBJECT_TO_IDX
-    indices = np.rint(observation[:147].reshape(7, 7, 3)[:, :, 0]
-                      * max(OBJECT_TO_IDX.values())).astype(int)
-    counts = {
-        name: int((indices == OBJECT_TO_IDX[name]).sum())
-        for name in ("key", "ball")
-    }
-    visible = [name for name, count in counts.items() if count > 0]
-    if len(visible) != 1:
-        raise AssertionError(f"Not exactly one object visible: {counts}")
-    return visible[0]
+    image = observation[:147].reshape(7,7,3)
+    obj = int(np.rint(image[x,y,0] * max(OBJECT_TO_IDX.values())))
+    names = {OBJECT_TO_IDX[name]: name for name in ("key","ball")}
+    if obj not in names:
+        raise AssertionError(f"No cue/candidate at visible pixel ({x},{y}): object={obj}")
+    return names[obj]
+
 
 
 def observation_only_expert(seed, size=7, reverse=False):
@@ -136,10 +134,10 @@ def observation_only_expert(seed, size=7, reverse=False):
     env = make_env(size, reverse_cue=reverse)
     try:
         cue_frame, _ = env.reset(seed=seed)
-        cue = visible_single_candidate(cue_frame)
+        cue = visible_object_at(cue_frame, 2, 5)
         fork_frame, _, done, _, _ = env.step(0)
         assert not done
-        upper = visible_single_candidate(fork_frame)
+        upper = visible_object_at(fork_frame, 3, 4)
         # A one-bit memory of the initially observed object suffices.
         choice = 0 if cue == upper else 1
         _, reward, done, _, _ = env.step(choice)
