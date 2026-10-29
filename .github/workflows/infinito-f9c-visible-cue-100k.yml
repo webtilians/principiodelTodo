@@ -1,0 +1,49 @@
+name: INFINITO F9-C — Memory Learning 100k
+on:
+  push:
+    branches: ["experiment/f9c-visible-cue-learning"]
+    paths:
+      - ".github/workflows/infinito-f9c-visible-cue-100k.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  memory-training:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install real MiniGrid and PPO baselines
+        run: python -m pip install -r observatory/requirements_f9.txt
+      - name: Verify cue visibility, delayed fork identity and reward intervention
+        run: python -m unittest discover -s tests -p 'test_f9c_visible_cue.py' -v
+      - name: Train both policies on the same 100k transitions per agent
+        run: |
+          python -m observatory.f9c_visible_cue \
+            --timesteps 100000 --seeds 1 --eval-episodes 100 \
+            --output observatory_results/f9c_visible_cue_100k
+      - name: Publish unfiltered S7 and S13 causal intervention results
+        run: |
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          r=json.loads(Path('observatory_results/f9c_visible_cue_100k/report.json').read_text())
+          assert not r['heldout_opened']
+          assert r['not_original_navigation_benchmark']
+          rows=['# F9-C 100k controlled two-view memory diagnostic','','| Policy | S7 success | S7 swapped | Paired cue-dependent choices | S13 zero-shot |','|---|---:|---:|---:|---:|']
+          for a in ('ppo','lstm'):
+              s7=r['per_seed'][0][a]['S7'];s13=r['per_seed'][0][a]['S13']
+              rows.append(f'| {a} | {s7["original_success_rate"]:.0%} | {s7["counterfactual_success_rate"]:.0%} | {s7["decision_flips"]}/{s7["episodes"]} | {s13["original_success_rate"]:.0%} |')
+              print('F9C_100K',a,'S7',s7['original_success_rate'],'flips',s7['decision_flips'],'S13',s13['original_success_rate'],'flips',s13['decision_flips'])
+          Path(os.environ['GITHUB_STEP_SUMMARY']).write_text('\n'.join(rows)+'\n')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: f9c-genuine-visible-cue-100k-dev-only
+          path: observatory_results/f9c_visible_cue_100k/
+          if-no-files-found: warn
+          retention-days: 30
