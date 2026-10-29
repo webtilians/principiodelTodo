@@ -1,0 +1,37 @@
+name: INFINITO F9-G contextual F4 gate
+on:
+  push:
+    branches: ["experiment/f9g-context-memory"]
+    paths:
+      - "observatory/f9g_*.py"
+      - "tests/test_f9g_*.py"
+      - ".github/workflows/infinito-f9g-context-gate.yml"
+  pull_request:
+    branches: ["experiment/f9f-f4-memory-content-audit"]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install only native environment dependencies
+        run: python -m pip install numpy==2.2.6 gymnasium==1.4.0 minigrid==3.2.0
+      - name: Integrity, reset, FIFO eviction, all seven native actions
+        run: python -m unittest discover -s tests -p 'test_f9g_context_memory.py' -v
+      - name: Eighty paired development trajectories; no training
+        run: python -m observatory.f9g_context_gate --output observatory_results/f9g
+      - name: Regression of previous forensic audit
+        run: python -m unittest discover -s tests -p 'test_f9f_memory_content_audit.py' -v
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: f9g-context-gate
+          path: observatory_results/f9g/
+          if-no-files-found: warn
+          retention-days: 30
