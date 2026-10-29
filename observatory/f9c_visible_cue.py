@@ -111,6 +111,46 @@ def make_env(size=7, reverse_cue=False):
     return Wrapped()
 
 
+def visible_single_candidate(observation):
+    """Read ONE *visibly encoded* key/ball; no simulator labels are accessed.
+
+    This is a rule-based POSITIVE CONTROL, not a learned policy or INFINITO.
+    It will fail if the visual scene does not reveal a unique cue/candidate.
+    """
+    import numpy as np
+    from minigrid.core.constants import OBJECT_TO_IDX
+    indices = np.rint(observation[:147].reshape(7, 7, 3)[:, :, 0]
+                      * max(OBJECT_TO_IDX.values())).astype(int)
+    counts = {
+        name: int((indices == OBJECT_TO_IDX[name]).sum())
+        for name in ("key", "ball")
+    }
+    visible = [name for name, count in counts.items() if count > 0]
+    if len(visible) != 1:
+        raise AssertionError(f"Not exactly one object visible: {counts}")
+    return visible[0]
+
+
+def observation_only_expert(seed, size=7, reverse=False):
+    """Check a one-symbol external-frame memory can solve every paired world."""
+    env = make_env(size, reverse_cue=reverse)
+    try:
+        cue_frame, _ = env.reset(seed=seed)
+        cue = visible_single_candidate(cue_frame)
+        fork_frame, _, done, _, _ = env.step(0)
+        assert not done
+        upper = visible_single_candidate(fork_frame)
+        # A one-bit memory of the initially observed object suffices.
+        choice = 0 if cue == upper else 1
+        _, reward, done, _, _ = env.step(choice)
+        assert done
+        return {"success": int(reward > 0),
+                "remembered_cue": cue, "visible_upper": upper,
+                "chosen_side": "upper" if choice == 0 else "lower"}
+    finally:
+        env.close()
+
+
 def compare_pair(seed, size=7):
     """Assert cue visibility and absence at decision, before training."""
     import numpy as np
