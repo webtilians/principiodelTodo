@@ -4,7 +4,7 @@ Fecha: 29 de octubre de 2026. **Desarrollo, no confirmación**. Cuatro semillas 
 
 ## Proveniencia y prueba de integridad
 
-[GitHub Actions F9-I #40928315965](https://github.com/webtilians/principiodelTodo/actions/runs/40928315965) **Success**: tests de integridad, reconstrucción de las 160 trayectorias originales F9-H (80 S7, 80 S13), comparación del hash del readout de memoria de **cada paso**, acciones, poses, contadores de eventos y ocupación, y verificación SHA-256 de los ocho checkpoints originales F9-H. [Datos agregados y originales](https://github.com/webtilians/principiodelTodo/actions/runs/40928315965).
+[GitHub Actions F9-I #40928315965](https://github.com/webtilians/principiodelTodo/actions/runs/40928315965) **Success**: tests de integridad, reconstrucción de las 160 trayectorias originales F9-H (80 S7, 80 S13), comparación del hash del readout de memoria de **cada paso**, acciones, poses, contadores de eventos y ocupación, y verificación SHA-256 de los dieciséis checkpoints originales F9-H. [Datos agregados y originales](https://github.com/webtilians/principiodelTodo/actions/runs/40928315965).
 
 Fuente congelada: [F9-H #40925227783](https://github.com/webtilians/principiodelTodo/actions/runs/40925227783). La identidad del evento relacionado con la pista se determina SOLO por un observador de evaluación que intercambia la pista a igual pose y localiza los píxeles afectados. NO se presenta esa etiqueta al agente ni a los selectores FIFO/First16. El análisis no abre el holdout.
 
