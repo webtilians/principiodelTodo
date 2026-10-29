@@ -1,0 +1,55 @@
+name: INFINITO F9 — External MiniGrid Validation
+on:
+  push:
+    branches: ["experiment/f9-external-minigrid"]
+    paths:
+      - "observatory/f9_external_minigrid.py"
+      - "observatory/requirements_f9.txt"
+      - "tests/test_f9_external_minigrid.py"
+      - ".github/workflows/infinito-f9-external.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  external-rl-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 24
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install isolated F9 dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r observatory/requirements_f9.txt
+      - name: Verify independent environments and train PPO + recurrent PPO
+        run: python -m unittest discover -s tests -p 'test_f9_external_minigrid.py' -v
+      - name: Smoke DoorKey and DynamicObstacles with actual training
+        run: |
+          for task in doorkey dynamic; do
+            python -m observatory.f9_external_minigrid \
+              --task "$task" --seeds 1 --timesteps 128 \
+              --eval-episodes 2 --output "observatory_results/f9_ci_$task"
+          done
+      - name: Report unfiltered external baseline metrics
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          for task in ('doorkey','dynamic'):
+              p=Path('observatory_results/f9_ci_'+task+'/report.json')
+              d=json.loads(p.read_text())
+              assert d['phase']=='development' and d['training_seeds']==1
+              assert set(d['summary']['policies'])=={'random','ppo','recurrent_ppo'}
+              print('SMOKE',task,d['summary'])
+              print('LIMIT',d['limitations'])
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: infinito-f9-external-baselines-smoke
+          path: |
+            observatory_results/f9_ci_doorkey/report.json
+            observatory_results/f9_ci_dynamic/report.json
+          if-no-files-found: warn
