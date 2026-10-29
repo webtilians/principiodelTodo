@@ -178,11 +178,20 @@ def start(submission: Submission):
         params = normalize(submission.experiment, submission.params)
     except ParameterError as error:
         raise HTTPException(422, detail=str(error))
-    for name in EXPERIMENTS[submission.experiment].dependencies:
-        try:
-            __import__(name)
-        except ImportError:
-            raise HTTPException(422, f"Dependencia {name} no disponible")
+    if submission.experiment.startswith("f9_"):
+        # Heavy Torch/MiniGrid stacks are never imported into the web process.
+        # Admin must explicitly provision a separate F9 interpreter and RAM.
+        if os.environ.get("LAB_F9_ENABLED") != "1":
+            raise HTTPException(503, "F9 requiere habilitación del administrador y entorno Python independiente")
+        interpreter = os.environ.get("LAB_F9_PYTHON", "")
+        if not interpreter or not Path(interpreter).is_file():
+            raise HTTPException(503, "LAB_F9_PYTHON no apunta a un intérprete F9 instalado")
+    else:
+        for name in EXPERIMENTS[submission.experiment].dependencies:
+            try:
+                __import__(name)
+            except ImportError:
+                raise HTTPException(422, f"Dependencia {name} no disponible")
     with START_LOCK:
         active = pending_job()
         if active:
