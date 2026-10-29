@@ -1,0 +1,101 @@
+name: F9-D autonomous navigation development
+on:
+  push:
+    branches: ["experiment/f9d-autonomous-navigation"]
+    paths:
+      - "observatory/f9d_autonomous_navigation.py"
+      - "tests/test_f9d_autonomous_navigation.py"
+      - ".github/workflows/infinito-f9d-navigation.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: f9d-navigation-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  integrity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - run: python -m pip install -r observatory/requirements_f9.txt gymnasium==1.4.0
+      - run: python -m unittest discover -s tests -p 'test_f9d_autonomous_navigation.py' -v
+      - run: python -m unittest discover -s tests -p 'test_f9c_visible_cue.py' -v
+  experiment:
+    needs: integrity
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    strategy:
+      fail-fast: false
+      matrix:
+        seed: [0, 1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - run: python -m pip install -r observatory/requirements_f9.txt gymnasium==1.4.0
+      - name: Native seven-action BC then PPO; development only
+        run: |
+          python -m observatory.f9d_autonomous_navigation --index ${{ matrix.seed }} --worlds 600 --epochs 40 --timesteps 20000 --episodes 10 --output observatory_results/f9d/seed${{ matrix.seed }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: f9d-seed-${{ matrix.seed }}
+          path: observatory_results/f9d/
+          retention-days: 30
+  report:
+    needs: experiment
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: f9d-seed-*
+          path: results
+          merge-multiple: true
+      - name: Aggregate seeds and enforce F4 competence gate
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          reports = [json.loads(p.read_text()) for p in sorted(Path("results").glob("seed*/report.json"))]
+          assert len(reports) == 4 and {r["index"] for r in reports} == {0,1,2,3}
+          assert all(r["heldout_opened"] is False and r["shaping"] is False for r in reports)
+          rows = ["# F9-D native navigation — exploratory development", "",
+                  "No shaping, no holdout. 10 paired worlds per size per training seed.",
+                  "| Seed | Policy | Stage | Size | Original | Swapped | Both correct | Valid flips | Cue seen |",
+                  "|---|---|---|---|---:|---:|---:|---:|---:|"]
+          ready = True
+          for r in reports:
+              for name, model in r["models"].items():
+                  stages = {"random": model} if name == "random" else {k:v for k,v in model.items() if k in ("before_rl","after_rl")}
+                  for stage, values in stages.items():
+                      for size in (7,13):
+                          s = values[f"S{size}/normal"]
+                          rows.append(f'| {r["index"]} | {name} | {stage} | S{size} | {s["original_success"]:.0%} | {s["swapped_success"]:.0%} | {s["both_correct"]}/10 | {s["valid_side_flips"]}/10 | {s["cue_seen_rate"]:.0%} |')
+              s = r["models"]["lstm_bc"]["after_rl"]["S7/normal"]
+              masked = r["models"]["lstm_bc"]["after_rl"]["S7/mask_cue"]
+              reset = r["models"]["lstm_bc"]["after_rl"]["S7/reset_memory"]
+              random = r["models"]["random"]["S7/normal"]
+              avg = (s["original_success"] + s["swapped_success"])/2
+              ready &= min(s["original_success"],s["swapped_success"]) >= .7 and s["both_correct"] >= 7 and avg - (random["original_success"] + random["swapped_success"])/2 >= .15
+              ready &= avg - (masked["original_success"] + masked["swapped_success"])/2 >= .15
+              ready &= avg - (reset["original_success"] + reset["swapped_success"])/2 >= .15
+          gate = {"ready_for_larger_development_replication": bool(ready), "eligible_for_heldout": False,
+                  "f4_executed": False, "reason": "Require 100 paired development episodes before matched F4 ablations; never infer F4 benefit here."}
+          rows += ["", json.dumps(gate)]
+          Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text("\n".join(rows))
+          Path("results/aggregate.json").write_text(json.dumps({"gate":gate,"per_seed":reports},indent=2))
+          print("F9D_GATE",json.dumps(gate))
+          print("\n".join(rows))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: f9d-aggregate
+          path: results/aggregate.json
+          retention-days: 30
