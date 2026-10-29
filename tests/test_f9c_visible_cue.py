@@ -16,8 +16,10 @@ class VisibleCueTests(unittest.TestCase):
         for size in (7, 13):
             for j in range(50):
                 with self.subTest(size=size, episode=j):
-                    self.assertTrue(compare_pair(seed_for("development",0,j), size)[
-                        "initial_cue_changed"])
+                    check = compare_pair(seed_for("development",0,j), size)
+                    self.assertTrue(check["initial_cue_changed"])
+                    self.assertTrue(check["fork_observation_identical"])
+                    self.assertTrue(check["upper_candidate_visible"])
 
     def test_no_current_cue_shortcut_and_never_uses_oracle_labels(self):
         seed = seed_for("development",0,0)
