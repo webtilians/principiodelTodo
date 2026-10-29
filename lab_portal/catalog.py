@@ -203,6 +203,8 @@ def normalize(experiment_id: str, raw: Any) -> dict[str, int]:
         if (value - spec.minimum) % spec.step:
             raise ParameterError(f"{key}: debe aumentar en pasos de {spec.step}")
         result[key] = value
+    if experiment_id == "f9b_memory_baselines" and result["timesteps"] not in (20000,100000,300000):
+        raise ParameterError("F9-B solo admite presupuestos predefinidos de 20000, 100000 o 300000 pasos")
     return result
 
 
