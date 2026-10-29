@@ -53,4 +53,15 @@ def summarize(experiment: str, report: dict[str, Any]) -> dict:
                         for name, metrics in section["policies"].items()
                     } for scenario, section in report["scenarios"].items()
                 }}
+    if experiment.startswith("f9_"):
+        return {
+            "label": "Éxito por episodio (más es mejor) · PPO / LSTM externos",
+            "unit": "%", "scale": 100,
+            "scenarios": {
+                report["task"]: {
+                    name: _finite(metric["success_rate"])
+                    for name, metric in report["summary"]["policies"].items()
+                }
+            },
+        }
     return {"label": "Resultados", "unit": "", "scale": 1, "scenarios": {}}
