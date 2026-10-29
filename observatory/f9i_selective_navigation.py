@@ -5,7 +5,7 @@ no shaped rewards, teacher ONLY generates separate TRAIN action labels.
 Actor and F4 writer consume 148-d public observations, never hidden
 cue/target/route labels. Selectors are FIFO, contextual diversity and random reservoir; none is LearnedRelevance. The F9-G representation gate is a prerequisite.
 
-Ablations erase/swap use the *same frozen trained F4 checkpoint*.
+Ablations erase/corrupt_initial use the *same frozen trained F4 checkpoint*.
 Report both sides of paired cue flips: 50% without correct-side flips
 is NOT evidence of memory. Heldout partition has no entry point.
 """

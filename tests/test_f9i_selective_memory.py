@@ -84,6 +84,28 @@ class SelectiveTests(unittest.TestCase):
         learner.feedback(1)
         self.assertEqual(before,learner.weights)
 
+    def test_reward_and_transitions_unchanged(self):
+        from observatory.f9b_behavior_audit import build_env
+        from observatory.f9i_selective_memory import SelectiveObservation
+        for size in (7,13):
+            for mode in nav.MODES:
+                raw=build_env(size)
+                wrapped=SelectiveObservation(build_env(size),mode,8,12)
+                try:
+                    a,_=raw.reset(seed=100000)
+                    b,_=wrapped.reset(seed=100000)
+                    np.testing.assert_array_equal(a,b[:148])
+                    for action in [0,1,2,3,4,5,6]*8:
+                        a,r,t,u,_=raw.step(action)
+                        b,s,v,w,_=wrapped.step(action)
+                        np.testing.assert_array_equal(a,b[:148])
+                        self.assertEqual((r,t,u),(s,v,w))
+                        if t or u:
+                            break
+                finally:
+                    raw.close()
+                    wrapped.close()
+
     def test_model_capacity_and_native_controls(self):
         original=nav.EVENT_CAPACITY
         models=[]

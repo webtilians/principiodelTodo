@@ -24,6 +24,20 @@ for r in sorted(reports,key=lambda r:(r["event_capacity"],r["seed_index"])):
         for control in (("normal","mask_cue") if mode=="zero" else ("normal","erase","corrupt_initial","mask_cue")):
             a=m["after_rl"]["S7/"+control]; b=m["after_rl"]["S13/"+control]
             lines.append(f'|{r["event_capacity"]}|{r["seed_index"]}|{mode}/{control}|{a["combined_success"]:.1%}|{b["combined_success"]:.1%}|{b["both_correct"]}/10|{b["fork_reached_rate"]:.0%}|{b["initial_retained_at_fork_count"]}/20|{b["any_cue_retained_at_fork_count"]}/20|{b["corruption_applied_episodes"]}/20|')
+diagnoses=[json.loads(p.read_text()) for p in root.glob("f9i-original-diagnosis-*/diagnosis.json")]
+assert len(diagnoses)==4 and {d["seed_index"] for d in diagnoses}=={0,1,2,3}
+expected={7:[.8,1.,1.,1.],13:[.5,.25,.45,.35]}
+lines += ["", "## Original F9-H checkpoint diagnosis", "",
+          "|Seed|Size|Success|Reached branch|First written at branch|First retained at branch|Any cue retained at branch|Corruption applied|",
+          "|---|---|---:|---:|---:|---:|---:|---:|"]
+for d in sorted(diagnoses,key=lambda d:d["seed_index"]):
+    assert not d["heldout_opened"]
+    for size in (7,13):
+        m=d["metrics"][f"S{size}/normal"]
+        assert abs(m["combined_success"]-expected[size][d["seed_index"]])<1e-9, "F9-H checkpoint reproduction mismatch"
+        c=d["metrics"][f"S{size}/corrupt_initial"]
+        lines.append(f'|{d["seed_index"]}|S{size}|{m["combined_success"]:.1%}|{m["fork_reached_rate"]:.0%}|{m["initial_written_at_fork_count"]}|{m["initial_retained_at_fork_count"]}|{m["any_cue_retained_at_fork_count"]}|{c["corruption_applied_episodes"]}/20|')
+    print("F9I_ORIGINAL_DIAGNOSIS",json.dumps(d))
 deltas={}
 for cap in (8,64):
     rs=sorted([r for r in reports if r["event_capacity"]==cap],key=lambda r:r["seed_index"])
@@ -35,7 +49,7 @@ for cap in (8,64):
 lines+=["","## Paired success differences", "",json.dumps(deltas,indent=2),
         "","Retention and success must be interpreted separately; corruption no-ops are not causal null results.",
         "The 95% F9-H S7 result does not transfer to S13."]
-summary={"heldout_opened":False,"reports":reports,"paired_deltas":deltas}
+summary={"heldout_opened":False,"reports":reports,"original_checkpoint_diagnoses":diagnoses,"paired_deltas":deltas}
 Path("f9i_results.json").write_text(json.dumps(summary,indent=2))
 Path("f9i_results.md").write_text("\n".join(lines))
 Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text("\n".join(lines))
