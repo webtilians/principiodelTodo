@@ -72,7 +72,7 @@ class RecurrentAttributionTests(unittest.TestCase):
                 self_obs=np.asarray(obs,dtype=np.float32)
                 assert self_obs.shape==(660,)
                 assert np.isfinite(self_obs).all()
-                return np.array([2]),(np.zeros((1,1,64),dtype=np.float32),
+                return np.array(2),(np.zeros((1,1,64),dtype=np.float32),
                                     np.zeros((1,1,64),dtype=np.float32))
         action,state=frozen_action(Spy(),np.zeros(660,np.float32),None,first=True)
         self.assertEqual(action,2)
