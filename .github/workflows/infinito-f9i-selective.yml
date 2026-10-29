@@ -3,9 +3,10 @@ on:
   push:
     branches: ["experiment/f9i-selective-event-memory"]
     paths:
-      - "observatory/f9i_*.py"
+      - "observatory/f9i_selective_memory.py"
+      - "observatory/f9i_selective_navigation.py"
+      - "observatory/f9i_diagnose.py"
       - "tests/test_f9i_*.py"
-      - ".github/workflows/infinito-f9i-selective.yml"
   workflow_dispatch:
 permissions:
   contents: read
