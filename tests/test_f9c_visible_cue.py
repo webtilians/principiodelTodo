@@ -3,7 +3,7 @@ import unittest
 
 import numpy as np
 from observatory.f9_external_minigrid import seed_for
-from observatory.f9c_visible_cue import make_env, compare_pair, rollout, CueForkEnv
+from observatory.f9c_visible_cue import make_env, compare_pair, rollout, CueForkEnv, observation_only_expert
 
 
 class ConstantExit:
@@ -46,6 +46,19 @@ class VisibleCueTests(unittest.TestCase):
                 e.close()
         self.assertFalse(np.array_equal(pairs[0][0],pairs[1][0]))
         np.testing.assert_array_equal(pairs[0][1],pairs[1][1])
+
+    def test_observation_only_one_bit_expert_solves_all_paired_worlds(self):
+        # This positive control rules out a missing clue at either stage.
+        for size in (7,13):
+            for j in range(40):
+                seed=seed_for("development",0,j)
+                original=observation_only_expert(seed,size,reverse=False)
+                inverted=observation_only_expert(seed,size,reverse=True)
+                self.assertEqual(original["success"],1)
+                self.assertEqual(inverted["success"],1)
+                self.assertNotEqual(original["remembered_cue"],inverted["remembered_cue"])
+                self.assertEqual(original["visible_upper"],inverted["visible_upper"])
+                self.assertNotEqual(original["chosen_side"],inverted["chosen_side"])
 
     def test_constant_choice_cannot_solve_both_paired_conditions(self):
         model=ConstantExit()
