@@ -1,7 +1,7 @@
 name: INFINITO Lab Portal
 on:
   push:
-    branches: ["experiment/f8-laboratory-portal", "fix/lab-flow-audit-20261023"]
+    branches: ["experiment/f8-laboratory-portal", "fix/lab-flow-audit-20261023", "experiment/f9-external-minigrid"]
     paths:
       - "lab_portal/**"
       - "tests/test_lab_portal*.py"
