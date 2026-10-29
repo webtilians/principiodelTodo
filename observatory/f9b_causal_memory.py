@@ -414,7 +414,9 @@ def heldout(frozen_dir, out, episodes):
         row = {}
         for variant in VARIANTS:
             canonical, _, _ = spec(variant)
-            checkpoint = frozen_dir / "checkpoints" / models[f"{canonical}_{index}"]["model_path"]
+            checkpoint = (None if canonical == "random" else
+                          frozen_dir / "checkpoints" /
+                          models[f"{canonical}_{index}"]["model_path"])
             row[variant] = evaluate(variant, index, episodes, "heldout", checkpoint)
         rows.append(row)
     report = {
