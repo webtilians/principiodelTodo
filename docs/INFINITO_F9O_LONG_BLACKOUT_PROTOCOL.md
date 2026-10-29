@@ -4,21 +4,21 @@
 
 ## Hipótesis primaria
 
-Cuando dos políticas reciben **exactamente ocho observaciones de demostración con readout F4 a cero** por episodio, ¿enseñar una **ausencia continua de ocho pasos** conduce a mayor capacidad de escoger *ambas* salidas contrafactuales en S13 autónomo sin F4 posterior a la pista, frente a repartir los ocho pasos en cuatro ventanas cortas de dos? Priorizar **pares con ambas primeras salidas correctas**; el éxito aislado de una variante, el porcentaje de primeras elecciones correctas y el éxito final son secundarios.
+Cuando dos políticas reciben **exactamente seis observaciones de demostración con readout F4 a cero** por episodio, ¿enseñar una **ausencia continua de seis pasos** conduce a mayor capacidad de escoger *ambas* salidas contrafactuales en S13 autónomo sin F4 posterior a la pista, frente a repartir los seis pasos en tres ventanas cortas de dos? Priorizar **pares con ambas primeras salidas correctas**; el éxito aislado de una variante, el porcentaje de primeras elecciones correctas y el éxito final son secundarios.
 
 ## Dos brazos controlados y presupuesto
 
-- `fragmented8` (control de **dosis**, no sham): bloquear F4 al actor en offsets **0,1,3,4,6,7,9,10** respecto al primer frame donde empieza la ventana.
-- `continuous8` (tratamiento): bloquear F4 al actor en offsets **0,1,2,3,4,5,6,7** desde el **mismo** frame.
+- `fragmented6` (control de **dosis**, no sham): bloquear F4 al actor en offsets **0,1,3,4,6,7** respecto al primer frame donde empieza la ventana.
+- `continuous6` (tratamiento): bloquear F4 al actor en offsets **0,1,2,3,4,5** desde el **mismo** frame.
 - Inicio fijo basado solo en observaciones públicas: primera aparición de cualquier key/ball detectada por el *mismo encoder* `SelectiveF4`; empezar exactamente dos frames después. El reloj no recibe etiquetas, posición, recompensas futuras, orientación a objetivo ni acciones del profesor. El escritor de F4 trabaja intacto; solo se modifican sus 512 canales **de lectura en el actor**, jamás la imagen parcial de 148 entradas ni el almacén.
-- Cada **demostración de S13 train** con ambos cues presenta 8 frames efectivos de blackout en cada brazo. Las mismas observaciones públicas y acciones originales, sin selección o exclusión por éxito. **Fallar integridad si no se alcanza esa igualdad exacta**; no sustituir la igualdad por promedios. Verificar que efectivamente existían canales F4 no cero antes de anularlos.
+- Cada **demostración de S13 train** con ambos cues presenta 6 frames efectivos de blackout en cada brazo. Las mismas observaciones públicas y acciones originales, sin selección o exclusión por éxito. **Fallar integridad si no se alcanza esa igualdad exacta**; no sustituir la igualdad por promedios. Verificar que efectivamente existían canales F4 no cero antes de anularlos.
 - Cuatro índices de entrenamiento 0–3, dos políticas nuevas por índice (8 en total), **misma arquitectura/380552 parámetros/estado inicial SHA** y RNG de orden de mini-batches. Nuevos mundos **S13 TRAIN** `500000+index*10000+j`, `j=0..599`; dos cues por mundo, **1200 episodios de teacher por índice**, 40 épocas de BC sobre esos datos y **20.000 pasos solicitados de PPO** por política.
-- **PPO es limpio e idéntico en horario:** no hay *ninguna* máscara en ninguno de los brazos PPO. Esto deja exactamente igualada la **dosis de blackout de entrenamiento** durante BC; los ejemplos de PPO visitados pueden divergir por las políticas y no se presentarán como transiciones idénticas. Esta elección favorece la interpretación causal sobre la **distribución temporal de ocho frames en BC**, no sobre la persistencia bajo blackout en PPO. Guardar resultados tanto **después de BC** como **después del PPO limpio** para detectar si el segundo deshace lo aprendido.
+- **PPO es limpio e idéntico en horario:** no hay *ninguna* máscara en ninguno de los brazos PPO. Esto deja exactamente igualada la **dosis de blackout de entrenamiento** durante BC; los ejemplos de PPO visitados pueden divergir por las políticas y no se presentarán como transiciones idénticas. Esta elección favorece la interpretación causal sobre la **distribución temporal de seis frames en BC**, no sobre la persistencia bajo blackout en PPO. Guardar resultados tanto **después de BC** como **después del PPO limpio** para detectar si el segundo deshace lo aprendido.
 - PPO utiliza exclusivamente `500000+` TRAIN en S13, con recompensa nativa, siete acciones, sin maestro online ni reward shaping. Inicializaciones por índice iguales en los dos brazos. No hay ninguna acción/semilla de `development`, `300000+`, `400000+` ni `900000+` en entrenamiento.
 
 ## Comprobación de integridad ANTES de confirmar
 
-- Probar máscaras, ocho frames realmente nulos en ambos brazos en **todos los 1200 teacher episodios**, distancias, igualdad de acciones y raw, pesos iniciales, recuentos por brazo y SHA-256 de ocho modelos. Al menos un episodio de entrenamiento de comprobación se usa para los tests, *nunca* el nuevo rango confirmatorio.
+- Probar máscaras, seis frames realmente nulos en ambos brazos en **todos los 1200 teacher episodios**, distancias, igualdad de acciones y raw, pesos iniciales, recuentos por brazo y SHA-256 de ocho modelos. Al menos un episodio de entrenamiento de comprobación se usa para los tests, *nunca* el nuevo rango confirmatorio.
 - `train` completo sobre cuatro índices; **gate** separado verifica el 100 % de los checkpoints y partidas presupuestarias antes de descargar cualquier confirmación. Si hay bug antes de confirmación, arreglar y volver a entrenar todo.
 - Ninguna prueba, script o job del conjunto de confirmación se invoca en el entrenamiento.
 
@@ -36,8 +36,12 @@ Cuando dos políticas reciben **exactamente ocho observaciones de demostración 
 
 - La intervención se inicia por **eventos públicos de key/ball**, no por el `cue_visible` privilegiado; en MiniGrid S13 el objeto cue puede no ser el primer key/ball percibido. El disparador es idéntico entre brazos y *no se calibrará sobre confirmación*. BC teacher-forced no reproduce distribuciones de trayectorias autónomas.
 - Tras BC, el PPO limpio puede facilitar navegación pero degradar el código recurrente: reportar BC y PPO si se observan diferencias, sin elegir retrospectivamente el mejor modelo.
-- El dropout CONTINUOUS8 no enseña necesariamente la desaparición permanente F4, solo ocho frames; fallo en el control `cue_lost_continuous` no significa que toda memoria interna sea imposible.
+- El dropout CONTINUOUS8 no enseña necesariamente la desaparición permanente F4, solo seis frames; fallo en el control `cue_lost_continuous` no significa que toda memoria interna sea imposible.
 - La elección condicional a llegada sufre selección y no se interpretará como efecto causal entre las mismas historias. Las parejas con no-llegada siguen en denominador de desenlace primario.
 - Cualquier resultado confirmado aquí se considera validación **consumida**; no reajustar y reutilizar 600000+ ni abrir el holdout 900000+.
 
-**Interpretación:** si las políticas continuous8 resuelven con más frecuencia ambos cues S13 con F4 permanentemente fuera de visión, hay evidencia de retención/uso más robustos que con el **mismo número de exposiciones fragmentadas**. Si solo mejora la llegada, la hipótesis de memoria no queda confirmada, en línea con F9-N.
+**Interpretación:** si las políticas continuous6 resuelven con más frecuencia ambos cues S13 con F4 permanentemente fuera de visión, hay evidencia de retención/uso más robustos que con el **mismo número de exposiciones fragmentadas**. Si solo mejora la llegada, la hipótesis de memoria no queda confirmada, en línea con F9-N.
+
+## Enmienda de integridad anterior a la confirmación (29/10/2026)
+
+La primera ejecución de CI #40955776993 **falló ANTES de terminar el entrenamiento y antes de abrir ningún mundo confirmatorio**: el control fragmentado de ocho bloqueos no cabía completo en 61/1200 demostraciones de S13 (9539/9600 bloqueos efectivos). No se observaron resultados de confirmación. Para preservar la comparación de dosis verdaderamente igualada, se **sustituyen los calendarios por seis bloqueos efectivos** (continuo 0–5 frente a fragmentado 0,1,3,4,6,7). El test de integridad ahora cubre los 1200 ejemplos TRAIN en lugar de solo seis. Si aun así no se logran los seis en cada episodio, el CI debe fallar de nuevo y no abrir confirmación. Esto es una modificación **de instrumentación y viabilidad pre-confirmatoria**, no una selección por rendimiento.
