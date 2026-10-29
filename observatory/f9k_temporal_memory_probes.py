@@ -22,6 +22,7 @@ from sb3_contrib import RecurrentPPO
 
 from observatory.f9_external_minigrid import file_sha
 from observatory.f9d_autonomous_navigation import checked_seed, demonstration
+from observatory.f9b_behavior_audit import build_env, get_world_labels
 from observatory.f9i_selective_memory import SelectiveF4, DIM
 from observatory.f9j_recurrent_memory_attribution import CAPACITY, frozen_action
 
@@ -93,10 +94,28 @@ def snapshot_history(model, mode, index, frames, times):
     return snapshots
 
 
+def original_cue_label(seed, size):
+    """Observer-only label: actual visible object identity, not 'reversed' bit.
+
+    A world's original cue can itself be key OR ball. Labeling 'original'
+    would confound across randomized worlds and invalidate transfer.
+    """
+    env = build_env(size)
+    try:
+        env.reset(seed=seed)
+        cue = get_world_labels(env)["cue"]
+        if cue not in ("key", "ball"):
+            raise AssertionError("Unexpected cue identity")
+        return -1.0 if cue == "key" else 1.0
+    finally:
+        env.close()
+
+
 def paired_snapshots(model, mode, index, size, seed):
     frames_a, actions_a, vis_a = demonstration(seed, size=size, reverse=False)
     frames_b, actions_b, vis_b = demonstration(seed, size=size, reverse=True)
     times = stage_indices(actions_a, actions_b, vis_a, vis_b)
+    cue_label = original_cue_label(seed, size)
     if max(times.values()) >= min(len(frames_a), len(frames_b)):
         raise AssertionError("Missing teacher frame at fork")
     a = snapshot_history(model, mode, index, frames_a, times)
@@ -107,6 +126,7 @@ def paired_snapshots(model, mode, index, size, seed):
             raise AssertionError("Post-cue raw observation is not matched: " + stage)
         result[stage] = {
             "a": a[stage], "b": b[stage], "step": times[stage],
+            "labels": (cue_label, -cue_label),
             "cue_gap": times[stage] - max(i for i,v in enumerate(vis_a[:times["fork"]]) if v),
             "raw_equal": True,
             "f4_equal": bool(np.array_equal(a[stage]["M"], b[stage]["M"])),
@@ -135,7 +155,10 @@ def matrix(pairs, feature):
         raise ValueError(feature)
     x = np.stack([sample[variant][feature]
                   for sample in pairs for variant in ("a", "b")])
-    y = np.tile(np.array([-1.0, 1.0], dtype=np.float64), len(pairs))
+    y = np.asarray([label for sample in pairs for label in sample["labels"]],
+                   dtype=np.float64)
+    if not np.all(np.sort(y.reshape(-1, 2), axis=1) == [-1.0, 1.0]):
+        raise AssertionError("Every pair must have opposite cue identity labels")
     return x.astype(np.float64), y
 
 
