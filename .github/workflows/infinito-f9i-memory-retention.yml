@@ -1,0 +1,156 @@
+name: INFINITO F9-I — Frozen F9-H Cue Retention and One-Event Causal Test
+on:
+  push:
+    branches: ["experiment/f9i-memory-retention-audit"]
+    paths:
+      - "observatory/f9i_retention_audit.py"
+      - "tests/test_f9i_retention_audit.py"
+      - ".github/workflows/infinito-f9i-memory-retention.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  integrity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install original F9 environment (no model training)
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r observatory/requirements_f9.txt gymnasium==1.4.0
+      - name: Validate real Store, FIFO, first16 and one-event corruption
+        run: python -m unittest discover -s tests -p 'test_f9i_retention_audit.py' -v
+      - name: Revalidate original F9-G event representation
+        run: python -m unittest discover -s tests -p 'test_f9g_context_memory.py' -v
+  frozen:
+    needs: integrity
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    strategy:
+      fail-fast: false
+      matrix:
+        seed: [0,1,2,3]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install CPU PyTorch and exact MiniGrid dependencies
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r observatory/requirements_f9.txt gymnasium==1.4.0
+      - name: Retrieve exactly the four F9-H original frozen development artifacts
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 40925227783
+          repository: webtilians/principiodelTodo
+          github-token: ${{ github.token }}
+          name: f9h-development-seed-${{ matrix.seed }}
+          path: evidence/f9h_seed${{ matrix.seed }}
+      - name: Assert file integrity, reproduce all original action and memory hashes, compare retention, intervene on frozen policy
+        run: |
+          python -m observatory.f9i_retention_audit \
+            --source evidence/f9h_seed${{ matrix.seed }} \
+            --output results/f9i_seed${{ matrix.seed }} \
+            --frozen-inference --pairs 5
+      - name: Verify no training and correct source provenance
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          paths=list(Path('results').glob('f9i_seed*/report.json'))
+          assert len(paths)==1
+          r=json.loads(paths[0].read_text())
+          assert r['source_run']==40925227783
+          assert r['training_performed'] is False
+          assert r['heldout_opened'] is False
+          assert r['capacity']==64
+          assert r['replay']['source_checkpoint_verified'] is True
+          assert set(r['replay']['by_size'])=={'S7','S13'}
+          assert r['replay']['by_size']['S7']['episodes']==20 if isinstance(r['replay']['by_size']['S7']['episodes'],int) else len(r['replay']['by_size']['S7']['episodes'])==20
+          assert len(r['replay']['by_size']['S13']['episodes'])==20
+          assert r['frozen_inference']['training_performed'] is False
+          print('F9I_VERIFIED',r['replay']['seed_index'])
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: f9i-frozen-retention-seed-${{ matrix.seed }}
+          path: results/f9i_seed${{ matrix.seed }}/
+          if-no-files-found: warn
+          retention-days: 30
+  aggregate:
+    needs: frozen
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: f9i-frozen-retention-seed-*
+          path: results
+      - name: Summarize cue eviction and frozen-policy one-record causal intervention
+        run: |
+          python - <<'PY'
+          import json,os,statistics
+          from pathlib import Path
+          paths=sorted(Path('results').glob('f9i-frozen-retention-seed-*/report.json'))
+          rs=[json.loads(p.read_text()) for p in paths]
+          assert len(rs)==4 and {r['replay']['seed_index'] for r in rs}=={0,1,2,3}
+          assert all(not r['heldout_opened'] and not r['training_performed'] for r in rs)
+          lines=['# INFINITO F9-I — Frozen F9-H cue retention audit','',
+          'Original F9-H four-seed post-RL actions replayed with exact memory SHA.',
+          'Equal 64-event capacity FIFO vs first16; frozen policy ablations on 5 paired development worlds/seed.',
+          '**No retraining and no heldout.**','',
+          '| Task | Episodes | Cue observed | FIFO retained earliest cue | first16 retained earliest cue | FIFO retained any cue | first16 retained any cue | FIFO full during trajectory |',
+          '|---|---:|---:|---:|---:|---:|---:|']
+          totals={}
+          for size in ('S7','S13'):
+              episodes=[e for r in rs for e in r['replay']['by_size'][size]['episodes']]
+              n=len(episodes)
+              stats={
+                  'episodes':n,
+                  'cue_seen':sum(e['first_cue_serial'] is not None for e in episodes),
+                  'first_cue_fifo':sum(e['fifo_retains_first_cue'] for e in episodes),
+                  'first_cue_first16':sum(e['first16_retains_first_cue'] for e in episodes),
+                  'any_cue_fifo':sum(e['fifo_retains_any_cue'] for e in episodes),
+                  'any_cue_first16':sum(e['first16_retains_any_cue'] for e in episodes),
+                  'fifo_full':sum(e['fifo_memory_full'] for e in episodes),
+                  'success':sum(e['success'] for e in episodes),
+                  'timeouts':sum(e['timeout'] for e in episodes),
+              }
+              totals[size]=stats
+              lines.append(f'| {size} | {n} | {stats["cue_seen"]} | {stats["first_cue_fifo"]} | {stats["first_cue_first16"]} | {stats["any_cue_fifo"]} | {stats["any_cue_first16"]} | {stats["fifo_full"]} |')
+          lines+=['','## Frozen checkpoint tests (5 pairs/seed and task)','',
+             '| Task | Selection | Intervention | Success | Both members correct | Valid branch flips | Cue intervention applied |',
+             '|---|---|---|---:|---:|---:|---:|']
+          frozen={}
+          for size in ('S7','S13'):
+              for key in ('fifo/normal','fifo/cue_one','fifo/noncue_one','first16/normal','first16/cue_one'):
+                  vals=[r['frozen_inference']['by_condition'][size+'/'+key] for r in rs]
+                  joined={
+                      'mean_success':statistics.mean(v['combined_success'] for v in vals),
+                      'both_correct':sum(v['both_correct'] for v in vals),
+                      'flips':sum(v['valid_flips'] for v in vals),
+                      'intervention_episode_rate':statistics.mean(v['memory_intervention_applied_episode_rate'] for v in vals),
+                  }
+                  frozen[size+'/'+key]=joined
+                  sel,intervention=key.split('/')
+                  lines.append(f'| {size} | {sel} | {intervention} | {joined["mean_success"]:.0%} | {joined["both_correct"]}/20 | {joined["flips"]}/20 | {joined["intervention_episode_rate"]:.0%} |')
+          summary={'experiment':'F9-I frozen trajectory memory retention',
+              'training_performed':False,'heldout_opened':False,
+              'retention':totals,'frozen_policy':frozen,
+              'warning':'Frozen FIFO-trained model under first16 is out of distribution; no learned selector trained or evaluated.'}
+          Path('results/aggregate.json').write_text(json.dumps(summary,indent=2))
+          Path(os.environ['GITHUB_STEP_SUMMARY']).write_text('\n'.join(lines)+'\n')
+          print('F9I_AGGREGATE',json.dumps(summary))
+          print('\n'.join(lines))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: f9i-four-seed-frozen-retention-aggregate
+          path: results/aggregate.json
+          retention-days: 30

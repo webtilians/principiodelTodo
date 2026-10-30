@@ -1,265 +1,54 @@
-# 🧠 INFINITO - Cerebro Motor para LLMs
-
-> **De buscar consciencia artificial a crear un motor cognitivo práctico**
-
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-red.svg)](https://pytorch.org/)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-
-## 🎯 ¿Qué es INFINITO?
-
-INFINITO es un **cerebro ejecutivo** que potencia a los LLMs (GPT, Claude, etc.) con capacidades que no tienen de forma nativa:
-
-- **🧠 Memoria Selectiva**: No guarda todo, solo lo importante
-- **🎯 Gestión de Objetivos**: Recordatorios, seguimiento, tareas proactivas
-- **🔍 Búsqueda Semántica**: Encuentra información relevante por significado
-- **⚡ Gate Neuronal**: Red neuronal que decide qué merece atención
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     INFINITO BRAIN                          │
-│                                                             │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
-│  │    GATE      │  │   MEMORIA    │  │    GOALS     │      │
-│  │  (Filtro)    │  │  (Vectorial) │  │ (Objetivos)  │      │
-│  │              │  │              │  │              │      │
-│  │ "¿Importa?"  │  │ "¿Qué sé?"   │  │ "¿Qué quiero?"│     │
-│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘      │
-│         │                 │                 │               │
-│         └────────────┬────┴────────┬────────┘               │
-│                      ▼             ▼                        │
-│              ┌───────────────────────────┐                  │
-│              │      DECISION ENGINE      │                  │
-│              │  Contexto + Memoria +     │                  │
-│              │  Objetivos → Acción       │                  │
-│              └─────────────┬─────────────┘                  │
-│                            ▼                                │
-│                     ┌─────────────┐                         │
-│                     │     LLM     │                         │
-│                     │   (GPT...)  │                         │
-│                     └─────────────┘                         │
-└─────────────────────────────────────────────────────────────┘
-```
-
-## 🌟 La Visión
-
-Los LLMs actuales (GPT, Claude, Llama) son increíbles generando lenguaje, pero:
-
-❌ **No recuerdan** - Cada conversación empieza de cero  
-❌ **No priorizan** - No saben qué es importante para ti  
-❌ **No anticipan** - Son reactivos, no proactivos  
-❌ **No tienen objetivos** - No pueden perseguir metas a largo plazo  
-
-**INFINITO** no intenta reemplazar al LLM, sino ser su **cerebro motor**:
-
-✅ **Memoria selectiva** - Recuerda lo que importa  
-✅ **Gate neuronal** - Filtra el ruido  
-✅ **GoalManager** - Mantiene objetivos activos  
-✅ **Proactividad** - Anticipa necesidades  
-
----
-
-## 📖 Historia del Proyecto
-
-### Fase 1: Búsqueda de Consciencia (2024-2025)
-Comenzamos intentando implementar la **Teoría de Información Integrada (IIT)** de Giulio Tononi para crear "consciencia artificial". Aprendimos que:
-
-- ❌ Maximizar PHI directamente causa **colapso** (el modelo repite tokens)
-- ❌ PHI alto ≠ inteligencia o consciencia
-- ✅ Las métricas IIT son útiles como **indicadores de coherencia**, no como objetivo
-
-### Fase 2: Cerebro Motor (Actual)
-Pivotamos hacia un enfoque **pragmático y útil**:
-
-- ✅ El "cerebro" no reemplaza al LLM, lo **potencia**
-- ✅ Memoria selectiva basada en **importancia real**
-- ✅ Objetivos y recordatorios **proactivos**
-- ✅ Métricas renombradas: de "consciousness" a "coherence/integration"
-
----
-
-## 🚀 Instalación
-
-```bash
-# Clonar
-git clone https://github.com/webtilians/principiodelTodo.git
-cd principiodelTodo
-
-# Instalar dependencias
-pip install -r requirements.txt
-
-# Configurar OpenAI (crear archivo .env)
-echo "OPENAI_API_KEY=tu-api-key" > .env
-
-# Ejecutar
-streamlit run app.py
-```
-
----
-
-## 💡 Características Principales
-
-### 🧠 Gate Neuronal (Filtro de Importancia)
-Red neuronal entrenada para decidir qué información vale la pena guardar:
-
-| Input | Gate Score | Decisión |
-|-------|------------|----------|
-| "Me llamo Enrique" | 85% | ✅ Guardar (identidad) |
-| "Hola qué tal" | 15% | ❌ Ignorar (trivial) |
-| "Mañana tengo reunión a las 10" | 78% | ✅ Guardar + Crear recordatorio |
-
-### 🔍 Memoria Vectorial (RAG)
-Búsqueda semántica usando embeddings de OpenAI:
-
-```python
-# No busca palabras exactas, busca SIGNIFICADO
-query = "¿Cuándo es mi cita médica?"
-# Encuentra: "El viernes voy al doctor a las 16:00"
-```
-
-### 🎯 GoalManager (Objetivos Persistentes)
-Sistema proactivo de gestión de objetivos:
-
-```python
-# El usuario dice:
-"Mañana tengo reunión importante a las 10"
-
-# INFINITO automáticamente:
-# 1. Guarda en memoria
-# 2. Crea objetivo: "Recordar reunión mañana"
-# 3. Al día siguiente, saluda: "¡Buenos días! Recuerda tu reunión a las 10"
-```
-
-**Tipos de objetivos:**
-| Tipo | Ejemplo | Trigger |
-|------|---------|---------|
-| `REMINDER` | "Reunión mañana" | Fecha/hora |
-| `FOLLOW_UP` | "¿Cómo fue la reunión?" | Después del evento |
-| `LEARNING` | "Aprender gustos del usuario" | Cada interacción |
-| `TASK` | "Tarea pendiente" | Manual |
-
-### 📊 Métricas de Coherencia
-Las métricas IIT originales, renombradas a términos más precisos:
-
-| Antes | Ahora | Significado |
-|-------|-------|-------------|
-| `consciousness_level` | `coherence_score` | Qué tan integrada está la información |
-| `phi` | `integration_index` | Conexión entre conceptos |
-| `complexity` | `information_richness` | Diversidad de la información |
-
----
-
-## 🏗️ Arquitectura del Proyecto
-
-```
-principiodelTodo/
-├── app.py                      # 🖥️ Interfaz Streamlit principal
-├── .env                        # 🔑 API key de OpenAI
-├── memoria_permanente.json     # 💾 Memorias con embeddings
-├── goals.json                  # 🎯 Objetivos persistentes
-│
-├── src/
-│   ├── goal_manager.py         # 🎯 Sistema de objetivos
-│   ├── vector_engine.py        # 🔍 Búsqueda semántica
-│   └── core/
-│       ├── iit_metrics_v2.py   # 📊 Métricas de coherencia
-│       └── iit_guided_memory.py # 💾 Memoria con priorización
-│
-├── infinito_jarvis_vector.py   # 🤖 RAG + búsqueda vectorial
-├── infinito_memory_keeper.py   # 🧠 Gate neuronal (modelo)
-│
-├── models/
-│   └── dynamic_chat_detector_v3.pt  # 🎓 Gate entrenado (95% acc)
-│
-└── experiments/                # 🔬 Scripts de investigación IIT
-    └── (legacy - mantiene la investigación original)
-```
-
----
-
-## 📈 Roadmap
-
-### ✅ Completado
-- [x] Gate neuronal funcional (95% accuracy)
-- [x] Memoria vectorial con RAG
-- [x] Extracción automática de intereses
-- [x] Evitar duplicados en memoria
-- [x] GoalManager básico
-
-### 🔄 En Progreso
-- [ ] Integración completa de GoalManager en UI
-- [ ] Mensajes proactivos al iniciar sesión
-- [ ] Seguimiento automático de eventos pasados
-
-### 📋 Planificado
-- [ ] Múltiples perfiles de usuario
-- [ ] Exportar/importar memoria
-- [ ] API REST para integración externa
-- [ ] Conexión con calendarios (Google Calendar)
-- [ ] Voice interface
-
----
-
-## 🔬 Lecciones Aprendidas
-
-### Sobre IIT y Consciencia
-1. **PHI no es un objetivo válido para optimización** - El modelo "hace trampa" repitiendo tokens
-2. **Las métricas de integración son útiles como diagnóstico**, no como loss function
-3. **La consciencia artificial sigue siendo un problema abierto** - Mejor enfocarse en utilidad práctica
-
-### Sobre Diseño de Sistemas Cognitivos
-1. **Separar responsabilidades**: Gate (filtrar) ≠ Memoria (guardar) ≠ LLM (generar)
-2. **El LLM es el motor de lenguaje**, el cerebro es la capa de gestión
-3. **Proactividad > Reactividad**: Un asistente útil anticipa necesidades
-
----
-
-## 🧪 Para Investigadores
-
-Si te interesa la **investigación original sobre IIT**, los archivos legacy están en:
-
-- `src/core/iit_metrics_v2.py` - Cálculo de PHI
-- `src/core/phi_learnable.py` - PHI como parámetro entrenable
-- `experiments/` - Scripts de experimentación
-- `README_GITHUB.md` - Documentación técnica original
-
-**Nota**: Esta investigación demostró que maximizar PHI directamente no es viable para consciousness engineering, pero las métricas son útiles para análisis.
-
----
-
-## 🤝 Contribuir
-
-¿Ideas? ¿Mejoras? ¡Bienvenidas!
-
-1. Fork el proyecto
-2. Crea una rama (`git checkout -b feature/nueva-idea`)
-3. Commit (`git commit -m 'feat: Nueva característica'`)
-4. Push (`git push origin feature/nueva-idea`)
-5. Abre un Pull Request
-
----
-
-## 📄 Licencia
-
-MIT License - Ver [LICENSE](LICENSE)
-
----
-
-## 🙏 Créditos
-
-- **Giulio Tononi** - Por la Teoría de Información Integrada (inspiración inicial)
-- **OpenAI** - GPT y embeddings
-- **Hugging Face** - Transformers
-- **Streamlit** - UI
-
----
-
-<p align="center">
-  <b>INFINITO</b><br>
-  <i>No intentamos crear una mente. Creamos un cerebro que hace útil a las mentes artificiales.</i>
-</p>
-
----
-
-**Última actualización**: Noviembre 2025  
-**Versión**: 2.0 (Cerebro Motor)
+# INFINITO
+
+Repositorio de investigación sobre memoria, estado recurrente y control de agentes.
+
+**Rama de referencia: `master`.** La integración reúne el núcleo INFINITO 3.0,
+el laboratorio y la cadena experimental hasta **F9-R**, además de las dos
+aportaciones F9-I. Integrar código no convierte resultados exploratorios en
+conclusiones científicas confirmadas.
+
+## Empieza aquí
+
+| Buscas | Entrada |
+|---|---|
+| Último experimento: F9-R | [Resultados y límites](docs/INFINITO_F9R_RECURRENT_STATE_DRIFT_RESULTS_2026-10-30.md) |
+| Todos los experimentos | [Índice de protocolos y resultados](docs/EXPERIMENT_INDEX.md) |
+| Ramas y PR anteriores | [Guía de integración e historial](docs/REPOSITORY_GUIDE.md) |
+| Núcleo cognitivo INFINITO 3.0 | [Arquitectura](docs/INFINITO_3_ARCHITECTURE.md) |
+| Portal del laboratorio | [Instalación y uso](lab_portal/README.md) |
+| Documentación anterior | [README conservado íntegramente](docs/history/README_BEFORE_UNIFICATION_2026-10-30.md) |
+
+## Estado científico actual
+
+F9-R estudia la deriva del estado recurrente cuando se interrumpe F4.
+Congelar H/C no alcanzó el criterio primario de rescate; restaurar el estado
+natural justo antes de la bifurcación produjo recuperación parcial y
+heterogénea. La llegada al cruce usa un prefijo docente: no demuestra autonomía
+completa. Consulta el informe para las condiciones, denominadores y controles.
+
+Las confirmaciones F9-R `850000+` ya están consumidas. El conjunto histórico
+`900000+` sigue reservado. Las pruebas de integración no vuelven a ejecutar
+confirmaciones ni entrenamientos científicos.
+
+## Estructura
+
+- `src/infinito3/`: núcleo cognitivo 3.0.
+- `src/`: componentes históricos conservados.
+- `observatory/`: experimentos y auditorías de memoria.
+- `lab_portal/`: servidor y herramientas del laboratorio.
+- `tests/`: pruebas técnicas.
+- `docs/`: protocolos, informes e inventario del repositorio.
+
+## Cómo continuar
+
+Crea las nuevas ramas de trabajo desde `master` y abre los PR contra `master`.
+Mantén cada experimento con su protocolo, pruebas y resultados identificados.
+Las ramas antiguas se conservan como referencias; que estén por detrás de
+`master` después de integrar su trabajo es normal y no significa pérdida.
+
+La integración se valida en GitHub Actions con pruebas del núcleo, contratos
+F9 y comprobación de historial/contenido. No despliega ni ejecuta modelos con
+servicios externos. La [guía del repositorio](docs/REPOSITORY_GUIDE.md)
+describe qué ramas se han integrado y cuáles conservan variantes independientes.
+
+[Licencia MIT](LICENSE).

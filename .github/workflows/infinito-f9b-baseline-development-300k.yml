@@ -1,0 +1,58 @@
+name: INFINITO F9-B — Development Baselines (300k)
+on:
+  push:
+    branches: ["experiment/f9b-causal-memory"]
+    paths:
+      - ".github/workflows/infinito-f9b-baseline-development-300k.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  baseline-development:
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install isolated MiniGrid PPO/LSTM environment
+        run: python -m pip install -r observatory/requirements_f9.txt
+      - name: Run third preregistered development budget — 300k per model
+        run: |
+          python -m observatory.f9b_causal_memory \
+            --phase baselines --seeds 1 --timesteps 300000 \
+            --eval-episodes 50 --output observatory_results/f9b_baseline_300k_ci
+      - name: Publish scores and competence gate without selecting a result
+        if: success()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path('observatory_results/f9b_baseline_300k_ci')
+          report=json.loads((root/'report.json').read_text())
+          manifest=json.loads((root/'frozen_manifest.json').read_text())
+          assert report['phase']=='development' and report['stage']=='baselines'
+          assert manifest['stage']=='f9b_baseline_development'
+          assert report['gate']['training_seeds']==1
+          assert report['gate']['ready'] is False  # cannot pass four-seed gate
+          assert not manifest['heldout_opened']
+          print('F9-B 300K DEVELOPMENT SCORES:',json.dumps(report['summary'],ensure_ascii=False))
+          print('F9-B 300K COMPETENCE GATE:',json.dumps(report['gate'],ensure_ascii=False))
+          table=['# F9-B 300k / semilla 0 — Desarrollo, NO heldout','',
+                 '| Agente | Éxito | Recompensa media | Longitud media |',
+                 '|---|---:|---:|---:|']
+          for name in ['random','ppo','lstm']:
+              values=report['summary']['policies'][name]
+              table.append(f"| {name} | {values['success_rate']:.0%} | {values['mean_return']:.4f} | {values['mean_length']:.2f} |")
+          table.extend(['', '**Gate:** '+ ('APTO' if report['gate']['ready'] else 'NO APTO'),
+                        '', 'Solo una semilla de entrenamiento; no inferir superioridad ni abrir heldout.'])
+          Path(__import__('os').environ['GITHUB_STEP_SUMMARY']).write_text('\n'.join(table)+'\n')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: f9b-memory-baselines-300k-development-not-heldout
+          path: observatory_results/f9b_baseline_300k_ci/
+          if-no-files-found: warn
+          retention-days: 30

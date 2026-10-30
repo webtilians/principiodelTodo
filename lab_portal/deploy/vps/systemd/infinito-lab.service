@@ -1,0 +1,39 @@
+[Unit]
+Description=INFINITO Laboratory (FastAPI) - experiment portal of principiodelTodo
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User=infinito-lab
+Group=infinito-lab
+WorkingDirectory=/opt/infinito-lab
+Environment=LAB_HOST=127.0.0.1 LAB_PORT=8200 LAB_DATA_DIR=/var/lib/infinito-lab/runs LAB_MAX_SECONDS=14400
+Environment=PYTHONPATH=/opt/infinito-lab PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+# The key, and any override of the settings above.
+EnvironmentFile=/etc/infinito-lab/lab.env
+ExecStart=/opt/infinito-lab-venv/bin/python -m lab_portal
+Restart=on-failure
+RestartSec=5
+# Shares one CPU with LAIN and DH Trails: experiments get the CPU the others leave free,
+# and never their memory.
+Nice=10
+CPUWeight=10
+IOWeight=10
+MemoryHigh=500M
+MemoryMax=600M
+TasksMax=128
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectHome=true
+ProtectSystem=strict
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+ReadWritePaths=/var/lib/infinito-lab
+
+[Install]
+WantedBy=multi-user.target

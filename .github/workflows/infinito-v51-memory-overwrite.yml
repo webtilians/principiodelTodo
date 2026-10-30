@@ -1,0 +1,45 @@
+name: INFINITO V5.1 Memory Overwrite Ablation
+on:
+  push:
+    branches: ["experiment/emergence-observatory-*"]
+    paths:
+      - "scripts/infinito_v51_memory_overwrite.py"
+      - ".github/workflows/infinito-v51-memory-overwrite.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  retention:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install numpy scipy matplotlib sympy pygame
+      - name: Six paired memory-writing interventions
+        run: |
+          PYTHONPATH=. python scripts/infinito_v51_memory_overwrite.py \
+            --seeds 11 29 47 --train 16 --test 16 --steps 17 \
+            --distractor-sd 0.55 --gain 0.5
+      - name: Validate outcome format
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path("observatory_results/memory_overwrite/report.json").read_text())
+          assert len(d["results"]) == 3
+          assert len(d["mean_accuracy"]) == 6
+          print("AVERAGE HELD-OUT:", d["mean_accuracy"])
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: infinito-v51-memory-write-freeze
+          path: observatory_results/memory_overwrite/report.json
+          if-no-files-found: warn

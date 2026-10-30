@@ -1,0 +1,164 @@
+name: INFINITO F9-K — Temporal Frozen Memory Probes
+
+on:
+  push:
+    branches: ["experiment/f9k-temporal-recurrent-probes"]
+    paths:
+      - "observatory/f9k_temporal_memory_probes.py"
+      - "tests/test_f9k_temporal_memory_probes.py"
+      - "docs/INFINITO_F9K_TEMPORAL_MEMORY_PROBES_PROTOCOL.md"
+      - ".github/workflows/infinito-f9k-temporal-probes.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: f9k-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  integrity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Original CPU-only F9 dependencies
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r observatory/requirements_f9.txt gymnasium==1.4.0
+      - name: Frozen paired temporal decoding integrity
+        run: python -m unittest discover -s tests -p 'test_f9k_temporal_memory_probes.py' -v
+      - name: Historical fork controls
+        run: |
+          python -m unittest discover -s tests -p 'test_f9j_recurrent_memory_attribution.py' -v
+          python -m unittest discover -s tests -p 'test_f9i_selective_memory.py' -v
+
+  probes:
+    needs: integrity
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    strategy:
+      fail-fast: false
+      matrix:
+        seed: [0, 1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Original CPU-only F9 dependencies
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r observatory/requirements_f9.txt gymnasium==1.4.0
+      - name: Download SHA-verified frozen F9-I capacity-8 checkpoints
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 40928547873
+          repository: webtilians/principiodelTodo
+          github-token: ${{ github.token }}
+          name: f9i-${{ matrix.seed }}-8
+          path: evidence/f9i-${{ matrix.seed }}-8
+      - name: Train S7 auxiliary probes and test S7/S13 development
+        run: |
+          python -m observatory.f9k_temporal_memory_probes \
+            --index ${{ matrix.seed }} \
+            --source evidence/f9i-${{ matrix.seed }}-8/context_after_rl.zip \
+            --train-pairs 80 --dev-pairs 10 \
+            --output results/f9k-${{ matrix.seed }}
+      - name: Verify provenance, complete grid and closed heldout
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          files = list(Path("results").glob("f9k-*/report.json"))
+          assert len(files)==1
+          r=json.loads(files[0].read_text())
+          assert r["source_run"]==40928547873
+          assert not r["heldout_opened"] and not r["agent_training_performed"]
+          assert r["auxiliary_probe_training_performed"]
+          assert (r["probe_train_environment"],r["probe_train_partition"],r["evaluation_partition"]) == ("S7","train","development")
+          assert (r["train_paired_worlds"],r["development_paired_worlds_per_size"]) == (80,10)
+          for mode,features in (("context",("H","M","H+M","O")),("zero",("H","O"))):
+              keys={f"S{size}/{stage}/{feat}" for size in (7,13)
+                    for stage in ("post_cue","halfway","fork") for feat in features}
+              assert set(r["modes"][mode])==keys
+              for record in r["modes"][mode].values():
+                  assert record["pairs"]==record["equal_raw_pairs"]==10
+                  assert 0 <= record["both_correct"] <= 10
+          print("F9K_COMPLETE_GRID",r["seed_index"])
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: f9k-development-seed-${{ matrix.seed }}
+          path: results/f9k-${{ matrix.seed }}/
+          if-no-files-found: warn
+          retention-days: 30
+
+  aggregate:
+    needs: probes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: f9k-development-seed-*
+          path: archive
+      - name: Summarize every condition and all four seeds
+        run: |
+          python - <<'PY'
+          import json,os,statistics
+          from pathlib import Path
+          files=sorted(Path("archive").glob("f9k-development-seed-*/report.json"))
+          runs=[json.loads(p.read_text()) for p in files]
+          assert len(runs)==4 and {r["seed_index"] for r in runs}==set(range(4))
+          assert all(not r["heldout_opened"] and not r["agent_training_performed"] for r in runs)
+          report={
+              "experiment":"F9-K frozen temporal memory probes",
+              "confirmatory":False,"heldout_opened":False,
+              "agent_training_performed":False,
+              "auxiliary_probe_training_performed":True,
+              "train_partition":"S7 train","evaluation_partition":"S7/S13 development",
+              "source_run":40928547873,"seeds":list(range(4)),
+              "metrics":{}
+          }
+          lines=["# F9-K — Time-resolved paired cue decoding",
+                 "","Frozen F9-I checkpoints; train the diagnostic decoder on S7 train only.",
+                 "Evaluation: S7/S13 development, four seeds, ten matched pairs per seed.",
+                 "Teacher-forced history; this does NOT measure autonomous success.",
+                 "","| Task | Agent | Checkpoint | Feature | Mean acc. | Acc. per seed | Both correct/40 | Flips/40 | Equal F4/40 |",
+                 "|---|---|---|---|---:|---|---:|---:|---:|"]
+          for size in (7,13):
+              for mode,features in (("context",("H","M","H+M","O")),("zero",("H","O"))):
+                  for stage in ("post_cue","halfway","fork"):
+                      for feat in features:
+                          key=f"S{size}/{mode}/{stage}/{feat}"
+                          rows=[r["modes"][mode][f"S{size}/{stage}/{feat}"] for r in runs]
+                          out={
+                              "accuracy_mean":statistics.mean(x["accuracy"] for x in rows),
+                              "accuracy_by_seed":[x["accuracy"] for x in rows],
+                              "both_correct_pairs":sum(x["both_correct"] for x in rows),
+                              "paired_flips":sum(x["paired_flips"] for x in rows),
+                              "equal_f4_pairs":sum(x["equal_f4_pairs"] for x in rows),
+                              "equal_raw_pairs":sum(x["equal_raw_pairs"] for x in rows),
+                              "cue_gap_by_seed":[x["mean_steps_since_last_cue"] for x in rows],
+                          }
+                          assert out["equal_raw_pairs"]==40
+                          report["metrics"][key]=out
+                          individual=", ".join(f"{v:.0%}" for v in out["accuracy_by_seed"])
+                          lines.append(f'| S{size} | {mode} | {stage} | {feat} | {out["accuracy_mean"]:.1%} | {individual} | {out["both_correct_pairs"]}/40 | {out["paired_flips"]}/40 | {out["equal_f4_pairs"]}/40 |')
+          lines+=["","Only four training seeds: do not treat paired episodes as independent model replicates.",
+                  "A linear probe detects decodability, not causal policy use, semantic generalization or consciousness."]
+          Path("archive/f9k_aggregate.json").write_text(json.dumps(report,indent=2))
+          Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text("\n".join(lines)+"\n")
+          print("F9K_AGGREGATE",json.dumps(report))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: f9k-four-seed-temporal-probe-aggregate
+          path: archive/f9k_aggregate.json
+          retention-days: 30

@@ -1,0 +1,61 @@
+name: Repository integration checks
+on:
+  push:
+    branches: ["integration/repository-unification-20261030", "master"]
+  pull_request:
+    branches: ["master"]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: integration-checks-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  preservation:
+    if: github.ref == 'refs/heads/integration/repository-unification-20261030' || github.head_ref == 'integration/repository-unification-20261030'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python tools/verify_repository_unification.py
+  core:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install pytest
+      - run: python -m pytest tests/test_*v3.py -q
+  research-contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      OMP_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: CPU dependencies for technical tests
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r observatory/requirements_f9.txt -r lab_portal/requirements.txt gymnasium==1.4.0 httpx scikit-learn
+      - name: F9 technical contracts, including both F9-I studies and F9-R
+        run: |
+          python - <<'PY'
+          import torch, unittest
+          torch.set_num_threads(1)
+          suite=unittest.TestLoader().discover("tests",pattern="test_f9*.py")
+          result=unittest.TextTestRunner(verbosity=2).run(suite)
+          if not result.wasSuccessful():
+              raise SystemExit(1)
+          PY
+      - name: Portal contracts
+        run: python -m unittest discover -s tests -p 'test_lab_portal*.py' -v

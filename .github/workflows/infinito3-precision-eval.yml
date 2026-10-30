@@ -1,0 +1,50 @@
+name: INFINITO frozen precision v1 evaluation
+on:
+  push:
+    branches: [eval/context-precision-20260914]
+    paths:
+      - '.github/workflows/infinito3-precision-eval.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  precision:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: python -m pip install openai pytest
+      - name: Validate frozen scenario contracts
+        run: python -m pytest tests/test_precision_cases_v3.py -q
+      - name: Repeat 1 with fixed core and semantic retrieval
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: >-
+          python scripts/run_infinito3_real_eval.py
+          --model gpt-5.6-luna --reasoning-effort none --suite precision
+          --embedding-provider openai --embedding-model text-embedding-3-small
+          --history-limit 4 --output-dir evaluation-results/precision-repeat-1
+      - name: Repeat 2 with fixed core and semantic retrieval
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: >-
+          python scripts/run_infinito3_real_eval.py
+          --model gpt-5.6-luna --reasoning-effort none --suite precision
+          --embedding-provider openai --embedding-model text-embedding-3-small
+          --history-limit 4 --output-dir evaluation-results/precision-repeat-2
+      - name: Summaries
+        if: always()
+        run: find evaluation-results -name '*.md' -exec cat {} \; >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: infinito3-frozen-precision-v1
+          path: evaluation-results/
+          if-no-files-found: warn
+          retention-days: 30

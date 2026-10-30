@@ -1,0 +1,55 @@
+name: INFINITO F9-E — Real F4 FIFO Native Agent Integrity
+on:
+  push:
+    branches: ["experiment/f9e-f4-autonomous"]
+    paths:
+      - "observatory/f9e_f4_autonomous.py"
+      - "tests/test_f9e_f4_autonomous.py"
+      - ".github/workflows/infinito-f9e-f4-integrity.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  integrity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install CPU-only Torch and exact MiniGrid/SB3 dependencies
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r observatory/requirements_f9.txt gymnasium==1.4.0
+      - name: Validate F4 real Store and native seven-action integration
+        run: python -m unittest discover -s tests -p 'test_f9e_f4_autonomous.py' -v
+      - name: Validate existing F9-D navigation and teacher safeguards
+        run: python -m unittest discover -s tests -p 'test_f9d_autonomous_navigation.py' -v
+      - name: Three-policy technical smoke, F4 ablations, no heldout
+        run: |
+          python -m observatory.f9e_f4_autonomous \
+            --index 0 --worlds 2 --epochs 1 --timesteps 128 \
+            --episodes 2 --output observatory_results/f9e_smoke
+      - name: Check report shape; no smoke scores as scientific evidence
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path('observatory_results/f9e_smoke/report.json').read_text())
+          assert r['heldout_opened'] is False and r['shaping'] is False
+          assert r['native_actions']==7
+          assert set(r['models'])=={'raw','zero','f4'}
+          assert r['models']['zero']['parameters']==r['models']['f4']['parameters']
+          assert all(r['models'][k]['rl_steps_actual']>=128 for k in r['models'])
+          assert 'S7/swap_identity' in r['models']['f4']['after_rl']
+          assert 'S13/erase' in r['models']['f4']['after_rl']
+          print('F9E_TECHNICAL_SMOKE_OK — NOT A SCIENTIFIC RESULT')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: f9e-technical-smoke-not-evidence
+          path: observatory_results/f9e_smoke/
+          if-no-files-found: warn
+          retention-days: 14

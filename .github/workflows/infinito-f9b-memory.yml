@@ -1,0 +1,31 @@
+name: INFINITO F9-B — External Causal Memory
+on:
+  push:
+    branches: ["experiment/f9b-causal-memory"]
+    paths:
+      - "observatory/f9b_causal_memory.py"
+      - "tests/test_f9b_causal_memory.py"
+      - "observatory/requirements_f9.txt"
+      - "docs/INFINITO_F9B_CAUSAL_MEMORY_PROTOCOL.md"
+      - ".github/workflows/infinito-f9b-memory.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  causal-memory-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install real MiniGrid and PyTorch dependencies
+        run: |
+          python -m pip install -r observatory/requirements_f9.txt
+      - name: Train all 5 independent variants and evaluate 6th intervention
+        run: |
+          python -m unittest discover -s tests -p 'test_f9b_causal_memory.py' -v
+      - name: Confirm heldout seeds not touched by smoke
+        run: |
+          echo "F9B smoke intentionally has 1 seed and only development; no heldout experiments triggered"

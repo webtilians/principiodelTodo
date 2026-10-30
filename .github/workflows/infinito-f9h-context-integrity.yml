@@ -1,0 +1,57 @@
+name: INFINITO F9-H — Contextual F4 vs Matched LSTM Integrity
+on:
+  push:
+    branches: ["experiment/f9h-contextual-f4-autonomous"]
+    paths:
+      - "observatory/f9h_context_memory_navigation.py"
+      - "tests/test_f9h_context_memory_navigation.py"
+      - ".github/workflows/infinito-f9h-context-integrity.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install CPU torch and original F9 dependencies
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r observatory/requirements_f9.txt gymnasium==1.4.0
+      - name: Verify real F9-G Store/FIFO gate and controls
+        run: python -m unittest discover -s tests -p 'test_f9g_context_memory.py' -v
+      - name: Verify equal-width recurrent agents and causal interventions
+        run: python -m unittest discover -s tests -p 'test_f9h_context_memory_navigation.py' -v
+      - name: Small end-to-end paired imitation and native RL smoke
+        run: |
+          python -m observatory.f9h_context_memory_navigation \
+            --index 0 --worlds 2 --epochs 1 --timesteps 128 \
+            --episodes 2 --output observatory_results/f9h_smoke
+      - name: Gate scientific training on correct contract, not smoke scores
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path("observatory_results/f9h_smoke/report.json").read_text())
+          assert r["heldout_opened"] is False
+          assert r["teleport"] is False and r["shaping"] is False and r["native_actions"]==7
+          assert set(r["models"])=={"f4","zero"}
+          assert r["models"]["f4"]["parameters"]==r["models"]["zero"]["parameters"]
+          assert r["models"]["f4"]["input_width"]==r["models"]["zero"]["input_width"]==660
+          assert r["models"]["f4"]["actual_rl_steps"]==r["models"]["zero"]["actual_rl_steps"]
+          for control in ("normal","erase","swap","mask_cue"):
+              assert "S7/"+control in r["models"]["f4"]["after_rl"]
+              assert "S13/"+control in r["models"]["f4"]["after_rl"]
+          print("F9H_INTEGRITY_PASS; tiny smoke scores NOT scientific evidence")
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: f9h-technical-smoke-not-scientific
+          path: observatory_results/f9h_smoke/
+          if-no-files-found: warn
+          retention-days: 14

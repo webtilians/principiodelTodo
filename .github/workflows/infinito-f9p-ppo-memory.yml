@@ -1,0 +1,314 @@
+name: INFINITO F9-P — PPO F4 Memory Independence
+
+on:
+  push:
+    branches: ["experiment/f9p-ppo-sustained-f4-blackout"]
+    paths:
+      - "observatory/f9p_ppo_memory_preservation.py"
+      - "observatory/f9p_confirm_memory_preservation.py"
+      - "observatory/f9n_stage_autonomy.py"
+      - "tests/test_f9p_ppo_memory_preservation.py"
+      - "docs/INFINITO_F9P_PPO_MEMORY_PRESERVATION_PROTOCOL.md"
+      - ".github/workflows/infinito-f9p-ppo-memory.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: f9p-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  integrity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install CPU-only F9 dependencies
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r observatory/requirements_f9.txt gymnasium==1.4.0
+      - name: Verify public-only 112/128 clock, sham, preserved observations and sealed new worlds
+        run: python -m unittest discover -s tests -p 'test_f9p_ppo_memory_preservation.py' -v
+      - name: Preserve F9-N stage and F9-O source integrity
+        run: |
+          python -m unittest discover -s tests -p 'test_f9n_stage_autonomy.py' -v
+          python -m unittest discover -s tests -p 'test_f9o_equal_dose.py' -v
+
+  ppo-training:
+    needs: integrity
+    runs-on: ubuntu-latest
+    timeout-minutes: 110
+    strategy:
+      fail-fast: false
+      matrix:
+        seed: [0, 1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install CPU-only training dependencies
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r observatory/requirements_f9.txt gymnasium==1.4.0
+      - name: Retrieve ORIGINAL F9-O continuous6 BC checkpoint, with SHA-256 provenance
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 40957255987
+          repository: webtilians/principiodelTodo
+          github-token: ${{ github.token }}
+          name: f9o-new-models-seed-${{ matrix.seed }}
+          path: source/f9o-seed-${{ matrix.seed }}
+      - name: Train matched PPO sham vs long clocked blackout on NEW S13 TRAIN worlds 550000+
+        run: |
+          python -m observatory.f9p_ppo_memory_preservation \
+            --index ${{ matrix.seed }} --worlds 600 --steps 20000 \
+            --source source/f9o-seed-${{ matrix.seed }} \
+            --output trained/f9p-seed-${{ matrix.seed }}
+      - name: Gate same initial BC SHA, both policies and exogenous mask opportunities
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from observatory.f9o_confirm_long_blackout import validate_training as original_gate
+          from observatory.f9p_confirm_memory_preservation import validate_ppo
+          index=int("${{ matrix.seed }}")
+          bc=Path(f"source/f9o-seed-{index}")
+          root=Path(f"trained/f9p-seed-{index}")
+          b=json.loads((bc/"report.json").read_text())
+          p=json.loads((root/"report.json").read_text())
+          original_gate(b,bc,index)
+          validate_ppo(p,root,b,bc,index)
+          print("F9P_PRECONFIRM_CHECKPOINT_GATE_PASSED",index)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: f9p-ppo-models-seed-${{ matrix.seed }}
+          path: trained/f9p-seed-${{ matrix.seed }}/
+          retention-days: 30
+          if-no-files-found: error
+
+  all-models-gate:
+    needs: ppo-training
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install CPU-only integrity dependencies
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r observatory/requirements_f9.txt gymnasium==1.4.0
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: f9p-ppo-models-seed-*
+          path: new-models
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 40957255987
+          repository: webtilians/principiodelTodo
+          github-token: ${{ github.token }}
+          pattern: f9o-new-models-seed-*
+          path: bc-parent
+      - name: Gate ALL eight PPO model SHAs and four identical BC parents BEFORE CONFIRM
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from observatory.f9o_confirm_long_blackout import validate_training as original_gate
+          from observatory.f9p_confirm_memory_preservation import validate_ppo
+          for index in range(4):
+              bc=Path(f"bc-parent/f9o-new-models-seed-{index}")
+              root=Path(f"new-models/f9p-ppo-models-seed-{index}")
+              b=json.loads((bc/"report.json").read_text())
+              r=json.loads((root/"report.json").read_text())
+              original_gate(b,bc,index)
+              validate_ppo(r,root,b,bc,index)
+          print("F9P_ALL_EIGHT_PPO_AND_FOUR_BC_PARENTS_GATED")
+          PY
+
+  independent-confirmation:
+    needs: all-models-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 160
+    strategy:
+      fail-fast: false
+      matrix:
+        seed: [0, 1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install CPU-only confirmation dependencies
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r observatory/requirements_f9.txt gymnasium==1.4.0
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 40957255987
+          repository: webtilians/principiodelTodo
+          github-token: ${{ github.token }}
+          name: f9o-new-models-seed-${{ matrix.seed }}
+          path: bc-parent/seed-${{ matrix.seed }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: f9p-ppo-models-seed-${{ matrix.seed }}
+          path: new-models/seed-${{ matrix.seed }}
+      - name: One-time new 700000+ S13/S7 autonomous pair confirmation; LSTM fork reset
+        run: |
+          python -m observatory.f9p_confirm_memory_preservation \
+            --index ${{ matrix.seed }} --s13-pairs 40 --s7-pairs 20 \
+            --bc-source bc-parent/seed-${{ matrix.seed }} \
+            --source new-models/seed-${{ matrix.seed }} \
+            --output confirmed/f9p-seed-${{ matrix.seed }}
+      - name: Verify all pairs included (never filter no-junction or no-commit)
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          index=int("${{ matrix.seed }}")
+          p=Path(f"confirmed/f9p-seed-{index}/report.json")
+          r=json.loads(p.read_text())
+          assert r["index"]==index and r["confirmation_base"]==700000
+          assert not r["original_holdout_opened"] and not r["prior_confirmations_reused"]
+          assert not r["training_performed"]
+          assert r["pairs_by_size"]=={"13":40,"7":20}
+          assert set(r["groups"])=={"bc_anchor","ppo_sham","ppo_blackout"}
+          for name,g in r["groups"].items():
+              expected={f"S{size}/{condition}" for size in (13,7)
+                  for condition in ("cue_lost_continuous","normal","fixed_4")}
+              if name!="bc_anchor":
+                  expected.update({f"S{size}/cue_lost_hidden_reset_at_junction" for size in (13,7)})
+              assert set(g)==expected
+              for key,record in g.items():
+                  pairs=40 if key.startswith("S13/") else 20
+                  assert record["summary"]["pairs"]==pairs
+                  assert record["summary"]["episodes"]==2*pairs
+                  assert len(record["pairs_data"])==pairs
+                  if key.endswith("hidden_reset_at_junction"):
+                      assert "hidden_reset_applied_episodes" in record["summary"]
+          print("F9P_ALL_PREASSIGNED_PAIRS_CONFIRMED",index)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: f9p-new-confirmation-seed-${{ matrix.seed }}
+          path: confirmed/f9p-seed-${{ matrix.seed }}/
+          retention-days: 30
+          if-no-files-found: warn
+
+  aggregate:
+    needs: independent-confirmation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: f9p-new-confirmation-seed-*
+          path: confirmed
+      - name: Aggregate all four policy seeds, retain first-exit paired metric and H-reset audit
+        run: |
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          files=sorted(Path("confirmed").glob("f9p-new-confirmation-seed-*/report.json"))
+          r=[json.loads(p.read_text()) for p in files]
+          assert len(r)==4 and {x["index"] for x in r}==set(range(4))
+          assert all(not x["training_performed"] and not x["original_holdout_opened"]
+              and not x["prior_confirmations_reused"] for x in r)
+          output={
+              "experiment":"F9-P PPO with sustained exogenous F4 blackout versus sham",
+              "original_BC_source_run":40957255987,
+              "new_train_base":550000,"new_confirm_base":700000,
+              "historical_holdout_opened":False,
+              "prior_confirmations_reused":False,
+              "training_replica_seeds":[0,1,2,3],
+              "metrics":{}
+          }
+          lines=["# INFINITO F9-P — First-exit counterfactual memory under PPO",
+                 "",
+                 "Four paired BC parent checkpoints, 8 PPO policies; all audited.",
+                 "S13 160 cue-inverted world pairs per group/condition, S7 80.",
+                 "The *two first exits correct in a pair* metric is primary.",
+                 "",
+                 "| Task/control | Policy | Both first correct | Arrived | First correct (all) | First correct / committed | Success | H reset applied |",
+                 "|---|---|---:|---:|---:|---:|---:|---:|"]
+          for size in (13,7):
+              pairs=160 if size==13 else 80
+              for condition in ("cue_lost_continuous","normal","fixed_4","cue_lost_hidden_reset_at_junction"):
+                  key=f"S{size}/{condition}"
+                  row={}
+                  groups=("ppo_sham","ppo_blackout") if condition.endswith("at_junction") else (
+                      "bc_anchor","ppo_sham","ppo_blackout")
+                  for group in groups:
+                      a=[p["groups"][group][key]["summary"] for p in r]
+                      n=sum(x["episodes"] for x in a)
+                      assert n==pairs*2
+                      counts={field:sum(x["counts"][field] for x in a)
+                              for field in a[0]["counts"]}
+                      prs={field:sum(x["pair_counts"][field] for x in a)
+                           for field in a[0]["pair_counts"]}
+                      byseed=[x["pair_counts"]["both_first_correct"] for x in a]
+                      resetcount=(sum(x.get("hidden_reset_applied_episodes",0) for x in a)
+                                  if condition.endswith("at_junction") else None)
+                      row[group]={
+                          "pairs":pairs,"episodes":n,"counts":counts,
+                          "pair_counts":prs,
+                          "both_first_correct_by_seed":byseed,
+                          "first_correct_by_seed":[x["rates"]["first_choice_correct"] for x in a],
+                          "junction_by_seed":[x["rates"]["junction_arrived"] for x in a],
+                          "success_by_seed":[x["rates"]["success"] for x in a],
+                          "first_correct_conditional":None if counts["first_committed"]==0
+                              else counts["first_choice_correct"]/counts["first_committed"],
+                          "hidden_reset_applied_episodes":resetcount,
+                      }
+                      c=row[group]
+                      lines.append(
+                          f'| {key} | {group} | {prs["both_first_correct"]}/{pairs} | '
+                          f'{counts["junction_arrived"]/n:.1%} | '
+                          f'{counts["first_choice_correct"]/n:.1%} | '
+                          f'{(c["first_correct_conditional"] or 0):.1%} '
+                          f'({counts["first_committed"]}) | '
+                          f'{counts["success"]/n:.1%} | '
+                          f'{resetcount if resetcount is not None else "—"} |')
+                  if "ppo_sham" in row and "ppo_blackout" in row:
+                      row["treatment_minus_control_by_seed"]=[
+                          t-c for t,c in zip(row["ppo_blackout"]["both_first_correct_by_seed"],
+                                             row["ppo_sham"]["both_first_correct_by_seed"])]
+                      row["treatment_minus_control_total"]=sum(row["treatment_minus_control_by_seed"])
+                  output["metrics"][key]=row
+          primary=output["metrics"]["S13/cue_lost_continuous"]
+          deltas=primary["treatment_minus_control_by_seed"]
+          output["preregistered_primary"]={
+              "both_first_correct_sham":primary["ppo_sham"]["pair_counts"]["both_first_correct"],
+              "both_first_correct_blackout":primary["ppo_blackout"]["pair_counts"]["both_first_correct"],
+              "by_seed_delta":deltas,
+              "positive_seeds":sum(x>0 for x in deltas),
+              "total_gain":sum(deltas),
+              "criterion_met":sum(x>0 for x in deltas)>=3 and sum(deltas)>0
+          }
+          assert len(output["metrics"])==8
+          lines+=["",
+                  "## Primary criterion",json.dumps(output["preregistered_primary"],ensure_ascii=False),
+                  "",
+                  "Conditional first-choice fractions describe model-selected arrivals;",
+                  "they are not causal estimates among a shared arrival population.",
+                  "H/C reset can also impair navigation, not just cue retention.",
+                  "The 700000+ confirm split is now consumed, never tune and retest it."]
+          Path("confirmed/f9p_aggregate.json").write_text(json.dumps(output,indent=2))
+          Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text("\n".join(lines)+"\n")
+          print("F9P_AGGREGATE",json.dumps(output),flush=True)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: f9p-autonomous-memory-confirmation-aggregate
+          path: confirmed/f9p_aggregate.json
+          retention-days: 30

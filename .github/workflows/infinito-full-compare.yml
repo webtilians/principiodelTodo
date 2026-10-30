@@ -1,0 +1,42 @@
+name: INFINITO V1–V5.1 Full-Path Comparison
+on:
+  push:
+    branches: ["experiment/emergence-observatory-*"]
+    paths:
+      - ".github/workflows/infinito-full-compare.yml"
+      - "scripts/infinito_full_v51_smoke.py"
+      - "scripts/infinito_full_compare.py"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 28
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install CPU research dependencies
+        run: |
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install numpy scipy matplotlib sympy pygame
+      - name: Verify V5.1 native training path
+        run: PYTHONPATH=. python scripts/infinito_full_v51_smoke.py --steps 2
+      - name: Execute paired original V1 and full V5.1 paths
+        run: PYTHONPATH=. python scripts/infinito_full_compare.py --v1-steps 200 --v51-steps 24 --hidden-dim 64
+      - name: Upload observations and paired-state measurements
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: infinito-v1-v51-end-to-end-comparison
+          path: |
+            observatory_results/full_comparison/comparison.json
+            observatory_results/full_comparison/observations.jsonl
+            observatory_results/full_comparison/**/*.npy
+            observatory_results/full_comparison/**/native.log
+            observatory_results/full_comparison/**/error.txt
+          if-no-files-found: warn

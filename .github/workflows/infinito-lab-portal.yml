@@ -1,0 +1,60 @@
+name: INFINITO Lab Portal
+on:
+  push:
+    branches: ["experiment/f8-laboratory-portal", "fix/lab-flow-audit-20261023", "experiment/f9-external-minigrid", "experiment/f9-windows-remote-worker", "experiment/f9b-causal-memory"]
+    paths:
+      - "lab_portal/**"
+      - "tests/test_lab_portal*.py"
+      - "tests/test_f9_remote_worker.py"
+      - "tests/test_f9b_causal_memory.py"
+      - "observatory/**"
+      - "scripts/f6_homeostatic_rl.py"
+      - "scripts/check_lab_portal_flow.py"
+      - ".github/workflows/infinito-lab-portal.yml"
+  pull_request:
+    branches: ["experiment/f8-laboratory-portal"]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  portal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install portal and numerical dependencies
+        run: python -m pip install -r lab_portal/requirements.txt httpx
+      - name: API, auth, parameter limits and report tests
+        run: PYTHONPATH=. python -m unittest discover -s tests -p 'test_lab_portal*.py' -v
+      - name: Remote Windows worker API integration and ZIP security
+        run: PYTHONPATH=. python -m unittest discover -s tests -p 'test_f9_remote_worker.py' -v
+      - name: Integration smoke test on real F4 worker
+        env:
+          LAB_API_TOKEN: github-actions-long-private-demo-key
+          LAB_DATA_DIR: ${{ runner.temp }}/infinito-lab-jobs
+        run: |
+          python - <<'PY'
+          import os, time
+          from fastapi.testclient import TestClient
+          from lab_portal.server import app
+          client=TestClient(app)
+          h={'X-Lab-Token':os.environ['LAB_API_TOKEN']}
+          response=client.post('/api/jobs',headers=h,json={'experiment':'f4','params':{'seeds':4}})
+          assert response.status_code==201,response.text
+          run_id=response.json()['id']
+          for _ in range(150):
+              job=client.get(f'/api/jobs/{run_id}',headers=h).json()
+              if job['status'] in ('completed','failed','timeout','interrupted','cancelled'):
+                  break
+              time.sleep(.2)
+          assert job['status']=='completed',(job,client.get(f'/api/jobs/{run_id}/log',headers=h).json())
+          response=client.get(f'/api/jobs/{run_id}/summary',headers=h)
+          assert response.status_code==200,response.text
+          assert response.json()['scenarios']
+          archive=client.get(f'/api/jobs/{run_id}/download',headers=h)
+          assert archive.status_code==200 and archive.content.startswith(b'PK')
+          print('WORKER_END_TO_END_OK',run_id)
+          PY

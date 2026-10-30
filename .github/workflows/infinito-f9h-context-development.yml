@@ -1,0 +1,167 @@
+name: INFINITO F9-H — Four-Seed Native F4 vs Matched Zero
+on:
+  push:
+    branches: ["experiment/f9h-contextual-f4-autonomous"]
+    paths:
+      - ".github/workflows/infinito-f9h-context-development.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: f9h-development-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  integrity-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Exact environment and CPU torch
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r observatory/requirements_f9.txt gymnasium==1.4.0
+      - name: Original F9-G context integrity
+        run: python -m unittest discover -s tests -p 'test_f9g_context_memory.py' -v
+      - name: F9-H matched recurrent control and counterfactual integrity
+        run: python -m unittest discover -s tests -p 'test_f9h_context_memory_navigation.py' -v
+      - name: F9-H minimal end-to-end training gate (not scientific)
+        run: |
+          python -m observatory.f9h_context_memory_navigation \
+            --index 0 --worlds 2 --epochs 1 --timesteps 128 --episodes 1 \
+            --output outputs/f9h_gate
+      - name: Assert matching capacities, no privileged data, holdout sealed
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path('outputs/f9h_gate/report.json').read_text())
+          assert not r['heldout_opened'] and not r['shaping'] and not r['teleport']
+          assert r['native_actions']==7 and set(r['models'])=={'zero','f4'}
+          a,b=(r['models'][name] for name in ('zero','f4'))
+          assert a['parameters']==b['parameters']
+          assert a['input_width']==b['input_width']==660
+          assert a['actual_rl_steps']==b['actual_rl_steps']
+          assert all('S7/'+c in b['after_rl'] for c in ('normal','erase','swap','mask_cue'))
+          print('F9H_GATE_PASS — no scientific claims from 1-episode smoke')
+          PY
+  development:
+    needs: integrity-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      matrix:
+        seed: [0,1,2,3]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: CPU PyTorch and exact original F9 environment
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r observatory/requirements_f9.txt gymnasium==1.4.0
+      - name: Native seven-action contextual memory versus 512 empty channels
+        run: |
+          python -m observatory.f9h_context_memory_navigation \
+            --index ${{ matrix.seed }} --worlds 600 --epochs 40 --timesteps 20000 \
+            --episodes 10 --output outputs/f9h_seed${{ matrix.seed }}
+      - name: Confirm all requested control/ablation results saved
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          files=list(Path('outputs').glob('f9h_seed*/report.json'))
+          assert len(files)==1
+          r=json.loads(files[0].read_text())
+          assert not r['heldout_opened'] and r['native_actions']==7
+          assert not r['teleport'] and not r['shaping']
+          assert r['config']['worlds']==600 and r['config']['epochs']==40
+          a,b=(r['models'][name] for name in ('zero','f4'))
+          assert a['parameters']==b['parameters']
+          assert a['input_width']==b['input_width']==660
+          assert a['actual_rl_steps']==b['actual_rl_steps']
+          assert a['actual_rl_steps'] >= 20000
+          for stage in ('before_rl','after_rl'):
+              for name in ('zero','f4'):
+                  assert 'S7/normal' in r['models'][name][stage]
+          for task in ('S7','S13'):
+              for control in ('normal','erase','swap','mask_cue'):
+                  assert task+'/'+control in b['after_rl']
+          print('F9H_SEED_COMPLETE',r['seed_index'],'S7',a['after_rl']['S7/normal']['combined_success'],b['after_rl']['S7/normal']['combined_success'])
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: f9h-development-seed-${{ matrix.seed }}
+          path: outputs/f9h_seed${{ matrix.seed }}/
+          if-no-files-found: warn
+          retention-days: 30
+  aggregate:
+    needs: development
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: f9h-development-seed-*
+          path: archives
+      - name: Summarize paired success, decisions, and causal interventions
+        run: |
+          python - <<'PY'
+          import json,statistics,os
+          from pathlib import Path
+          files=sorted(Path('archives').glob('f9h-development-seed-*/report.json'))
+          reports=[json.loads(p.read_text()) for p in files]
+          assert len(reports)==4
+          assert {r['seed_index'] for r in reports}=={0,1,2,3}
+          assert all(not r['heldout_opened'] for r in reports)
+          lines=['# F9-H — Contextual F4 versus matched zero-control LSTM','',
+          '**Development only:** 4 training seeds; 10 paired cue worlds per task per seed.',
+          'Native 7 actions, unchanged rewards, no teleport and no heldout.',
+          'All agents use 660 input features and identical trainable architecture.','',
+          '| Seed | Model / control | S7 success | S7 pairs both correct | S7 valid side flips | S7 cue seen | S13 zero-shot success |',
+          '|---|---|---:|---:|---:|---:|---:|']
+          delta=[]
+          results={}
+          for r in reports:
+              index=r['seed_index']
+              for model in ('zero','f4'):
+                  conditions=('normal','erase','swap','mask_cue') if model=='f4' else ('normal','mask_cue')
+                  for control in conditions:
+                      a=r['models'][model]['after_rl']['S7/'+control]
+                      b=r['models'][model]['after_rl']['S13/'+control]
+                      lines.append(f'| {index} | {model} / {control} | {a["combined_success"]:.0%} | {a["both_correct"]}/10 | {a["valid_side_flips"]}/10 | {a["cue_observed_rate"]:.0%} | {b["combined_success"]:.0%} |')
+              zero=r['models']['zero']['after_rl']['S7/normal']['combined_success']
+              f4=r['models']['f4']['after_rl']['S7/normal']['combined_success']
+              delta.append(f4-zero)
+          for model in ('zero','f4'):
+              per=[r['models'][model]['after_rl']['S7/normal'] for r in reports]
+              results[model]={
+                  'mean_s7_success':statistics.mean(x['combined_success'] for x in per),
+                  'total_both_correct':sum(x['both_correct'] for x in per),
+                  'total_valid_side_flips':sum(x['valid_side_flips'] for x in per),
+              }
+          overview={
+              'experiment':'F9-H contextual F4 vs matched zero',
+              'confirmatory':False,'heldout_opened':False,
+              'by_policy':results,
+              'f4_minus_zero_s7_by_training_seed':delta,
+              'mean_f4_minus_zero_s7':statistics.mean(delta),
+          }
+          lines += ['','Paired F4−zero success delta by training seed: '+str(delta),
+             'Mean F4−zero success delta: '+str(round(overview['mean_f4_minus_zero_s7'],4)),
+             '','**Gate for memory-use claim:** both paired worlds correct and side flips, plus relevant ablation effects.',
+             'A fixed exit giving 50% is NOT evidence of memory.']
+          Path('archives/f9h_aggregate.json').write_text(json.dumps(overview,indent=2))
+          Path(os.environ['GITHUB_STEP_SUMMARY']).write_text('\n'.join(lines)+'\n')
+          print('F9H_AGGREGATE',json.dumps(overview))
+          print('\n'.join(lines))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: f9h-four-seed-development-aggregate
+          path: archives/f9h_aggregate.json
+          retention-days: 30

@@ -1,0 +1,281 @@
+name: INFINITO F9-O — Equal-Dose Long vs Fragmented F4 Blockout
+
+on:
+  push:
+    branches: ["experiment/f9o-long-f4-blackout-training"]
+    paths:
+      - "observatory/f9o_long_blackout_training.py"
+      - "observatory/f9o_confirm_long_blackout.py"
+      - "tests/test_f9o_equal_dose.py"
+      - "docs/INFINITO_F9O_LONG_BLACKOUT_PROTOCOL.md"
+      - ".github/workflows/infinito-f9o-long-blackout.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: f9o-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  integrity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install CPU-only F9 dependencies
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r observatory/requirements_f9.txt gymnasium==1.4.0
+      - name: Confirm S13 TRAIN-only six-effective-masks dose and split seal
+        run: python -m unittest discover -s tests -p 'test_f9o_equal_dose.py' -v
+      - name: Preserve predecessor training/evaluator integrity
+        run: |
+          python -m unittest discover -s tests -p 'test_f9n_stage_autonomy.py' -v
+          python -m unittest discover -s tests -p 'test_f9m_temporal_dropout.py' -v
+
+  new-training:
+    needs: integrity
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      matrix:
+        seed: [0, 1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install CPU-only training dependencies
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r observatory/requirements_f9.txt gymnasium==1.4.0
+      - name: Eight genuinely NEW S13 TRAIN models, equal six-frame blackout exposure
+        run: |
+          python -m observatory.f9o_long_blackout_training \
+            --index ${{ matrix.seed }} --worlds 600 --epochs 40 \
+            --timesteps 20000 \
+            --output results/f9o-train-${{ matrix.seed }}
+      - name: Verify this training pair BEFORE the confirmation-world job
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from observatory.f9o_confirm_long_blackout import validate_training
+          index=int("${{ matrix.seed }}")
+          root=Path(f"results/f9o-train-{index}")
+          data=json.loads((root/"report.json").read_text())
+          validate_training(data,root,index)
+          print("F9O_TRAINING_GATE_SUCCESS",index)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: f9o-new-models-seed-${{ matrix.seed }}
+          path: results/f9o-train-${{ matrix.seed }}/
+          retention-days: 30
+          if-no-files-found: error
+
+  eight-checkpoint-gate:
+    needs: new-training
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install CPU-only validation dependencies
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r observatory/requirements_f9.txt gymnasium==1.4.0
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: f9o-new-models-seed-*
+          path: evidence
+      - name: Validate eight frozen policies and exact teacher blackout count
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from observatory.f9o_confirm_long_blackout import validate_training
+          for index in range(4):
+              root=Path(f"evidence/f9o-new-models-seed-{index}")
+              report=json.loads((root/"report.json").read_text())
+              validate_training(report,root,index)
+          print("F9O_ALL_EIGHT_CHECKPOINTS_GATED")
+          PY
+
+  fresh-confirmation:
+    needs: eight-checkpoint-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      matrix:
+        seed: [0, 1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install CPU-only evaluation dependencies
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r observatory/requirements_f9.txt gymnasium==1.4.0
+      - uses: actions/download-artifact@v4
+        with:
+          name: f9o-new-models-seed-${{ matrix.seed }}
+          path: evidence/f9o-seed-${{ matrix.seed }}
+      - name: One-shot NEW 600000+ S13/S7 first-choice paired confirmation
+        run: |
+          python -m observatory.f9o_confirm_long_blackout \
+            --index ${{ matrix.seed }} --s13-pairs 40 --s7-pairs 20 \
+            --source evidence/f9o-seed-${{ matrix.seed }} \
+            --output results/f9o-confirm-${{ matrix.seed }}
+      - name: No sample excluded; both BC and RL conditions complete
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          index=int("${{ matrix.seed }}")
+          r=json.loads(Path(f"results/f9o-confirm-{index}/report.json").read_text())
+          assert r["index"]==index and r["confirmation_seed_base"]==600000
+          assert not r["training_performed"] and not r["original_holdout_opened"]
+          assert not r["F9M_F9N_confirmation_reused"]
+          assert set(r["arms"])=={"fragmented6","continuous6"}
+          keys={f"S{s}/{c}" for s in (13,7)
+                for c in ("cue_lost_continuous","normal","fixed_4")}
+          for arm in r["arms"].values():
+              assert set(arm["after_bc"])=={"S13/cue_lost_continuous"}
+              assert set(arm["after_rl"])==keys
+              for phase in ("after_bc","after_rl"):
+                  for key,record in arm[phase].items():
+                      pairs=40 if key.startswith("S13") else 20
+                      assert len(record["pairs_data"])==pairs
+                      assert record["summary"]["pairs"]==pairs
+                      assert record["summary"]["episodes"]==2*pairs
+          print("F9O_NO_EXCLUSIONS",index)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: f9o-prospective-confirmation-seed-${{ matrix.seed }}
+          path: results/f9o-confirm-${{ matrix.seed }}/
+          retention-days: 30
+          if-no-files-found: warn
+
+  aggregate:
+    needs: fresh-confirmation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: f9o-prospective-confirmation-seed-*
+          path: archive
+      - name: Aggregate first-choice pair successes across four policy seeds
+        run: |
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          files=sorted(Path("archive").glob("f9o-prospective-confirmation-seed-*/report.json"))
+          rows=[json.loads(p.read_text()) for p in files]
+          assert len(rows)==4 and {r["index"] for r in rows}==set(range(4))
+          assert all(not r["original_holdout_opened"] and not r["training_performed"] for r in rows)
+          output={
+              "experiment":"F9-O equal-BC-dose long versus fragmented dropout, new S13 TRAIN",
+              "confirm_seed_base":600000,"train_seed_base":500000,
+              "historical_heldout_opened":False,
+              "other_confirmations_reused":False,
+              "seeds":[0,1,2,3],"metrics":{}
+          }
+          lines=["# F9-O — Independent S13 retention under equal training blackout dose",
+                 "",
+                 "Eight NEW S13-trained context8 policies; 6 effective masked BC frames",
+                 "per teacher demonstration in both arms, followed by CLEAN PPO.",
+                 "Independent 600000+ confirmation, original holdout unopened.",
+                 "",
+                 "| Phase | Task | Test intervention | Arm | Both first correct | First choice correct / all | Junction | First committed | Final success | Both final |",
+                 "|---|---|---|---|---:|---:|---:|---:|---:|---:|"]
+          for phase in ("after_bc","after_rl"):
+              keys=(["S13/cue_lost_continuous"] if phase=="after_bc"
+                    else [f"S{s}/{c}" for s in (13,7)
+                          for c in ("cue_lost_continuous","normal","fixed_4")])
+              for key in keys:
+                  d={}
+                  for arm in ("fragmented6","continuous6"):
+                      summaries=[r["arms"][arm][phase][key]["summary"] for r in rows]
+                      n=sum(x["episodes"] for x in summaries)
+                      pairs=sum(x["pairs"] for x in summaries)
+                      counts={c:sum(x["counts"][c] for x in summaries)
+                              for c in summaries[0]["counts"]}
+                      paircounts={c:sum(x["pair_counts"][c] for x in summaries)
+                                  for c in summaries[0]["pair_counts"]}
+                      d[arm]={
+                          "episodes":n,"pairs":pairs,"counts":counts,"pair_counts":paircounts,
+                          "both_first_correct_by_seed":[
+                              x["pair_counts"]["both_first_correct"] for x in summaries],
+                          "first_correct_rate_by_seed":[
+                              x["rates"]["first_choice_correct"] for x in summaries],
+                          "junction_rate_by_seed":[
+                              x["rates"]["junction_arrived"] for x in summaries],
+                          "success_rate_by_seed":[
+                              x["rates"]["success"] for x in summaries],
+                          "first_correct_conditional_on_commit":(
+                              None if not counts["first_committed"] else
+                              counts["first_choice_correct"]/counts["first_committed"]),
+                          "avg_scheduled_mask_frames":sum(
+                              x["counts"]["scheduled_masks"] for x in summaries)/n,
+                          "avg_effective_mask_frames":sum(
+                              x["counts"]["effective_masks"] for x in summaries)/n,
+                      }
+                      a=d[arm]
+                      lines.append(
+                          f'| {phase} | {key.split("/")[0]} | {key.split("/")[1]} | {arm} | '
+                          f'{a["pair_counts"]["both_first_correct"]}/{pairs} | '
+                          f'{counts["first_choice_correct"]/n:.1%} | '
+                          f'{counts["junction_arrived"]/n:.1%} | '
+                          f'{counts["first_committed"]/n:.1%} | '
+                          f'{counts["success"]/n:.1%} | '
+                          f'{paircounts["both_final_success"]}/{pairs} |')
+                  d["long_minus_fragmented_both_first_by_seed"]=[
+                      a-b for a,b in zip(
+                          d["continuous6"]["both_first_correct_by_seed"],
+                          d["fragmented6"]["both_first_correct_by_seed"])]
+                  d["long_minus_fragmented_both_first_total"]=(
+                      d["continuous6"]["pair_counts"]["both_first_correct"]-
+                      d["fragmented6"]["pair_counts"]["both_first_correct"])
+                  output["metrics"][f"{phase}/{key}"]=d
+          primary=output["metrics"]["after_rl/S13/cue_lost_continuous"]
+          delta=primary["long_minus_fragmented_both_first_by_seed"]
+          output["preregistered_primary"]={
+              "long_minus_fragmented_both_first_by_seed":delta,
+              "positive_policy_seeds":sum(x>0 for x in delta),
+              "meets_three_of_four_criterion":sum(x>0 for x in delta)>=3,
+              "total_gain_in_both_first_correct_pairs":
+                  primary["long_minus_fragmented_both_first_total"]
+          }
+          assert len(output["metrics"])==7
+          lines+=["",
+                  "Primary: after_rl/S13/cue_lost_continuous, BOTH first exits correct",
+                  "among all original/inverted worlds (including no-junction worlds).",
+                  "Long-minus-fragmented by seed: "+str(delta),
+                  "At least 3/4 seeds positive? "+
+                  str(output["preregistered_primary"]["meets_three_of_four_criterion"]),
+                  "Conditional success among committed agents is descriptive only.",
+                  "BC is exactly dose-matched, PPO is clean but on-policy paths diverge.",
+                  "No cherry-picking the earlier BC model if PPO erases robustness."]
+          Path("archive/f9o_aggregate.json").write_text(json.dumps(output,indent=2))
+          Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text("\n".join(lines)+"\n")
+          print("F9O_AGGREGATE",json.dumps(output),flush=True)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: f9o-equal-dose-new-s13-confirmation-aggregate
+          path: archive/f9o_aggregate.json
+          retention-days: 30

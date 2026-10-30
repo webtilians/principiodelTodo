@@ -1,0 +1,25 @@
+name: INFINITO Emergence Observatory
+
+on:
+  push:
+    branches:
+      - "experiment/emergence-observatory-*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  independent-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Test observatory without the full INFINITO dependency stack
+        run: python -m unittest discover -s tests -p 'test_emergence_observatory.py' -v
+      - name: CLI synthetic blinded smoke test
+        run: |
+          python -m observatory demo --output-dir observatory_results/ci
+          python -m observatory analyze --input observatory_results/ci/blinded.jsonl --output observatory_results/ci/verification.json

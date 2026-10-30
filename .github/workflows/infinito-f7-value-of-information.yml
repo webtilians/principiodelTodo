@@ -1,0 +1,57 @@
+name: INFINITO F7 — Value of Information
+on:
+  push:
+    branches: ["experiment/f7-active-information-value"]
+    paths:
+      - ".github/workflows/infinito-f7-value-of-information.yml"
+      - "observatory/active_information_f7.py"
+      - "tests/test_f7_active_information.py"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  active-sensing:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Verify causal observation boundary and expected value calculations
+        run: PYTHONPATH=. python -m unittest discover -s tests -p 'test_f7_active_information.py' -v
+      - name: Run stable, hidden sensor switch and noisy-TV negative condition
+        run: |
+          python -m observatory.active_information_f7 \
+            --seeds 24 --train 240 --test 600 \
+            --output observatory_results/active_information_f7
+      - name: Print predeclared pass/fail criteria without selective reporting
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path("observatory_results/active_information_f7/report.json").read_text())
+          for cond,d in r["conditions"].items():
+              print("\nCONDITION",cond)
+              for name,s in d["policies"].items():
+                  print("POLICY",name,"reward",round(s["all"]["reward"],5),
+                        "inspect",round(s["all"]["inspection_rate"],5),
+                        "noise",round(s["all"]["noise_rate"],5),
+                        "late",round(s["after_last_100"]["reward"],5))
+              for base,x in d["voi_adaptive_minus"].items():
+                  print("DELTA",base,x)
+          stable=r["conditions"]["stable"]["voi_adaptive_minus"]
+          required=("never","random","always")
+          ok_stable=all(stable[x]["cluster_bootstrap95"][0]>0 for x in required)
+          null=r["conditions"]["unlearnable"]["voi_adaptive_minus"]["never"]["cluster_bootstrap95"]
+          ok_null=null[0] <= 0 <= null[1]
+          shift=r["conditions"]["switch"]["voi_adaptive_minus"]["voi_frozen"]["cluster_bootstrap95"]
+          ok_shift=shift[0] > 0
+          print("F7_HYPOTHESES",{"stable":ok_stable,"null":ok_null,"adapt_after_switch":ok_shift})
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: infinito-f7-active-information-evidence
+          path: observatory_results/active_information_f7/report.json
+          if-no-files-found: warn

@@ -1,0 +1,193 @@
+name: INFINITO F9-L — F4 Blackout vs LSTM Survival
+
+on:
+  push:
+    branches: ["experiment/f9l-f4-interruption-survival"]
+    paths:
+      - "observatory/f9l_f4_interruption.py"
+      - "tests/test_f9l_f4_interruption.py"
+      - "docs/INFINITO_F9L_F4_INTERRUPTION_PROTOCOL.md"
+      - ".github/workflows/infinito-f9l-f4-interruption.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: f9l-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  integrity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install pinned MiniGrid and CPU-only PyTorch
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r observatory/requirements_f9.txt gymnasium==1.4.0
+      - name: F9-L intervention contracts, paired views, no heldout
+        run: python -m unittest discover -s tests -p 'test_f9l_f4_interruption.py' -v
+      - name: Preserve F9-K decoding and F9-J boundary integrity
+        run: |
+          python -m unittest discover -s tests -p 'test_f9k_temporal_memory_probes.py' -v
+          python -m unittest discover -s tests -p 'test_f9j_recurrent_memory_attribution.py' -v
+          python -m unittest discover -s tests -p 'test_f9i_selective_memory.py' -v
+
+  frozen-development:
+    needs: integrity
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        seed: [0, 1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install pinned CPU-only scientific environment
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r observatory/requirements_f9.txt gymnasium==1.4.0
+      - name: Retrieve original F9-I context8 and zero frozen policies
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 40928547873
+          repository: webtilians/principiodelTodo
+          github-token: ${{ github.token }}
+          name: f9i-${{ matrix.seed }}-8
+          path: evidence/f9i-${{ matrix.seed }}-8
+      - name: Cut only F4 from each predeclared checkpoint to fork; restore at fork
+        run: |
+          python -m observatory.f9l_f4_interruption \
+            --index ${{ matrix.seed }} \
+            --source evidence/f9i-${{ matrix.seed }}-8/context_after_rl.zip \
+            --train-pairs 80 --dev-pairs 10 \
+            --output results/f9l-${{ matrix.seed }}
+      - name: Confirm F9-K reproduced and all masked/neutral controls collected
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          files=list(Path("results").glob("f9l-*/report.json"))
+          assert len(files)==1
+          r=json.loads(files[0].read_text())
+          assert r["source_run"]==40928547873
+          assert not r["heldout_opened"] and not r["policy_training"]
+          assert r["auxiliary_probe_training"] and r["fork_readout_restored"]
+          assert (r["train_pairs"],r["dev_pairs"]) == (80,10)
+          assert (r["train_split"],r["eval_split"]) == ("train S7","development S7/S13")
+          for mode,conditions in (
+              ("context",("normal","cut_post_cue","cut_halfway","cut_last_step","neutral_tail")),
+              ("zero",("normal",))
+          ):
+              expected={f"S{s}/{c}" for s in (7,13) for c in conditions}
+              assert set(r["models"][mode])==expected
+              for metric in r["models"][mode].values():
+                  for kind in ("fixed_probe","adapted_probe"):
+                      assert metric[kind]["pairs"]==10
+                      assert metric[kind]["equal_raw_pairs"]==10
+                      assert metric[kind]["equal_f4_pairs"]==10
+                  assert metric["policy_at_fork"]["pairs"]==10
+          print("F9L_SOURCE_BASELINE_REPRODUCED",r["seed_index"])
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: f9l-frozen-seed-${{ matrix.seed }}
+          path: results/f9l-${{ matrix.seed }}/
+          retention-days: 30
+          if-no-files-found: warn
+
+  aggregate:
+    needs: frozen-development
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: f9l-frozen-seed-*
+          path: archive
+      - name: Summarize four seeds (including null and adverse effects)
+        run: |
+          python - <<'PY'
+          import json,os,statistics
+          from pathlib import Path
+          paths=sorted(Path("archive").glob("f9l-frozen-seed-*/report.json"))
+          runs=[json.loads(p.read_text()) for p in paths]
+          assert len(runs)==4 and {r["seed_index"] for r in runs}==set(range(4))
+          assert all(not r["heldout_opened"] and not r["policy_training"] for r in runs)
+          aggregate={
+              "experiment":"F9-L interrupted F4 with restored fork input",
+              "source_run":40928547873,
+              "confirmatory":False,"policy_training":False,
+              "auxiliary_probe_training":True,"heldout_opened":False,
+              "train_partition":"S7 train","evaluation_partition":"S7/S13 development",
+              "seeds":list(range(4)),"metrics":{}
+          }
+          lines=[
+              "# INFINITO F9-L — How long does LSTM retain cue identity without F4?",
+              "",
+              "Four frozen context8 and zero F9-I policies; external F4 interrupted only",
+              "during teacher prefix and RESTORED for the decision at the fork.",
+              "Fixed ridge probe = trained only on normal S7 train; adapted ridge",
+              "probe = trained on matching interrupted S7 train. No S13 or development",
+              "examples used for probe fitting. No policy training, heldout closed.",
+              "",
+              "| Task | Agent / cutoff | Fixed decode acc. | Adapted decode acc. | Adapted both/40 | Actor correct action | Actor both/40 | Actor flips/40 | Avg blocked steps |",
+              "|---|---|---:|---:|---:|---:|---:|---:|---:|"
+          ]
+          for size in (7,13):
+              for mode,conditions in (
+                  ("context",("normal","cut_post_cue","cut_halfway","cut_last_step","neutral_tail")),
+                  ("zero",("normal",))
+              ):
+                  for condition in conditions:
+                      key=f"S{size}/{mode}/{condition}"
+                      rows=[r["models"][mode][f"S{size}/{condition}"] for r in runs]
+                      result={
+                          "fixed_accuracy_by_seed":[v["fixed_probe"]["accuracy"] for v in rows],
+                          "fixed_accuracy_mean":statistics.mean(v["fixed_probe"]["accuracy"] for v in rows),
+                          "fixed_both_pairs":sum(v["fixed_probe"]["both_correct"] for v in rows),
+                          "adapted_accuracy_by_seed":[v["adapted_probe"]["accuracy"] for v in rows],
+                          "adapted_accuracy_mean":statistics.mean(v["adapted_probe"]["accuracy"] for v in rows),
+                          "adapted_both_pairs":sum(v["adapted_probe"]["both_correct"] for v in rows),
+                          "action_accuracy_by_seed":[v["policy_at_fork"]["action_accuracy"] for v in rows],
+                          "action_accuracy_mean":statistics.mean(v["policy_at_fork"]["action_accuracy"] for v in rows),
+                          "actor_both_correct_pairs":sum(v["policy_at_fork"]["both_teacher_actions_correct"] for v in rows),
+                          "actor_flip_pairs":sum(v["policy_at_fork"]["predicted_action_flips"] for v in rows),
+                          "mask_steps_by_seed":[v["policy_at_fork"]["mean_masked_steps"] for v in rows],
+                      }
+                      aggregate["metrics"][key]=result
+                      lines.append(
+                          f'| S{size} | {mode}/{condition} | '
+                          f'{result["fixed_accuracy_mean"]:.1%} | {result["adapted_accuracy_mean"]:.1%} | '
+                          f'{result["adapted_both_pairs"]}/40 | {result["action_accuracy_mean"]:.1%} | '
+                          f'{result["actor_both_correct_pairs"]}/40 | {result["actor_flip_pairs"]}/40 | '
+                          f'{statistics.mean(result["mask_steps_by_seed"]):.1f} |'
+                      )
+          for size in (7,13):
+              natural=aggregate["metrics"][f"S{size}/context/normal"]
+              neutral=aggregate["metrics"][f"S{size}/context/neutral_tail"]
+              assert natural=={**neutral, "mask_steps_by_seed":natural["mask_steps_by_seed"]} or all(
+                  natural[k]==neutral[k] for k in natural if k!="mask_steps_by_seed")
+          lines+=["",
+              "A fixed probe dropping under blackout could reflect OOD representation drift;",
+              "compare adapted probe and native teacher-fork action. Even a probe",
+              "success only shows decodability under forced teacher history, not autonomous",
+              "navigation. Equal fork observation and F4 are asserted in every pair."]
+          Path("archive/f9l_aggregate.json").write_text(json.dumps(aggregate,indent=2))
+          Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text("\n".join(lines)+"\n")
+          print("F9L_AGGREGATE",json.dumps(aggregate))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: f9l-four-seed-f4-interruption-aggregate
+          path: archive/f9l_aggregate.json
+          retention-days: 30

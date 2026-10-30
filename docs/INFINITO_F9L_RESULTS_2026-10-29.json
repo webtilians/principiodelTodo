@@ -1,0 +1,414 @@
+{
+  "experiment": "F9-L interrupted F4 with restored fork input",
+  "source_run": 40928547873,
+  "confirmatory": false,
+  "policy_training": false,
+  "auxiliary_probe_training": true,
+  "heldout_opened": false,
+  "train_partition": "S7 train",
+  "evaluation_partition": "S7/S13 development",
+  "seeds": [
+    0,
+    1,
+    2,
+    3
+  ],
+  "metrics": {
+    "S7/context/normal": {
+      "fixed_accuracy_by_seed": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "fixed_accuracy_mean": 1,
+      "fixed_both_pairs": 40,
+      "adapted_accuracy_by_seed": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "adapted_accuracy_mean": 1,
+      "adapted_both_pairs": 40,
+      "action_accuracy_by_seed": [
+        1,
+        0.85,
+        1,
+        1
+      ],
+      "action_accuracy_mean": 0.9625,
+      "actor_both_correct_pairs": 37,
+      "actor_flip_pairs": 37,
+      "mask_steps_by_seed": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "S7/context/cut_post_cue": {
+      "fixed_accuracy_by_seed": [
+        0.5,
+        0.5,
+        0.5,
+        0.5
+      ],
+      "fixed_accuracy_mean": 0.5,
+      "fixed_both_pairs": 0,
+      "adapted_accuracy_by_seed": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "adapted_accuracy_mean": 1,
+      "adapted_both_pairs": 40,
+      "action_accuracy_by_seed": [
+        0.55,
+        0.5,
+        0.5,
+        0.65
+      ],
+      "action_accuracy_mean": 0.55,
+      "actor_both_correct_pairs": 4,
+      "actor_flip_pairs": 4,
+      "mask_steps_by_seed": [
+        4,
+        4,
+        4,
+        4
+      ]
+    },
+    "S7/context/cut_halfway": {
+      "fixed_accuracy_by_seed": [
+        0.5,
+        0.5,
+        0.5,
+        0.5
+      ],
+      "fixed_accuracy_mean": 0.5,
+      "fixed_both_pairs": 0,
+      "adapted_accuracy_by_seed": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "adapted_accuracy_mean": 1,
+      "adapted_both_pairs": 40,
+      "action_accuracy_by_seed": [
+        1,
+        0.5,
+        0.35,
+        0.65
+      ],
+      "action_accuracy_mean": 0.625,
+      "actor_both_correct_pairs": 14,
+      "actor_flip_pairs": 18,
+      "mask_steps_by_seed": [
+        2,
+        2,
+        2,
+        2
+      ]
+    },
+    "S7/context/cut_last_step": {
+      "fixed_accuracy_by_seed": [
+        0.9,
+        0.5,
+        0.5,
+        0.5
+      ],
+      "fixed_accuracy_mean": 0.6,
+      "fixed_both_pairs": 8,
+      "adapted_accuracy_by_seed": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "adapted_accuracy_mean": 1,
+      "adapted_both_pairs": 40,
+      "action_accuracy_by_seed": [
+        1,
+        0.8,
+        1,
+        1
+      ],
+      "action_accuracy_mean": 0.95,
+      "actor_both_correct_pairs": 36,
+      "actor_flip_pairs": 36,
+      "mask_steps_by_seed": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "S7/context/neutral_tail": {
+      "fixed_accuracy_by_seed": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "fixed_accuracy_mean": 1,
+      "fixed_both_pairs": 40,
+      "adapted_accuracy_by_seed": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "adapted_accuracy_mean": 1,
+      "adapted_both_pairs": 40,
+      "action_accuracy_by_seed": [
+        1,
+        0.85,
+        1,
+        1
+      ],
+      "action_accuracy_mean": 0.9625,
+      "actor_both_correct_pairs": 37,
+      "actor_flip_pairs": 37,
+      "mask_steps_by_seed": [
+        4,
+        4,
+        4,
+        4
+      ]
+    },
+    "S7/zero/normal": {
+      "fixed_accuracy_by_seed": [
+        1,
+        0.65,
+        0.85,
+        1
+      ],
+      "fixed_accuracy_mean": 0.875,
+      "fixed_both_pairs": 30,
+      "adapted_accuracy_by_seed": [
+        1,
+        0.65,
+        0.85,
+        1
+      ],
+      "adapted_accuracy_mean": 0.875,
+      "adapted_both_pairs": 30,
+      "action_accuracy_by_seed": [
+        0.5,
+        0.5,
+        0.5,
+        0.5
+      ],
+      "action_accuracy_mean": 0.5,
+      "actor_both_correct_pairs": 0,
+      "actor_flip_pairs": 0,
+      "mask_steps_by_seed": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "S13/context/normal": {
+      "fixed_accuracy_by_seed": [
+        1,
+        1,
+        0.95,
+        0.9
+      ],
+      "fixed_accuracy_mean": 0.9625,
+      "fixed_both_pairs": 37,
+      "adapted_accuracy_by_seed": [
+        1,
+        1,
+        0.95,
+        0.9
+      ],
+      "adapted_accuracy_mean": 0.9625,
+      "adapted_both_pairs": 37,
+      "action_accuracy_by_seed": [
+        0.85,
+        0.8,
+        1,
+        0.9
+      ],
+      "action_accuracy_mean": 0.8875,
+      "actor_both_correct_pairs": 31,
+      "actor_flip_pairs": 31,
+      "mask_steps_by_seed": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "S13/context/cut_post_cue": {
+      "fixed_accuracy_by_seed": [
+        0.5,
+        0.5,
+        0.5,
+        0.5
+      ],
+      "fixed_accuracy_mean": 0.5,
+      "fixed_both_pairs": 0,
+      "adapted_accuracy_by_seed": [
+        0.5,
+        0.5,
+        0.5,
+        0.5
+      ],
+      "adapted_accuracy_mean": 0.5,
+      "adapted_both_pairs": 0,
+      "action_accuracy_by_seed": [
+        0.5,
+        0.5,
+        0.5,
+        0.55
+      ],
+      "action_accuracy_mean": 0.5125,
+      "actor_both_correct_pairs": 1,
+      "actor_flip_pairs": 1,
+      "mask_steps_by_seed": [
+        10,
+        10,
+        10,
+        10
+      ]
+    },
+    "S13/context/cut_halfway": {
+      "fixed_accuracy_by_seed": [
+        0.5,
+        0.5,
+        0.5,
+        0.5
+      ],
+      "fixed_accuracy_mean": 0.5,
+      "fixed_both_pairs": 0,
+      "adapted_accuracy_by_seed": [
+        0.55,
+        0.5,
+        0.5,
+        0.55
+      ],
+      "adapted_accuracy_mean": 0.525,
+      "adapted_both_pairs": 2,
+      "action_accuracy_by_seed": [
+        0.5,
+        0.65,
+        0.5,
+        0.5
+      ],
+      "action_accuracy_mean": 0.5375,
+      "actor_both_correct_pairs": 9,
+      "actor_flip_pairs": 15,
+      "mask_steps_by_seed": [
+        5,
+        5,
+        5,
+        5
+      ]
+    },
+    "S13/context/cut_last_step": {
+      "fixed_accuracy_by_seed": [
+        0.95,
+        0.5,
+        0.5,
+        0.5
+      ],
+      "fixed_accuracy_mean": 0.6125,
+      "fixed_both_pairs": 9,
+      "adapted_accuracy_by_seed": [
+        0.5,
+        0.5,
+        0.95,
+        0.7
+      ],
+      "adapted_accuracy_mean": 0.6625,
+      "adapted_both_pairs": 13,
+      "action_accuracy_by_seed": [
+        0.9,
+        0.8,
+        0.75,
+        0.65
+      ],
+      "action_accuracy_mean": 0.775,
+      "actor_both_correct_pairs": 22,
+      "actor_flip_pairs": 22,
+      "mask_steps_by_seed": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "S13/context/neutral_tail": {
+      "fixed_accuracy_by_seed": [
+        1,
+        1,
+        0.95,
+        0.9
+      ],
+      "fixed_accuracy_mean": 0.9625,
+      "fixed_both_pairs": 37,
+      "adapted_accuracy_by_seed": [
+        1,
+        1,
+        0.95,
+        0.9
+      ],
+      "adapted_accuracy_mean": 0.9625,
+      "adapted_both_pairs": 37,
+      "action_accuracy_by_seed": [
+        0.85,
+        0.8,
+        1,
+        0.9
+      ],
+      "action_accuracy_mean": 0.8875,
+      "actor_both_correct_pairs": 31,
+      "actor_flip_pairs": 31,
+      "mask_steps_by_seed": [
+        10,
+        10,
+        10,
+        10
+      ]
+    },
+    "S13/zero/normal": {
+      "fixed_accuracy_by_seed": [
+        0.5,
+        0.5,
+        0.5,
+        0.5
+      ],
+      "fixed_accuracy_mean": 0.5,
+      "fixed_both_pairs": 0,
+      "adapted_accuracy_by_seed": [
+        0.5,
+        0.5,
+        0.5,
+        0.5
+      ],
+      "adapted_accuracy_mean": 0.5,
+      "adapted_both_pairs": 0,
+      "action_accuracy_by_seed": [
+        0.5,
+        0.5,
+        0.5,
+        0.5
+      ],
+      "action_accuracy_mean": 0.5,
+      "actor_both_correct_pairs": 0,
+      "actor_flip_pairs": 0,
+      "mask_steps_by_seed": [
+        0,
+        0,
+        0,
+        0
+      ]
+    }
+  }
+}

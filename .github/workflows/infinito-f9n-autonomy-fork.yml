@@ -1,0 +1,273 @@
+name: INFINITO F9-N — Autonomous Fork Decomposition
+
+on:
+  push:
+    branches: ["experiment/f9n-autonomy-fork-decomposition"]
+    paths:
+      - "observatory/f9n_stage_autonomy.py"
+      - "tests/test_f9n_stage_autonomy.py"
+      - "docs/INFINITO_F9N_AUTONOMY_FORK_PROTOCOL.md"
+      - ".github/workflows/infinito-f9n-autonomy-fork.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: f9n-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  integrity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install CPU-only F9 environment
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r observatory/requirements_f9.txt gymnasium==1.4.0
+      - name: Validate new stage/clock/partition contracts; TRAIN worlds only
+        run: python -m unittest discover -s tests -p 'test_f9n_stage_autonomy.py' -v
+      - name: Validate inherited F9-M and F9-L integrity
+        run: |
+          python -m unittest discover -s tests -p 'test_f9m_temporal_dropout.py' -v
+          python -m unittest discover -s tests -p 'test_f9l_f4_interruption.py' -v
+
+  frozen-model-gate:
+    needs: integrity
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install CPU-only F9 integrity dependencies
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r observatory/requirements_f9.txt gymnasium==1.4.0
+      - name: Retrieve all four ORIGINAL successful F9-M training artifacts
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 40950579984
+          repository: webtilians/principiodelTodo
+          github-token: ${{ github.token }}
+          pattern: f9m-training-seed-*
+          path: evidence
+      - name: Verify eight frozen SHA-256 checkpoints, initial weights, budgets, provenance
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from observatory.f9m_confirm import validate_training
+          from observatory.f9m_temporal_dropout_training import ARMS
+          names=set()
+          for index in range(4):
+              directory=Path(f"evidence/f9m-training-seed-{index}")
+              report=json.loads((directory/"report.json").read_text())
+              validate_training(report,directory,index)
+              assert report["training_only"] and not report["confirmation_opened"]
+              assert report["worlds"] == 600 and report["epochs"] == 40
+              assert report["requested_rl_steps"] == 20000
+              assert report["arms"]["sham"]["initial_parameter_sha256"] == report["arms"]["dropout"]["initial_parameter_sha256"]
+              for arm in ARMS:
+                  assert report["arms"][arm]["actual_rl_steps"] == 20096
+                  names.add((index,arm))
+          assert len(names)==8
+          print("F9N_ALL_EIGHT_FROZEN_MODELS_GATED")
+          PY
+
+  new-confirmation:
+    needs: frozen-model-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      matrix:
+        seed: [0, 1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install CPU-only F9 evaluator
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r observatory/requirements_f9.txt gymnasium==1.4.0
+      - name: Retrieve verified F9-M pair, never retrain
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 40950579984
+          repository: webtilians/principiodelTodo
+          github-token: ${{ github.token }}
+          name: f9m-training-seed-${{ matrix.seed }}
+          path: evidence/f9m-seed-${{ matrix.seed }}
+      - name: One-shot preregistered stage confirmation in NEW 400000+ worlds
+        run: |
+          python -m observatory.f9n_stage_autonomy \
+            --index ${{ matrix.seed }} --s13-pairs 40 --s7-pairs 20 \
+            --source evidence/f9m-seed-${{ matrix.seed }} \
+            --output results/f9n-seed-${{ matrix.seed }}
+      - name: Verify complete unfiltered stage and pair outputs
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          index=int("${{ matrix.seed }}")
+          r=json.loads(Path(f"results/f9n-seed-{index}/report.json").read_text())
+          assert r["seed_index"]==index and r["origin_run"]==40950579984
+          assert not r["training_performed"] and not r["probes_fitted"]
+          assert not r["historical_holdout_opened"] and not r["F9M_confirmation_reused"]
+          assert r["new_confirmation_base"]==400000
+          assert r["pairs_by_size"]=={"7":20,"13":40}
+          assert set(r["arms"])=={"sham","dropout"}
+          expected={f"S{size}/{condition}"
+                    for size in (7,13)
+                    for condition in ("normal","cue_lost_continuous","fixed_4")}
+          for arm in ("sham","dropout"):
+              assert set(r["arms"][arm])==expected
+              for key,record in r["arms"][arm].items():
+                  pairs=40 if key.startswith("S13") else 20
+                  summary=record["summary"]
+                  assert summary["pairs"]==pairs and summary["episodes"]==2*pairs
+                  assert len(record["pairs_data"])==pairs
+                  assert summary["counts"]["first_choice_correct"]<=summary["counts"]["first_committed"]<=summary["counts"]["junction_arrived"]
+                  if key.endswith("normal"):
+                      assert summary["counts"]["scheduled_masks"]==0
+                  if key.endswith("fixed_4"):
+                      assert summary["counts"]["clock_4_complete"]<=2*pairs
+          print("F9N_COMPLETE_ALL_PREASSIGNED_WORLDS",index)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: f9n-confirmed-stages-seed-${{ matrix.seed }}
+          path: results/f9n-seed-${{ matrix.seed }}/
+          retention-days: 30
+          if-no-files-found: warn
+
+  aggregate:
+    needs: new-confirmation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: f9n-confirmed-stages-seed-*
+          path: archive
+      - name: Aggregate stage probabilities, denominators, paired worlds, seed deltas
+        run: |
+          python - <<'PY'
+          import json,os,statistics
+          from pathlib import Path
+          paths=sorted(Path("archive").glob("f9n-confirmed-stages-seed-*/report.json"))
+          reports=[json.loads(p.read_text()) for p in paths]
+          assert len(reports)==4 and {r["seed_index"] for r in reports}==set(range(4))
+          assert all(not r["historical_holdout_opened"] and not r["training_performed"] for r in reports)
+          output={
+              "experiment":"F9-N frozen policies, stage resolved prospective autonomous S13",
+              "source_f9m_run":40950579984,
+              "confirmation_seed_base":400000,
+              "historical_heldout_opened":False,
+              "F9M_confirmation_reused":False,
+              "agent_training":False,
+              "seeds":[0,1,2,3],
+              "metrics":{}
+          }
+          lines=[
+              "# INFINITO F9-N — Independent stage-resolved autonomous confirmation",
+              "",
+              "F9-M frozen eight checkpoints, 4 seeds, S13 40 counterfactual worlds",
+              "per seed and S7 20 per seed. New 400000+ seeds, no training or",
+              "reused confirmation/holdout. Conditional rates are descriptive",
+              "because the population reaching the fork is model-dependent.",
+              "",
+              "| Size | Control | Arm | Cue seen | Junction reached | First commit | First correct / all | Correct / committed | Final success | Both first correct | Both final success | Full 4-step window |",
+              "|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|"
+          ]
+          for size in (13,7):
+              total_pairs=40*4 if size==13 else 20*4
+              for cond in ("normal","cue_lost_continuous","fixed_4"):
+                  key=f"S{size}/{cond}"
+                  summary={}
+                  for arm in ("sham","dropout"):
+                      rows=[r["arms"][arm][key]["summary"] for r in reports]
+                      n=sum(v["episodes"] for v in rows)
+                      assert n==2*total_pairs
+                      counts={name:sum(v["counts"][name] for v in rows)
+                              for name in rows[0]["counts"]}
+                      pairs={name:sum(v["pair_counts"][name] for v in rows)
+                             for name in rows[0]["pair_counts"]}
+                      by_seed={
+                          metric:[v["rates"][metric] for v in rows]
+                          for metric in ("junction_arrived","first_committed",
+                                         "first_choice_correct","success",
+                                         "clock_4_complete","episodes_intervened")
+                      }
+                      summary[arm]={
+                          "episodes":n,"pairs":total_pairs,
+                          "counts":counts,"pair_counts":pairs,
+                          "rate_by_seed":by_seed,
+                          "rates":{metric:counts[metric]/n for metric in (
+                              "cue_seen","junction_arrived","first_committed",
+                              "first_choice_correct","first_choice_wrong","success",
+                              "timeout","arm_without_center","terminal_without_center",
+                              "episodes_intervened","clock_4_complete")},
+                          "conditional":{
+                              "commit_given_junction":None if counts["junction_arrived"]==0
+                                  else counts["first_committed"]/counts["junction_arrived"],
+                              "correct_given_commit":None if counts["first_committed"]==0
+                                  else counts["first_choice_correct"]/counts["first_committed"],
+                              "n_arrived":counts["junction_arrived"],
+                              "n_committed":counts["first_committed"],
+                          },
+                          "mean_scheduled_mask_steps":statistics.mean(
+                              [v["mean_masked_steps"] for v in rows]),
+                          "mean_effective_mask_steps":statistics.mean(
+                              [v["mean_effective_masked_steps"] for v in rows]),
+                      }
+                      a=summary[arm]
+                      lines.append(
+                          f'| S{size} | {cond} | {arm} | '
+                          f'{a["rates"]["cue_seen"]:.1%} | '
+                          f'{a["rates"]["junction_arrived"]:.1%} | '
+                          f'{a["rates"]["first_committed"]:.1%} | '
+                          f'{a["rates"]["first_choice_correct"]:.1%} | '
+                          f'{(a["conditional"]["correct_given_commit"] or 0):.1%} '
+                          f'({a["conditional"]["n_committed"]}) | '
+                          f'{a["rates"]["success"]:.1%} | '
+                          f'{a["pair_counts"]["both_first_correct"]}/{total_pairs} | '
+                          f'{a["pair_counts"]["both_final_success"]}/{total_pairs} | '
+                          f'{a["rates"]["clock_4_complete"]:.1%} |')
+                  summary["dropout_minus_sham_by_seed"]={
+                      name:[a-b for a,b in zip(
+                          summary["dropout"]["rate_by_seed"][name],
+                          summary["sham"]["rate_by_seed"][name])]
+                      for name in ("junction_arrived","first_committed",
+                                   "first_choice_correct","success")
+                  }
+                  summary["dropout_minus_sham_pair_both_first_correct"] = (
+                      summary["dropout"]["pair_counts"]["both_first_correct"]-
+                      summary["sham"]["pair_counts"]["both_first_correct"])
+                  output["metrics"][key]=summary
+          lines+=["",
+              "Rates conditional on reaching/committing describe *different selected",
+              "populations*. They are not causal effects of dropout among common arrivals.",
+              "The fixed_4 intervention has the same t=3..6 schedule, not",
+              "necessarily identical effective content or survival after 7 steps.",
+              "No number from the original 300000+ F9-M confirmation was used",
+              "for selection; all results include complete first choices and timeouts."]
+          assert len(output["metrics"])==6
+          Path("archive/f9n_aggregate.json").write_text(json.dumps(output,indent=2))
+          Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text("\n".join(lines)+"\n")
+          print("F9N_AGGREGATE",json.dumps(output),flush=True)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: f9n-four-seed-fork-stage-confirmation-aggregate
+          path: archive/f9n_aggregate.json
+          retention-days: 30

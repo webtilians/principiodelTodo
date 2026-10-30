@@ -1,0 +1,577 @@
+{
+  "experiment": "F9-M independent confirmation of matched new F4 dropout policies",
+  "confirmatory_within_minigrid": true,
+  "historical_heldout_opened": false,
+  "validation": "prospective new 300000 seed range, S7/S13",
+  "seeds": [
+    0,
+    1,
+    2,
+    3
+  ],
+  "autonomous": {
+    "S7/normal": {
+      "sham": {
+        "success_by_seed": [
+          1,
+          0.9,
+          1,
+          0.725
+        ],
+        "success_mean": 0.90625,
+        "both_correct_pairs": 65,
+        "valid_flips": 65,
+        "applied_rate": 0,
+        "timeout_rate": 0.06875
+      },
+      "dropout": {
+        "success_by_seed": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "success_mean": 1,
+        "both_correct_pairs": 80,
+        "valid_flips": 80,
+        "applied_rate": 0,
+        "timeout_rate": 0
+      },
+      "paired_success_difference_by_seed": [
+        0,
+        0.09999999999999998,
+        0,
+        0.275
+      ],
+      "paired_success_gain_mean": 0.09375
+    },
+    "S7/zero_f4_after_cue": {
+      "sham": {
+        "success_by_seed": [
+          0.575,
+          0.5,
+          0.475,
+          0.1
+        ],
+        "success_mean": 0.4125,
+        "both_correct_pairs": 5,
+        "valid_flips": 8,
+        "applied_rate": 1,
+        "timeout_rate": 0.14375
+      },
+      "dropout": {
+        "success_by_seed": [
+          0.6,
+          0.7,
+          0.85,
+          0.55
+        ],
+        "success_mean": 0.675,
+        "both_correct_pairs": 28,
+        "valid_flips": 28,
+        "applied_rate": 1,
+        "timeout_rate": 0
+      },
+      "paired_success_difference_by_seed": [
+        0.025000000000000022,
+        0.19999999999999996,
+        0.375,
+        0.45000000000000007
+      ],
+      "paired_success_gain_mean": 0.2625
+    },
+    "S13/normal": {
+      "sham": {
+        "success_by_seed": [
+          0.6,
+          0.4,
+          1,
+          0.375
+        ],
+        "success_mean": 0.59375,
+        "both_correct_pairs": 28,
+        "valid_flips": 28,
+        "applied_rate": 0,
+        "timeout_rate": 0.28125
+      },
+      "dropout": {
+        "success_by_seed": [
+          0.8,
+          0.5,
+          0.475,
+          0.7
+        ],
+        "success_mean": 0.61875,
+        "both_correct_pairs": 35,
+        "valid_flips": 35,
+        "applied_rate": 0,
+        "timeout_rate": 0.24375
+      },
+      "paired_success_difference_by_seed": [
+        0.20000000000000007,
+        0.09999999999999998,
+        -0.525,
+        0.32499999999999996
+      ],
+      "paired_success_gain_mean": 0.024999999999999994
+    },
+    "S13/zero_f4_after_cue": {
+      "sham": {
+        "success_by_seed": [
+          0.3,
+          0.25,
+          0,
+          0
+        ],
+        "success_mean": 0.1375,
+        "both_correct_pairs": 0,
+        "valid_flips": 0,
+        "applied_rate": 0.975,
+        "timeout_rate": 0.725
+      },
+      "dropout": {
+        "success_by_seed": [
+          0.5,
+          0.375,
+          0.375,
+          0.375
+        ],
+        "success_mean": 0.40625,
+        "both_correct_pairs": 1,
+        "valid_flips": 4,
+        "applied_rate": 0.875,
+        "timeout_rate": 0.1875
+      },
+      "paired_success_difference_by_seed": [
+        0.2,
+        0.125,
+        0.375,
+        0.375
+      ],
+      "paired_success_gain_mean": 0.26875
+    }
+  },
+  "teacher_fork": {
+    "S7/normal": {
+      "sham": {
+        "action_by_seed": [
+          1,
+          0.9,
+          1,
+          1
+        ],
+        "action_mean": 0.975,
+        "actor_both_pairs": 76,
+        "actor_flip_pairs": 76,
+        "adapted_probe_by_seed": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "adapted_probe_mean": 1,
+        "fixed_probe_by_seed": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "fixed_probe_mean": 1
+      },
+      "dropout": {
+        "action_by_seed": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "action_mean": 1,
+        "actor_both_pairs": 80,
+        "actor_flip_pairs": 80,
+        "adapted_probe_by_seed": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "adapted_probe_mean": 1,
+        "fixed_probe_by_seed": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "fixed_probe_mean": 1
+      }
+    },
+    "S7/cut_post_cue": {
+      "sham": {
+        "action_by_seed": [
+          0.575,
+          0.5,
+          0.5,
+          0.5
+        ],
+        "action_mean": 0.51875,
+        "actor_both_pairs": 5,
+        "actor_flip_pairs": 7,
+        "adapted_probe_by_seed": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "adapted_probe_mean": 1,
+        "fixed_probe_by_seed": [
+          0.6,
+          0.5,
+          0.5,
+          0.5
+        ],
+        "fixed_probe_mean": 0.525
+      },
+      "dropout": {
+        "action_by_seed": [
+          1,
+          0.775,
+          0.975,
+          1
+        ],
+        "action_mean": 0.9375,
+        "actor_both_pairs": 70,
+        "actor_flip_pairs": 70,
+        "adapted_probe_by_seed": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "adapted_probe_mean": 1,
+        "fixed_probe_by_seed": [
+          0.75,
+          0.5,
+          0.5,
+          0.875
+        ],
+        "fixed_probe_mean": 0.65625
+      }
+    },
+    "S7/cut_halfway": {
+      "sham": {
+        "action_by_seed": [
+          1,
+          0.5,
+          0.375,
+          0.675
+        ],
+        "action_mean": 0.6375,
+        "actor_both_pairs": 31,
+        "actor_flip_pairs": 40,
+        "adapted_probe_by_seed": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "adapted_probe_mean": 1,
+        "fixed_probe_by_seed": [
+          0.55,
+          0.5,
+          0.5,
+          0.5
+        ],
+        "fixed_probe_mean": 0.5125
+      },
+      "dropout": {
+        "action_by_seed": [
+          1,
+          1,
+          0.975,
+          1
+        ],
+        "action_mean": 0.99375,
+        "actor_both_pairs": 79,
+        "actor_flip_pairs": 79,
+        "adapted_probe_by_seed": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "adapted_probe_mean": 1,
+        "fixed_probe_by_seed": [
+          1,
+          0.6,
+          0.5,
+          0.925
+        ],
+        "fixed_probe_mean": 0.75625
+      }
+    },
+    "S7/cut_last_step": {
+      "sham": {
+        "action_by_seed": [
+          1,
+          0.625,
+          1,
+          0.825
+        ],
+        "action_mean": 0.8625,
+        "actor_both_pairs": 58,
+        "actor_flip_pairs": 58,
+        "adapted_probe_by_seed": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "adapted_probe_mean": 1,
+        "fixed_probe_by_seed": [
+          1,
+          0.5,
+          0.5,
+          0.5
+        ],
+        "fixed_probe_mean": 0.625
+      },
+      "dropout": {
+        "action_by_seed": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "action_mean": 1,
+        "actor_both_pairs": 80,
+        "actor_flip_pairs": 80,
+        "adapted_probe_by_seed": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "adapted_probe_mean": 1,
+        "fixed_probe_by_seed": [
+          1,
+          0.7,
+          0.5,
+          0.975
+        ],
+        "fixed_probe_mean": 0.79375
+      }
+    },
+    "S13/normal": {
+      "sham": {
+        "action_by_seed": [
+          0.975,
+          0.75,
+          1,
+          0.775
+        ],
+        "action_mean": 0.875,
+        "actor_both_pairs": 60,
+        "actor_flip_pairs": 60,
+        "adapted_probe_by_seed": [
+          1,
+          0.925,
+          0.925,
+          0.5
+        ],
+        "adapted_probe_mean": 0.8375,
+        "fixed_probe_by_seed": [
+          1,
+          0.925,
+          0.925,
+          0.5
+        ],
+        "fixed_probe_mean": 0.8375
+      },
+      "dropout": {
+        "action_by_seed": [
+          0.925,
+          0.9,
+          0.875,
+          1
+        ],
+        "action_mean": 0.925,
+        "actor_both_pairs": 68,
+        "actor_flip_pairs": 68,
+        "adapted_probe_by_seed": [
+          0.925,
+          0.9,
+          1,
+          1
+        ],
+        "adapted_probe_mean": 0.95625,
+        "fixed_probe_by_seed": [
+          0.925,
+          0.9,
+          1,
+          1
+        ],
+        "fixed_probe_mean": 0.95625
+      }
+    },
+    "S13/cut_post_cue": {
+      "sham": {
+        "action_by_seed": [
+          0.5,
+          0.5,
+          0.5,
+          0.5
+        ],
+        "action_mean": 0.5,
+        "actor_both_pairs": 0,
+        "actor_flip_pairs": 0,
+        "adapted_probe_by_seed": [
+          0.725,
+          0.5,
+          0.5,
+          0.5
+        ],
+        "adapted_probe_mean": 0.55625,
+        "fixed_probe_by_seed": [
+          0.5,
+          0.5,
+          0.5,
+          0.5
+        ],
+        "fixed_probe_mean": 0.5
+      },
+      "dropout": {
+        "action_by_seed": [
+          0.725,
+          0.55,
+          0.5,
+          0.625
+        ],
+        "action_mean": 0.6,
+        "actor_both_pairs": 19,
+        "actor_flip_pairs": 22,
+        "adapted_probe_by_seed": [
+          0.8,
+          0.6,
+          0.675,
+          0.5
+        ],
+        "adapted_probe_mean": 0.64375,
+        "fixed_probe_by_seed": [
+          0.6,
+          0.5,
+          0.5,
+          0.65
+        ],
+        "fixed_probe_mean": 0.5625
+      }
+    },
+    "S13/cut_halfway": {
+      "sham": {
+        "action_by_seed": [
+          0.5,
+          0.5,
+          0.5,
+          0.5
+        ],
+        "action_mean": 0.5,
+        "actor_both_pairs": 6,
+        "actor_flip_pairs": 12,
+        "adapted_probe_by_seed": [
+          0.95,
+          0.5,
+          0.5,
+          0.5
+        ],
+        "adapted_probe_mean": 0.6125,
+        "fixed_probe_by_seed": [
+          0.5,
+          0.5,
+          0.5,
+          0.5
+        ],
+        "fixed_probe_mean": 0.5
+      },
+      "dropout": {
+        "action_by_seed": [
+          0.725,
+          0.65,
+          0.675,
+          0.95
+        ],
+        "action_mean": 0.75,
+        "actor_both_pairs": 40,
+        "actor_flip_pairs": 40,
+        "adapted_probe_by_seed": [
+          0.975,
+          0.5,
+          0.975,
+          1
+        ],
+        "adapted_probe_mean": 0.8625,
+        "fixed_probe_by_seed": [
+          0.95,
+          0.5,
+          0.5,
+          0.95
+        ],
+        "fixed_probe_mean": 0.725
+      }
+    },
+    "S13/cut_last_step": {
+      "sham": {
+        "action_by_seed": [
+          0.975,
+          0.675,
+          0.8,
+          0.775
+        ],
+        "action_mean": 0.80625,
+        "actor_both_pairs": 49,
+        "actor_flip_pairs": 49,
+        "adapted_probe_by_seed": [
+          0.775,
+          0.5,
+          0.85,
+          0.5
+        ],
+        "adapted_probe_mean": 0.65625,
+        "fixed_probe_by_seed": [
+          0.875,
+          0.5,
+          0.5,
+          0.5
+        ],
+        "fixed_probe_mean": 0.59375
+      },
+      "dropout": {
+        "action_by_seed": [
+          0.925,
+          0.65,
+          0.75,
+          0.9
+        ],
+        "action_mean": 0.80625,
+        "actor_both_pairs": 49,
+        "actor_flip_pairs": 49,
+        "adapted_probe_by_seed": [
+          0.925,
+          0.825,
+          0.975,
+          0.875
+        ],
+        "adapted_probe_mean": 0.9,
+        "fixed_probe_by_seed": [
+          0.975,
+          0.5,
+          0.5,
+          0.95
+        ],
+        "fixed_probe_mean": 0.73125
+      }
+    }
+  },
+  "preregistered_primary_consistency": {
+    "improved_seeds": 4,
+    "improvement_in_at_least_three_of_four_seeds": true,
+    "both_correct_gain": 1
+  }
+}

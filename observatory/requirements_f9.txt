@@ -1,0 +1,6 @@
+# Isolated F9 external benchmark — Python >=3.11.
+# Keep these packages out of the production portal's small venv unless
+# memory limits have been checked on the target host.
+minigrid==3.2.0
+stable-baselines3==2.9.2
+sb3-contrib==2.9.2

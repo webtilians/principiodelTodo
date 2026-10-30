@@ -1,0 +1,263 @@
+name: INFINITO F9-R — Recurrent State Drift under F4 Blackout
+
+on:
+  push:
+    branches: ["experiment/f9r-recurrent-state-drift"]
+    paths:
+      - "observatory/f9r_recurrent_state_drift.py"
+      - "observatory/f9r_confirm_state_drift.py"
+      - "tests/test_f9r_recurrent_state_drift.py"
+      - "docs/INFINITO_F9R_RECURRENT_STATE_DRIFT_PROTOCOL.md"
+      - ".github/workflows/infinito-f9r-recurrent-drift.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: f9r-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  integrity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install CPU-only F9 dependencies
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r observatory/requirements_f9.txt gymnasium==1.4.0
+      - name: Verify all 10 H/C interventions, replay and fixture/confirm partition disjointness
+        run: python -m unittest discover -s tests -p 'test_f9r_recurrent_state_drift.py' -v
+      - name: Preserve F9-Q causal fork and F9-N stage observation contracts
+        run: |
+          python -m unittest discover -s tests -p 'test_f9q_causal_fork.py' -v
+          python -m unittest discover -s tests -p 'test_f9n_stage_autonomy.py' -v
+
+  frozen-checkpoint-gate:
+    needs: integrity
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install CPU-only gate dependencies
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r observatory/requirements_f9.txt gymnasium==1.4.0
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 40957255987
+          repository: webtilians/principiodelTodo
+          github-token: ${{ github.token }}
+          pattern: f9o-new-models-seed-*
+          path: frozen-bc
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 40960267485
+          repository: webtilians/principiodelTodo
+          github-token: ${{ github.token }}
+          pattern: f9p-ppo-models-seed-*
+          path: frozen-ppo
+      - name: Gate 12 SHA-verified frozen policies and run 840000-only fixture preflight
+        run: |
+          python - <<'PY'
+          import torch
+          from sb3_contrib import RecurrentPPO
+          from pathlib import Path
+          from observatory.f9q_train_cue_probes import validate_sources
+          from observatory.f9r_confirm_state_drift import fixture_seed
+          from observatory.f9r_recurrent_state_drift import analyze_world,summarize_worlds,CONDITIONS
+          torch.set_num_threads(1)
+          for index in range(4):
+              bc=Path(f"frozen-bc/f9o-new-models-seed-{index}")
+              ppo=Path(f"frozen-ppo/f9p-ppo-models-seed-{index}")
+              paths,shas,source=validate_sources(bc,ppo,index)
+              assert len(paths)==3 and set(paths)==set(shas)
+              for group,path in paths.items():
+                  model=RecurrentPPO.load(str(path),device="cpu")
+                  try:
+                      row=analyze_world(model,index,fixture_seed(index,0))
+                      result=summarize_worlds([row])
+                      assert result["pairs"]==1 and set(result["conditions"])==set(CONDITIONS)
+                      print("F9R_FROZEN_PREFLIGHT_OK",index,group,
+                            "fixture",fixture_seed(index,0),flush=True)
+                  finally:
+                      env=model.get_env()
+                      if env is not None:
+                          env.close()
+          print("F9R_ALL_TWELVE_POLICY_SHAS_GATED_NO_CONFIRMATION_OPENED")
+          PY
+
+  fresh-confirmation:
+    needs: frozen-checkpoint-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        seed: [0, 1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install CPU-only evaluation dependencies
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r observatory/requirements_f9.txt gymnasium==1.4.0
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 40957255987
+          repository: webtilians/principiodelTodo
+          github-token: ${{ github.token }}
+          name: f9o-new-models-seed-${{ matrix.seed }}
+          path: source/bc-${{ matrix.seed }}
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 40960267485
+          repository: webtilians/principiodelTodo
+          github-token: ${{ github.token }}
+          name: f9p-ppo-models-seed-${{ matrix.seed }}
+          path: source/ppo-${{ matrix.seed }}
+      - name: One-shot 850000+ S13 temporal H/C freeze and restore under F4=0 at decision
+        run: |
+          python -m observatory.f9r_confirm_state_drift \
+            --index ${{ matrix.seed }} --pairs 40 \
+            --bc-source source/bc-${{ matrix.seed }} \
+            --ppo-source source/ppo-${{ matrix.seed }} \
+            --output confirmed/f9r-${{ matrix.seed }}
+      - name: Verify all pairs and interventions, never filter failures
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from observatory.f9r_recurrent_state_drift import CONDITIONS,SWAPS
+          index=int("${{ matrix.seed }}")
+          report=json.loads(Path(f"confirmed/f9r-{index}/report.json").read_text())
+          assert report["index"]==index
+          assert report["new_confirm_base"]==850000
+          assert report["preflight_fixture_base"]==840000
+          assert report["pairs"]==40
+          assert not report["policy_training"] and not report["probe_training"]
+          assert not report["historical_holdout_opened"] and not report["F9Q_confirmation_reused"]
+          assert set(report["groups"])=={"bc_anchor","ppo_sham","ppo_blackout"}
+          for group in report["groups"].values():
+              assert len(group["cases"])==40 and group["summary"]["pairs"]==40
+              assert set(group["summary"]["conditions"])==set(CONDITIONS)
+              for case in group["cases"]:
+                  assert case["fork_public_identical"] and case["F4_at_fork_and_continuation_all_zero"]
+                  assert set(case["conditions"])==set(CONDITIONS)
+                  assert all(set(c["runs"])==set(SWAPS) for c in case["conditions"].values())
+          print("F9R_NO_EXCLUSIONS",index)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: f9r-prospective-confirm-seed-${{ matrix.seed }}
+          path: confirmed/f9r-${{ matrix.seed }}/
+          retention-days: 30
+          if-no-files-found: warn
+
+  aggregate:
+    needs: fresh-confirmation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: f9r-prospective-confirm-seed-*
+          path: archive
+      - name: Aggregate new mechanism results, primary freeze H/C and donor causal transfer
+        run: |
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          files=sorted(Path("archive").glob("f9r-prospective-confirm-seed-*/report.json"))
+          reports=[json.loads(x.read_text()) for x in files]
+          assert len(reports)==4 and {r["index"] for r in reports}=={0,1,2,3}
+          assert all(not r["policy_training"] and not r["historical_holdout_opened"] for r in reports)
+          result={"experiment":"F9-R causal H/C preservation during external F4 blackout",
+                  "new_confirmation_base":850000,
+                  "fixture_base":840000,
+                  "source_f9o_run":40957255987,
+                  "source_f9p_run":40960267485,
+                  "historical_holdout_opened":False,
+                  "previous_confirmation_reused":False,
+                  "new_policy_training":False,
+                  "seeds":[0,1,2,3],
+                  "metrics":{},
+                  "preregistered_criterion":{}}
+          groups=("bc_anchor","ppo_sham","ppo_blackout")
+          titles=("normal_reference","blackout_update","blackout_freeze_HC",
+                  "blackout_freeze_H","blackout_freeze_C",
+                  "blackout_patch_normal_mid_HC","blackout_patch_normal_last_HC",
+                  "blackout_patch_normal_fork_HC",
+                  "blackout_patch_normal_fork_H","blackout_patch_normal_fork_C")
+          lines=["# F9-R — H/C recurrent update drift under ten-step F4 blackout",
+                 "",
+                 "12 frozen F9-O/F9-P models. No training of policy or probes.",
+                 "160 NEW cue-paired S13 worlds per group. Same public fork and F4=0.",
+                 "Teacher-prefix alignment; autonomous continuation from fork.",
+                 "",
+                 "| Intervention | Frozen model | Both first arms correct | Both donor-transferred | Causal full pair | by seed correct |",
+                 "|---|---|---:|---:|---:|---|"]
+          for group in groups:
+              block={}
+              for cond in titles:
+                  seeds=[r["groups"][group]["summary"]["conditions"][cond] for r in reports]
+                  assert all(r["groups"][group]["summary"]["pairs"]==40 for r in reports)
+                  fields=list(seeds[0])
+                  summed={k:sum(s[k] for s in seeds) for k in fields
+                          if isinstance(seeds[0][k],int)}
+                  averaged={k:sum(s[k] for s in seeds)/4 for k in fields
+                            if isinstance(seeds[0][k],float)}
+                  block[cond]={"pairs":160,"counts":summed,"means":averaged,
+                               "by_seed_both_first_correct":[s["both_intact_first_arms_correct"] for s in seeds],
+                               "by_seed_donor_specific":[s["donor_specific_causal_full_pair"] for s in seeds]}
+                  c=block[cond]["counts"]
+                  lines.append(
+                      f'| {cond} | {group} | '
+                      f'{c["both_intact_first_arms_correct"]}/160 | '
+                      f'{c["both_swap_HC_donor_arms_correct"]}/160 | '
+                      f'{c["donor_specific_causal_full_pair"]}/160 | '
+                      f'{block[cond]["by_seed_both_first_correct"]} |')
+              a=block["blackout_update"]
+              b=block["blackout_freeze_HC"]
+              delta_correct=[y-x for x,y in zip(a["by_seed_both_first_correct"],b["by_seed_both_first_correct"])]
+              delta_donor=[y-x for x,y in zip(a["by_seed_donor_specific"],b["by_seed_donor_specific"])]
+              criterion={
+                  "correct_gain_by_seed":delta_correct,
+                  "donor_transfer_gain_by_seed":delta_donor,
+                  "concordant_positive_seeds":sum(x>0 and y>0 for x,y in zip(delta_correct,delta_donor)),
+                  "total_correct_gain":sum(delta_correct),
+                  "total_donor_gain":sum(delta_donor),
+                  "predeclared_threshold_met":sum(x>0 and y>0 for x,y in zip(delta_correct,delta_donor))>=3
+                      and sum(delta_correct)>0 and sum(delta_donor)>0
+              }
+              result["metrics"][group]=block
+              result["preregistered_criterion"][group]=criterion
+          lines+=["",
+                  "## Predeclared primary — freeze HC versus natural recurrent updates",
+                  json.dumps(result["preregistered_criterion"],ensure_ascii=False),
+                  "",
+                  "The at-fork full-normal-HC patch is a POSITIVE INSTRUMENTATION CONTROL,",
+                  "not independent evidence of rescue. Donor-specific transfer",
+                  "requires correct intact AND swapped opposite choices in same pair.",
+                  "No filtering of non-commitment, no training on confirm data.",
+                  "The 850000+ split is consumed after this run."]
+          Path("archive/f9r_aggregate.json").write_text(json.dumps(result,indent=2))
+          Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text("\n".join(lines)+"\n")
+          print("F9R_AGGREGATE",json.dumps(result),flush=True)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: f9r-causal-recurrent-mechanism-aggregate
+          path: archive/f9r_aggregate.json
+          retention-days: 30

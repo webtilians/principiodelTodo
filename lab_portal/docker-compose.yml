@@ -1,0 +1,20 @@
+services:
+  infinito-lab:
+    build:
+      context: ..
+      dockerfile: lab_portal/Dockerfile
+    restart: unless-stopped
+    environment:
+      LAB_API_TOKEN: ${LAB_API_TOKEN:?Define LAB_API_TOKEN en el archivo .env}
+      LAB_DATA_DIR: /data/lab
+      LAB_HOST: 0.0.0.0
+      LAB_MAX_SECONDS: ${LAB_MAX_SECONDS:-14400}
+    ports:
+      - "127.0.0.1:8765:8765"
+    volumes:
+      - infinito_lab_data:/data/lab
+    pids_limit: 192
+    mem_limit: 4g
+    cpus: '2.0'
+volumes:
+  infinito_lab_data:

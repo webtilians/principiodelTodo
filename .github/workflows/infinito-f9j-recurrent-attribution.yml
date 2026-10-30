@@ -1,0 +1,163 @@
+name: INFINITO F9-J — Frozen LSTM State vs External F4
+on:
+  push:
+    branches: ["experiment/f9j-recurrent-memory-attribution"]
+    paths:
+      - "observatory/f9j_recurrent_memory_attribution.py"
+      - "tests/test_f9j_recurrent_memory_attribution.py"
+      - ".github/workflows/infinito-f9j-recurrent-attribution.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: f9j-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  integrity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install original CPU-only F9 dependencies
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r observatory/requirements_f9.txt gymnasium==1.4.0
+      - name: Validate native fork matching, model boundary and interventions
+        run: python -m unittest discover -s tests -p 'test_f9j_recurrent_memory_attribution.py' -v
+      - name: Preserve original F9-I observation storage integrity
+        run: python -m unittest discover -s tests -p 'test_f9i_selective_memory.py' -v
+  frozen-development:
+    needs: integrity
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    strategy:
+      fail-fast: false
+      matrix:
+        seed: [0,1,2,3]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install original CPU-only dependencies; NEVER train
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r observatory/requirements_f9.txt gymnasium==1.4.0
+      - name: Download frozen F9-I capacity-8 models, both F4 and zero
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 40928547873
+          repository: webtilians/principiodelTodo
+          github-token: ${{ github.token }}
+          name: f9i-${{ matrix.seed }}-8
+          path: evidence/f9i-${{ matrix.seed }}-8
+      - name: Fork-only interventions and paired hidden/readout crossovers
+        run: |
+          python -m observatory.f9j_recurrent_memory_attribution \
+            --index ${{ matrix.seed }} --pairs 10 \
+            --source evidence/f9i-${{ matrix.seed }}-8/context_after_rl.zip \
+            --output results/f9j-${{ matrix.seed }}
+      - name: Confirm source matching, no training and heldout closed
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=list(Path('results').glob('f9j-*/report.json'))
+          assert len(p)==1
+          r=json.loads(p[0].read_text())
+          assert r['source_run']==40928547873
+          assert r['training_performed'] is False
+          assert r['heldout_opened'] is False
+          assert r['capacity']==8
+          assert r['paired_worlds_per_size']==10
+          source=json.loads(next(Path('evidence').glob('*/report.json')).read_text())
+          for s in ('S7','S13'):
+              frozen=r['autonomous'][f'{s}/context/normal']
+              reference=source['models']['context']['after_rl'][f'{s}/normal']
+              assert abs(frozen['success']-reference['combined_success']) < 1e-12, (
+                  s,frozen['success'],reference['combined_success'])
+              assert frozen['both_correct']==reference['both_correct']
+              assert r['controlled_teacher_forks'][s]['equal_current_observations']==10
+          print('F9J_FROZEN_SOURCE_REPRODUCED',r['seed_index'])
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: f9j-frozen-development-seed-${{ matrix.seed }}
+          path: results/f9j-${{ matrix.seed }}/
+          if-no-files-found: warn
+          retention-days: 30
+  aggregate:
+    needs: frozen-development
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: f9j-frozen-development-seed-*
+          path: archive
+      - name: Report four seeds (no favorable-case filtering)
+        run: |
+          python - <<'PY'
+          import json,os,statistics
+          from pathlib import Path
+          paths=sorted(Path('archive').glob('f9j-frozen-development-seed-*/report.json'))
+          records=[json.loads(p.read_text()) for p in paths]
+          assert len(records)==4 and {x['seed_index'] for x in records}=={0,1,2,3}
+          assert all(not x['training_performed'] and not x['heldout_opened'] for x in records)
+          sizes=('S7','S13')
+          controls=('normal','reset_hidden_at_fork','zero_f4_at_fork',
+                    'reset_hidden_and_zero_f4_at_fork','zero_f4_after_cue')
+          summary={'experiment':'F9-J frozen LSTM-state versus external F4',
+                   'source_run':40928547873,'confirmatory':False,
+                   'heldout_opened':False,'training_performed':False,
+                   'results':{},'teacher_fork':{}}
+          lines=['# F9-J — Where is the cue after eight-event F4 eviction?',
+              '','Source: **frozen F9-I context8 and zero LSTM models**.',
+              'No new model training or heldout. 4 independent train seeds × 10 paired dev worlds × 2 tasks.',
+              '','## Native autonomous behavior','',
+              '| Task | Model / targeted intervention | Success | Both correct | Valid side flips | Intervention applied |',
+              '|---|---|---:|---:|---:|---:|']
+          for size in sizes:
+              for mode,strategies in (('context',controls),
+                                      ('zero',('normal','reset_hidden_at_fork'))):
+                  for control in strategies:
+                      rows=[r['autonomous'][f'{size}/{mode}/{control}'] for r in records]
+                      key=f'{size}/{mode}/{control}'
+                      result={
+                          'success':statistics.mean(x['success'] for x in rows),
+                          'paired_both_correct':sum(x['both_correct'] for x in rows),
+                          'valid_flips':sum(x['valid_flips'] for x in rows),
+                          'intervention_applied_rate':statistics.mean(
+                              x['intervention_applied'] for x in rows),
+                          'by_seed_success':[x['success'] for x in rows],
+                          'fork_reached_rate':statistics.mean(x['fork_reached'] for x in rows),
+                      }
+                      summary['results'][key]=result
+                      lines.append(f'| {size} | {mode} / {control} | {result["success"]:.0%} | {result["paired_both_correct"]}/40 | {result["valid_flips"]}/40 | {result["intervention_applied_rate"]:.0%} |')
+          lines+=['','## Paired, geometry-matched teacher-forced fork diagnostics','',
+                  '| Task | Pairs | Equal raw | Equal F4 readout | Distinct hidden | Correct teacher action in both | Action changed swapping only hidden | Action changed swapping only external readout |',
+                  '|---|---:|---:|---:|---:|---:|---:|---:|']
+          for size in sizes:
+              rows=[r['controlled_teacher_forks'][size] for r in records]
+              d={k:sum(x[k] for x in rows) for k in
+                 ('pairs','equal_current_observations','equal_external_memory_readouts',
+                  'distinct_hidden_states','natural_correct_both_teacher_actions',
+                  'changing_only_hidden_changes_action',
+                  'changing_only_external_memory_changes_action')}
+              summary['teacher_fork'][size]=d
+              lines.append(f'| {size} | {d["pairs"]} | {d["equal_current_observations"]} | {d["equal_external_memory_readouts"]} | {d["distinct_hidden_states"]} | {d["natural_correct_both_teacher_actions"]} | {d["changing_only_hidden_changes_action"]} | {d["changing_only_external_memory_changes_action"]} |')
+          lines+=['','**Interpretation caution:** resetting a recurrent state is out of training distribution and can disrupt navigation. Teacher-forced probe is not autonomous performance. Equal readout + different hidden state is not proof of general semantic memory; look for changes of fork decision when only hidden swaps.']
+          Path('archive/f9j_aggregate.json').write_text(json.dumps(summary,indent=2))
+          Path(os.environ['GITHUB_STEP_SUMMARY']).write_text('\n'.join(lines)+'\n')
+          print('F9J_AGGREGATE',json.dumps(summary))
+          print('\n'.join(lines))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: f9j-four-seed-frozen-attribution-aggregate
+          path: archive/f9j_aggregate.json
+          retention-days: 30

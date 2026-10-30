@@ -1,0 +1,58 @@
+name: INFINITO F9-C — Supervised Memory Positive Control
+on:
+  push:
+    branches: ["experiment/f9c-visible-cue-learning"]
+    paths:
+      - "observatory/f9c_supervised_memory.py"
+      - ".github/workflows/infinito-f9c-supervised-memory.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  supervised-positive-control:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install CPU-first PyTorch + native MiniGrid
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install minigrid==3.2.0 gymnasium==1.4.0 numpy
+      - name: Learn from visible MiniGrid images, no hidden labels at inference
+        run: |
+          python -m observatory.f9c_supervised_memory \
+            --train-worlds 1200 --epochs 25 \
+            --output observatory_results/f9c_supervised
+      - name: Publish hard negative and positive controls on S7 and S13
+        run: |
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          r=json.loads(Path('observatory_results/f9c_supervised/report.json').read_text())
+          assert r['phase']=="development_diagnostic"
+          assert r['not_original_navigation_benchmark'] and r['not_PPO_or_RecurrentPPO']
+          assert not r['heldout_opened']
+          rows=['# F9-C — Supervised memory positive control',
+                'TRAINED GRU receives only 98 visible-image pixel object channels at two times.',
+                'Current-only supervised baseline receives last frame only; both trained with same labels.',
+                '**Not PPO and not full MiniGrid navigation. No heldout opened.**',
+                '', '| Model | S7 success | S7 cue swap success | Changed decision on cue swap | S13 success | S13 changed decision |',
+                '|---|---:|---:|---:|---:|---:|']
+          for model in ('current_only','gru_memory'):
+              a=r['summary'][model]['S7'];b=r['summary'][model]['S13']
+              rows.append(f'| {model} | {a["original_success"]:.0%} | {a["inverted_success"]:.0%} | {a["decision_flips"]}/100 | {b["original_success"]:.0%} | {b["decision_flips"]}/30 |')
+              print('F9C_LEARNED',model,
+                    'S7',a['original_success'],'flip',a['decision_flips'],
+                    'S13',b['original_success'],'flip',b['decision_flips'])
+          Path(os.environ['GITHUB_STEP_SUMMARY']).write_text('\n'.join(rows)+'\n')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: f9c-supervised-memory-positive-control-dev-only
+          path: observatory_results/f9c_supervised/
+          if-no-files-found: warn
+          retention-days: 30

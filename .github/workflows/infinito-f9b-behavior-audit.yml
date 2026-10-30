@@ -1,0 +1,95 @@
+name: INFINITO F9-B — Frozen Behavior Audit S7 + S13
+on:
+  push:
+    branches: ["experiment/f9b-behavior-audit"]
+    paths:
+      - "observatory/f9b_behavior_audit.py"
+      - "tests/test_f9b_behavior_audit.py"
+      - ".github/workflows/infinito-f9b-behavior-audit.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  replay-frozen-checkpoints:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install the EXACT F9 RL dependencies (no training in this workflow)
+        run: python -m pip install -r observatory/requirements_f9.txt
+      - name: Verify cue swap and unchanged policy observations
+        run: python -m unittest discover -s tests -p 'test_f9b_behavior_audit.py' -v
+      - name: Download both original development checkpoints from successful runs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/f9b/100k" "$RUNNER_TEMP/f9b/300k"
+          gh run download 40870053190 --repo webtilians/principiodelTodo \
+            --name f9b-memory-baselines-100k-development-not-heldout \
+            --dir "$RUNNER_TEMP/f9b/100k"
+          gh run download 40871286349 --repo webtilians/principiodelTodo \
+            --name f9b-memory-baselines-300k-development-not-heldout \
+            --dir "$RUNNER_TEMP/f9b/300k"
+          test -f "$RUNNER_TEMP/f9b/100k/frozen_manifest.json"
+          test -f "$RUNNER_TEMP/f9b/300k/frozen_manifest.json"
+          test -f "$RUNNER_TEMP/f9b/100k/checkpoints/memory_ppo_s0.zip"
+          test -f "$RUNNER_TEMP/f9b/300k/checkpoints/memory_lstm_s0.zip"
+          echo "Both F9-B development archives present. Checkpoints verified against SHA256 manifests during replay."
+      - name: Stage 1 & 2 — trace 50 original S7 actions and swap only the cue
+        run: |
+          python -m observatory.f9b_behavior_audit \
+            --100k "$RUNNER_TEMP/f9b/100k" \
+            --300k "$RUNNER_TEMP/f9b/300k" \
+            --size 7 --episodes 50 \
+            --output observatory_results/f9b_audit_s7
+      - name: Report paired choices and cue-dependence in S7
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path('observatory_results/f9b_audit_s7/report.json').read_text())
+          assert d["phase"]=="development_diagnostic" and d["size"]==7
+          for policy, result in d["summary"].items():
+              print("S7 CAUSAL AUDIT",policy,json.dumps(result,ensure_ascii=False))
+          PY
+      - name: Stage 3 — zero-shot S13 with SAME frozen 100k/300k policies
+        run: |
+          python -m observatory.f9b_behavior_audit \
+            --100k "$RUNNER_TEMP/f9b/100k" \
+            --300k "$RUNNER_TEMP/f9b/300k" \
+            --size 13 --episodes 30 \
+            --output observatory_results/f9b_audit_s13
+      - name: Compare both world sizes without opening heldout
+        run: |
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          a=json.loads(Path('observatory_results/f9b_audit_s7/report.json').read_text())
+          b=json.loads(Path('observatory_results/f9b_audit_s13/report.json').read_text())
+          lines=['# F9-B Frozen behavior audit — Development only','',
+              'These are untouched 100k and 300k checkpoints (PPO and LSTM).',
+              'No additional training. Reserved heldout never opened.','',
+              '| Budget/model | S7 success | S13 zero-shot success | S7 branch changes under cue swap |',
+              '|---|---:|---:|---:|']
+          for policy in a["summary"]:
+              s=a["summary"][policy]
+              t=b["summary"][policy]
+              lines.append(
+                f'| {policy} | {s["original_success_rate"]:.0%} | {t["original_success_rate"]:.0%} | '
+                f'{s["chosen_side_changed_in_pairs"]}/{s["episodes"]} |')
+              print('S13 TRANSFER',policy,json.dumps(t,ensure_ascii=False))
+          Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text("\n".join(lines)+"\n")
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: f9b-frozen-behavior-audit-s7-s13-development
+          path: |
+            observatory_results/f9b_audit_s7/
+            observatory_results/f9b_audit_s13/
+          if-no-files-found: warn
+          retention-days: 30

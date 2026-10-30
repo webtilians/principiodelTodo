@@ -239,6 +239,7 @@ credentials/
 # 🚀 Deployment
 deploy/
 deployment/
+!lab_portal/deploy/
 
 # 📊 Analytics and Metrics
 analytics/
