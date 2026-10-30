@@ -52,7 +52,7 @@ Verificaciones: \`normal_reference\` vs \`patch_normal_fork_HC\` deben producir 
 
 ## Partición confirmatoria nueva e independiente
 
-**F9-R**: \`850000 + index*10000 + j\`, \`index=0..3\`, \`j=0..39\` → 160 mundos S13 × dos pistas contrafactuales. Este intervalo está separado de F9-Q confirmación \`800000 + index*10000+j\` (última 830039), de sus probes TRAIN 750000+, F9-P 700000+, F9-O 600000+ y F9-M/N. **No se prueba ni utiliza para corregir el código antes de congelar tests**; tests sobre fixtures TRAIN nuevos en \`840000 + index*10000+j\`, j=0..9, rango separado de la confirmación. \`850000+\` es **nueva confirmación, no train**; fuera de todas las particiones precedentes y **sin tocar \`900000+\`**.
+**F9-R**: \`850000 + index*10000 + j\`, \`index=0..3\`, \`j=0..39\` → 160 mundos S13 × dos pistas contrafactuales. Este intervalo está separado de F9-Q confirmación \`800000 + index*10000+j\` (última 830039), de sus probes TRAIN 750000+, F9-P 700000+, F9-O 600000+ y F9-M/N. **No se prueba ni utiliza para corregir el código antes de congelar tests**; tests sobre fixtures TRAIN nuevos en \`840000 + index*1000+j\`, j=0..9, rango separado de la confirmación. \`850000+\` es **nueva confirmación, no train**; fuera de todas las particiones precedentes y **sin tocar \`900000+\`**.
 
 Pipeline: tests de intervención temporal en fixtures \`840000+\` → gate de los 12 checkpoints originales por hashes → solo entonces primera apertura de \`850000+\` → agregado completo por 4 semillas y 3 modelos → conservar artefactos de cada par y reporte JSON. Si ocurre un error tras abrir confirmación, la partición queda **consumida**, y un rerun reparado se marca exploratorio, nunca nueva confirmación.
 
