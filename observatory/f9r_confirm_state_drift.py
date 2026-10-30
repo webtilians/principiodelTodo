@@ -34,7 +34,7 @@ def confirm_seed(index,j):
 def fixture_seed(index,j):
     if index not in range(4) or not 0<=j<10:
         raise ValueError("Only 840000 fixtures for preflight")
-    return TRAIN_FIXTURE_BASE+10000*index+j
+    return TRAIN_FIXTURE_BASE+1000*index+j
 
 
 def run(args):
