@@ -1,0 +1,147 @@
+name: INFINITO E10 — Longitudinal Memory Decision Utility
+
+on:
+  push:
+    branches: ["experiment/e10-longitudinal-memory-utility"]
+    paths:
+      - "observatory/e10_longitudinal_memory.py"
+      - "tests/test_e10_longitudinal_memory.py"
+      - "docs/INFINITO_E10_LONGITUDINAL_MEMORY_PROTOCOL.md"
+      - ".github/workflows/infinito-e10-longitudinal-memory.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e10-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  integrity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Confirm the fresh E10 protocol and read-only core
+        run: |
+          test -f docs/INFINITO_E10_LONGITUDINAL_MEMORY_PROTOCOL.md
+          test -f src/infinito3/cognitive_loop.py
+          test -f src/infinito3/generalized_context_builder.py
+          git diff --exit-code origin/master -- src/infinito3/
+      - name: Verify E10 independent partitions, controlled reader and SQLite restart on DEV fixtures only
+        run: python -m unittest discover -s tests -p 'test_e10_longitudinal_memory.py' -v
+      - name: Preserve INFINITO 3.0 core deterministic regression tests
+        run: python -m unittest discover -s tests -p 'test_*_v3.py' -v
+
+  dev:
+    needs: integrity
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run development cohort 1200000 only, preserving all 36 paired worlds
+        run: python -m observatory.e10_longitudinal_memory --split dev --output observatory_results/e10-dev
+      - name: Assert all arms, full paired counterfactuals and negative control
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from observatory.e10_longitudinal_memory import ARMS,DEV_BASE
+          r=json.loads(Path("observatory_results/e10-dev/report.json").read_text())
+          assert r["split"]=="dev" and r["seed_base"]==DEV_BASE
+          assert r["world_pairs"]==36 and len(r["cases"])==36
+          assert set(r["summary"]["arms"])==set(ARMS)
+          assert r["common_actor"].startswith("deterministic")
+          assert not r["old_f9_holdout_used"] and not r["policy_training"]
+          assert not r["hash_embedding_is_semantic"]
+          assert all(row["abstained"] for row in r["negative_control"].values())
+          for case in r["cases"]:
+              assert case["seed"]<1300000
+              assert set(case["variants"])=={"original","reversed"}
+              assert set(case["arms"])==set(ARMS)
+          print("E10_DEV_GATE_OK")
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: e10-longitudinal-development
+          path: observatory_results/e10-dev/report.json
+          retention-days: 30
+          if-no-files-found: error
+
+  confirmation:
+    needs: dev
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Open 1300000 NEW prospective paired worlds for the FIRST time; no parameter tuning
+        run: python -m observatory.e10_longitudinal_memory --split confirm --output observatory_results/e10-confirm
+      - name: Validate eight independent index cohorts, 128 pairs, equal budget, full contrafactuals and complete statistics
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from observatory.e10_longitudinal_memory import ARMS, CONFIRM_BASE
+          r=json.loads(Path("observatory_results/e10-confirm/report.json").read_text())
+          assert r["split"]=="confirm" and r["seed_base"]==CONFIRM_BASE
+          assert r["world_pairs"]==128 and len(r["cases"])==128
+          assert r["context_budget_estimated_tokens"]==180
+          assert set(r["summary"]["arms"])==set(ARMS)
+          assert len(r["summary"]["by_index"])==8
+          assert set(r["predeclared_gate"])=={"fifo_8","rag_hash","E10_primary_passes_both_baselines"}
+          assert all(row["abstained"] for row in r["negative_control"].values())
+          assert not r["policy_training"] and not r["old_f9_holdout_used"]
+          for case in r["cases"]:
+              assert CONFIRM_BASE<=case["seed"]<CONFIRM_BASE+8000
+              assert len(case["variants"])==2
+              assert set(case["arms"])==set(ARMS)
+              assert all(0<=row["individual_correct"]<=4 for row in case["arms"].values())
+              for variant in case["variants"].values():
+                  for stage in ("before","after"):
+                      assert all(variant[stage][name]["context_tokens"]<=180 for name in ARMS)
+          print("E10_PROSPECTIVE_CONFIRMATION_COMPLETE")
+          PY
+      - name: Publish compact report to Actions summary without selecting favorable cohorts
+        run: |
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          r=json.loads(Path("observatory_results/e10-confirm/report.json").read_text())
+          lines=["# INFINITO E10 — Longitudinal memory decision utility",
+                 "",
+                 "Offline deterministic reader, NOT an LLM. Hash vectors NOT semantic embeddings.",
+                 "128 independent worlds with 2 cue variants and 2 decisions; 8 generation indices.",
+                 "",
+                 "| Arm | Four decisions correct / 128 paired worlds | Individual accuracy / 512 | Both counterfactual flips /128 | Mean context tokens |",
+                 "|---|---:|---:|---:|---:|"]
+          for arm,x in r["summary"]["arms"].items():
+              lines.append(f'| {arm} | {x["all_four_correct"]}/128 | {x["individual_correct"]}/512 | '
+                           f'{x["both_counterfactual_flips"]}/128 | {x["mean_context_tokens"]:.2f} |')
+          lines+=["","## Preregistered contrast vs each baseline",
+                  json.dumps(r["predeclared_gate"],indent=2),
+                  "",
+                  "Historical F9 holdout 900000+ not opened. E10 confirm 1300000+ now consumed.",
+                  "All 128 paired cases and every decision are retained in artifact."]
+          Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text("\n".join(lines)+"\n")
+          print("E10_CONFIRM_SUMMARY",json.dumps(r["summary"]["arms"]),flush=True)
+          print("E10_CONFIRM_GATE",json.dumps(r["predeclared_gate"]),flush=True)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e10-longitudinal-prospective-confirmation
+          path: observatory_results/e10-confirm/report.json
+          retention-days: 30
+          if-no-files-found: warn
