@@ -182,7 +182,7 @@ jobs:
         with:
           name: f9q-train-only-frozen-cue-probes-${{ matrix.seed }}
           path: probe/${{ matrix.seed }}
-      - name: First and ONLY 800000+ S13 causal fork: matched O, F4=0, H/C interventions
+      - name: "First and ONLY 800000+ S13 causal fork: matched O, F4=0, H/C interventions"
         run: |
           python -m observatory.f9q_confirm_causal_fork \
             --index ${{ matrix.seed }} --pairs 40 \
