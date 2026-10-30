@@ -1,0 +1,327 @@
+name: INFINITO F9-Q — Causal H/C Recall at Controlled Fork
+
+on:
+  push:
+    branches: ["experiment/f9q-causal-fork-recall"]
+    paths:
+      - "observatory/f9q_causal_fork.py"
+      - "observatory/f9q_train_cue_probes.py"
+      - "observatory/f9q_confirm_causal_fork.py"
+      - "tests/test_f9q_causal_fork.py"
+      - "docs/INFINITO_F9Q_CAUSAL_FORK_RECALL_PROTOCOL.md"
+      - ".github/workflows/infinito-f9q-causal-fork.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: f9q-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  integrity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install CPU-only F9 prerequisites
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r observatory/requirements_f9.txt gymnasium==1.4.0
+      - name: Test exact same public fork, H/C swaps and seal using TRAIN fixtures only
+        run: python -m unittest discover -s tests -p 'test_f9q_causal_fork.py' -v
+      - name: Preserve causal F9-J and F9-P integrity tests
+        run: |
+          python -m unittest discover -s tests -p 'test_f9p_ppo_memory_preservation.py' -v
+          python -m unittest discover -s tests -p 'test_f9n_stage_autonomy.py' -v
+
+  fit-probes:
+    needs: integrity
+    runs-on: ubuntu-latest
+    timeout-minutes: 140
+    strategy:
+      fail-fast: false
+      matrix:
+        seed: [0, 1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install CPU-only model and probe dependencies
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r observatory/requirements_f9.txt gymnasium==1.4.0
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 40957255987
+          repository: webtilians/principiodelTodo
+          github-token: ${{ github.token }}
+          name: f9o-new-models-seed-${{ matrix.seed }}
+          path: frozen/bc-${{ matrix.seed }}
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 40960267485
+          repository: webtilians/principiodelTodo
+          github-token: ${{ github.token }}
+          name: f9p-ppo-models-seed-${{ matrix.seed }}
+          path: frozen/ppo-${{ matrix.seed }}
+      - name: Gate frozen policy SHAs, train ONLY linear H/C probes on 750000 new S13 TRAIN
+        run: |
+          python -m observatory.f9q_train_cue_probes \
+            --index ${{ matrix.seed }} --train-pairs 80 \
+            --bc-source frozen/bc-${{ matrix.seed }} \
+            --ppo-source frozen/ppo-${{ matrix.seed }} \
+            --output probes/f9q-${{ matrix.seed }}
+      - name: Validate finished pretrained decoders and provenance (still no confirmation)
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from observatory.f9q_train_cue_probes import validate_sources
+          from observatory.f9q_confirm_causal_fork import validate_probes
+          index=int("${{ matrix.seed }}")
+          bc=Path(f"frozen/bc-{index}")
+          ppo=Path(f"frozen/ppo-{index}")
+          p=Path(f"probes/f9q-{index}/report.json")
+          _,sha,src=validate_sources(bc,ppo,index)
+          validate_probes(json.loads(p.read_text()),p,sha,src,index)
+          print("F9Q_TRAIN_PROBE_GATE_OK",index)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: f9q-train-only-frozen-cue-probes-${{ matrix.seed }}
+          path: probes/f9q-${{ matrix.seed }}/
+          retention-days: 30
+          if-no-files-found: error
+
+  all-probes-gate:
+    needs: fit-probes
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install CPU-only gate dependencies
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r observatory/requirements_f9.txt gymnasium==1.4.0
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 40957255987
+          repository: webtilians/principiodelTodo
+          github-token: ${{ github.token }}
+          pattern: f9o-new-models-seed-*
+          path: frozen-bc
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 40960267485
+          repository: webtilians/principiodelTodo
+          github-token: ${{ github.token }}
+          pattern: f9p-ppo-models-seed-*
+          path: frozen-ppo
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: f9q-train-only-frozen-cue-probes-*
+          path: fitted
+      - name: Gate 12 policy SHAs + all 24 H/C probes before EVER visiting 800000
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from observatory.f9q_train_cue_probes import validate_sources
+          from observatory.f9q_confirm_causal_fork import validate_probes
+          for index in range(4):
+              bc=Path(f"frozen-bc/f9o-new-models-seed-{index}")
+              ppo=Path(f"frozen-ppo/f9p-ppo-models-seed-{index}")
+              path=Path(f"fitted/f9q-train-only-frozen-cue-probes-{index}/report.json")
+              _,shas,sources=validate_sources(bc,ppo,index)
+              validate_probes(json.loads(path.read_text()),path,shas,sources,index)
+          print("F9Q_ALL_PROBES_AND_FROZEN_MODELS_LOCKED")
+          PY
+
+  new-causal-confirmation:
+    needs: all-probes-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        seed: [0, 1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install CPU-only confirmation prerequisites
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r observatory/requirements_f9.txt gymnasium==1.4.0
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 40957255987
+          repository: webtilians/principiodelTodo
+          github-token: ${{ github.token }}
+          name: f9o-new-models-seed-${{ matrix.seed }}
+          path: frozen/bc-${{ matrix.seed }}
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 40960267485
+          repository: webtilians/principiodelTodo
+          github-token: ${{ github.token }}
+          name: f9p-ppo-models-seed-${{ matrix.seed }}
+          path: frozen/ppo-${{ matrix.seed }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: f9q-train-only-frozen-cue-probes-${{ matrix.seed }}
+          path: probe/${{ matrix.seed }}
+      - name: First and ONLY 800000+ S13 causal fork: matched O, F4=0, H/C interventions
+        run: |
+          python -m observatory.f9q_confirm_causal_fork \
+            --index ${{ matrix.seed }} --pairs 40 \
+            --bc-source frozen/bc-${{ matrix.seed }} \
+            --ppo-source frozen/ppo-${{ matrix.seed }} \
+            --probes probe/${{ matrix.seed }} \
+            --output confirmed/f9q-${{ matrix.seed }}
+      - name: Assert no filtered pairs, complete factorial interventions and independent probe
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from observatory.f9q_causal_fork import REGIMES,INTERVENTIONS
+          index=int("${{ matrix.seed }}")
+          report=json.loads(Path(f"confirmed/f9q-{index}/report.json").read_text())
+          assert report["seed_index"]==index and report["confirmation_seed_base"]==800000
+          assert report["probe_train_seed_base"]==750000 and report["world_pairs"]==40
+          assert not report["training_performed"] and not report["policy_training"]
+          assert not report["new_probe_fit"] and not report["prior_confirmations_reused"]
+          assert not report["historical_holdout_opened"]
+          assert set(report["groups"])=={"bc_anchor","ppo_sham","ppo_blackout"}
+          for g in report["groups"].values():
+              assert set(g)==set(REGIMES)
+              for v in g.values():
+                  assert len(v["cases"])==40 and v["summary"]["pairs"]==40
+                  assert set(v["summary"]["interventions"])==set(INTERVENTIONS)
+                  assert all(c["fork_public_equal"] and c["fork_F4_actor_zero"] for c in v["cases"])
+                  assert all(set(c["runs"])==set(INTERVENTIONS) for c in v["cases"])
+          print("F9Q_ALL_CAUSAL_CONFIRMATION_PAIRS_COMPLETE",index)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: f9q-causal-fork-confirm-seed-${{ matrix.seed }}
+          path: confirmed/f9q-${{ matrix.seed }}/
+          retention-days: 30
+          if-no-files-found: warn
+
+  aggregate:
+    needs: new-causal-confirmation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: f9q-causal-fork-confirm-seed-*
+          path: archive
+      - name: Aggregate H/C decoding, first action, physical exit, donor transfer separately
+        run: |
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          files=sorted(Path("archive").glob("f9q-causal-fork-confirm-seed-*/report.json"))
+          reports=[json.loads(p.read_text()) for p in files]
+          assert len(reports)==4 and {r["seed_index"] for r in reports}==set(range(4))
+          assert all(not r["historical_holdout_opened"] and not r["training_performed"] for r in reports)
+          output={
+              "experiment":"F9-Q causal recall, matched fork with absent F4",
+              "probe_train_base":750000,"new_confirmation_base":800000,
+              "prior_confirmations_reused":False,
+              "historical_holdout_opened":False,
+              "policy_training":False,
+              "seeds":[0,1,2,3],
+              "metrics":{}
+          }
+          lines=["# F9-Q — Causal recall at a matched S13 decision, F4=0",
+                 "",
+                 "Frozen F9-O BC / F9-P PPO policies. Independent cue probe TRAIN",
+                 "750000+; S13 800000+ confirm, 40 matched pairs × 4 seeds.",
+                 "All policies receive identical public fork view and ZERO F4.",
+                 "Teacher prefix fixed, actor free after fork; not full autonomy.",
+                 "",
+                 "| Group | History F4 | H probe both | C probe both | Intact teacher action both | Intact spatial exits both | Swap HC donor both | Full donor-specific transfer |",
+                 "|---|---|---:|---:|---:|---:|---:|---:|"]
+          for group in ("bc_anchor","ppo_sham","ppo_blackout"):
+              for regime in ("history_f4_normal","history_f4_postcue_off"):
+                  cases=[r["groups"][group][regime]["summary"] for r in reports]
+                  assert all(x["pairs"]==40 for x in cases)
+                  def aggregate_counts(row):
+                      return {name:sum(x["interventions"][row][name] for x in cases)
+                              for name in cases[0]["interventions"][row]}
+                  intervention={
+                      name:aggregate_counts(name) for name in cases[0]["interventions"]}
+                  probes={
+                      feature:{
+                          "both_decoded":sum(x["probes"][feature]["both_decoded"] for x in cases),
+                          "paired_prediction_flips":sum(x["probes"][feature]["paired_prediction_flips"] for x in cases),
+                          "individual_correct":sum(x["probes"][feature]["individual_correct"] for x in cases)}
+                      for feature in ("H","C")}
+                  transplant={
+                      name:sum(x["transplant"][name] for x in cases)
+                      for name in cases[0]["transplant"]}
+                  byseed={
+                      "intact_both_spatial":[x["interventions"]["intact"]["both_first_arms_recipient_correct"] for x in cases],
+                      "intact_both_teacher":[x["interventions"]["intact"]["both_teacher_first_actions_correct"] for x in cases],
+                      "donor_specific_full_transfer":[x["transplant"]["causal_donor_specific_full_pair"] for x in cases],
+                      "H_probe_both":[x["probes"]["H"]["both_decoded"] for x in cases],
+                      "C_probe_both":[x["probes"]["C"]["both_decoded"] for x in cases],
+                  }
+                  record={
+                      "pairs":160,"per_seed_pairs":40,
+                      "probes":probes,"interventions":intervention,
+                      "transplant":transplant,"by_seed":byseed,
+                      "avg_H_distance":sum(x["mean_H_distance"] for x in cases)/4,
+                      "avg_C_distance":sum(x["mean_C_distance"] for x in cases)/4,
+                      "mean_prefix_effective_F4_masks":sum(
+                          x["avg_prefix_effective_F4_masks"] for x in cases)/4}
+                  output["metrics"][f"{group}/{regime}"]=record
+                  lines.append(
+                      f'| {group} | {regime} | '
+                      f'{probes["H"]["both_decoded"]}/160 | '
+                      f'{probes["C"]["both_decoded"]}/160 | '
+                      f'{intervention["intact"]["both_teacher_first_actions_correct"]}/160 | '
+                      f'{intervention["intact"]["both_first_arms_recipient_correct"]}/160 | '
+                      f'{intervention["swap_HC"]["both_first_arms_donor_correct"]}/160 | '
+                      f'{transplant["causal_donor_specific_full_pair"]}/160 |')
+          output["criterion"]={
+              group:{
+                  regime:{
+                      "causal_transfer_by_seed":output["metrics"][f"{group}/{regime}"]["by_seed"]["donor_specific_full_transfer"],
+                      "intact_spatial_both_by_seed":output["metrics"][f"{group}/{regime}"]["by_seed"]["intact_both_spatial"],
+                      "strong_evidence_in_at_least_3_seeds":sum(
+                          a>0 and b>0 for a,b in zip(
+                              output["metrics"][f"{group}/{regime}"]["by_seed"]["donor_specific_full_transfer"],
+                              output["metrics"][f"{group}/{regime}"]["by_seed"]["intact_both_spatial"]))>=3,
+                  } for regime in ("history_f4_normal","history_f4_postcue_off")
+              } for group in ("bc_anchor","ppo_sham","ppo_blackout")}
+          assert len(output["metrics"])==6
+          lines+=["",
+                  "NOTE: a probe decoding cue does not prove policy uses it;",
+                  "a successful first teacher action does not prove autonomous exit;",
+                  "swapping a recurrent state can perturb controller, not only memory;",
+                  "the stricter donor-specific full transfer counts both sides.",
+                  "800000+ is now consumed; no retuning and reconfirmation."]
+          Path("archive/f9q_aggregate.json").write_text(json.dumps(output,indent=2))
+          Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text("\n".join(lines)+"\n")
+          print("F9Q_AGGREGATE",json.dumps(output),flush=True)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: f9q-controlled-recall-causal-aggregate
+          path: archive/f9q_aggregate.json
+          retention-days: 30
