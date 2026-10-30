@@ -166,7 +166,7 @@ def question(w:World)->str:
     a,b=w.options
     x,y=w.actions
     return (
-        f"Decisión actual para {DOMAIN[w.family]}{subject}: "
+        f"¿Qué decisión está vigente para {DOMAIN[w.family]}{subject}? "
         f"si el valor vigente es «{a}», responde únicamente {x}; "
         f"si es «{b}», responde únicamente {y}. "
         "Usa exclusivamente lo acordado antes en la conversación y sus actualizaciones, "
