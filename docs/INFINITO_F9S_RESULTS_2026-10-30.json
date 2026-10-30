@@ -1,0 +1,949 @@
+{
+  "experiment": "F9-S H/C 1D cue-axis causal patch at last F4-masked frame",
+  "train_base": 890000,
+  "confirmation_base": 895000,
+  "prior_confirmations_reused": false,
+  "historical_holdout_opened": false,
+  "new_actor_training": false,
+  "seeds": [
+    0,
+    1,
+    2,
+    3
+  ],
+  "metrics": {
+    "bc_anchor": {
+      "conditions": {
+        "normal_reference": {
+          "pairs": 160,
+          "both_first_correct": 112,
+          "both_donor_transferred": 112,
+          "donor_specific_causal_full_pair": 112,
+          "both_teacher_first_correct": 127,
+          "by_seed_both_first_correct": [
+            29,
+            28,
+            20,
+            35
+          ],
+          "by_seed_donor_transfer": [
+            29,
+            28,
+            20,
+            35
+          ],
+          "first_correct_individual": 272,
+          "first_committed_individual": 320,
+          "mean_prefix_effective_masks": 0
+        },
+        "blackout_update": {
+          "pairs": 160,
+          "both_first_correct": 0,
+          "both_donor_transferred": 0,
+          "donor_specific_causal_full_pair": 0,
+          "both_teacher_first_correct": 0,
+          "by_seed_both_first_correct": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "by_seed_donor_transfer": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "first_correct_individual": 160,
+          "first_committed_individual": 320,
+          "mean_prefix_effective_masks": 10
+        },
+        "full_last_same": {
+          "pairs": 160,
+          "both_first_correct": 29,
+          "both_donor_transferred": 29,
+          "donor_specific_causal_full_pair": 29,
+          "both_teacher_first_correct": 44,
+          "by_seed_both_first_correct": [
+            21,
+            8,
+            0,
+            0
+          ],
+          "by_seed_donor_transfer": [
+            21,
+            8,
+            0,
+            0
+          ],
+          "first_correct_individual": 189,
+          "first_committed_individual": 320,
+          "mean_prefix_effective_masks": 10
+        },
+        "blackout_cue_axis_same": {
+          "pairs": 160,
+          "both_first_correct": 0,
+          "both_donor_transferred": 0,
+          "donor_specific_causal_full_pair": 0,
+          "both_teacher_first_correct": 0,
+          "by_seed_both_first_correct": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "by_seed_donor_transfer": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "first_correct_individual": 160,
+          "first_committed_individual": 320,
+          "mean_prefix_effective_masks": 10
+        },
+        "blackout_cue_axis_opposite": {
+          "pairs": 160,
+          "both_first_correct": 0,
+          "both_donor_transferred": 0,
+          "donor_specific_causal_full_pair": 0,
+          "both_teacher_first_correct": 0,
+          "by_seed_both_first_correct": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "by_seed_donor_transfer": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "first_correct_individual": 160,
+          "first_committed_individual": 320,
+          "mean_prefix_effective_masks": 10
+        },
+        "blackout_orthogonal_same": {
+          "pairs": 160,
+          "both_first_correct": 0,
+          "both_donor_transferred": 0,
+          "donor_specific_causal_full_pair": 0,
+          "both_teacher_first_correct": 0,
+          "by_seed_both_first_correct": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "by_seed_donor_transfer": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "first_correct_individual": 160,
+          "first_committed_individual": 320,
+          "mean_prefix_effective_masks": 10
+        },
+        "full_last_axis_opposite": {
+          "pairs": 160,
+          "both_first_correct": 0,
+          "both_donor_transferred": 0,
+          "donor_specific_causal_full_pair": 0,
+          "both_teacher_first_correct": 0,
+          "by_seed_both_first_correct": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "by_seed_donor_transfer": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "first_correct_individual": 160,
+          "first_committed_individual": 320,
+          "mean_prefix_effective_masks": 10
+        },
+        "full_last_orthogonal_opposite": {
+          "pairs": 160,
+          "both_first_correct": 50,
+          "both_donor_transferred": 50,
+          "donor_specific_causal_full_pair": 50,
+          "both_teacher_first_correct": 52,
+          "by_seed_both_first_correct": [
+            11,
+            20,
+            19,
+            0
+          ],
+          "by_seed_donor_transfer": [
+            11,
+            20,
+            19,
+            0
+          ],
+          "first_correct_individual": 210,
+          "first_committed_individual": 320,
+          "mean_prefix_effective_masks": 10
+        },
+        "full_last_axis_clamp_mean": {
+          "pairs": 160,
+          "both_first_correct": 11,
+          "both_donor_transferred": 11,
+          "donor_specific_causal_full_pair": 11,
+          "both_teacher_first_correct": 11,
+          "by_seed_both_first_correct": [
+            4,
+            7,
+            0,
+            0
+          ],
+          "by_seed_donor_transfer": [
+            4,
+            7,
+            0,
+            0
+          ],
+          "first_correct_individual": 171,
+          "first_committed_individual": 320,
+          "mean_prefix_effective_masks": 10
+        },
+        "full_last_axis_swap_H": {
+          "pairs": 160,
+          "both_first_correct": 41,
+          "both_donor_transferred": 41,
+          "donor_specific_causal_full_pair": 41,
+          "both_teacher_first_correct": 49,
+          "by_seed_both_first_correct": [
+            23,
+            18,
+            0,
+            0
+          ],
+          "by_seed_donor_transfer": [
+            23,
+            18,
+            0,
+            0
+          ],
+          "first_correct_individual": 201,
+          "first_committed_individual": 320,
+          "mean_prefix_effective_masks": 10
+        },
+        "full_last_axis_swap_C": {
+          "pairs": 160,
+          "both_first_correct": 0,
+          "both_donor_transferred": 0,
+          "donor_specific_causal_full_pair": 0,
+          "both_teacher_first_correct": 0,
+          "by_seed_both_first_correct": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "by_seed_donor_transfer": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "first_correct_individual": 160,
+          "first_committed_individual": 320,
+          "mean_prefix_effective_masks": 10
+        }
+      },
+      "causal_flips_by_seed": {
+        "cue_axis_causal_flip_pairs": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "orthogonal_causal_flip_pairs": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "H_only_causal_flip_pairs": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "C_only_causal_flip_pairs": [
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "ppo_sham": {
+      "conditions": {
+        "normal_reference": {
+          "pairs": 160,
+          "both_first_correct": 102,
+          "both_donor_transferred": 102,
+          "donor_specific_causal_full_pair": 102,
+          "both_teacher_first_correct": 104,
+          "by_seed_both_first_correct": [
+            8,
+            40,
+            38,
+            16
+          ],
+          "by_seed_donor_transfer": [
+            8,
+            40,
+            38,
+            16
+          ],
+          "first_correct_individual": 262,
+          "first_committed_individual": 320,
+          "mean_prefix_effective_masks": 0
+        },
+        "blackout_update": {
+          "pairs": 160,
+          "both_first_correct": 0,
+          "both_donor_transferred": 0,
+          "donor_specific_causal_full_pair": 0,
+          "both_teacher_first_correct": 0,
+          "by_seed_both_first_correct": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "by_seed_donor_transfer": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "first_correct_individual": 160,
+          "first_committed_individual": 320,
+          "mean_prefix_effective_masks": 10
+        },
+        "full_last_same": {
+          "pairs": 160,
+          "both_first_correct": 47,
+          "both_donor_transferred": 47,
+          "donor_specific_causal_full_pair": 47,
+          "both_teacher_first_correct": 60,
+          "by_seed_both_first_correct": [
+            0,
+            20,
+            27,
+            0
+          ],
+          "by_seed_donor_transfer": [
+            0,
+            20,
+            27,
+            0
+          ],
+          "first_correct_individual": 207,
+          "first_committed_individual": 320,
+          "mean_prefix_effective_masks": 10
+        },
+        "blackout_cue_axis_same": {
+          "pairs": 160,
+          "both_first_correct": 0,
+          "both_donor_transferred": 0,
+          "donor_specific_causal_full_pair": 0,
+          "both_teacher_first_correct": 0,
+          "by_seed_both_first_correct": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "by_seed_donor_transfer": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "first_correct_individual": 160,
+          "first_committed_individual": 320,
+          "mean_prefix_effective_masks": 10
+        },
+        "blackout_cue_axis_opposite": {
+          "pairs": 160,
+          "both_first_correct": 2,
+          "both_donor_transferred": 2,
+          "donor_specific_causal_full_pair": 2,
+          "both_teacher_first_correct": 2,
+          "by_seed_both_first_correct": [
+            0,
+            0,
+            2,
+            0
+          ],
+          "by_seed_donor_transfer": [
+            0,
+            0,
+            2,
+            0
+          ],
+          "first_correct_individual": 159,
+          "first_committed_individual": 320,
+          "mean_prefix_effective_masks": 10
+        },
+        "blackout_orthogonal_same": {
+          "pairs": 160,
+          "both_first_correct": 0,
+          "both_donor_transferred": 0,
+          "donor_specific_causal_full_pair": 0,
+          "both_teacher_first_correct": 0,
+          "by_seed_both_first_correct": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "by_seed_donor_transfer": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "first_correct_individual": 160,
+          "first_committed_individual": 320,
+          "mean_prefix_effective_masks": 10
+        },
+        "full_last_axis_opposite": {
+          "pairs": 160,
+          "both_first_correct": 14,
+          "both_donor_transferred": 14,
+          "donor_specific_causal_full_pair": 14,
+          "both_teacher_first_correct": 14,
+          "by_seed_both_first_correct": [
+            0,
+            0,
+            14,
+            0
+          ],
+          "by_seed_donor_transfer": [
+            0,
+            0,
+            14,
+            0
+          ],
+          "first_correct_individual": 174,
+          "first_committed_individual": 320,
+          "mean_prefix_effective_masks": 10
+        },
+        "full_last_orthogonal_opposite": {
+          "pairs": 160,
+          "both_first_correct": 56,
+          "both_donor_transferred": 56,
+          "donor_specific_causal_full_pair": 56,
+          "both_teacher_first_correct": 62,
+          "by_seed_both_first_correct": [
+            0,
+            35,
+            21,
+            0
+          ],
+          "by_seed_donor_transfer": [
+            0,
+            35,
+            21,
+            0
+          ],
+          "first_correct_individual": 216,
+          "first_committed_individual": 320,
+          "mean_prefix_effective_masks": 10
+        },
+        "full_last_axis_clamp_mean": {
+          "pairs": 160,
+          "both_first_correct": 47,
+          "both_donor_transferred": 47,
+          "donor_specific_causal_full_pair": 47,
+          "both_teacher_first_correct": 59,
+          "by_seed_both_first_correct": [
+            0,
+            24,
+            23,
+            0
+          ],
+          "by_seed_donor_transfer": [
+            0,
+            24,
+            23,
+            0
+          ],
+          "first_correct_individual": 207,
+          "first_committed_individual": 320,
+          "mean_prefix_effective_masks": 10
+        },
+        "full_last_axis_swap_H": {
+          "pairs": 160,
+          "both_first_correct": 61,
+          "both_donor_transferred": 61,
+          "donor_specific_causal_full_pair": 61,
+          "both_teacher_first_correct": 66,
+          "by_seed_both_first_correct": [
+            0,
+            26,
+            35,
+            0
+          ],
+          "by_seed_donor_transfer": [
+            0,
+            26,
+            35,
+            0
+          ],
+          "first_correct_individual": 221,
+          "first_committed_individual": 320,
+          "mean_prefix_effective_masks": 10
+        },
+        "full_last_axis_swap_C": {
+          "pairs": 160,
+          "both_first_correct": 23,
+          "both_donor_transferred": 23,
+          "donor_specific_causal_full_pair": 23,
+          "both_teacher_first_correct": 23,
+          "by_seed_both_first_correct": [
+            0,
+            4,
+            19,
+            0
+          ],
+          "by_seed_donor_transfer": [
+            0,
+            4,
+            19,
+            0
+          ],
+          "first_correct_individual": 182,
+          "first_committed_individual": 320,
+          "mean_prefix_effective_masks": 10
+        }
+      },
+      "causal_flips_by_seed": {
+        "cue_axis_causal_flip_pairs": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "orthogonal_causal_flip_pairs": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "H_only_causal_flip_pairs": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "C_only_causal_flip_pairs": [
+          0,
+          0,
+          1,
+          0
+        ]
+      }
+    },
+    "ppo_blackout": {
+      "conditions": {
+        "normal_reference": {
+          "pairs": 160,
+          "both_first_correct": 44,
+          "both_donor_transferred": 44,
+          "donor_specific_causal_full_pair": 44,
+          "both_teacher_first_correct": 44,
+          "by_seed_both_first_correct": [
+            0,
+            0,
+            6,
+            38
+          ],
+          "by_seed_donor_transfer": [
+            0,
+            0,
+            6,
+            38
+          ],
+          "first_correct_individual": 204,
+          "first_committed_individual": 320,
+          "mean_prefix_effective_masks": 0
+        },
+        "blackout_update": {
+          "pairs": 160,
+          "both_first_correct": 0,
+          "both_donor_transferred": 0,
+          "donor_specific_causal_full_pair": 0,
+          "both_teacher_first_correct": 0,
+          "by_seed_both_first_correct": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "by_seed_donor_transfer": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "first_correct_individual": 160,
+          "first_committed_individual": 320,
+          "mean_prefix_effective_masks": 10
+        },
+        "full_last_same": {
+          "pairs": 160,
+          "both_first_correct": 44,
+          "both_donor_transferred": 44,
+          "donor_specific_causal_full_pair": 44,
+          "both_teacher_first_correct": 44,
+          "by_seed_both_first_correct": [
+            0,
+            0,
+            6,
+            38
+          ],
+          "by_seed_donor_transfer": [
+            0,
+            0,
+            6,
+            38
+          ],
+          "first_correct_individual": 204,
+          "first_committed_individual": 320,
+          "mean_prefix_effective_masks": 10
+        },
+        "blackout_cue_axis_same": {
+          "pairs": 160,
+          "both_first_correct": 0,
+          "both_donor_transferred": 0,
+          "donor_specific_causal_full_pair": 0,
+          "both_teacher_first_correct": 0,
+          "by_seed_both_first_correct": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "by_seed_donor_transfer": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "first_correct_individual": 160,
+          "first_committed_individual": 320,
+          "mean_prefix_effective_masks": 10
+        },
+        "blackout_cue_axis_opposite": {
+          "pairs": 160,
+          "both_first_correct": 0,
+          "both_donor_transferred": 0,
+          "donor_specific_causal_full_pair": 0,
+          "both_teacher_first_correct": 0,
+          "by_seed_both_first_correct": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "by_seed_donor_transfer": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "first_correct_individual": 160,
+          "first_committed_individual": 320,
+          "mean_prefix_effective_masks": 10
+        },
+        "blackout_orthogonal_same": {
+          "pairs": 160,
+          "both_first_correct": 0,
+          "both_donor_transferred": 0,
+          "donor_specific_causal_full_pair": 0,
+          "both_teacher_first_correct": 0,
+          "by_seed_both_first_correct": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "by_seed_donor_transfer": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "first_correct_individual": 160,
+          "first_committed_individual": 320,
+          "mean_prefix_effective_masks": 10
+        },
+        "full_last_axis_opposite": {
+          "pairs": 160,
+          "both_first_correct": 21,
+          "both_donor_transferred": 21,
+          "donor_specific_causal_full_pair": 21,
+          "both_teacher_first_correct": 21,
+          "by_seed_both_first_correct": [
+            0,
+            0,
+            0,
+            21
+          ],
+          "by_seed_donor_transfer": [
+            0,
+            0,
+            0,
+            21
+          ],
+          "first_correct_individual": 175,
+          "first_committed_individual": 320,
+          "mean_prefix_effective_masks": 10
+        },
+        "full_last_orthogonal_opposite": {
+          "pairs": 160,
+          "both_first_correct": 37,
+          "both_donor_transferred": 37,
+          "donor_specific_causal_full_pair": 37,
+          "both_teacher_first_correct": 37,
+          "by_seed_both_first_correct": [
+            0,
+            0,
+            0,
+            37
+          ],
+          "by_seed_donor_transfer": [
+            0,
+            0,
+            0,
+            37
+          ],
+          "first_correct_individual": 197,
+          "first_committed_individual": 320,
+          "mean_prefix_effective_masks": 10
+        },
+        "full_last_axis_clamp_mean": {
+          "pairs": 160,
+          "both_first_correct": 29,
+          "both_donor_transferred": 29,
+          "donor_specific_causal_full_pair": 29,
+          "both_teacher_first_correct": 29,
+          "by_seed_both_first_correct": [
+            0,
+            0,
+            0,
+            29
+          ],
+          "by_seed_donor_transfer": [
+            0,
+            0,
+            0,
+            29
+          ],
+          "first_correct_individual": 189,
+          "first_committed_individual": 320,
+          "mean_prefix_effective_masks": 10
+        },
+        "full_last_axis_swap_H": {
+          "pairs": 160,
+          "both_first_correct": 38,
+          "both_donor_transferred": 38,
+          "donor_specific_causal_full_pair": 38,
+          "both_teacher_first_correct": 38,
+          "by_seed_both_first_correct": [
+            0,
+            0,
+            0,
+            38
+          ],
+          "by_seed_donor_transfer": [
+            0,
+            0,
+            0,
+            38
+          ],
+          "first_correct_individual": 198,
+          "first_committed_individual": 320,
+          "mean_prefix_effective_masks": 10
+        },
+        "full_last_axis_swap_C": {
+          "pairs": 160,
+          "both_first_correct": 30,
+          "both_donor_transferred": 30,
+          "donor_specific_causal_full_pair": 30,
+          "both_teacher_first_correct": 30,
+          "by_seed_both_first_correct": [
+            0,
+            0,
+            2,
+            28
+          ],
+          "by_seed_donor_transfer": [
+            0,
+            0,
+            2,
+            28
+          ],
+          "first_correct_individual": 184,
+          "first_committed_individual": 320,
+          "mean_prefix_effective_masks": 10
+        }
+      },
+      "causal_flips_by_seed": {
+        "cue_axis_causal_flip_pairs": [
+          0,
+          0,
+          0,
+          6
+        ],
+        "orthogonal_causal_flip_pairs": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "H_only_causal_flip_pairs": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "C_only_causal_flip_pairs": [
+          0,
+          0,
+          0,
+          6
+        ]
+      }
+    }
+  },
+  "criteria": {
+    "bc_anchor": {
+      "A_delta_both_correct_by_seed": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "A_delta_donor_transfer_by_seed": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "A_delta_vs_orthogonal_by_seed": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "A_positive_concordant_seeds": 0,
+      "A_passes": false,
+      "B_cue_flip_by_seed": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "B_orthogonal_flip_by_seed": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "B_positive_specific_seeds": 0,
+      "B_passes": false,
+      "A_and_B_jointly_pass": false
+    },
+    "ppo_sham": {
+      "A_delta_both_correct_by_seed": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "A_delta_donor_transfer_by_seed": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "A_delta_vs_orthogonal_by_seed": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "A_positive_concordant_seeds": 0,
+      "A_passes": false,
+      "B_cue_flip_by_seed": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "B_orthogonal_flip_by_seed": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "B_positive_specific_seeds": 0,
+      "B_passes": false,
+      "A_and_B_jointly_pass": false
+    },
+    "ppo_blackout": {
+      "A_delta_both_correct_by_seed": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "A_delta_donor_transfer_by_seed": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "A_delta_vs_orthogonal_by_seed": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "A_positive_concordant_seeds": 0,
+      "A_passes": false,
+      "B_cue_flip_by_seed": [
+        0,
+        0,
+        0,
+        6
+      ],
+      "B_orthogonal_flip_by_seed": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "B_positive_specific_seeds": 1,
+      "B_passes": false,
+      "A_and_B_jointly_pass": false
+    }
+  },
+  "source_workflow_run": 41052305804,
+  "source_aggregate_job": 124053211335,
+  "source_artifact_id": 12976130441,
+  "provenance_note": "Four seed F9S_AGGREGATE preserved verbatim from successful GitHub Actions job; identifiers appended."
+}
