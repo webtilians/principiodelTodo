@@ -1,0 +1,41 @@
+name: INFINITO E10-B — Offline Instrumentation Preflight
+
+on:
+  push:
+    branches: [experiment/e10b-semantic-longitudinal-live]
+    paths:
+      - observatory/e10b_semantic_longitudinal_live.py
+      - tests/test_e10b_semantic_longitudinal_live.py
+      - docs/INFINITO_E10B_LIVE_SEMANTIC_PROTOCOL.md
+      - .github/workflows/infinito-e10b-preflight.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  offline-instrumentation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install only existing test runner, NO OpenAI billing
+        run: python -m pip install pytest
+      - name: E10-B contracts (fake API used ONLY inside unit tests)
+        run: python -m pytest -q tests/test_e10b_semantic_longitudinal_live.py
+      - name: Preserve E10-A and INFINITO 3.0 core regressions
+        run: |
+          python -m pytest -q tests/test_e10_longitudinal_memory.py
+          python -m pytest -q tests/test_*_v3.py
+      - name: Validate frozen original cognitive core
+        run: |
+          test -f docs/INFINITO_E10B_LIVE_SEMANTIC_PROTOCOL.md
+          git diff --exit-code origin/master -- src/infinito3/
+          python -m py_compile observatory/e10b_semantic_longitudinal_live.py
+      - name: Emit preflight boundary (no LLM/embedding API called)
+        run: echo "E10B_OFFLINE_PREFLIGHT_OK SHA=$GITHUB_SHA; 1800000+ NOT OPENED"

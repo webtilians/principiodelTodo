@@ -1,0 +1,134 @@
+{
+  "experiment": "E10-B REAL OpenAI LLM and chronological semantic RAG",
+  "date": "2026-10-30",
+  "git_commit_at_run": "96af13a6dd218217df4eb8bbdc7b074c2272ee19",
+  "workflow_run_id": 41109251106,
+  "workflow_conclusion": "success",
+  "scientific_hypothesis_confirmed": false,
+  "confirm_artifact_id": 13002599280,
+  "development_artifact_id": 13004065821,
+  "protocol_path": "docs/INFINITO_E10B_LIVE_SEMANTIC_PROTOCOL.md",
+  "model": "gpt-5.6-luna",
+  "reasoning_effort": "none",
+  "embedding_model": "text-embedding-3-small",
+  "n_pairs": 24,
+  "decision_per_arm": 96,
+  "by_family": {
+    "alerts": {
+      "no_memory": 0,
+      "semantic_rag": 1,
+      "infinito3": 0,
+      "infinito3_gate_open": 0.75
+    },
+    "format": {
+      "no_memory": 0,
+      "semantic_rag": 1,
+      "infinito3": 0,
+      "infinito3_gate_open": 1
+    },
+    "escalation": {
+      "no_memory": 0,
+      "semantic_rag": 1,
+      "infinito3": 0,
+      "infinito3_gate_open": 1
+    },
+    "cadence": {
+      "no_memory": 0,
+      "semantic_rag": 1,
+      "infinito3": 0,
+      "infinito3_gate_open": 0
+    },
+    "color": {
+      "no_memory": 0,
+      "semantic_rag": 1,
+      "infinito3": 0.25,
+      "infinito3_gate_open": 0.75
+    },
+    "city": {
+      "no_memory": 0,
+      "semantic_rag": 1,
+      "infinito3": 0.25,
+      "infinito3_gate_open": 0
+    }
+  },
+  "arms": {
+    "no_memory": {
+      "four_correct": 0,
+      "four_rate": 0,
+      "individual_correct": 0,
+      "both_flip": 0,
+      "before_correct": 0,
+      "after_correct": 0,
+      "context_tokens_mean": 0,
+      "provider_input_tokens": 16424,
+      "provider_output_tokens": 672,
+      "missing_evidence_abstentions": 6
+    },
+    "semantic_rag": {
+      "four_correct": 24,
+      "four_rate": 1,
+      "individual_correct": 96,
+      "both_flip": 24,
+      "before_correct": 48,
+      "after_correct": 48,
+      "context_tokens_mean": 145.36458333333334,
+      "provider_input_tokens": 32875,
+      "provider_output_tokens": 570,
+      "missing_evidence_abstentions": 6
+    },
+    "infinito3": {
+      "four_correct": 2,
+      "four_rate": 0.08333333333333333,
+      "individual_correct": 25,
+      "both_flip": 2,
+      "before_correct": 14,
+      "after_correct": 11,
+      "context_tokens_mean": 35.916666666666664,
+      "provider_input_tokens": 18520,
+      "provider_output_tokens": 645,
+      "missing_evidence_abstentions": 6
+    },
+    "infinito3_gate_open": {
+      "four_correct": 14,
+      "four_rate": 0.5833333333333334,
+      "individual_correct": 72,
+      "both_flip": 14,
+      "before_correct": 36,
+      "after_correct": 36,
+      "context_tokens_mean": 55.6875,
+      "provider_input_tokens": 23053,
+      "provider_output_tokens": 594,
+      "missing_evidence_abstentions": 6
+    }
+  },
+  "preregistered_criterion": {
+    "difference_by_family": {
+      "alerts": -1,
+      "format": -1,
+      "escalation": -1,
+      "cadence": -1,
+      "color": -0.75,
+      "city": -0.75
+    },
+    "mean_difference": -0.9166666666666666,
+    "family_positive": 0,
+    "bootstrap_95_family_cluster": [
+      -1,
+      -0.8333333333333334
+    ],
+    "infinito_missing_fact_errors": 0,
+    "rag_missing_fact_errors": 0,
+    "e10b_passes": false,
+    "new_confirm_split_consumed": true
+  },
+  "embedding_api_calls": 134,
+  "scope": "Six templated families, four confirm worlds each, 12+12 distractors, frozen production core, LLM used to choose actions at two times after different cue histories",
+  "caveats": [
+    "RAG semantic baseline includes all setup statements, top-8 with chronological order; INFINITO original has gated capture and context pruning",
+    "Two decisions per paired history, not autonomous real-world open-ended agent",
+    "Four out of six families deliberately outside known fact extractor patterns",
+    "Cluster bootstrap only six families, not six independent trained LLMs",
+    "E10-A offline/fact-pattern task is NOT directly comparable to E10-B real model/new-family benchmark",
+    "Confirmation 1800000+ consumed; do not tune and reconfirm on these worlds"
+  ]
+}
