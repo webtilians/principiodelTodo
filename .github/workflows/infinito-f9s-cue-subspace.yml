@@ -1,0 +1,329 @@
+name: INFINITO F9-S — Causal H/C Cue Subspace Patch
+
+on:
+  push:
+    branches: ["experiment/f9s-cue-subspace-causal-patch"]
+    paths:
+      - "observatory/f9s_cue_subspace.py"
+      - "observatory/f9s_train_cue_axes.py"
+      - "observatory/f9s_confirm_cue_subspace.py"
+      - "tests/test_f9s_cue_subspace.py"
+      - "docs/INFINITO_F9S_CUE_SUBSPACE_PROTOCOL.md"
+      - ".github/workflows/infinito-f9s-cue-subspace.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: f9s-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  integrity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install pinned CPU-only F9 dependencies
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r observatory/requirements_f9.txt gymnasium==1.4.0
+      - name: Test axis math, equal-norm orthogonal placebo and 890000/895000 partition
+        run: python -m unittest discover -s tests -p 'test_f9s_cue_subspace.py' -v
+      - name: Preserve F9-R mechanistic and F9-Q causal contracts
+        run: |
+          python -m unittest discover -s tests -p 'test_f9r_recurrent_state_drift.py' -v
+          python -m unittest discover -s tests -p 'test_f9q_causal_fork.py' -v
+
+  fit-train-only-axes:
+    needs: integrity
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        seed: [0, 1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install CPU-only F9 dependencies
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r observatory/requirements_f9.txt gymnasium==1.4.0
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 40957255987
+          repository: webtilians/principiodelTodo
+          github-token: ${{ github.token }}
+          name: f9o-new-models-seed-${{ matrix.seed }}
+          path: frozen/bc-${{ matrix.seed }}
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 40960267485
+          repository: webtilians/principiodelTodo
+          github-token: ${{ github.token }}
+          name: f9p-ppo-models-seed-${{ matrix.seed }}
+          path: frozen/ppo-${{ matrix.seed }}
+      - name: Fit only 1D H and C cue axes on 890000 new paired TRAIN worlds
+        run: |
+          python -m observatory.f9s_train_cue_axes \
+            --index ${{ matrix.seed }} --train-pairs 80 \
+            --bc-source frozen/bc-${{ matrix.seed }} \
+            --ppo-source frozen/ppo-${{ matrix.seed }} \
+            --output fitted/axes-${{ matrix.seed }}
+      - name: Validate source SHAs, two unit axes and two orthogonal controls per policy
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from observatory.f9q_train_cue_probes import validate_sources
+          from observatory.f9s_train_cue_axes import validate_report
+          idx=int("${{ matrix.seed }}")
+          bc=Path(f"frozen/bc-{idx}")
+          ppo=Path(f"frozen/ppo-{idx}")
+          _,shas,src=validate_sources(bc,ppo,idx)
+          r=json.loads(Path(f"fitted/axes-{idx}/report.json").read_text())
+          validate_report(r,idx,shas,src)
+          print("F9S_AXES_TRAIN_ONLY_GATE_PASSED",idx)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: f9s-new-train-frozen-axes-seed-${{ matrix.seed }}
+          path: fitted/axes-${{ matrix.seed }}/
+          retention-days: 30
+          if-no-files-found: error
+
+  twelve-model-and-axis-gate:
+    needs: fit-train-only-axes
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install CPU-only F9 dependencies
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r observatory/requirements_f9.txt gymnasium==1.4.0
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 40957255987
+          repository: webtilians/principiodelTodo
+          github-token: ${{ github.token }}
+          pattern: f9o-new-models-seed-*
+          path: frozen-bc
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 40960267485
+          repository: webtilians/principiodelTodo
+          github-token: ${{ github.token }}
+          pattern: f9p-ppo-models-seed-*
+          path: frozen-ppo
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: f9s-new-train-frozen-axes-seed-*
+          path: axes
+      - name: Gate every SHA and cue/orthogonal projection BEFORE confirmation opens
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from observatory.f9q_train_cue_probes import validate_sources
+          from observatory.f9s_train_cue_axes import validate_report
+          for idx in range(4):
+              bc=Path(f"frozen-bc/f9o-new-models-seed-{idx}")
+              ppo=Path(f"frozen-ppo/f9p-ppo-models-seed-{idx}")
+              axes=Path(f"axes/f9s-new-train-frozen-axes-seed-{idx}/report.json")
+              _,sha,src=validate_sources(bc,ppo,idx)
+              validate_report(json.loads(axes.read_text()),idx,sha,src)
+          print("F9S_ALL_TWELVE_MODELS_AND_24_CUE_ORTH_VECTORS_LOCKED")
+          PY
+
+  fresh-confirmation:
+    needs: twelve-model-and-axis-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        seed: [0, 1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install CPU-only F9 dependencies
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r observatory/requirements_f9.txt gymnasium==1.4.0
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 40957255987
+          repository: webtilians/principiodelTodo
+          github-token: ${{ github.token }}
+          name: f9o-new-models-seed-${{ matrix.seed }}
+          path: frozen/bc-${{ matrix.seed }}
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 40960267485
+          repository: webtilians/principiodelTodo
+          github-token: ${{ github.token }}
+          name: f9p-ppo-models-seed-${{ matrix.seed }}
+          path: frozen/ppo-${{ matrix.seed }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: f9s-new-train-frozen-axes-seed-${{ matrix.seed }}
+          path: frozen/axes-${{ matrix.seed }}
+      - name: Open only NEW 895000+ matched S13 worlds; cue axis and orthogonal causal patches
+        run: |
+          python -m observatory.f9s_confirm_cue_subspace \
+            --index ${{ matrix.seed }} --pairs 40 \
+            --bc-source frozen/bc-${{ matrix.seed }} \
+            --ppo-source frozen/ppo-${{ matrix.seed }} \
+            --axes frozen/axes-${{ matrix.seed }} \
+            --output confirmed/f9s-${{ matrix.seed }}
+      - name: Enforce all 40 preassigned paired histories, all 11 treatments and both transplants
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from observatory.f9s_cue_subspace import CONDITIONS,MODES
+          idx=int("${{ matrix.seed }}")
+          row=json.loads(Path(f"confirmed/f9s-{idx}/report.json").read_text())
+          assert row["seed_index"]==idx and row["confirmation_base"]==895000
+          assert row["axis_training_base"]==890000 and row["world_pairs"]==40
+          assert not row["policy_training"] and not row["new_axis_training"]
+          assert not row["previous_confirmations_reused"] and not row["historical_holdout_opened"]
+          assert set(row["groups"])=={"bc_anchor","ppo_sham","ppo_blackout"}
+          for g in row["groups"].values():
+              assert len(g["cases"])==40 and g["summary"]["pairs"]==40
+              assert set(g["summary"]["conditions"])==set(CONDITIONS)
+              for case in g["cases"]:
+                  assert case["fork_public_identical"] and case["F4_fork_and_continuation_zero"]
+                  assert set(case["conditions"])==set(CONDITIONS)
+                  assert all(set(v["runs"])==set(MODES) for v in case["conditions"].values())
+          print("F9S_ALL_PREASSIGNED_CASES_AND_PATCHES_COMPLETE",idx)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: f9s-confirm-cue-subspace-seed-${{ matrix.seed }}
+          path: confirmed/f9s-${{ matrix.seed }}/
+          retention-days: 30
+          if-no-files-found: warn
+
+  aggregate:
+    needs: fresh-confirmation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: f9s-confirm-cue-subspace-seed-*
+          path: archive
+      - name: Aggregate preregistered paired cue rescue and axis-vs-orthogonal causal reversal
+        run: |
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          files=sorted(Path("archive").glob("f9s-confirm-cue-subspace-seed-*/report.json"))
+          rows=[json.loads(x.read_text()) for x in files]
+          assert len(rows)==4 and {r["seed_index"] for r in rows}=={0,1,2,3}
+          assert all(not r["policy_training"] and not r["historical_holdout_opened"]
+                     and not r["previous_confirmations_reused"] for r in rows)
+          groups=("bc_anchor","ppo_sham","ppo_blackout")
+          names=rows[0]["conditions"]
+          assert len(names)==11
+          result={"experiment":"F9-S H/C 1D cue-axis causal patch at last F4-masked frame",
+                  "train_base":890000,"confirmation_base":895000,
+                  "prior_confirmations_reused":False,"historical_holdout_opened":False,
+                  "new_actor_training":False,"seeds":[0,1,2,3],
+                  "metrics":{},"criteria":{}}
+          lines=["# F9-S — Causal 1D H/C cue axis versus matched-norm orthogonal control",
+                 "",
+                 "12 frozen policies, 80 NEW S13 TRAIN pairs per axis per seed,",
+                 "160 NEW 895000+ confirmation pairs per group, F4=0 at fork.",
+                 "",
+                 "| Policy | Condition | Both first exits correct | Donor specific H/C transplant | by seed correct |",
+                 "|---|---|---:|---:|---|"]
+          for group in groups:
+              block={}
+              seed_rows=[r["groups"][group]["summary"] for r in rows]
+              assert all(x["pairs"]==40 for x in seed_rows)
+              for cond in names:
+                  data=[r["conditions"][cond] for r in seed_rows]
+                  by_correct=[x["both_first_correct"] for x in data]
+                  by_transfer=[x["donor_specific_full_pair"] for x in data]
+                  block[cond]={
+                      "pairs":160,
+                      "both_first_correct":sum(by_correct),
+                      "both_donor_transferred":sum(x["both_swap_donor_correct"] for x in data),
+                      "donor_specific_causal_full_pair":sum(by_transfer),
+                      "both_teacher_first_correct":sum(x["both_first_teacher_actions_correct"] for x in data),
+                      "by_seed_both_first_correct":by_correct,
+                      "by_seed_donor_transfer":by_transfer,
+                      "first_correct_individual":sum(x["first_correct_individual"] for x in data),
+                      "first_committed_individual":sum(x["first_committed_individual"] for x in data),
+                      "mean_prefix_effective_masks":sum(x["mean_effective_mask"] for x in data)/4,
+                  }
+                  lines.append(f'| {group} | {cond} | {sum(by_correct)}/160 | '
+                               f'{sum(by_transfer)}/160 | {by_correct} |')
+              flips={
+                  metric:[r[metric] for r in seed_rows] for metric in (
+                    "cue_axis_causal_flip_pairs",
+                    "orthogonal_causal_flip_pairs",
+                    "H_only_causal_flip_pairs",
+                    "C_only_causal_flip_pairs")}
+              delta_rescue=[
+                  x-y for x,y in zip(
+                      block["blackout_cue_axis_same"]["by_seed_both_first_correct"],
+                      block["blackout_update"]["by_seed_both_first_correct"])]
+              delta_transfer=[
+                  x-y for x,y in zip(
+                      block["blackout_cue_axis_same"]["by_seed_donor_transfer"],
+                      block["blackout_update"]["by_seed_donor_transfer"])]
+              orth_delta=[
+                  x-y for x,y in zip(
+                      block["blackout_cue_axis_same"]["by_seed_both_first_correct"],
+                      block["blackout_orthogonal_same"]["by_seed_both_first_correct"])]
+              seed_rescue=sum(x>0 and y>0 for x,y in zip(delta_rescue,delta_transfer))
+              flips_cue=flips["cue_axis_causal_flip_pairs"]
+              flips_control=flips["orthogonal_causal_flip_pairs"]
+              seed_flip=sum(x>y and x>0 for x,y in zip(flips_cue,flips_control))
+              result["metrics"][group]={"conditions":block,"causal_flips_by_seed":flips}
+              result["criteria"][group]={
+                  "A_delta_both_correct_by_seed":delta_rescue,
+                  "A_delta_donor_transfer_by_seed":delta_transfer,
+                  "A_delta_vs_orthogonal_by_seed":orth_delta,
+                  "A_positive_concordant_seeds":seed_rescue,
+                  "A_passes":seed_rescue>=3 and sum(delta_rescue)>0
+                      and sum(delta_transfer)>0 and sum(orth_delta)>0,
+                  "B_cue_flip_by_seed":flips_cue,
+                  "B_orthogonal_flip_by_seed":flips_control,
+                  "B_positive_specific_seeds":seed_flip,
+                  "B_passes":seed_flip>=3 and sum(flips_cue)>sum(flips_control),
+              }
+              result["criteria"][group]["A_and_B_jointly_pass"]=(
+                  result["criteria"][group]["A_passes"] and
+                  result["criteria"][group]["B_passes"])
+          lines+=["","## Preregistered criteria",
+                  json.dumps(result["criteria"],ensure_ascii=False),
+                  "The 895000+ confirmation is now consumed. No model tuning on it.",
+                  "Teacher-forced matched prefix is NOT autonomous full navigation.",
+                  "Axis and orthogonal patch effects may depend on nonlinear H/C dynamics."]
+          Path("archive/f9s_aggregate.json").write_text(json.dumps(result,indent=2))
+          Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text("\n".join(lines)+"\n")
+          print("F9S_AGGREGATE",json.dumps(result),flush=True)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: f9s-confirmed-cue-axis-causal-aggregate
+          path: archive/f9s_aggregate.json
+          retention-days: 30
