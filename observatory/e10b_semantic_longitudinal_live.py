@@ -463,12 +463,16 @@ def run(split:str,output:Path,client,adapter_factory=None):
     output.mkdir(parents=True,exist_ok=True)
     embeddings=CachedSemanticEmbeddings(client)
     rows=[]
+    if split=="confirm":
+        print("E10B_CONFIRM_SPLIT_OPENED 1800000+ CONSUMED",flush=True)
     for i in (range(1) if split=="dev" else range(4)):
         for j in range(6):
             world=make_world(seed_for(split,i,j))
             row=evaluate_world(world,client,embeddings,adapter_factory)
             row["index"]=i
             rows.append(row)
+            with (output/"progress.jsonl").open("a",encoding="utf8") as stream:
+                stream.write(json.dumps(row,ensure_ascii=False)+"\n")
             print("E10B_PAIR_FINISHED",split,i,j,flush=True)
     negatives=evaluate_negatives(client,embeddings,adapter_factory)
     stats=aggregate(rows,negatives)
