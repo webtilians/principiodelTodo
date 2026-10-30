@@ -1,0 +1,42 @@
+name: INFINITO context fix validation
+on:
+  push:
+    branches: [eval/context-precision-fix-20260914]
+    paths: ['.github/workflows/infinito3-precision-fix.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  evaluate:
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [extended, precision, validation]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install openai pytest
+      - name: Core and regression tests
+        run: python -m pytest tests/test_*v3.py -q
+      - name: Paired evaluation with frozen expectations
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: >-
+          python scripts/run_infinito3_real_eval.py
+          --model gpt-5.6-luna --reasoning-effort none --suite ${{ matrix.suite }}
+          --embedding-provider openai --embedding-model text-embedding-3-small
+          --output-dir evaluation-results/${{ matrix.suite }}
+      - name: Summary
+        if: always()
+        run: find evaluation-results -name '*.md' -exec cat {} \; >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: infinito3-context-fix-${{ matrix.suite }}
+          path: evaluation-results/
+          if-no-files-found: warn
+          retention-days: 30
