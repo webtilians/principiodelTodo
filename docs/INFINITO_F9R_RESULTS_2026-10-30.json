@@ -1,0 +1,1043 @@
+{
+  "experiment": "F9-R causal H/C preservation during external F4 blackout",
+  "new_confirmation_base": 850000,
+  "fixture_base": 840000,
+  "source_f9o_run": 40957255987,
+  "source_f9p_run": 40960267485,
+  "historical_holdout_opened": false,
+  "previous_confirmation_reused": false,
+  "new_policy_training": false,
+  "seeds": [
+    0,
+    1,
+    2,
+    3
+  ],
+  "metrics": {
+    "bc_anchor": {
+      "normal_reference": {
+        "pairs": 160,
+        "counts": {
+          "pairs": 160,
+          "both_intact_first_arms_correct": 110,
+          "both_swap_HC_donor_arms_correct": 110,
+          "both_intact_teacher_first_actions_correct": 125,
+          "both_swap_changes_first_arms": 110,
+          "donor_specific_causal_full_pair": 110,
+          "first_intact_choice_correct_episodes": 270,
+          "first_commit_episodes": 320,
+          "timeouts": 0
+        },
+        "means": {
+          "mean_H_pair_l2": 3.407237481325865,
+          "mean_C_pair_l2": 12.95675586760044,
+          "mean_effective_prefix_masks": 0,
+          "mean_scheduled_prefix_masks": 0
+        },
+        "by_seed_both_first_correct": [
+          31,
+          31,
+          18,
+          30
+        ],
+        "by_seed_donor_specific": [
+          31,
+          31,
+          18,
+          30
+        ]
+      },
+      "blackout_update": {
+        "pairs": 160,
+        "counts": {
+          "pairs": 160,
+          "both_intact_first_arms_correct": 0,
+          "both_swap_HC_donor_arms_correct": 0,
+          "both_intact_teacher_first_actions_correct": 0,
+          "both_swap_changes_first_arms": 0,
+          "donor_specific_causal_full_pair": 0,
+          "first_intact_choice_correct_episodes": 160,
+          "first_commit_episodes": 320,
+          "timeouts": 0
+        },
+        "means": {
+          "mean_H_pair_l2": 2.1004541871137916,
+          "mean_C_pair_l2": 5.816628364473582,
+          "mean_effective_prefix_masks": 10,
+          "mean_scheduled_prefix_masks": 10
+        },
+        "by_seed_both_first_correct": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "by_seed_donor_specific": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "blackout_freeze_HC": {
+        "pairs": 160,
+        "counts": {
+          "pairs": 160,
+          "both_intact_first_arms_correct": 0,
+          "both_swap_HC_donor_arms_correct": 0,
+          "both_intact_teacher_first_actions_correct": 0,
+          "both_swap_changes_first_arms": 0,
+          "donor_specific_causal_full_pair": 0,
+          "first_intact_choice_correct_episodes": 160,
+          "first_commit_episodes": 320,
+          "timeouts": 0
+        },
+        "means": {
+          "mean_H_pair_l2": 1.49540456533432,
+          "mean_C_pair_l2": 3.640194932743907,
+          "mean_effective_prefix_masks": 10,
+          "mean_scheduled_prefix_masks": 10
+        },
+        "by_seed_both_first_correct": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "by_seed_donor_specific": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "blackout_freeze_H": {
+        "pairs": 160,
+        "counts": {
+          "pairs": 160,
+          "both_intact_first_arms_correct": 0,
+          "both_swap_HC_donor_arms_correct": 0,
+          "both_intact_teacher_first_actions_correct": 0,
+          "both_swap_changes_first_arms": 0,
+          "donor_specific_causal_full_pair": 0,
+          "first_intact_choice_correct_episodes": 160,
+          "first_commit_episodes": 320,
+          "timeouts": 0
+        },
+        "means": {
+          "mean_H_pair_l2": 1.49540456533432,
+          "mean_C_pair_l2": 3.6731643103063107,
+          "mean_effective_prefix_masks": 10,
+          "mean_scheduled_prefix_masks": 10
+        },
+        "by_seed_both_first_correct": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "by_seed_donor_specific": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "blackout_freeze_C": {
+        "pairs": 160,
+        "counts": {
+          "pairs": 160,
+          "both_intact_first_arms_correct": 0,
+          "both_swap_HC_donor_arms_correct": 0,
+          "both_intact_teacher_first_actions_correct": 0,
+          "both_swap_changes_first_arms": 0,
+          "donor_specific_causal_full_pair": 0,
+          "first_intact_choice_correct_episodes": 160,
+          "first_commit_episodes": 320,
+          "timeouts": 0
+        },
+        "means": {
+          "mean_H_pair_l2": 1.2378063391894103,
+          "mean_C_pair_l2": 3.640194932743907,
+          "mean_effective_prefix_masks": 10,
+          "mean_scheduled_prefix_masks": 10
+        },
+        "by_seed_both_first_correct": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "by_seed_donor_specific": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "blackout_patch_normal_mid_HC": {
+        "pairs": 160,
+        "counts": {
+          "pairs": 160,
+          "both_intact_first_arms_correct": 0,
+          "both_swap_HC_donor_arms_correct": 0,
+          "both_intact_teacher_first_actions_correct": 0,
+          "both_swap_changes_first_arms": 0,
+          "donor_specific_causal_full_pair": 0,
+          "first_intact_choice_correct_episodes": 160,
+          "first_commit_episodes": 320,
+          "timeouts": 0
+        },
+        "means": {
+          "mean_H_pair_l2": 3.3979195542633533,
+          "mean_C_pair_l2": 10.645950731635093,
+          "mean_effective_prefix_masks": 10,
+          "mean_scheduled_prefix_masks": 10
+        },
+        "by_seed_both_first_correct": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "by_seed_donor_specific": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "blackout_patch_normal_last_HC": {
+        "pairs": 160,
+        "counts": {
+          "pairs": 160,
+          "both_intact_first_arms_correct": 34,
+          "both_swap_HC_donor_arms_correct": 34,
+          "both_intact_teacher_first_actions_correct": 52,
+          "both_swap_changes_first_arms": 34,
+          "donor_specific_causal_full_pair": 34,
+          "first_intact_choice_correct_episodes": 194,
+          "first_commit_episodes": 320,
+          "timeouts": 0
+        },
+        "means": {
+          "mean_H_pair_l2": 3.342654290795326,
+          "mean_C_pair_l2": 12.091526383161545,
+          "mean_effective_prefix_masks": 10,
+          "mean_scheduled_prefix_masks": 10
+        },
+        "by_seed_both_first_correct": [
+          25,
+          9,
+          0,
+          0
+        ],
+        "by_seed_donor_specific": [
+          25,
+          9,
+          0,
+          0
+        ]
+      },
+      "blackout_patch_normal_fork_HC": {
+        "pairs": 160,
+        "counts": {
+          "pairs": 160,
+          "both_intact_first_arms_correct": 110,
+          "both_swap_HC_donor_arms_correct": 110,
+          "both_intact_teacher_first_actions_correct": 125,
+          "both_swap_changes_first_arms": 110,
+          "donor_specific_causal_full_pair": 110,
+          "first_intact_choice_correct_episodes": 270,
+          "first_commit_episodes": 320,
+          "timeouts": 0
+        },
+        "means": {
+          "mean_H_pair_l2": 3.407237481325865,
+          "mean_C_pair_l2": 12.95675586760044,
+          "mean_effective_prefix_masks": 10,
+          "mean_scheduled_prefix_masks": 10
+        },
+        "by_seed_both_first_correct": [
+          31,
+          31,
+          18,
+          30
+        ],
+        "by_seed_donor_specific": [
+          31,
+          31,
+          18,
+          30
+        ]
+      },
+      "blackout_patch_normal_fork_H": {
+        "pairs": 160,
+        "counts": {
+          "pairs": 160,
+          "both_intact_first_arms_correct": 2,
+          "both_swap_HC_donor_arms_correct": 2,
+          "both_intact_teacher_first_actions_correct": 2,
+          "both_swap_changes_first_arms": 2,
+          "donor_specific_causal_full_pair": 2,
+          "first_intact_choice_correct_episodes": 162,
+          "first_commit_episodes": 320,
+          "timeouts": 0
+        },
+        "means": {
+          "mean_H_pair_l2": 3.407237481325865,
+          "mean_C_pair_l2": 5.816628364473582,
+          "mean_effective_prefix_masks": 10,
+          "mean_scheduled_prefix_masks": 10
+        },
+        "by_seed_both_first_correct": [
+          2,
+          0,
+          0,
+          0
+        ],
+        "by_seed_donor_specific": [
+          2,
+          0,
+          0,
+          0
+        ]
+      },
+      "blackout_patch_normal_fork_C": {
+        "pairs": 160,
+        "counts": {
+          "pairs": 160,
+          "both_intact_first_arms_correct": 0,
+          "both_swap_HC_donor_arms_correct": 0,
+          "both_intact_teacher_first_actions_correct": 0,
+          "both_swap_changes_first_arms": 0,
+          "donor_specific_causal_full_pair": 0,
+          "first_intact_choice_correct_episodes": 160,
+          "first_commit_episodes": 320,
+          "timeouts": 0
+        },
+        "means": {
+          "mean_H_pair_l2": 2.1004541871137916,
+          "mean_C_pair_l2": 12.95675586760044,
+          "mean_effective_prefix_masks": 10,
+          "mean_scheduled_prefix_masks": 10
+        },
+        "by_seed_both_first_correct": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "by_seed_donor_specific": [
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "ppo_sham": {
+      "normal_reference": {
+        "pairs": 160,
+        "counts": {
+          "pairs": 160,
+          "both_intact_first_arms_correct": 107,
+          "both_swap_HC_donor_arms_correct": 107,
+          "both_intact_teacher_first_actions_correct": 109,
+          "both_swap_changes_first_arms": 107,
+          "donor_specific_causal_full_pair": 107,
+          "first_intact_choice_correct_episodes": 267,
+          "first_commit_episodes": 320,
+          "timeouts": 0
+        },
+        "means": {
+          "mean_H_pair_l2": 3.0279961578547954,
+          "mean_C_pair_l2": 12.388133361935616,
+          "mean_effective_prefix_masks": 0,
+          "mean_scheduled_prefix_masks": 0
+        },
+        "by_seed_both_first_correct": [
+          8,
+          40,
+          38,
+          21
+        ],
+        "by_seed_donor_specific": [
+          8,
+          40,
+          38,
+          21
+        ]
+      },
+      "blackout_update": {
+        "pairs": 160,
+        "counts": {
+          "pairs": 160,
+          "both_intact_first_arms_correct": 0,
+          "both_swap_HC_donor_arms_correct": 0,
+          "both_intact_teacher_first_actions_correct": 0,
+          "both_swap_changes_first_arms": 0,
+          "donor_specific_causal_full_pair": 0,
+          "first_intact_choice_correct_episodes": 160,
+          "first_commit_episodes": 320,
+          "timeouts": 0
+        },
+        "means": {
+          "mean_H_pair_l2": 1.4768224403262138,
+          "mean_C_pair_l2": 4.77951051518321,
+          "mean_effective_prefix_masks": 10,
+          "mean_scheduled_prefix_masks": 10
+        },
+        "by_seed_both_first_correct": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "by_seed_donor_specific": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "blackout_freeze_HC": {
+        "pairs": 160,
+        "counts": {
+          "pairs": 160,
+          "both_intact_first_arms_correct": 0,
+          "both_swap_HC_donor_arms_correct": 0,
+          "both_intact_teacher_first_actions_correct": 0,
+          "both_swap_changes_first_arms": 0,
+          "donor_specific_causal_full_pair": 0,
+          "first_intact_choice_correct_episodes": 160,
+          "first_commit_episodes": 320,
+          "timeouts": 0
+        },
+        "means": {
+          "mean_H_pair_l2": 1.5309378581121564,
+          "mean_C_pair_l2": 3.6753368489444256,
+          "mean_effective_prefix_masks": 10,
+          "mean_scheduled_prefix_masks": 10
+        },
+        "by_seed_both_first_correct": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "by_seed_donor_specific": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "blackout_freeze_H": {
+        "pairs": 160,
+        "counts": {
+          "pairs": 160,
+          "both_intact_first_arms_correct": 0,
+          "both_swap_HC_donor_arms_correct": 0,
+          "both_intact_teacher_first_actions_correct": 0,
+          "both_swap_changes_first_arms": 0,
+          "donor_specific_causal_full_pair": 0,
+          "first_intact_choice_correct_episodes": 160,
+          "first_commit_episodes": 320,
+          "timeouts": 0
+        },
+        "means": {
+          "mean_H_pair_l2": 1.5309378581121564,
+          "mean_C_pair_l2": 3.555243454873562,
+          "mean_effective_prefix_masks": 10,
+          "mean_scheduled_prefix_masks": 10
+        },
+        "by_seed_both_first_correct": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "by_seed_donor_specific": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "blackout_freeze_C": {
+        "pairs": 160,
+        "counts": {
+          "pairs": 160,
+          "both_intact_first_arms_correct": 0,
+          "both_swap_HC_donor_arms_correct": 0,
+          "both_intact_teacher_first_actions_correct": 0,
+          "both_swap_changes_first_arms": 0,
+          "donor_specific_causal_full_pair": 0,
+          "first_intact_choice_correct_episodes": 160,
+          "first_commit_episodes": 320,
+          "timeouts": 0
+        },
+        "means": {
+          "mean_H_pair_l2": 1.1884770458564162,
+          "mean_C_pair_l2": 3.6753368489444256,
+          "mean_effective_prefix_masks": 10,
+          "mean_scheduled_prefix_masks": 10
+        },
+        "by_seed_both_first_correct": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "by_seed_donor_specific": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "blackout_patch_normal_mid_HC": {
+        "pairs": 160,
+        "counts": {
+          "pairs": 160,
+          "both_intact_first_arms_correct": 0,
+          "both_swap_HC_donor_arms_correct": 0,
+          "both_intact_teacher_first_actions_correct": 0,
+          "both_swap_changes_first_arms": 0,
+          "donor_specific_causal_full_pair": 0,
+          "first_intact_choice_correct_episodes": 160,
+          "first_commit_episodes": 320,
+          "timeouts": 0
+        },
+        "means": {
+          "mean_H_pair_l2": 2.7922665294259787,
+          "mean_C_pair_l2": 10.011195085942745,
+          "mean_effective_prefix_masks": 10,
+          "mean_scheduled_prefix_masks": 10
+        },
+        "by_seed_both_first_correct": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "by_seed_donor_specific": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "blackout_patch_normal_last_HC": {
+        "pairs": 160,
+        "counts": {
+          "pairs": 160,
+          "both_intact_first_arms_correct": 49,
+          "both_swap_HC_donor_arms_correct": 49,
+          "both_intact_teacher_first_actions_correct": 60,
+          "both_swap_changes_first_arms": 49,
+          "donor_specific_causal_full_pair": 49,
+          "first_intact_choice_correct_episodes": 209,
+          "first_commit_episodes": 320,
+          "timeouts": 0
+        },
+        "means": {
+          "mean_H_pair_l2": 2.9369320891797543,
+          "mean_C_pair_l2": 11.54338606595993,
+          "mean_effective_prefix_masks": 10,
+          "mean_scheduled_prefix_masks": 10
+        },
+        "by_seed_both_first_correct": [
+          0,
+          20,
+          29,
+          0
+        ],
+        "by_seed_donor_specific": [
+          0,
+          20,
+          29,
+          0
+        ]
+      },
+      "blackout_patch_normal_fork_HC": {
+        "pairs": 160,
+        "counts": {
+          "pairs": 160,
+          "both_intact_first_arms_correct": 107,
+          "both_swap_HC_donor_arms_correct": 107,
+          "both_intact_teacher_first_actions_correct": 109,
+          "both_swap_changes_first_arms": 107,
+          "donor_specific_causal_full_pair": 107,
+          "first_intact_choice_correct_episodes": 267,
+          "first_commit_episodes": 320,
+          "timeouts": 0
+        },
+        "means": {
+          "mean_H_pair_l2": 3.0279961578547954,
+          "mean_C_pair_l2": 12.388133361935616,
+          "mean_effective_prefix_masks": 10,
+          "mean_scheduled_prefix_masks": 10
+        },
+        "by_seed_both_first_correct": [
+          8,
+          40,
+          38,
+          21
+        ],
+        "by_seed_donor_specific": [
+          8,
+          40,
+          38,
+          21
+        ]
+      },
+      "blackout_patch_normal_fork_H": {
+        "pairs": 160,
+        "counts": {
+          "pairs": 160,
+          "both_intact_first_arms_correct": 14,
+          "both_swap_HC_donor_arms_correct": 14,
+          "both_intact_teacher_first_actions_correct": 42,
+          "both_swap_changes_first_arms": 14,
+          "donor_specific_causal_full_pair": 14,
+          "first_intact_choice_correct_episodes": 174,
+          "first_commit_episodes": 320,
+          "timeouts": 0
+        },
+        "means": {
+          "mean_H_pair_l2": 3.0279961578547954,
+          "mean_C_pair_l2": 4.77951051518321,
+          "mean_effective_prefix_masks": 10,
+          "mean_scheduled_prefix_masks": 10
+        },
+        "by_seed_both_first_correct": [
+          0,
+          14,
+          0,
+          0
+        ],
+        "by_seed_donor_specific": [
+          0,
+          14,
+          0,
+          0
+        ]
+      },
+      "blackout_patch_normal_fork_C": {
+        "pairs": 160,
+        "counts": {
+          "pairs": 160,
+          "both_intact_first_arms_correct": 29,
+          "both_swap_HC_donor_arms_correct": 29,
+          "both_intact_teacher_first_actions_correct": 29,
+          "both_swap_changes_first_arms": 31,
+          "donor_specific_causal_full_pair": 29,
+          "first_intact_choice_correct_episodes": 187,
+          "first_commit_episodes": 320,
+          "timeouts": 0
+        },
+        "means": {
+          "mean_H_pair_l2": 1.4768224403262138,
+          "mean_C_pair_l2": 12.388133361935616,
+          "mean_effective_prefix_masks": 10,
+          "mean_scheduled_prefix_masks": 10
+        },
+        "by_seed_both_first_correct": [
+          0,
+          23,
+          6,
+          0
+        ],
+        "by_seed_donor_specific": [
+          0,
+          23,
+          6,
+          0
+        ]
+      }
+    },
+    "ppo_blackout": {
+      "normal_reference": {
+        "pairs": 160,
+        "counts": {
+          "pairs": 160,
+          "both_intact_first_arms_correct": 40,
+          "both_swap_HC_donor_arms_correct": 40,
+          "both_intact_teacher_first_actions_correct": 40,
+          "both_swap_changes_first_arms": 40,
+          "donor_specific_causal_full_pair": 40,
+          "first_intact_choice_correct_episodes": 200,
+          "first_commit_episodes": 320,
+          "timeouts": 0
+        },
+        "means": {
+          "mean_H_pair_l2": 1.7027007165830583,
+          "mean_C_pair_l2": 8.758443073928357,
+          "mean_effective_prefix_masks": 0,
+          "mean_scheduled_prefix_masks": 0
+        },
+        "by_seed_both_first_correct": [
+          0,
+          0,
+          3,
+          37
+        ],
+        "by_seed_donor_specific": [
+          0,
+          0,
+          3,
+          37
+        ]
+      },
+      "blackout_update": {
+        "pairs": 160,
+        "counts": {
+          "pairs": 160,
+          "both_intact_first_arms_correct": 0,
+          "both_swap_HC_donor_arms_correct": 0,
+          "both_intact_teacher_first_actions_correct": 0,
+          "both_swap_changes_first_arms": 0,
+          "donor_specific_causal_full_pair": 0,
+          "first_intact_choice_correct_episodes": 160,
+          "first_commit_episodes": 320,
+          "timeouts": 0
+        },
+        "means": {
+          "mean_H_pair_l2": 0.23494475508341567,
+          "mean_C_pair_l2": 1.8844598036259412,
+          "mean_effective_prefix_masks": 10,
+          "mean_scheduled_prefix_masks": 10
+        },
+        "by_seed_both_first_correct": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "by_seed_donor_specific": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "blackout_freeze_HC": {
+        "pairs": 160,
+        "counts": {
+          "pairs": 160,
+          "both_intact_first_arms_correct": 0,
+          "both_swap_HC_donor_arms_correct": 0,
+          "both_intact_teacher_first_actions_correct": 0,
+          "both_swap_changes_first_arms": 0,
+          "donor_specific_causal_full_pair": 0,
+          "first_intact_choice_correct_episodes": 160,
+          "first_commit_episodes": 320,
+          "timeouts": 0
+        },
+        "means": {
+          "mean_H_pair_l2": 1.464716836810112,
+          "mean_C_pair_l2": 3.3312193378806114,
+          "mean_effective_prefix_masks": 10,
+          "mean_scheduled_prefix_masks": 10
+        },
+        "by_seed_both_first_correct": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "by_seed_donor_specific": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "blackout_freeze_H": {
+        "pairs": 160,
+        "counts": {
+          "pairs": 160,
+          "both_intact_first_arms_correct": 0,
+          "both_swap_HC_donor_arms_correct": 0,
+          "both_intact_teacher_first_actions_correct": 0,
+          "both_swap_changes_first_arms": 0,
+          "donor_specific_causal_full_pair": 0,
+          "first_intact_choice_correct_episodes": 160,
+          "first_commit_episodes": 320,
+          "timeouts": 0
+        },
+        "means": {
+          "mean_H_pair_l2": 1.464716836810112,
+          "mean_C_pair_l2": 3.778467455878854,
+          "mean_effective_prefix_masks": 10,
+          "mean_scheduled_prefix_masks": 10
+        },
+        "by_seed_both_first_correct": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "by_seed_donor_specific": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "blackout_freeze_C": {
+        "pairs": 160,
+        "counts": {
+          "pairs": 160,
+          "both_intact_first_arms_correct": 0,
+          "both_swap_HC_donor_arms_correct": 0,
+          "both_intact_teacher_first_actions_correct": 0,
+          "both_swap_changes_first_arms": 0,
+          "donor_specific_causal_full_pair": 0,
+          "first_intact_choice_correct_episodes": 160,
+          "first_commit_episodes": 320,
+          "timeouts": 0
+        },
+        "means": {
+          "mean_H_pair_l2": 1.0906891683116555,
+          "mean_C_pair_l2": 3.3312193378806114,
+          "mean_effective_prefix_masks": 10,
+          "mean_scheduled_prefix_masks": 10
+        },
+        "by_seed_both_first_correct": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "by_seed_donor_specific": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "blackout_patch_normal_mid_HC": {
+        "pairs": 160,
+        "counts": {
+          "pairs": 160,
+          "both_intact_first_arms_correct": 0,
+          "both_swap_HC_donor_arms_correct": 0,
+          "both_intact_teacher_first_actions_correct": 0,
+          "both_swap_changes_first_arms": 0,
+          "donor_specific_causal_full_pair": 0,
+          "first_intact_choice_correct_episodes": 160,
+          "first_commit_episodes": 320,
+          "timeouts": 0
+        },
+        "means": {
+          "mean_H_pair_l2": 1.426663766731508,
+          "mean_C_pair_l2": 6.963133554905653,
+          "mean_effective_prefix_masks": 10,
+          "mean_scheduled_prefix_masks": 10
+        },
+        "by_seed_both_first_correct": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "by_seed_donor_specific": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "blackout_patch_normal_last_HC": {
+        "pairs": 160,
+        "counts": {
+          "pairs": 160,
+          "both_intact_first_arms_correct": 40,
+          "both_swap_HC_donor_arms_correct": 40,
+          "both_intact_teacher_first_actions_correct": 40,
+          "both_swap_changes_first_arms": 40,
+          "donor_specific_causal_full_pair": 40,
+          "first_intact_choice_correct_episodes": 200,
+          "first_commit_episodes": 320,
+          "timeouts": 0
+        },
+        "means": {
+          "mean_H_pair_l2": 1.6339252430945634,
+          "mean_C_pair_l2": 8.16115843653679,
+          "mean_effective_prefix_masks": 10,
+          "mean_scheduled_prefix_masks": 10
+        },
+        "by_seed_both_first_correct": [
+          0,
+          0,
+          3,
+          37
+        ],
+        "by_seed_donor_specific": [
+          0,
+          0,
+          3,
+          37
+        ]
+      },
+      "blackout_patch_normal_fork_HC": {
+        "pairs": 160,
+        "counts": {
+          "pairs": 160,
+          "both_intact_first_arms_correct": 40,
+          "both_swap_HC_donor_arms_correct": 40,
+          "both_intact_teacher_first_actions_correct": 40,
+          "both_swap_changes_first_arms": 40,
+          "donor_specific_causal_full_pair": 40,
+          "first_intact_choice_correct_episodes": 200,
+          "first_commit_episodes": 320,
+          "timeouts": 0
+        },
+        "means": {
+          "mean_H_pair_l2": 1.7027007165830583,
+          "mean_C_pair_l2": 8.758443073928357,
+          "mean_effective_prefix_masks": 10,
+          "mean_scheduled_prefix_masks": 10
+        },
+        "by_seed_both_first_correct": [
+          0,
+          0,
+          3,
+          37
+        ],
+        "by_seed_donor_specific": [
+          0,
+          0,
+          3,
+          37
+        ]
+      },
+      "blackout_patch_normal_fork_H": {
+        "pairs": 160,
+        "counts": {
+          "pairs": 160,
+          "both_intact_first_arms_correct": 21,
+          "both_swap_HC_donor_arms_correct": 21,
+          "both_intact_teacher_first_actions_correct": 21,
+          "both_swap_changes_first_arms": 21,
+          "donor_specific_causal_full_pair": 21,
+          "first_intact_choice_correct_episodes": 181,
+          "first_commit_episodes": 320,
+          "timeouts": 0
+        },
+        "means": {
+          "mean_H_pair_l2": 1.7027007165830583,
+          "mean_C_pair_l2": 1.8844598036259412,
+          "mean_effective_prefix_masks": 10,
+          "mean_scheduled_prefix_masks": 10
+        },
+        "by_seed_both_first_correct": [
+          0,
+          0,
+          0,
+          21
+        ],
+        "by_seed_donor_specific": [
+          0,
+          0,
+          0,
+          21
+        ]
+      },
+      "blackout_patch_normal_fork_C": {
+        "pairs": 160,
+        "counts": {
+          "pairs": 160,
+          "both_intact_first_arms_correct": 0,
+          "both_swap_HC_donor_arms_correct": 0,
+          "both_intact_teacher_first_actions_correct": 0,
+          "both_swap_changes_first_arms": 0,
+          "donor_specific_causal_full_pair": 0,
+          "first_intact_choice_correct_episodes": 160,
+          "first_commit_episodes": 320,
+          "timeouts": 0
+        },
+        "means": {
+          "mean_H_pair_l2": 0.23494475508341567,
+          "mean_C_pair_l2": 8.758443073928357,
+          "mean_effective_prefix_masks": 10,
+          "mean_scheduled_prefix_masks": 10
+        },
+        "by_seed_both_first_correct": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "by_seed_donor_specific": [
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    }
+  },
+  "preregistered_criterion": {
+    "bc_anchor": {
+      "correct_gain_by_seed": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "donor_transfer_gain_by_seed": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "concordant_positive_seeds": 0,
+      "total_correct_gain": 0,
+      "total_donor_gain": 0,
+      "predeclared_threshold_met": false
+    },
+    "ppo_sham": {
+      "correct_gain_by_seed": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "donor_transfer_gain_by_seed": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "concordant_positive_seeds": 0,
+      "total_correct_gain": 0,
+      "total_donor_gain": 0,
+      "predeclared_threshold_met": false
+    },
+    "ppo_blackout": {
+      "correct_gain_by_seed": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "donor_transfer_gain_by_seed": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "concordant_positive_seeds": 0,
+      "total_correct_gain": 0,
+      "total_donor_gain": 0,
+      "predeclared_threshold_met": false
+    }
+  },
+  "source_workflow_run": 41045483435,
+  "source_aggregate_job": 124030044823,
+  "provenance_note": "Preserves full 4-seed GitHub Actions F9R_AGGREGATE; provenance identifiers added."
+}
