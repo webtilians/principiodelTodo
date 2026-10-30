@@ -1,0 +1,193 @@
+name: INFINITO E10-B — ONE-SHOT Real LLM and Semantic RAG Confirmation
+
+# The only automatic trigger is the LAST, explicit, launch-document commit.
+# Editing the experiment, tests, protocol, or results NEVER reruns live billing.
+on:
+  push:
+    branches: [experiment/e10b-semantic-longitudinal-live]
+    paths:
+      - docs/INFINITO_E10B_LAUNCH.md
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e10b-one-shot-live
+  cancel-in-progress: false
+
+jobs:
+  preflight-and-credentials:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install test runner and actual OpenAI SDK
+        run: python -m pip install 'openai>=1.55,<4' pytest
+      - name: Verify frozen protocol and offline invariants before opening any live split
+        run: |
+          python -m pytest -q tests/test_e10b_semantic_longitudinal_live.py
+          python -m pytest -q tests/test_e10_longitudinal_memory.py
+          git diff --exit-code origin/master -- src/infinito3/
+      - name: Ensure real-API secret exists (never print it)
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          if [ -z "$OPENAI_API_KEY" ]; then
+            echo "::error::E10B REAL-LM BLOCKED: OPENAI_API_KEY is missing in repository secrets"
+            exit 3
+          fi
+          echo "E10B_REAL_API_KEY_PRESENT"
+      - name: Verify provider actually accepts the preregistered LLM and semantic embedding model
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          python - <<'PY'
+          import os
+          from openai import OpenAI
+          from observatory.e10b_semantic_longitudinal_live import MODEL,EMBEDDING_MODEL,REASONING_EFFORT
+          client=OpenAI(api_key=os.environ["OPENAI_API_KEY"],timeout=60.0)
+          emb=client.embeddings.create(model=EMBEDDING_MODEL,input=["E10-B preflight semantic vector"])
+          vec=emb.data[0].embedding
+          assert len(vec)>=128
+          out=client.responses.create(model=MODEL,
+                 input=[{"role":"user","content":"Responde únicamente LISTO."}],
+                 reasoning={"effort":REASONING_EFFORT},max_output_tokens=80)
+          assert out.output_text.strip()
+          print("E10B_REAL_PROVIDER_PREFLIGHT_OK",MODEL,EMBEDDING_MODEL,
+                "embedding_dimensions",len(vec),"model",out.model)
+          PY
+
+  live-development:
+    needs: preflight-and-credentials
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install actual OpenAI SDK
+        run: python -m pip install 'openai>=1.55,<4'
+      - name: Open only six new DEV pairs (1700000+) with real LLM
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          python -m observatory.e10b_semantic_longitudinal_live \
+            --split dev --output e10b-results/development
+      - name: Integrity gate real provider, six families and all 4 arms
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from observatory.e10b_semantic_longitudinal_live import FAMILIES,ARMS
+          r=json.loads(Path("e10b-results/development/report.json").read_text())
+          assert r["split"]=="dev" and r["seed_base"]==1700000
+          assert r["world_pairs"]==6 and len(r["cases"])==6
+          assert set(x["family"] for x in r["cases"])==set(FAMILIES)
+          assert r["real_llm_expected"] and r["semantic_embedding_expected"]
+          assert r["semantic_embedding_api_calls"]>0
+          assert not r["old_F9_holdout_opened"] and r["infinito_core_unmodified"]
+          for case in r["cases"]:
+              for variant in case["variants"].values():
+                  for moment in ("first","second"):
+                      for a in ARMS:
+                          v=variant[moment][a]
+                          assert v["provider_model"] and v["response_id"]
+                          assert v["estimated_context_tokens"]<=320
+                          assert int(v["provider_tokens"].get("total_tokens",0))>0
+          print("E10B_REAL_DEV_GATE_PASSED")
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e10b-real-llm-new-development
+          path: e10b-results/development/
+          retention-days: 30
+          if-no-files-found: warn
+
+  prospective-confirmation:
+    needs: live-development
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install actual OpenAI SDK
+        run: python -m pip install 'openai>=1.55,<4'
+      - name: ONE-SHOT confirm 24 unseen matched worlds (1800000+); never replay to select variants
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          E10B_DEV_GATE_PASSED: "true"
+        run: |
+          python -m observatory.e10b_semantic_longitudinal_live \
+            --split confirm --output e10b-results/confirm
+      - name: Confirm all 24 worlds, 6 families x 4 cohorts and live provenance
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from observatory.e10b_semantic_longitudinal_live import FAMILIES,ARMS
+          r=json.loads(Path("e10b-results/confirm/report.json").read_text())
+          assert r["split"]=="confirm" and r["seed_base"]==1800000
+          assert r["world_pairs"]==24 and len(r["cases"])==24
+          assert set(r["summary"]["arms"])==set(ARMS)
+          assert all(len([c for c in r["cases"] if c["family"]==f])==4 for f in FAMILIES)
+          assert all(len([c for c in r["cases"] if c["index"]==i])==6 for i in range(4))
+          assert r["semantic_embedding_api_calls"]>0
+          assert r["real_llm_expected"] and r["semantic_embedding_expected"]
+          assert not r["old_F9_holdout_opened"] and r["infinito_core_unmodified"]
+          for case in r["cases"]:
+              assert 1800000<=case["seed"]<1810000
+              for variant in case["variants"].values():
+                  for moment in ("first","second"):
+                      for a in ARMS:
+                          v=variant[moment][a]
+                          assert v["response_id"] and v["provider_model"]
+                          assert int(v["provider_tokens"].get("total_tokens",0))>0
+                          assert v["estimated_context_tokens"]<=320
+          assert len(r["negative_controls"])==6
+          assert set(r["primary_criterion"]["difference_by_family"])==set(FAMILIES)
+          print("E10B_REAL_SEMANTIC_PROSPECTIVE_24_PAIR_COMPLETE")
+          PY
+      - name: Report all results and both pass/fail interpretations
+        run: |
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          r=json.loads(Path("e10b-results/confirm/report.json").read_text())
+          s=r["summary"]["arms"]
+          lines=["# E10-B — REAL OpenAI LLM + semantic RAG, first prospective confirmation",
+                 "",
+                 "**Model**: "+r["model"]+" · **embeddings**: "+r["embedding_model"],
+                 "24 pairs (4 independent generation cohorts x 6 families); 4 decisions/pair/arm.",
+                 "The six families are precommitted; 4 are NOT recognized by the original fact extractor.",
+                 "",
+                 "| Arm | All four decisions correct | Individual decisions | Negatives abstained | Provider input tokens |",
+                 "|---|---:|---:|---:|---:|"]
+          for a,x in s.items():
+              lines.append(f'| {a} | {x["four_correct"]}/24 | {x["individual_correct"]}/96 | '
+                           f'{x["missing_evidence_abstentions"]}/6 | {x["provider_input_tokens"]} |')
+          lines+=["","## Preregistered outcome",
+                  json.dumps(r["primary_criterion"],ensure_ascii=False,indent=2),
+                  "",
+                  "**If E10-B fails:** NO core superiority to modern semantic RAG established.",
+                  "No core tuning or new variant on 1800000+; this split is now consumed.",
+                  "All decisions and complete histories preserved in run artifact."]
+          Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text("\n".join(lines)+"\n")
+          print("E10B_CONFIRM_RESULT",json.dumps({
+                  "arms":s,"primary_criterion":r["primary_criterion"],
+                  "by_family":r["summary"]["by_family"],
+                  "embedding_calls":r["semantic_embedding_api_calls"]},ensure_ascii=False),flush=True)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e10b-real-semantic-24-pair-prospective-confirm
+          path: e10b-results/confirm/
+          retention-days: 30
+          if-no-files-found: warn
