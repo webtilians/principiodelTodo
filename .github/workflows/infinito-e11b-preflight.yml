@@ -1,0 +1,40 @@
+name: INFINITO E11-B — Frozen Semantic RAG Contract Tests
+
+on:
+  push:
+    branches: [experiment/e11b-bounded-semantic-memory-llm]
+    paths:
+      - observatory/e11b_bounded_semantic_llm.py
+      - tests/test_e11b_bounded_semantic_llm.py
+      - docs/INFINITO_E11B_BOUNDED_SEMANTIC_PROTOCOL.md
+      - .github/workflows/infinito-e11b-preflight.yml
+
+permissions:
+  contents: read
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install pytest, not the paid API
+        run: python -m pip install pytest
+      - name: No modifications to INFINITO 3.0 core
+        run: |
+          git diff --exit-code origin/master -- src/infinito3/
+          test -f docs/INFINITO_E11B_BOUNDED_SEMANTIC_PROTOCOL.md
+          python -m py_compile observatory/e11b_bounded_semantic_llm.py
+      - name: E11-B equal-capacity and future-leak tests (mock only)
+        run: python -m pytest -q tests/test_e11b_bounded_semantic_llm.py
+      - name: E11-A learner tests plus 75 INFINITO v3 regressions
+        run: |
+          python -m pytest -q tests/test_e11_learned_relevance.py
+          python -m pytest -q tests/test_*_v3.py
+      - name: Declare that mock tests provide no model-quality result
+        run: echo "E11B_OFFLINE_CONTRACTS_OK; no real LLM or embeddings used"
