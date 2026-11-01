@@ -1,0 +1,105 @@
+name: INFINITO F9-U — Counterfactual Pair Reward Preflight + REAL F9 Smoke
+
+on:
+  push:
+    branches: [experiment/f9u-paired-counterfactual-reward]
+    paths:
+      - docs/INFINITO_F9U_PAIRED_COUNTERFACTUAL_REWARD_PROTOCOL.md
+      - observatory/f9u_paired_counterfactual_reward.py
+      - tests/test_f9u_paired_counterfactual_reward.py
+      - .github/workflows/infinito-f9u-paired-preflight.yml
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: f9u-preflight-smoke
+  cancel-in-progress: false
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install real INFINITO F9 dependencies (no external LLM)
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r observatory/requirements_f9.txt gymnasium==1.4.0
+      - name: Unit tests: paired reward and matched gradient, no privileged inputs
+        run: |
+          python -m unittest discover -s tests -p 'test_f9u_paired_counterfactual_reward.py' -v
+          python -m unittest discover -s tests -p 'test_f9t_learned_f4_read_gate.py' -v
+          python -m unittest discover -s tests -p 'test_f9q_causal_fork.py' -v
+      - name: Check core, F4 writer and existing actor are frozen
+        run: |
+          git diff --exit-code origin/experiment/f9t-learned-f4-read-gate -- src/ observatory/f9t_learned_f4_read_gate.py observatory/f9i_selective_memory.py observatory/f9j_recurrent_memory_attribution.py
+          python -m py_compile observatory/f9u_paired_counterfactual_reward.py
+          test -f docs/INFINITO_F9U_PAIRED_COUNTERFACTUAL_REWARD_PROTOCOL.md
+          echo F9U_PAIRED_REWARD_CONTRACTS_PASSED
+
+  real-f9-smoke:
+    needs: contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install CPU MiniGrid and RecurrentPPO
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r observatory/requirements_f9.txt gymnasium==1.4.0
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 40957255987
+          repository: webtilians/principiodelTodo
+          github-token: ${{ github.token }}
+          name: f9o-new-models-seed-0
+          path: frozen/bc-0
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 40960267485
+          repository: webtilians/principiodelTodo
+          github-token: ${{ github.token }}
+          name: f9p-ppo-models-seed-0
+          path: frozen/ppo-0
+      - name: Train 4 authentic reader heads on ONE world only
+        run: |
+          python -m observatory.f9u_paired_counterfactual_reward \
+            --phase smoke --index 0 --worlds 1 \
+            --bc-source frozen/bc-0 --ppo-source frozen/ppo-0 \
+            --output f9u-smoke/seed-0
+      - name: Validate paired update count, real actor provenance and sealed confirmation
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          p=Path("f9u-smoke/seed-0")
+          r=json.loads((p/"report.json").read_text())
+          assert r["phase"]=="smoke" and r["index"]==0 and r["source"]["sha"]
+          assert len(r["worlds"])==2
+          assert set(r["training"])=={
+              "individual_hc","paired_hc","individual_public","paired_public"}
+          assert all(d["optimizer_steps"]==1 and d["episodes"]==2 for d in r["training"].values())
+          assert r["summary"]["always"]["read_rate"]==1
+          assert r["summary"]["never"]["read_rate"]==0
+          assert r["actor_trained"] is False and r["uses_external_llm"] is False
+          assert not r["f9u_7300000_opened"] and not r["f9t_6300000_opened"]
+          assert not r["historical_f9_holdout_900000_opened"]
+          print("F9U_REAL_F9_PAIR_GRADIENT_SMOKE_PASSED")
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: f9u-four-real-heads-one-world-smoke
+          path: f9u-smoke/seed-0/
+          retention-days: 20
+          if-no-files-found: warn
