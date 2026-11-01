@@ -1,0 +1,180 @@
+{
+  "experiment": "E12-A real-LLM autonomous memory search-or-answer",
+  "date": "2026-11-01",
+  "workflow_run": 41324785450,
+  "workflow_sha": "136785312c88757e1e2901532938a83040af6a9e",
+  "artifact": 13090368563,
+  "dev_artifact": 13091220002,
+  "model": "gpt-5.6-luna",
+  "embedding_model": "text-embedding-3-small",
+  "worlds": 32,
+  "classes": [
+    "fresh",
+    "archived",
+    "stale",
+    "unknown"
+  ],
+  "class_worlds": 8,
+  "primary_utility": "mean(correct - 0.08*searches)",
+  "result": {
+    "arms": {
+      "never_search": {
+        "correct": 16,
+        "accuracy": 0.5,
+        "searches": 0,
+        "search_fraction": 0,
+        "utility": 0.5,
+        "llm_calls": 32,
+        "input_tokens": 5849,
+        "output_tokens": 211,
+        "target_retrieved": 0,
+        "stale_wrong": 1,
+        "unknown_invented": 0
+      },
+      "always_search": {
+        "correct": 32,
+        "accuracy": 1,
+        "searches": 32,
+        "search_fraction": 1,
+        "utility": 0.92,
+        "llm_calls": 32,
+        "input_tokens": 10159,
+        "output_tokens": 191,
+        "target_retrieved": 24,
+        "stale_wrong": 0,
+        "unknown_invented": 0
+      },
+      "fixed_heuristic": {
+        "correct": 32,
+        "accuracy": 1,
+        "searches": 24,
+        "search_fraction": 0.75,
+        "utility": 0.94,
+        "llm_calls": 32,
+        "input_tokens": 9086,
+        "output_tokens": 191,
+        "target_retrieved": 16,
+        "stale_wrong": 0,
+        "unknown_invented": 0
+      },
+      "llm_router": {
+        "correct": 31,
+        "accuracy": 0.96875,
+        "searches": 23,
+        "search_fraction": 0.71875,
+        "utility": 0.91125,
+        "llm_calls": 55,
+        "input_tokens": 13752,
+        "output_tokens": 308,
+        "target_retrieved": 15,
+        "stale_wrong": 0,
+        "unknown_invented": 0
+      }
+    },
+    "categories": {
+      "fresh": {
+        "never_search": {
+          "accuracy": 1,
+          "searches": 0
+        },
+        "always_search": {
+          "accuracy": 1,
+          "searches": 8
+        },
+        "fixed_heuristic": {
+          "accuracy": 1,
+          "searches": 0
+        },
+        "llm_router": {
+          "accuracy": 1,
+          "searches": 0
+        }
+      },
+      "archived": {
+        "never_search": {
+          "accuracy": 0,
+          "searches": 0
+        },
+        "always_search": {
+          "accuracy": 1,
+          "searches": 8
+        },
+        "fixed_heuristic": {
+          "accuracy": 1,
+          "searches": 8
+        },
+        "llm_router": {
+          "accuracy": 0.875,
+          "searches": 7
+        }
+      },
+      "stale": {
+        "never_search": {
+          "accuracy": 0,
+          "searches": 0
+        },
+        "always_search": {
+          "accuracy": 1,
+          "searches": 8
+        },
+        "fixed_heuristic": {
+          "accuracy": 1,
+          "searches": 8
+        },
+        "llm_router": {
+          "accuracy": 1,
+          "searches": 8
+        }
+      },
+      "unknown": {
+        "never_search": {
+          "accuracy": 1,
+          "searches": 0
+        },
+        "always_search": {
+          "accuracy": 1,
+          "searches": 8
+        },
+        "fixed_heuristic": {
+          "accuracy": 1,
+          "searches": 8
+        },
+        "llm_router": {
+          "accuracy": 1,
+          "searches": 8
+        }
+      }
+    },
+    "criterion": {
+      "accuracy_delta_router_vs_always": -0.03125,
+      "search_reduction_vs_always": 0.28125,
+      "utility_delta_router_vs_fixed": -0.028749999999999942,
+      "stale_wrong_router": 0,
+      "unknown_invented_router": 0,
+      "passes": false,
+      "confirmation_consumed": true
+    },
+    "embedding_calls": 536
+  },
+  "posthoc_error": {
+    "seed": 5201007,
+    "category": "archived",
+    "router_action": "ABSTENER",
+    "router_searches": 0,
+    "correct_action": "SOL",
+    "fixed_heuristic_searches": 1,
+    "fixed_action": "SOL",
+    "correct_evidence_retrieved": true
+  },
+  "limitations": [
+    "The workload uses explicit verified/no_verificado status and templated facts; strong fixed rule can use these features",
+    "The router requires an additional LLM request when searching; fewer searches do not guarantee lower token cost",
+    "The unknown class is not information-theoretically distinguishable from archived before retrieval",
+    "A text-embedding-based RAG is available only when routing policy invokes it",
+    "This is bounded tool selection, not end-to-end learned uncertainty or autonomous goal creation",
+    "32 confirm worlds and four synthetically balanced classes are not a realistic usage distribution",
+    "No modifications to src/infinito3"
+  ],
+  "scientific_gate_met": false,
+  "holdout_status": "5200000+ consumed; do not train/tune/reconfirm on these cases"
+}
