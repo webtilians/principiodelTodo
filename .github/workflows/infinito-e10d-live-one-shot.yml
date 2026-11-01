@@ -1,0 +1,184 @@
+name: INFINITO E10-D — ONE-SHOT Real LLM Comparison
+
+# Only adding the final launch document can trigger a paid/prospective run.
+on:
+  push:
+    branches: [experiment/e10d-single-general-capture-intervention]
+    paths:
+      - docs/INFINITO_E10D_LAUNCH.md
+
+permissions:
+  contents: read
+
+concurrency:
+  group: infinito-e10d-single-live
+  cancel-in-progress: false
+
+jobs:
+  frozen-preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Python SDK and frozen tests
+        run: python -m pip install 'openai>=1.55,<4' pytest
+      - name: Verifiable intervention only, core frozen
+        run: |
+          git diff --exit-code origin/master -- src/infinito3/
+          python -m pytest -q tests/test_e10d_single_intervention.py
+          python -m pytest -q tests/test_*_v3.py
+          python -m py_compile observatory/e10d_single_intervention.py
+      - name: Verify secret without printing the key
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          if [ -z "$OPENAI_API_KEY" ]; then
+            echo "::error::No OPENAI_API_KEY; never replace a real LLM with mock"
+            exit 3
+          fi
+      - name: Actual OpenAI model and semantic embedding preflight
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          python - <<'PY'
+          import os
+          from openai import OpenAI
+          from observatory.e10d_single_intervention import MODEL, EMBEDDING_MODEL, REASONING_EFFORT
+          c=OpenAI(api_key=os.environ["OPENAI_API_KEY"],timeout=60)
+          e=c.embeddings.create(model=EMBEDDING_MODEL,input=["E10-D live preregistration check"])
+          assert len(e.data[0].embedding)>=128
+          response=c.responses.create(model=MODEL,
+              input=[{"role":"user","content":"Contesta solamente LISTO."}],
+              reasoning={"effort":REASONING_EFFORT},max_output_tokens=80)
+          assert response.output_text and response.id and response.usage.total_tokens>0
+          print("E10D_LIVE_REAL_API_OK",response.model, EMBEDDING_MODEL)
+          PY
+
+  development:
+    needs: frozen-preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: OpenAI SDK
+        run: python -m pip install 'openai>=1.55,<4'
+      - name: Six fresh DEV paired worlds with all FIVE real LLM arms
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: python -m observatory.e10d_single_intervention --split dev --output e10d-results/development
+      - name: Ensure real provenance and no label leak in DEV
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from observatory.e10d_single_intervention import FAMILIES,ARMS
+          r=json.loads(Path("e10d-results/development/report.json").read_text())
+          assert r["split"]=="dev" and r["pairs"]==6
+          assert r["real_llm_expected"] and not r["core_modified"] and not r["historical_splits_reused"]
+          assert r["semantic_embedding_api_calls"]>0
+          assert {x["family"] for x in r["cases"]}==set(FAMILIES)
+          assert set(r["summary"]["by_arm"])==set(ARMS)
+          for c in r["cases"]:
+              for v in c["variants"].values():
+                  for stage in ("first","second"):
+                      for arm in ARMS:
+                          out=v[stage][arm]
+                          assert out["provider_model"] and out["response_id"]
+                          assert out["estimated_context_tokens"]<=320
+                          assert int(out["provider_tokens"].get("total_tokens",0))>0
+          print("E10D_LIVE_DEV_PROVENANCE_PASSED")
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e10d-single-intervention-dev-real-llm
+          path: e10d-results/development/
+          if-no-files-found: warn
+          retention-days: 30
+
+  prospective-confirmation:
+    needs: development
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: OpenAI SDK
+        run: python -m pip install 'openai>=1.55,<4'
+      - name: ONE-SHOT independent 24-pair confirmation 2200000+ (never reuse)
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          E10D_DEV_GATE_PASSED: "1"
+        run: |
+          echo "E10D_CONFIRM_2200000_OPENED_AND_CONSUMED"
+          python -m observatory.e10d_single_intervention --split confirm --output e10d-results/confirm
+      - name: Verify all families, raw decisions, LLM provenance and preregistered contrast
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from observatory.e10d_single_intervention import ARMS,FAMILIES
+          r=json.loads(Path("e10d-results/confirm/report.json").read_text())
+          assert r["split"]=="confirm" and r["pairs"]==24
+          assert r["real_llm_expected"] and r["semantic_embedding_api_calls"]>0
+          assert not r["core_modified"] and not r["historical_splits_reused"]
+          assert {c["family"] for c in r["cases"]}==set(FAMILIES)
+          assert len(r["summary"]["by_family"])==6 and len(r["summary"]["by_index"])==4
+          assert len(r["negative_controls"])==6
+          assert set(r["summary"]["by_arm"])==set(ARMS)
+          assert set(r["criterion"]["difference_by_family"])==set(FAMILIES)
+          for c in r["cases"]:
+              assert 2200000<=c["seed"]<2204000
+              for v in c["variants"].values():
+                  for stage in ("first","second"):
+                      for arm in ARMS:
+                          out=v[stage][arm]
+                          assert out["provider_model"] and out["response_id"]
+                          assert out["estimated_context_tokens"]<=320
+                          assert int(out["provider_tokens"].get("total_tokens",0))>0
+          print("E10D_CONFIRM_PREREGISTERED_24_PAIRS_COMPLETE")
+          PY
+      - name: Publish pass OR fail, including full arms and token footprint
+        run: |
+          python - <<'PY'
+          import os,json
+          from pathlib import Path
+          r=json.loads(Path("e10d-results/confirm/report.json").read_text())
+          lines=["# INFINITO E10-D — final real LLM preregistered comparison",
+                 "",
+                 "24 fresh pairs (6 new families x 4 cohorts), 96 decisions per arm.",
+                 "**Model** "+r["model"]+" · **Embedding** "+r["embedding_model"],
+                 "Five arms, same context ceiling 320 estimated tokens, top_k=8.",
+                 "",
+                 "| Arm | 4/4 pairs /24 | Individual decisions /96 | No-evidence abstention /6 | Context tokens estimate | Stored after | API input tokens |",
+                 "|---|---:|---:|---:|---:|---:|---:|"]
+          for a,s in r["summary"]["by_arm"].items():
+              lines.append(f'| {a} | {s["four_correct"]}/24 | {s["individual_correct"]}/96 | '
+                           f'{s["negatives_abstained"]}/6 | {s["mean_context_tokens"]:.1f} | '
+                           f'{s["mean_stored_after"]:.1f} | {s["input_tokens"]} |')
+          lines+=["","## Predeclared criterion (do not relabel a failure as success)",
+                  json.dumps(r["criterion"],ensure_ascii=False,indent=2),
+                  "", "If intervention fails vs semantic RAG, stop E10 and use RAG for E11/E12.",
+                  "2200000+ confirmation consumed; NEVER retune and reconfirm on these worlds."]
+          Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text("\n".join(lines)+"\n")
+          print("E10D_FINAL_RESULT",json.dumps({"by_arm":r["summary"]["by_arm"],
+                   "by_family":r["summary"]["by_family"],
+                   "criterion":r["criterion"]},ensure_ascii=False),flush=True)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e10d-one-intervention-24-pair-prospective
+          path: e10d-results/confirm/
+          retention-days: 30
+          if-no-files-found: warn
