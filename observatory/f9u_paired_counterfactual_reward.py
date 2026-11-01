@@ -65,6 +65,33 @@ def paired_reward(a: dict, b: dict, beta: float = PAIR_BONUS) -> float:
     )
 
 
+def loss_for_pair(first, second, baseline: float, method: str):
+    """Frozen 2x2 estimator; shared samples, separate scalar EMA by treatment.
+
+    The pairing signal is added only to the native-return-based objective,
+    not supplied to either episode's actor or gate as a privileged label.
+    """
+    if method not in METHODS:
+        raise ValueError("Only preregistered training reward methods")
+    a = torch.stack(first["_log_probs"]).mean()
+    b = torch.stack(second["_log_probs"]).mean()
+    entropy = 0.5 * (
+        torch.stack(first["_entropies"]).mean()
+        + torch.stack(second["_entropies"]).mean()
+    )
+    if method == "individual":
+        reward_a = first["objective_return"]
+        reward_b = second["objective_return"]
+        loss = -0.5 * (
+            a * (reward_a-baseline) + b * (reward_b-baseline)
+        ) - ENTROPY_BONUS*entropy
+        observed = 0.5*(reward_a+reward_b)
+    else:
+        observed = paired_reward(first,second)
+        loss = -0.5 * (a+b)*(observed-baseline) - ENTROPY_BONUS*entropy
+    return loss,observed
+
+
 def head_init(index: int, input_mode: str) -> ReadHead:
     if index not in range(REPLICAS) or input_mode not in INPUT_MODES:
         raise ValueError("Unapproved head initialization")
@@ -92,22 +119,7 @@ def train_head(actor, index: int, arm: str, worlds: int = 600):
         first = rollout(actor,head,index,seed,False,arm_mode(arm),train=True)
         second = rollout(actor,head,index,seed,True,arm_mode(arm),train=True)
         episodes += 2
-        a = torch.stack(first["_log_probs"]).mean()
-        b = torch.stack(second["_log_probs"]).mean()
-        entropy = 0.5 * (
-            torch.stack(first["_entropies"]).mean()
-            + torch.stack(second["_entropies"]).mean()
-        )
-        if method == "individual":
-            reward_a = first["objective_return"]
-            reward_b = second["objective_return"]
-            loss = -0.5 * (
-                a * (reward_a-baseline) + b * (reward_b-baseline)
-            ) - ENTROPY_BONUS*entropy
-            observed = 0.5*(reward_a+reward_b)
-        else:
-            observed = paired_reward(first,second)
-            loss = -0.5 * (a+b)*(observed-baseline) - ENTROPY_BONUS*entropy
+        loss, observed = loss_for_pair(first,second,baseline,method)
         optimizer.zero_grad(set_to_none=True)
         loss.backward()
         torch.nn.utils.clip_grad_norm_(head.parameters(),2.0)
