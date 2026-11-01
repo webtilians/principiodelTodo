@@ -323,7 +323,23 @@ def execute(args):
     count=2 if args.phase=="smoke" else DEV_PAIRS
     pairs=[]
     for j in range(count):
-        pair=evaluate_pair(actor,args.index,seed_for(split,args.index,j),heads)
+        seed=seed_for(split,args.index,j)
+        pair=evaluate_pair(actor,args.index,seed,heads)
+        if args.phase=="train":
+            # Crucial causal control: switch off H/C ONLY at reader's input.
+            # The frozen actor keeps its OWN H/C and receives chosen F4 as usual.
+            a=rollout(actor,heads["learned_hc"],args.index,seed,False,
+                      "learned_hc",gate_state="zero")
+            b=rollout(actor,heads["learned_hc"],args.index,seed,True,
+                      "learned_hc",gate_state="zero")
+            pair["hc_zero_gate_only"]={
+                "pair_correct":int(a["first_choice_correct"] and b["first_choice_correct"]),
+                "both_terminal_success":int(a["success"] and b["success"]),
+                "read_rate":(a["read_count"]+b["read_count"])/max(1,a["steps"]+b["steps"]),
+                "read_counts":[a["read_count"],b["read_count"]],
+                "steps":[a["steps"],b["steps"]],
+                "traces":[a["trace"],b["trace"]],
+            }
         pairs.append(pair)
         print("F9T_PAIR",args.phase,args.index,j,
               {key:{"success":v["both_terminal_success"],"read_rate":round(v["read_rate"],3)}
@@ -333,6 +349,12 @@ def execute(args):
         "both_terminal_success":sum(p[mode]["both_terminal_success"] for p in pairs),
         "mean_read_rate":statistics.mean(p[mode]["read_rate"] for p in pairs),
     } for mode in MODES}
+    if args.phase=="train":
+        summary["hc_zero_gate_only"]={
+            "pair_correct":sum(p["hc_zero_gate_only"]["pair_correct"] for p in pairs),
+            "both_terminal_success":sum(p["hc_zero_gate_only"]["both_terminal_success"] for p in pairs),
+            "mean_read_rate":statistics.mean(p["hc_zero_gate_only"]["read_rate"] for p in pairs),
+        }
     report={"experiment":"F9-T real recurrent agent F4 read-head",
             "phase":args.phase,"index":args.index,
             "source":actor_source,"training":train_reports,"summary":summary,
