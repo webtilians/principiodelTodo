@@ -1,0 +1,185 @@
+name: INFINITO E12-A — REAL LLM Search-or-Answer One-Shot
+
+on:
+  push:
+    branches: [experiment/e12a-agent-memory-search-decision]
+    paths:
+      - docs/INFINITO_E12A_LAUNCH.md
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e12a-single-prospective-confirmation
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install OpenAI SDK and pytest
+        run: python -m pip install 'openai>=1.55,<4' pytest
+      - name: Safety and frozen source
+        run: |
+          git diff --exit-code origin/master -- src/infinito3/
+          python -m pytest -q tests/test_e12a_autonomous_search.py
+          python -m pytest -q tests/test_*_v3.py
+          python -m py_compile observatory/e12a_autonomous_search.py
+      - name: Require live credential
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          if [ -z "$OPENAI_API_KEY" ]; then
+            echo "::error::E12-A real API key unavailable; no mock fallback"
+            exit 3
+          fi
+      - name: Verify actual LLM and embedding provider before opening worlds
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          python - <<'PY'
+          import os
+          from openai import OpenAI
+          from observatory.e12a_autonomous_search import MODEL,EMBEDDING_MODEL,REASONING
+          client=OpenAI(api_key=os.environ["OPENAI_API_KEY"],timeout=60)
+          v=client.embeddings.create(model=EMBEDDING_MODEL,input=["E12A real semantic document"])
+          assert len(v.data[0].embedding)>=128
+          r=client.responses.create(model=MODEL,input=[{"role":"user","content":"Responde LISTO"}],
+                                    reasoning={"effort":REASONING},max_output_tokens=80)
+          assert r.id and r.output_text and r.usage.total_tokens>0
+          print("E12A_REAL_MODEL_EMBEDDING_VERIFIED",r.model,EMBEDDING_MODEL)
+          PY
+
+  real-development:
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install OpenAI SDK
+        run: python -m pip install 'openai>=1.55,<4'
+      - name: Eight new DEV worlds; evaluate four arms with real LLM
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          python -m observatory.e12a_autonomous_search --split dev --output e12a-results/dev
+      - name: Real provider provenance and all class coverage
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from observatory.e12a_autonomous_search import ARMS,CATEGORIES
+          r=json.loads(Path("e12a-results/dev/report.json").read_text())
+          assert r["split"]=="dev" and r["real_llm"] and r["real_semantic_embeddings"]
+          assert r["summary"]["worlds"]==8
+          assert set(r["summary"]["by_category"])==set(CATEGORIES)
+          assert r["semantic_embedding_api_calls"]>0
+          assert not r["historical_seeds_reused"] and r["no_core_changes"]
+          for c in r["cases"]:
+              assert 5100000<=c["seed"]<5100008
+              assert set(c["outcomes"])==set(ARMS)
+              for a in ARMS:
+                  x=c["outcomes"][a]
+                  assert x["llm_calls"] in (1,2)
+                  assert all(v and len(v)>0 for v in x["provider_response_ids"])
+                  assert all("gpt-" in v for v in x["provider_models"])
+                  assert x["input_tokens"]>0
+                  assert x["reference_tokens_estimate"]<=260
+          print("E12A_REAL_DEV_GATE_PASSED")
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e12a-8-world-real-development
+          path: e12a-results/dev/
+          retention-days: 30
+          if-no-files-found: warn
+
+  independent-confirmation:
+    needs: real-development
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install OpenAI SDK
+        run: python -m pip install 'openai>=1.55,<4'
+      - name: ONE prospective 32-world confirmation, 4 classes, all arms
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          E12A_DEV_GATE_PASSED: "1"
+        run: |
+          echo "E12A_5200000_CONFIRMATION_CONSUMED"
+          python -m observatory.e12a_autonomous_search --split confirm --output e12a-results/confirm
+      - name: Confirm authentic responses, all worlds and preregistered gate
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from observatory.e12a_autonomous_search import ARMS,CATEGORIES
+          r=json.loads(Path("e12a-results/confirm/report.json").read_text())
+          assert r["split"]=="confirm" and r["summary"]["worlds"]==32
+          assert r["real_llm"] and r["real_semantic_embeddings"]
+          assert r["semantic_embedding_api_calls"]>0
+          assert not r["no_core_changes"] is False
+          assert set(r["summary"]["by_category"])==set(CATEGORIES)
+          assert r["criterion"]["confirmation_consumed"]
+          assert len(r["cases"])==32
+          assert set(r["summary"]["by_arm"])==set(ARMS)
+          for i,category in enumerate(CATEGORIES):
+              matched=[c for c in r["cases"] if c["category"]==category]
+              assert len(matched)==8
+              assert {c["seed"] for c in matched}=={5200000+1000*i+j for j in range(8)}
+          for c in r["cases"]:
+              for a in ARMS:
+                  x=c["outcomes"][a]
+                  assert x["provider_response_ids"] and x["input_tokens"]>0
+                  assert all("gpt-" in m for m in x["provider_models"])
+                  assert x["reference_tokens_estimate"]<=260
+                  assert x["searched"] in (0,1)
+          print("E12A_PROSPECTIVE_32_WORLDS_COMPLETE")
+          PY
+      - name: Publish ALL policy accuracies, searches and costs, including failures
+        run: |
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          r=json.loads(Path("e12a-results/confirm/report.json").read_text())
+          stats=r["summary"]
+          lines=["# INFINITO E12-A — real model autonomous search decision",
+                 "", "32 fresh worlds, 8 each of fresh, archived, stale and unknown.",
+                 "Same real LLM and semantic embedding; router pays one model call before any search.",
+                 "", "| Arm | Correct /32 | Searches /32 | LLM calls | Input tokens | Utility |",
+                 "|---|---:|---:|---:|---:|---:|"]
+          for a,v in stats["by_arm"].items():
+              lines.append(f'| {a} | {v["correct"]}/32 | {v["searches"]}/32 | '
+                           f'{v["llm_calls"]} | {v["input_tokens"]} | {v["utility"]:.3f} |')
+          lines+=["","## Frozen criterion",json.dumps(r["criterion"],ensure_ascii=False,indent=2),
+                  "","## Accuracy and search counts by category",
+                  json.dumps(stats["by_category"],ensure_ascii=False,indent=2),
+                  "","Do not re-tune on 5200000+ confirmation; close E12-A if gate fails."]
+          Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text("\n".join(lines)+"\n")
+          print("E12A_CONFIRM_FINAL",json.dumps({
+              "arms":stats["by_arm"],"categories":stats["by_category"],
+              "criterion":r["criterion"],"embedding_calls":r["semantic_embedding_api_calls"]},
+              ensure_ascii=False),flush=True)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e12a-32-real-llm-autonomous-search-confirm
+          path: e12a-results/confirm/
+          retention-days: 45
+          if-no-files-found: warn
