@@ -235,6 +235,7 @@ def run(output:Path,embedding_mode:str):
         "mode":embedding_mode,
         "semantic_embeddings_real":embedding_mode=="real",
         "llm_calls":0,
+        "semantic_embedding_api_calls":embeddings.calls if embedding_mode=="real" else 0,
         "model_decisions_scored":False,
         "worlds":12,"decision_snapshots_per_arm":48,
         "seed_first":DEV_SEED_BASE,
