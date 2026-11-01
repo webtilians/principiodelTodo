@@ -1,0 +1,108 @@
+name: INFINITO F9-V — Causal Lexicographic F4 Preflight
+
+on:
+  push:
+    branches: [experiment/f9v-lexicographic-causal-f4-value]
+    paths:
+      - docs/INFINITO_F9V_LEXICOGRAPHIC_CAUSAL_F4_PROTOCOL.md
+      - observatory/f9v_lexicographic_causal_f4.py
+      - tests/test_f9v_lexicographic_causal_f4.py
+      - .github/workflows/infinito-f9v-causal-preflight.yml
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: f9v-causal-preflight
+  cancel-in-progress: false
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install existing native F9 MiniGrid PyTorch dependencies
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r observatory/requirements_f9.txt gymnasium==1.4.0
+      - name: Test causal objective and new seeds
+        run: |
+          python -m unittest discover -s tests -p 'test_f9v_lexicographic_causal_f4.py' -v
+          python -m unittest discover -s tests -p 'test_f9q_causal_fork.py' -v
+          python -m unittest discover -s tests -p 'test_f9t_learned_f4_read_gate.py' -v
+      - name: Guard frozen neural actor and old F4 writer
+        run: |
+          git diff --exit-code origin/experiment/f9u-paired-counterfactual-reward -- src/ observatory/f9q_causal_fork.py observatory/f9i_selective_memory.py observatory/f9j_recurrent_memory_attribution.py observatory/f9t_learned_f4_read_gate.py
+          python -m py_compile observatory/f9v_lexicographic_causal_f4.py
+          echo F9V_LEXICOGRAPHIC_CAUSAL_CONTRACTS_PASS
+
+  smoke-real-actor:
+    needs: contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 80
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install native F9 CPU packages
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r observatory/requirements_f9.txt gymnasium==1.4.0
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 40957255987
+          repository: webtilians/principiodelTodo
+          github-token: ${{ github.token }}
+          name: f9o-new-models-seed-0
+          path: originals/bc-0
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 40960267485
+          repository: webtilians/principiodelTodo
+          github-token: ${{ github.token }}
+          name: f9p-ppo-models-seed-0
+          path: originals/ppo-0
+      - name: One NEW paired-world smoke, both cue identities, both regimes, fork READ and SKIP
+        run: |
+          python -m observatory.f9v_lexicographic_causal_f4 \
+            --phase smoke --index 0 --train-pairs 1 \
+            --bc-source originals/bc-0 --ppo-source originals/ppo-0 \
+            --output smoke/seed-0
+      - name: Verify controlled paired intervention and sealed confirmation
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path("smoke/seed-0")
+          d=json.loads((p/"report.json").read_text())
+          assert d["index"]==0 and d["phase"]=="smoke"
+          assert d["train_worlds"]==1 and d["dev_worlds"]==1
+          assert len(d["train_cases"])==4 and len(d["dev_cases"])==4
+          assert len(d["dev_choices"])==4
+          assert all(c["public_fork_equal"] for c in d["dev_cases"])
+          assert all(c["read_branch"]["read"]==1 and c["skip_branch"]["read"]==0 for c in d["dev_cases"])
+          assert d["dev_results"]["always"]["reads"]==4
+          assert d["dev_results"]["never"]["reads"]==0
+          assert d["dev_results"]["oracle"]["reads"]==sum(c["label"] for c in d["dev_cases"])
+          assert not d["confirmation_8300000_opened"]
+          assert not d["f9u_7300000_opened"] and not d["historic_900000_opened"]
+          assert not d["actor_retrained"] and not d["F4_writer_changed"] and not d["uses_external_llm"]
+          for name in ("lex_hc","lex_public","scalar_hc"):
+              assert (p/(name+".pt")).is_file()
+          print("F9V_REAL_ACTOR_CAUSAL_FORK_SMOKE_SUCCESS")
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: f9v-real-fork-causal-smoke
+          path: smoke/seed-0/
+          if-no-files-found: warn
+          retention-days: 30

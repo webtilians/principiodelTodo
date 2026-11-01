@@ -1,0 +1,72 @@
+{
+  "experiment": "F9-V",
+  "status": "frozen_before_confirmation",
+  "development_run": 41345497955,
+  "development_execution_sha": "898b6e43f6f1dd08b970fe4a0e4651d271944e80",
+  "prereg_commit": "e1347f4603f781d7730222b13ae5e9bc09591291",
+  "protocol_file_sha256": "73b3b19805f75edff093af169dcd485bc11307dbc72dc3a600c6b3ddb127ac2e",
+  "code_file_sha256": "5bf29a5c4b178c8bdc7c40c64901fd52488c482e3ed9860b0ba162f6bc513532",
+  "split": {
+    "base": 8300000,
+    "per_replica": 40,
+    "replicas": 4
+  },
+  "source_groups": [
+    "ppo_sham"
+  ],
+  "training_adjustments_after_dev": false,
+  "confirm_cannot_train": true,
+  "weights": {
+    "0": {
+      "artifact": 13098763143,
+      "actor_sha256": "76fa2bec86485e252cc7e252d2ac4504b849d1e970a70542a4b660cbdb38a9fc",
+      "report_sha256": "6a7321322accda4572cf8489cb2ad81cf542abb14d232c3fe6987a3910efef30",
+      "heads": {
+        "lex_hc": "a63c5f7e25eb12203301567e26018f1ea775d8774f8b241ac854b616e3ae3867",
+        "lex_public": "5f534c0cfd48faf1e1b239392f05041e55c861154edb62c90449257611054639",
+        "scalar_hc": "22557e8f86a648dd1d4927fa87577ec5a1939e42f2d84cf2cfc4ba8cd9ead114"
+      }
+    },
+    "1": {
+      "artifact": 13098733338,
+      "actor_sha256": "12d8243aac3862d1118b40c6bdf14c855af6552bdda436109e5862c79ca39875",
+      "report_sha256": "9c951e481aa2cd39f332ac8e5df45b4c0a6a1760351a4ddf1d4e571bdc26fe79",
+      "heads": {
+        "lex_hc": "a609b7667fb42f56074105beec67c99b600b35766d2c4e506f8912eb5bec75b2",
+        "lex_public": "ec7538c800d146c8877a62238de2a1d7f7cd35bedea1fc08e76a11178c781fd9",
+        "scalar_hc": "d385a03fe893edee97770ba816b7a01fbfae1f10ca53592e21e99490d9685027"
+      }
+    },
+    "2": {
+      "artifact": 13099027297,
+      "actor_sha256": "f869c73dea2d4c2cbc76757bc536e6f6065079ed943f6142b990062a2f924758",
+      "report_sha256": "416b1ddeb1d01eb0535dec21e2a0f5d52721232d01071a07357ff20427615530",
+      "heads": {
+        "lex_hc": "fbc1df832fa784fe2995ee3266dd7c35c36bc3bf62e9f04a5409973401b5cab6",
+        "lex_public": "8028987431da04c405b3d1e25e394c03681a1e5369b807a9837a72af167d248d",
+        "scalar_hc": "a1533d3c3947b43cb8e26de9fa758a941dced3d5b1dbbf523c25067afbd9775c"
+      }
+    },
+    "3": {
+      "artifact": 13099500331,
+      "actor_sha256": "61e19b78ae5e7fa180bfb77ce500cc51150f7bf8f345016ce76d6953cfb889b6",
+      "report_sha256": "b448ee7d307402b728f16b3ed74d85302c55772c2ea23d397dd4405005df70b4",
+      "heads": {
+        "lex_hc": "f84a085f0b56ed7eaab70b6bf74f42823b85d37c039bfce59f01b1c695c7f645",
+        "lex_public": "76e12ddf552c73b809b4a95be3e7d1d0204192b36ceb58e14a9a819bac32f7a0",
+        "scalar_hc": "600dcefda854c846d1896812cd1d85e11a857c458b3b5f2e99857f3b2295ab59"
+      }
+    }
+  },
+  "confirm_gates": {
+    "min_train_positive": 8,
+    "min_dev_positive": 4,
+    "min_accuracy_ratio_to_always": 0.9,
+    "max_read_ratio_to_always": 0.8,
+    "min_noninferior_replicas": 3,
+    "max_per_replica_accuracy_loss": 2,
+    "min_lex_hc_minus_public_pp": 3
+  },
+  "dev_gate_passed": true,
+  "caveat": "Class imbalance; two replicas never read; key-dependent read in replicas 0 and 3. Full confirmation must report per-regime and cue."
+}
