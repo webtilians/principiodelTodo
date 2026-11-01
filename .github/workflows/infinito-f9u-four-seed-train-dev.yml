@@ -1,0 +1,190 @@
+name: INFINITO F9-U — FOUR Real Neural Pair-Reward TRAIN/DEV Only
+
+on:
+  push:
+    branches: [experiment/f9u-paired-counterfactual-reward]
+    paths:
+      - docs/INFINITO_F9U_TRAIN_DEV_LAUNCH.md
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: f9u-four-reward-pairs
+  cancel-in-progress: false
+
+jobs:
+  matched-neural-training:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        seed: [0, 1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install pinned real F9 native neural dependencies
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r observatory/requirements_f9.txt gymnasium==1.4.0
+      - name: Check unchanged actor, no learned-label leakage, paired gradients
+        run: |
+          python -m unittest discover -s tests -p 'test_f9u_paired_counterfactual_reward.py' -v
+          python -m unittest discover -s tests -p 'test_f9t_learned_f4_read_gate.py' -v
+          git diff --exit-code origin/experiment/f9t-learned-f4-read-gate -- src/ observatory/f9t_learned_f4_read_gate.py observatory/f9i_selective_memory.py observatory/f9j_recurrent_memory_attribution.py
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 40957255987
+          repository: webtilians/principiodelTodo
+          github-token: ${{ github.token }}
+          name: f9o-new-models-seed-${{ matrix.seed }}
+          path: original/bc-${{ matrix.seed }}
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 40960267485
+          repository: webtilians/principiodelTodo
+          github-token: ${{ github.token }}
+          name: f9p-ppo-models-seed-${{ matrix.seed }}
+          path: original/ppo-${{ matrix.seed }}
+      - name: Train four heads with matched native rewards, 600 world pairs each
+        run: |
+          python -m observatory.f9u_paired_counterfactual_reward \
+            --phase dev --index ${{ matrix.seed }} --worlds 600 \
+            --bc-source original/bc-${{ matrix.seed }} \
+            --ppo-source original/ppo-${{ matrix.seed }} \
+            --output f9u-results/seed-${{ matrix.seed }}
+      - name: Validate full budgets, 20 unseen DEV pairs and sealed confirmation
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          idx=int("${{ matrix.seed }}")
+          p=Path(f"f9u-results/seed-{idx}")
+          d=json.loads((p/"report.json").read_text())
+          assert d["index"]==idx and d["phase"]=="dev"
+          assert len(d["worlds"])==20 and len(d["summary"])==9
+          assert d["source"]["sha"]
+          assert not d["f9u_7300000_opened"] and not d["f9t_6300000_opened"]
+          assert not d["historical_f9_holdout_900000_opened"]
+          assert d["uses_external_llm"] is False and d["actor_trained"] is False
+          assert d["frozen_hyperparameters"]["pair_bonus"]==0.5
+          assert d["frozen_hyperparameters"]["read_penalty"]==0.15
+          arms={"individual_hc","paired_hc","individual_public","paired_public"}
+          assert set(d["training"])==arms
+          for arm in arms:
+              t=d["training"][arm]
+              assert t["worlds"]==600 and t["episodes"]==1200
+              assert t["optimizer_steps"]==600
+              assert (p/(arm+".pt")).exists()
+          assert {x["seed"] for x in d["worlds"]}=={
+              7200000+idx*10000+j for j in range(20)}
+          for name,s in d["summary"].items():
+              assert s["pairs"]==20
+              assert 0<=s["both_first_correct"]<=20
+              assert 0<=s["read_rate"]<=1
+              assert s["frame_count"]>0
+          assert d["summary"]["always"]["read_rate"]==1.
+          assert d["summary"]["never"]["read_rate"]==0.
+          print("F9U_REAL_NEURAL_MATCHED_TRAIN_DEV_VERIFIED",idx)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: f9u-four-heads-train-dev-seed-${{ matrix.seed }}
+          path: f9u-results/seed-${{ matrix.seed }}/
+          retention-days: 45
+          if-no-files-found: warn
+
+  aggregate-and-evaluate-preregistered-dev-gate:
+    needs: matched-neural-training
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: f9u-four-heads-train-dev-seed-*
+          path: all-four
+      - name: Compute ALL DEV results and gate with zero retrospective tuning
+        run: |
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          reports=[]
+          for i in range(4):
+              r=json.loads(Path(
+                  f"all-four/f9u-four-heads-train-dev-seed-{i}/report.json").read_text())
+              assert r["index"]==i and len(r["worlds"])==20
+              reports.append(r)
+          names=list(reports[0]["summary"])
+          agg={}
+          for name in names:
+              by=[r["summary"][name] for r in reports]
+              reads=sum(b["read_count"] for b in by)
+              frames=sum(b["frame_count"] for b in by)
+              agg[name]=dict(
+                  pairs_both_correct=sum(b["both_first_correct"] for b in by),
+                  pairs_both_terminal=sum(b["both_terminal_success"] for b in by),
+                  individual_correct=sum(b["individual_first_correct"] for b in by),
+                  same_side_pairs=sum(b["same_side_pairs"] for b in by),
+                  read_rate=reads/frames,reads=reads,frames=frames,
+                  empty_reads=sum(b["empty_reads"] for b in by),
+                  effective_reads=sum(b["effective_reads"] for b in by),
+                  correct_by_replica=[b["both_first_correct"] for b in by],
+                  read_rate_by_replica=[b["read_rate"] for b in by],
+              )
+          diff=[agg["paired_hc"]["correct_by_replica"][i] -
+                agg["individual_hc"]["correct_by_replica"][i] for i in range(4)]
+          gate={
+              "paired_minus_individual_pairs":sum(diff),
+              "replica_deltas":diff,
+              "nonnegative_replicas":sum(d>=0 for d in diff),
+              "paired_minus_always_pairs":agg["paired_hc"]["pairs_both_correct"] -
+                agg["always"]["pairs_both_correct"],
+              "paired_minus_paired_public_pairs":agg["paired_hc"]["pairs_both_correct"]-
+                agg["paired_public"]["pairs_both_correct"],
+              "paired_read_rate":agg["paired_hc"]["read_rate"],
+              "passes":(
+                  sum(diff)>=5 and sum(d>=0 for d in diff)>=3
+                  and min(diff)>=-2
+                  and agg["paired_hc"]["pairs_both_correct"]>=
+                      agg["always"]["pairs_both_correct"]-4
+                  and agg["paired_hc"]["read_rate"]<=0.75
+                  and agg["paired_hc"]["pairs_both_correct"]>=
+                      agg["paired_public"]["pairs_both_correct"]+4
+              ),
+              "holdout_7300000_consumed":False,
+          }
+          lines=["# INFINITO F9-U — prospective DEV only: paired native reward",
+                 "Four independent real F9-P recurrent checkpoints, 600 TRAIN world pairs per head, 600 optimizer updates per head.",
+                 "20 unseen DEV pairs × four replicas (80 pairs). No LLM, no policy actor modifications.",
+                 "", "| Reader | Both first forks correct /80 | Read/frame | Same-side pairs /80 |",
+                 "|---|---:|---:|---:|"]
+          for name,v in agg.items():
+              lines.append(f'| {name} | {v["pairs_both_correct"]}/80 | {v["read_rate"]:.3f} | {v["same_side_pairs"]}/80 |')
+          lines+=["","## Frozen exploratory gate", "~~~json",
+                  json.dumps(gate,indent=2),"~~~",
+                  "","**CONFIRM 7300000+ remains unopened**. If gate fails, do not launch CONFIRM.",
+                  "F9-T 6300000+ and historical F9 900000+ also untouched."]
+          Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text("\n".join(lines)+"\n")
+          Path("f9u-aggregated-dev.json").write_text(json.dumps({
+              "experiment":"F9-U","phase":"DEV","seeds":4,
+              "pairs_per_seed":20,"training_worlds_per_head":600,
+              "optimizer_steps_per_head":600,
+              "aggregate":agg,"gate":gate
+          },ensure_ascii=False,indent=2))
+          print("F9U_FOUR_SEED_PROSPECTIVE_DEV_RESULT",json.dumps({
+              "aggregate":agg,"gate":gate},ensure_ascii=False),flush=True)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: f9u-four-seed-aggregate-DEV-only
+          path: f9u-aggregated-dev.json
+          retention-days: 45
+          if-no-files-found: error
