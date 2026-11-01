@@ -179,7 +179,7 @@ def rollout(actor,head,index,seed,reverse,mode,train=False,gate_state="normal"):
             signal_state=state
             if gate_state=="zero" and state is not None:
                 signal_state=(np.zeros_like(state[0]),np.zeros_like(state[1]))
-            elif gate_state!="normal":
+            elif gate_state not in ("normal","zero"):
                 raise ValueError(gate_state)
             read,first_clock,logp,entropy=gate_decision(
                 mode,head,raw,signal_state,t,first_clock,stochastic=train)
@@ -257,10 +257,11 @@ def train_reader(actor,index,mode,worlds=TRAIN_WORLDS):
                 torch.nn.utils.clip_grad_norm_(head.parameters(),2.0)
                 optimizer.step()
             log.append({"j":j,"reverse":reverse,"success":ep["success"],
+                        "native_return":ep["native_return"],
                         "read_rate":ep["read_rate"],"objective_return":ret})
     head.eval()
     return head,{"mode":mode,"index":index,"training_worlds":worlds,
-                 "episodes":len(log),"mean_reward":statistics.mean(x["native_return"] if "native_return" in x else x["success"] for x in log),
+                 "episodes":len(log),"mean_reward":statistics.mean(x["native_return"] for x in log),
                  "mean_read_rate":statistics.mean(x["read_rate"] for x in log),
                  "last_100_episodes":log[-100:]}
 
