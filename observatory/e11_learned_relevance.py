@@ -233,8 +233,14 @@ def training_models()->dict:
         shuffled=FeedbackLearner()
         for i in range(TRAIN_PER_REP):
             episode=episode_for("train",replica,i,"predictive")
-            # Hindsight feedback shown AFTER the hypothetical memory has been
-            # selected. This model never sees future_query_key in consider().
+            # First MAKE all retention decisions without access to future key.
+            # Only afterward does the offline trainer reveal delayed feedback.
+            for trainer in (actual,shuffled):
+                policy=RankSelector(episode.seed,trainer.weights)
+                memory=policy.begin()
+                for event in episode.events:
+                    policy.consider(memory,event)
+                assert len(memory.saved)==MEMORY_CAPACITY
             actual.feedback(episode.events,episode.future_query_key)
             bogus_index=random.Random(7400000+replica*10000+i).randrange(EVENT_COUNT)
             shuffled.feedback(episode.events,episode.events[bogus_index].key)
