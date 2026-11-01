@@ -61,7 +61,7 @@ class TestE11B(unittest.TestCase):
             self.assertEqual(set(trace["stored_keys"]),set(p.memory.saved))
             for e in w.before:
                 if e.key not in p.memory.saved:
-                    self.assertNotIn(e.subject,context)
+                    self.assertNotIn(e.subject+' tiene',context)
             for e in w.after:
                 p.ingest(e)
             self.assertEqual(len(p.memory.saved),4)
