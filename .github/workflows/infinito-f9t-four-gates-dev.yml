@@ -1,0 +1,140 @@
+name: INFINITO F9-T — FOUR trained neural read gates, DEV ONLY
+
+# Launch intentionally gated: no confirmation source or entrypoint in this run.
+on:
+  push:
+    branches: [experiment/f9t-learned-f4-read-gate]
+    paths:
+      - docs/INFINITO_F9T_TRAIN_LAUNCH.md
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: f9t-four-gates-training-and-dev
+  cancel-in-progress: false
+
+jobs:
+  verified-train-dev:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        seed: [0, 1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install actual recurrent actor and F4 dependencies, not LLM
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r observatory/requirements_f9.txt gymnasium==1.4.0
+      - name: Integrity, unchanged neural core and sealed partitions
+        run: |
+          git diff --exit-code origin/experiment/f9s-cue-subspace-causal-patch -- src/ observatory/f9i_selective_memory.py observatory/f9j_recurrent_memory_attribution.py
+          python -m unittest discover -s tests -p 'test_f9t_learned_f4_read_gate.py' -v
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 40957255987
+          repository: webtilians/principiodelTodo
+          github-token: ${{ github.token }}
+          name: f9o-new-models-seed-${{ matrix.seed }}
+          path: original/bc-${{ matrix.seed }}
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 40960267485
+          repository: webtilians/principiodelTodo
+          github-token: ${{ github.token }}
+          name: f9p-ppo-models-seed-${{ matrix.seed }}
+          path: original/ppo-${{ matrix.seed }}
+      - name: Train ONLY a head on frozen H/C with native rewards, and public-only matched head
+        run: |
+          python -m observatory.f9t_learned_f4_read_gate \
+            --phase train --index ${{ matrix.seed }} --worlds 600 \
+            --bc-source original/bc-${{ matrix.seed }} \
+            --ppo-source original/ppo-${{ matrix.seed }} \
+            --output f9t-results/seed-${{ matrix.seed }}
+      - name: Validate full 600 training worlds / 20 NEW development cue pairs and causal gate-H/C ablation
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          idx=int("${{ matrix.seed }}")
+          root=Path(f"f9t-results/seed-{idx}")
+          r=json.loads((root/"report.json").read_text())
+          assert r["phase"]=="train" and r["index"]==idx
+          assert not r["heldout_opened"] and not r["F9_historical_900000_opened"]
+          assert r["no_external_llm"] and not r["actor_training"]
+          assert len(r["pairs"])==20
+          assert set(r["training"])=={"learned_hc","learned_public_only"}
+          assert all(x["training_worlds"]==600 and x["episodes"]==1200
+                     for x in r["training"].values())
+          assert set(r["summary"])=={
+              "learned_hc","learned_public_only","always","never",
+              "periodic_4","public_event_clock","hc_zero_gate_only"}
+          assert r["source"]["sha"]
+          for m,v in r["summary"].items():
+              assert 0<=v["mean_read_rate"]<=1
+              assert 0<=v["pair_correct"]<=20
+          assert r["summary"]["always"]["mean_read_rate"]==1.0
+          assert r["summary"]["never"]["mean_read_rate"]==0.0
+          assert {x["seed"] if "seed" in x else None for x in r["pairs"]}=={None}
+          for mode in ("learned_hc","learned_public_only"):
+              assert (root/f"{mode}.pt").is_file()
+          print("F9T_FULL_REAL_ACTOR_DEV_SEED_VALIDATED",idx)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: f9t-trained-two-gates-and-dev-seed-${{ matrix.seed }}
+          path: f9t-results/seed-${{ matrix.seed }}/
+          if-no-files-found: warn
+          retention-days: 45
+
+  aggregate-four-seeds:
+    needs: verified-train-dev
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: f9t-trained-two-gates-and-dev-seed-*
+          path: f9t-all
+      - name: Report ALL four train/dev results; DO NOT select checkpoint by its DEV score
+        run: |
+          python - <<'PY'
+          import json,statistics,os
+          from pathlib import Path
+          rows=[]
+          for i in range(4):
+              p=Path(f"f9t-all/f9t-trained-two-gates-and-dev-seed-{i}/report.json")
+              r=json.loads(p.read_text())
+              assert r["index"]==i and len(r["pairs"])==20
+              rows.append(r)
+          names=tuple(rows[0]["summary"])
+          lines=["# F9-T neural F4 READ gate — 4-seed DEV (NOT confirmation)",
+                 "Frozen F9-P PPO actors, two trainable heads, 600 train worlds ×2 cue variants ×4 independent seeds.",
+                 "20 new DEV pairs/seed; historical F9 900000+ closed. Gate sees only raw + prior H/C.",
+                 "",
+                 "| Controller | Pairs both first choices correct /80 | Both terminal successes /80 | Mean READ/frame |",
+                 "|---|---:|---:|---:|"]
+          for name in names:
+              correct=sum(r["summary"][name]["pair_correct"] for r in rows)
+              success=sum(r["summary"][name]["both_terminal_success"] for r in rows)
+              reads=statistics.mean(r["summary"][name]["mean_read_rate"] for r in rows)
+              lines.append(f"| {name} | {correct}/80 | {success}/80 | {reads:.3f} |")
+          lines+=["","**E11-style caution:** training a head that always reads or never reaches the fork is not meta-memory.",
+                  "**No confirmation executed**; new 6300000+ remains untouched."]
+          Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text("\n".join(lines)+"\n")
+          print("F9T_REAL_AGENT_FOUR_SEED_DEV_AGGREGATE",json.dumps({
+              k:{"pairs_both_correct":sum(r["summary"][k]["pair_correct"] for r in rows),
+                 "pairs_terminal":sum(r["summary"][k]["both_terminal_success"] for r in rows),
+                 "mean_read_rate":statistics.mean(r["summary"][k]["mean_read_rate"] for r in rows)}
+              for k in names}),flush=True)
+          PY
