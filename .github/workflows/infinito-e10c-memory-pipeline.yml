@@ -1,0 +1,125 @@
+name: INFINITO E10-C — ONE diagnostic on fresh development worlds
+
+on:
+  push:
+    branches: [experiment/e10c-memory-pipeline-diagnostic]
+    paths:
+      - .github/workflows/infinito-e10c-memory-pipeline.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e10c-pipeline-diagnostic
+  cancel-in-progress: false
+
+jobs:
+  instrumentation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install existing Python test runner
+        run: python -m pip install pytest
+      - name: Verify source is frozen and historical E10-B confirmation untouched
+        run: |
+          git diff --exit-code origin/master -- src/infinito3/
+          test -f docs/INFINITO_E10C_PIPELINE_DIAGNOSTIC_PROTOCOL.md
+          test -f docs/INFINITO_E10B_RESULTS_2026-10-30.json
+          python -m py_compile observatory/e10c_pipeline_diagnostic.py
+      - name: Run NEW pipeline stage contracts
+        run: python -m pytest -q tests/test_e10c_pipeline_diagnostic.py tests/test_e10b_semantic_longitudinal_live.py tests/test_e10_longitudinal_memory.py
+      - name: Check 75 frozen INFINITO 3.0 regressions
+        run: python -m pytest -q tests/test_*_v3.py
+
+  actual-semantic-trace:
+    needs: instrumentation
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install actual OpenAI embedding client (LLM is never called)
+        run: python -m pip install 'openai>=1.55,<4'
+      - name: Require REAL semantic embedding API; no mock fallback
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          if [ -z "$OPENAI_API_KEY" ]; then
+            echo "::error::E10C diagnostic blocked: no OPENAI_API_KEY"
+            exit 3
+          fi
+      - name: Trace 12 entirely NEW DEV worlds, 48 decision snapshots per arm
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          python -m observatory.e10c_pipeline_diagnostic \
+            --embedding real --output e10c-results/real-semantic
+      - name: Audit full evidence lifecycle, no LLM or previous confirm used
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path("e10c-results/real-semantic/report.json").read_text())
+          s=r["summary"]
+          assert r["mode"]=="real" and r["semantic_embeddings_real"]
+          assert r["semantic_embedding_api_calls"]>0
+          assert r["llm_calls"]==0 and not r["model_decisions_scored"]
+          assert not r["core_changed"] and not r["historical_E10B_confirmation_reused"]
+          assert r["worlds"]==12 and s["snapshots_per_arm"]==48
+          assert len(r["world_traces"])==12
+          assert set(s["by_arm"])=={"semantic_rag","infinito3","infinito3_gate_open"}
+          for a in s["by_arm"]:
+              x=s["by_arm"][a]
+              assert sum(x["stage_counts"].values())==48
+              assert 0<=x["transmitted"]<=x["selected"]<=x["retrieved"]<=x["active"]<=x["persisted"]<=48
+              assert set(s["by_family"][a])=={"alerts","format","escalation","cadence","color","city"}
+          for w in r["world_traces"]:
+              assert w["seed"] in {1900000+i*1000+j for i in range(2) for j in range(6)}
+              assert len(w["observations"])==4
+          print("E10C_FRESH_DEV_REAL_SEMANTIC_DIAGNOSTIC_COMPLETE")
+          PY
+      - name: Publish all stages and family-specific losses
+        run: |
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          r=json.loads(Path("e10c-results/real-semantic/report.json").read_text())
+          s=r["summary"]
+          lines=["# E10-C Diagnostic: first missing stage of evidence",
+                 "REAL text-embedding-3-small; zero LLM calls; not a new confirmation.",
+                 "12 new development worlds; 48 before/after counterfactual snapshots per arm.",
+                 "",
+                 "| Arm | Persisted | Active | Retrieved top-8 | Selected | Transmitted |",
+                 "|---|---:|---:|---:|---:|---:|"]
+          for arm,x in s["by_arm"].items():
+              lines.append(f'| {arm} | {x["persisted"]}/48 | {x["active"]}/48 | '
+                           f'{x["retrieved"]}/48 | {x["selected"]}/48 | {x["transmitted"]}/48 |')
+          lines+=["","## Where evidence first went missing"]
+          for arm,x in s["by_arm"].items():
+              lines+=["",f"**{arm}**",json.dumps(x["stage_counts"],ensure_ascii=False)]
+          lines+=["","## By family"]
+          for arm,groups in s["by_family"].items():
+              lines+=["",f"**{arm}**"]
+              for family,g in groups.items():
+                  lines.append(f'- {family}: {g["transmitted"]}/{g["total"]} delivered; first losses {json.dumps(g["stage_counts"],ensure_ascii=False)}')
+          lines+=["","**Boundary:** no LLM decisions; causal effect on LLM quality not measured.",
+                  "No edits to INFINITO 3.0 core, no E10-B 1800000+ replay, no F9 holdout."]
+          Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text("\n".join(lines)+"\n")
+          print("E10C_REAL_DIAGNOSTIC_SUMMARY",json.dumps(s,ensure_ascii=False),flush=True)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e10c-real-semantic-pipeline-traces
+          path: e10c-results/real-semantic/
+          retention-days: 30
+          if-no-files-found: warn
