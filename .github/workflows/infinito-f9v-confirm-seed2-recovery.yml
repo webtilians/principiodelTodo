@@ -117,7 +117,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: f9v-one-time-confirmation-seed-${{ matrix.seed }}
+          name: f9v-one-time-confirmation-seed-${{ matrix.seed }}-recovery
           path: confirmation/seed-${{ matrix.seed }}/
           retention-days: 75
           if-no-files-found: warn
