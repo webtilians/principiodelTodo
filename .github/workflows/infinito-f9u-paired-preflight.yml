@@ -32,7 +32,7 @@ jobs:
         run: |
           python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
           python -m pip install -r observatory/requirements_f9.txt gymnasium==1.4.0
-      - name: Unit tests: paired reward and matched gradient, no privileged inputs
+      - name: 'Unit tests: paired reward and matched gradient, no privileged inputs'
         run: |
           python -m unittest discover -s tests -p 'test_f9u_paired_counterfactual_reward.py' -v
           python -m unittest discover -s tests -p 'test_f9t_learned_f4_read_gate.py' -v
