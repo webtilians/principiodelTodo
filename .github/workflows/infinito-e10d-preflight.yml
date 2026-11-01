@@ -1,0 +1,42 @@
+name: INFINITO E10-D — frozen single-intervention offline contracts
+
+on:
+  push:
+    branches: [experiment/e10d-single-general-capture-intervention]
+    paths:
+      - observatory/e10d_single_intervention.py
+      - tests/test_e10d_single_intervention.py
+      - docs/INFINITO_E10D_SINGLE_INTERVENTION_PROTOCOL.md
+      - .github/workflows/infinito-e10d-preflight.yml
+
+permissions:
+  contents: read
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install test runner
+        run: python -m pip install pytest
+      - name: Keep original production cognitive core untouched
+        run: |
+          git diff --exit-code origin/master -- src/infinito3/
+          python -m py_compile observatory/e10d_single_intervention.py
+          test -f docs/INFINITO_E10D_SINGLE_INTERVENTION_PROTOCOL.md
+      - name: New E10-D nonlearning gate, plan regex and new fixture tests
+        run: python -m pytest -q tests/test_e10d_single_intervention.py
+      - name: E10-A/B/C contracts and core v3 regressions
+        run: |
+          python -m pytest -q tests/test_e10_longitudinal_memory.py \
+            tests/test_e10b_semantic_longitudinal_live.py \
+            tests/test_e10c_pipeline_diagnostic.py
+          python -m pytest -q tests/test_*_v3.py
+      - name: Confirm this is mock-only instrumentation without paying OpenAI
+        run: echo "E10D_OFFLINE_CONTRACTS_PASSED no-LLM no-semantic-API"
