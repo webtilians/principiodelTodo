@@ -1,0 +1,241 @@
+{
+  "experiment": "E10-C single real-semantic DEVELOPMENT audit; NOT confirmation",
+  "workflow_run": 41308525833,
+  "workflow_artifact_id": 13083614909,
+  "run_source_sha": "7ec595222c41018eabec7ac177b3a2bea9ff1217",
+  "date": "2026-11-01",
+  "semantic_embedding_model": "text-embedding-3-small",
+  "language_model_calls": 0,
+  "production_core_modified": false,
+  "prior_E10B_1800000_confirmation_reused": false,
+  "worlds": 12,
+  "snapshots_per_arm": 48,
+  "summary": {
+    "snapshots_per_arm": 48,
+    "by_arm": {
+      "semantic_rag": {
+        "stage_counts": {
+          "transmitted": 48
+        },
+        "persisted": 48,
+        "active": 48,
+        "retrieved": 48,
+        "selected": 48,
+        "transmitted": 48,
+        "mean_context_tokens": 145.95833333333334
+      },
+      "infinito3": {
+        "stage_counts": {
+          "not_captured": 32,
+          "transmitted": 16
+        },
+        "persisted": 16,
+        "active": 16,
+        "retrieved": 16,
+        "selected": 16,
+        "transmitted": 16,
+        "mean_context_tokens": 35.916666666666664
+      },
+      "infinito3_gate_open": {
+        "stage_counts": {
+          "transmitted": 40,
+          "not_selected": 8
+        },
+        "persisted": 48,
+        "active": 48,
+        "retrieved": 48,
+        "selected": 40,
+        "transmitted": 40,
+        "mean_context_tokens": 55.625
+      }
+    },
+    "by_family": {
+      "semantic_rag": {
+        "alerts": {
+          "stage_counts": {
+            "transmitted": 8
+          },
+          "transmitted": 8,
+          "total": 8
+        },
+        "format": {
+          "stage_counts": {
+            "transmitted": 8
+          },
+          "transmitted": 8,
+          "total": 8
+        },
+        "escalation": {
+          "stage_counts": {
+            "transmitted": 8
+          },
+          "transmitted": 8,
+          "total": 8
+        },
+        "cadence": {
+          "stage_counts": {
+            "transmitted": 8
+          },
+          "transmitted": 8,
+          "total": 8
+        },
+        "color": {
+          "stage_counts": {
+            "transmitted": 8
+          },
+          "transmitted": 8,
+          "total": 8
+        },
+        "city": {
+          "stage_counts": {
+            "transmitted": 8
+          },
+          "transmitted": 8,
+          "total": 8
+        }
+      },
+      "infinito3": {
+        "alerts": {
+          "stage_counts": {
+            "not_captured": 8
+          },
+          "transmitted": 0,
+          "total": 8
+        },
+        "format": {
+          "stage_counts": {
+            "not_captured": 8
+          },
+          "transmitted": 0,
+          "total": 8
+        },
+        "escalation": {
+          "stage_counts": {
+            "not_captured": 8
+          },
+          "transmitted": 0,
+          "total": 8
+        },
+        "cadence": {
+          "stage_counts": {
+            "not_captured": 8
+          },
+          "transmitted": 0,
+          "total": 8
+        },
+        "color": {
+          "stage_counts": {
+            "transmitted": 8
+          },
+          "transmitted": 8,
+          "total": 8
+        },
+        "city": {
+          "stage_counts": {
+            "transmitted": 8
+          },
+          "transmitted": 8,
+          "total": 8
+        }
+      },
+      "infinito3_gate_open": {
+        "alerts": {
+          "stage_counts": {
+            "transmitted": 8
+          },
+          "transmitted": 8,
+          "total": 8
+        },
+        "format": {
+          "stage_counts": {
+            "transmitted": 8
+          },
+          "transmitted": 8,
+          "total": 8
+        },
+        "escalation": {
+          "stage_counts": {
+            "transmitted": 8
+          },
+          "transmitted": 8,
+          "total": 8
+        },
+        "cadence": {
+          "stage_counts": {
+            "not_selected": 8
+          },
+          "transmitted": 0,
+          "total": 8
+        },
+        "color": {
+          "stage_counts": {
+            "transmitted": 8
+          },
+          "transmitted": 8,
+          "total": 8
+        },
+        "city": {
+          "stage_counts": {
+            "transmitted": 8
+          },
+          "transmitted": 8,
+          "total": 8
+        }
+      }
+    },
+    "by_phase": {
+      "semantic_rag": {
+        "before": {
+          "stage_counts": {
+            "transmitted": 24
+          },
+          "transmitted": 24
+        },
+        "after": {
+          "stage_counts": {
+            "transmitted": 24
+          },
+          "transmitted": 24
+        }
+      },
+      "infinito3": {
+        "before": {
+          "stage_counts": {
+            "not_captured": 16,
+            "transmitted": 8
+          },
+          "transmitted": 8
+        },
+        "after": {
+          "stage_counts": {
+            "not_captured": 16,
+            "transmitted": 8
+          },
+          "transmitted": 8
+        }
+      },
+      "infinito3_gate_open": {
+        "before": {
+          "stage_counts": {
+            "transmitted": 20,
+            "not_selected": 4
+          },
+          "transmitted": 20
+        },
+        "after": {
+          "stage_counts": {
+            "transmitted": 20,
+            "not_selected": 4
+          },
+          "transmitted": 20
+        }
+      }
+    }
+  },
+  "notes": [
+    "No direct LLM answer score in E10-C",
+    "First observed loss stages only; missing action attribution not tested",
+    "Cross-language goals-intent regex plans? matched Spanish plan and dropped all eight retrieved USER_MODEL items for cadence",
+    "Fresh exploratory development seeds only"
+  ]
+}
