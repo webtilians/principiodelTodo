@@ -1,0 +1,181 @@
+name: INFINITO F9-V — FOUR Frozen Agents Causal READ Prediction TRAIN/DEV
+
+on:
+  push:
+    branches: [experiment/f9v-lexicographic-causal-f4-value]
+    paths:
+      - docs/INFINITO_F9V_TRAIN_DEV_LAUNCH.md
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: f9v-new-seeds-train-dev
+  cancel-in-progress: false
+
+jobs:
+  four-frozen-actor-seeds:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        seed: [0,1,2,3]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install native recurrent F9 dependencies without external LLMs
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r observatory/requirements_f9.txt gymnasium==1.4.0
+      - name: Verify all strict no-future contracts and unmodified F4/actor
+        run: |
+          python -m unittest discover -s tests -p 'test_f9v_lexicographic_causal_f4.py' -v
+          git diff --exit-code origin/experiment/f9u-paired-counterfactual-reward -- src/ observatory/f9q_causal_fork.py observatory/f9i_selective_memory.py observatory/f9j_recurrent_memory_attribution.py observatory/f9t_learned_f4_read_gate.py
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 40957255987
+          repository: webtilians/principiodelTodo
+          github-token: ${{ github.token }}
+          name: f9o-new-models-seed-${{ matrix.seed }}
+          path: originals/bc-${{ matrix.seed }}
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 40960267485
+          repository: webtilians/principiodelTodo
+          github-token: ${{ github.token }}
+          name: f9p-ppo-models-seed-${{ matrix.seed }}
+          path: originals/ppo-${{ matrix.seed }}
+      - name: Estimate READ causal value on NEW 8100000 TRAIN and fit 3 heads
+        run: |
+          python -m observatory.f9v_lexicographic_causal_f4 \
+            --phase dev --index ${{ matrix.seed }} --train-pairs 32 \
+            --bc-source originals/bc-${{ matrix.seed }} \
+            --ppo-source originals/ppo-${{ matrix.seed }} \
+            --output f9v-reports/seed-${{ matrix.seed }}
+      - name: Validate train/DEV separation, all interventions and no confirmation
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          idx=int("${{ matrix.seed }}")
+          p=Path(f"f9v-reports/seed-{idx}")
+          d=json.loads((p/"report.json").read_text())
+          assert d["phase"]=="dev" and d["index"]==idx
+          assert d["train_worlds"]==32 and d["dev_worlds"]==16
+          assert len(d["train_cases"])==128 and len(d["dev_cases"])==64
+          assert {c["seed"] for c in d["train_cases"]}=={8100000+10000*idx+j for j in range(32)}
+          assert {c["seed"] for c in d["dev_cases"]}=={8200000+10000*idx+j for j in range(16)}
+          assert d["source_shas"]["ppo_sham"]
+          assert not d["actor_retrained"] and not d["F4_writer_changed"] and not d["uses_external_llm"]
+          assert not d["confirmation_8300000_opened"] and not d["f9u_7300000_opened"]
+          assert not d["f9t_6300000_opened"] and not d["historic_900000_opened"]
+          assert all(c["public_fork_equal"] and c["read_branch"]["read"]==1
+                     and c["skip_branch"]["read"]==0 for c in d["dev_cases"])
+          assert d["dev_results"]["always"]["reads"]==64
+          assert d["dev_results"]["never"]["reads"]==0
+          for head in ("lex_hc","lex_public","scalar_hc"):
+              assert (p/(head+".pt")).is_file()
+              assert d["train_heads"][head]["epochs"]==200
+              assert d["train_heads"][head]["samples"]==128
+          print("F9V_PROSPECTIVE_NEURAL_HC_AND_F4_CAUSAL_DEV_VALIDATED",idx)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: f9v-frozen-actor-causal-dev-seed-${{ matrix.seed }}
+          path: f9v-reports/seed-${{ matrix.seed }}/
+          retention-days: 45
+          if-no-files-found: warn
+
+  aggregate-four-replicas-and-stop-gate:
+    needs: four-frozen-actor-seeds
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: f9v-frozen-actor-causal-dev-seed-*
+          path: gathered
+      - name: Aggregate ALL independent replicas and apply preregistered negative gate
+        run: |
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          reports=[]
+          for i in range(4):
+              r=json.loads(Path(f"gathered/f9v-frozen-actor-causal-dev-seed-{i}/report.json").read_text())
+              assert r["phase"]=="dev" and r["index"]==i and len(r["dev_cases"])==64
+              reports.append(r)
+          names=tuple(reports[0]["dev_results"])
+          aggregate={}
+          for name in names:
+              values=[r["dev_results"][name] for r in reports]
+              aggregate[name]={
+                  "correct":sum(v["first_arm_correct"] for v in values),
+                  "reads":sum(v["reads"] for v in values),
+                  "cases":sum(v["cases"] for v in values),
+                  "label_match":sum(v["label_match"] for v in values),
+                  "correct_by_replica":[v["first_arm_correct"] for v in values],
+                  "reads_by_replica":[v["reads"] for v in values],
+                  "regimes":{
+                      regime:{
+                          "pairs_both_correct":sum(v["regimes"][regime]["pairs_both_first_correct"] for v in values),
+                          "individual_correct":sum(v["regimes"][regime]["first_arm_correct"] for v in values),
+                          "reads":sum(v["regimes"][regime]["reads"] for v in values)
+                      } for regime in ("history_f4_normal","history_f4_postcue_off")
+                  },
+              }
+              assert aggregate[name]["cases"]==256
+          effects_train={str(d):sum(int(r["train_causal_effects"].get(str(d),0)) for r in reports)
+                         for d in (-1,0,1)}
+          effects_dev={str(d):sum(int(r["dev_causal_effects"].get(str(d),0)) for r in reports)
+                       for d in (-1,0,1)}
+          hc=aggregate["lex_hc"]
+          always=aggregate["always"]
+          public=aggregate["lex_public"]
+          gate={
+              "train_effects":effects_train,"dev_effects":effects_dev,
+              "enough_positive_train":effects_train["1"]>=8,
+              "enough_positive_dev":effects_dev["1"]>=4,
+              "hc_retain_at_least_90_percent_always":hc["correct"]>=.9*always["correct"],
+              "hc_save_at_least_20_percent_reads":hc["reads"]<=.8*always["reads"],
+              "at_least_three_replicas_not_below_always_by_2":sum(
+                  hc["correct_by_replica"][i]>=always["correct_by_replica"][i]-2
+                  for i in range(4))>=3,
+              "hc_beats_public_by_at_least_three_pp":hc["correct"]>=public["correct"]+8,
+              "f9v_8300000_confirm_opened":False,
+          }
+          gate["passes"]=all(v for k,v in gate.items()
+              if k not in ("train_effects","dev_effects","f9v_8300000_confirm_opened"))
+          result={"experiment":"F9-V","phase":"DEV","n_replicas":4,
+                  "train_cases":512,"dev_cases":256,
+                  "aggregate":aggregate,"gate":gate}
+          Path("f9v-aggregate-dev.json").write_text(json.dumps(result,indent=2,ensure_ascii=False))
+          lines=["# INFINITO F9-V — EcoDispatch-inspired causal READ/SKIP",
+                 "Original F9-P LSTM with frozen weights; teacher prefix only until fork.",
+                 "Four independent replicas, two H/C-history regimes and cue-inverted S13 worlds. DEV only.",
+                 "",f'TRAIN causal effects D=-1,0,+1: {effects_train}. DEV: {effects_dev}.',
+                 "","| Strategy | Correct first arms /256 | READ /256 | Label match /256 |",
+                 "|---|---:|---:|---:|"]
+          for name,d in aggregate.items():
+              lines.append(f'| {name} | {d["correct"]}/256 | {d["reads"]}/256 | {d["label_match"]}/256 |')
+          lines+=["","## Preregistered advance gate","~~~json",json.dumps(gate,indent=2),"~~~",
+                  "**Important:** teacher-forced prefix, causal single read at fork, future F4 zero. NO end-to-end claims.",
+                  "**Confirmation 8300000+, prior reserves 7300000+, 6300000+, and 900000+ NOT opened.**",
+                  "A SUCCESS workflow verifies computation, not scientific hypothesis."]
+          Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text("\n".join(lines)+"\n")
+          print("F9V_FOUR_REPLICA_NEW_DEV_RESULT",json.dumps(result,ensure_ascii=False),flush=True)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: f9v-four-replica-causal-DEV-aggregate
+          path: f9v-aggregate-dev.json
+          retention-days: 45
+          if-no-files-found: error
