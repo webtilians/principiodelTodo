@@ -1,0 +1,263 @@
+name: INFINITO F9-V — Seed2 Hash Repair and Frozen Confirmation Aggregate
+
+on:
+  push:
+    branches: [experiment/f9v-frozen-independent-confirmation]
+    paths:
+      - docs/INFINITO_F9V_RECOVER_SEED2_AFTER_HASH_TYPO.md
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: f9v-seed2-hash-transcription-recovery
+  cancel-in-progress: false
+
+jobs:
+  frozen-read-gates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        seed: [2]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install same F9-P CPU dependencies and no outside model
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r observatory/requirements_f9.txt gymnasium==1.4.0
+      - name: Confirm original source code, protocol, and no head training
+        run: |
+          python - <<'PY'
+          from observatory.f9v_frozen_confirm import (
+              validate_original_implementation,confirm_seed,
+              ORIGINAL_F9V_COMMIT,ORIGINAL_CODE_SHA256,
+          )
+          validate_original_implementation()
+          assert ORIGINAL_F9V_COMMIT=="898b6e43f6f1dd08b970fe4a0e4651d271944e80"
+          for j in range(40):confirm_seed(int("${{ matrix.seed }}"),j)
+          for j in (-1,40):
+              try:confirm_seed(int("${{ matrix.seed }}"),j)
+              except ValueError:pass
+              else:raise AssertionError("Out-of-split confirmation world accepted")
+          print("F9V_FROZEN_CONFIRM_CODE_SHA_AND_SPLITS_VERIFIED")
+          PY
+          python -m unittest discover -s tests -p 'test_f9v_lexicographic_causal_f4.py' -v
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 40957255987
+          repository: webtilians/principiodelTodo
+          github-token: ${{ github.token }}
+          name: f9o-new-models-seed-${{ matrix.seed }}
+          path: frozen-actor/bc-${{ matrix.seed }}
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 40960267485
+          repository: webtilians/principiodelTodo
+          github-token: ${{ github.token }}
+          name: f9p-ppo-models-seed-${{ matrix.seed }}
+          path: frozen-actor/ppo-${{ matrix.seed }}
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 41345497955
+          repository: webtilians/principiodelTodo
+          github-token: ${{ github.token }}
+          name: f9v-frozen-actor-causal-dev-seed-${{ matrix.seed }}
+          path: frozen-heads/${{ matrix.seed }}
+      - name: Validate exact twelve frozen head hashes BEFORE touching 8300000+
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from observatory.f9v_frozen_confirm import (
+              validate_original_implementation,load_dev_models
+          )
+          idx=int("${{ matrix.seed }}")
+          validate_original_implementation()
+          heads,report=load_dev_models(Path(f"frozen-heads/{idx}"),idx)
+          assert len(heads)==3 and all(not p.requires_grad
+              for h in heads.values() for p in h.parameters())
+          assert report["train_worlds"]==32 and report["dev_worlds"]==16
+          print("F9V_DEV_HEADS_CHECKSUM_LOCKED_BEFORE_HOLDOUT",idx)
+          PY
+      - name: Recover ONLY previously unobserved seed2 using ORIGINAL actor and frozen weights
+        run: |
+          python -m observatory.f9v_frozen_confirm \
+            --index ${{ matrix.seed }} \
+            --bc-source frozen-actor/bc-${{ matrix.seed }} \
+            --ppo-source frozen-actor/ppo-${{ matrix.seed }} \
+            --weights-source frozen-heads/${{ matrix.seed }} \
+            --output confirmation/seed-${{ matrix.seed }}
+      - name: Validate exactly forty unique new confirmation worlds
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          idx=int("${{ matrix.seed }}")
+          d=json.loads(Path(f"confirmation/seed-{idx}/confirm.json").read_text())
+          assert d["phase"]=="confirm" and d["index"]==idx
+          assert d["confirm_worlds"]==40 and d["confirm_states"]==160
+          assert len(d["cases"])==160 and len(d["choices"])==160
+          assert {x["seed"] for x in d["cases"]}=={
+              8300000+10000*idx+j for j in range(40)}
+          assert all(x["public_fork_equal"] for x in d["cases"])
+          assert all(x["read_branch"]["read"]==1 and x["skip_branch"]["read"]==0
+              for x in d["cases"])
+          assert d["summary"]["always"]["reads"]==160
+          assert d["summary"]["never"]["reads"]==0
+          assert not d["heads_retrained"] and not d["actor_retrained"]
+          assert not d["F4_writer_changed"] and not d["external_llm_used"]
+          assert not d["old_f9_holdout_900000_opened"]
+          print("F9V_INDEPENDENT_CONFIRMATION_RESULT_VALIDATED",idx)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: f9v-one-time-confirmation-seed-${{ matrix.seed }}
+          path: confirmation/seed-${{ matrix.seed }}/
+          retention-days: 75
+          if-no-files-found: warn
+
+  final-independent-report:
+    needs: frozen-read-gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 41354569501
+          repository: webtilians/principiodelTodo
+          github-token: ${{ github.token }}
+          name: f9v-one-time-confirmation-seed-0
+          path: collected-confirm/f9v-one-time-confirmation-seed-0
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 41354569501
+          repository: webtilians/principiodelTodo
+          github-token: ${{ github.token }}
+          name: f9v-one-time-confirmation-seed-1
+          path: collected-confirm/f9v-one-time-confirmation-seed-1
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 41354569501
+          repository: webtilians/principiodelTodo
+          github-token: ${{ github.token }}
+          name: f9v-one-time-confirmation-seed-3
+          path: collected-confirm/f9v-one-time-confirmation-seed-3
+      - uses: actions/download-artifact@v4
+        with:
+          name: f9v-one-time-confirmation-seed-2-recovery
+          path: collected-confirm/f9v-one-time-confirmation-seed-2
+      - name: Report full results and pre-registered replication gate
+        run: |
+          python - <<'PY'
+          import json,random,statistics,os
+          from collections import Counter
+          from pathlib import Path
+          reports=[]
+          for i in range(4):
+              r=json.loads(Path(
+                  f"collected-confirm/f9v-one-time-confirmation-seed-{i}/confirm.json"
+                  ).read_text())
+              assert r["index"]==i and r["phase"]=="confirm"
+              reports.append(r)
+          names=list(reports[0]["summary"])
+          agg={}
+          for name in names:
+              rs=[r["summary"][name] for r in reports]
+              agg[name]={
+                "first_arm_correct":sum(v["first_arm_correct"] for v in rs),
+                "reads":sum(v["reads"] for v in rs),
+                "cases":sum(v["cases"] for v in rs),
+                "label_match":sum(v["label_match"] for v in rs),
+                "by_replica":[v["first_arm_correct"] for v in rs],
+                "reads_by_replica":[v["reads"] for v in rs],
+                "normal_both_correct":sum(v["regimes"]["history_f4_normal"]["pairs_both_first_correct"] for v in rs),
+                "blackout_both_correct":sum(v["regimes"]["history_f4_postcue_off"]["pairs_both_first_correct"] for v in rs),
+              }
+              assert agg[name]["cases"]==640
+          effects={str(k):sum(int(r["effects"].get(str(k),0))
+                    for r in reports) for k in (-1,0,1)}
+          per_effect_choices=Counter()
+          for r in reports:
+              for case,selection in zip(r["cases"],r["choices"]):
+                  per_effect_choices[(case["effect"],selection["lex_hc"]["read"])]+=1
+          hc=agg["lex_hc"]; always=agg["always"]; public=agg["lex_public"]
+          # 4*40 independent world blocks, 4 nonindependent cases/block.
+          blocks=[]
+          for r in reports:
+              model=[]
+              for j in range(40):
+                  rows=r["choices"][4*j:4*(j+1)]
+                  model.append({
+                      "hc":sum(v["lex_hc"]["first_arm_correct"] for v in rows),
+                      "always":sum(v["always"]["first_arm_correct"] for v in rows),
+                      "never":sum(v["never"]["first_arm_correct"] for v in rows),
+                      "public":sum(v["lex_public"]["first_arm_correct"] for v in rows),
+                  })
+              blocks.append(model)
+          rng=random.Random(20261101)
+          diffs={"hc_minus_never":[],"hc_minus_always":[],"hc_minus_public":[]}
+          for trial in range(2000):
+              samples=[rng.choice(blocks[i]) for i in range(4) for j in range(40)]
+              for key,base in (("hc_minus_never","never"),("hc_minus_always","always"),("hc_minus_public","public")):
+                  diffs[key].append(sum(b["hc"]-b[base] for b in samples)/640)
+          def interval(items):
+              a=sorted(items)
+              return [a[49],a[1949]]
+          ci={k:interval(v) for k,v in diffs.items()}
+          gate={
+            "retains_90_percent_of_always":hc["first_arm_correct"]>=0.90*always["first_arm_correct"],
+            "reads_at_most_80_percent_of_always":hc["reads"]<=0.80*always["reads"],
+            "replicas_with_loss_at_most_five":sum(hc["by_replica"][i]>=always["by_replica"][i]-5 for i in range(4))>=3,
+            "at_least_three_pp_better_than_public":hc["first_arm_correct"]>=public["first_arm_correct"]+20,
+            "holdout_is_fully_consumed":True,
+          }
+          gate["replicated_under_frozen_operational_criteria"]=all(gate[k] for k in (
+              "retains_90_percent_of_always","reads_at_most_80_percent_of_always",
+              "replicas_with_loss_at_most_five","at_least_three_pp_better_than_public"))
+          result={
+              "phase":"F9-V ONE-TIME CONFIRM",
+              "original_dev_run":41345497955,
+              "n_frozen_actor_seeds":4,"new_worlds":160,
+              "new_states":640,"effects":effects,
+              "lex_hc_read_by_effect":{
+                  str(d):{
+                      "read":per_effect_choices[(d,1)],
+                      "skip":per_effect_choices[(d,0)],
+                  } for d in (-1,0,1)},
+              "aggregate":agg,"bootstrap_world_clustered_95pct":ci,
+              "confirm_gate":gate,
+              "future_8300000_reusable":False,
+          }
+          Path("f9v-confirmation-final.json").write_text(
+              json.dumps(result,indent=2,ensure_ascii=False))
+          lines=["# F9-V — INDEPENDENT FROZEN CONFIRMATION (8300000+)",
+              "Frozen F9-V code/protocol, frozen LSTM+F4, frozen DEV head weights. No training on confirmation.",
+              "", "## Causal first fork (teacher-guided prefix; autonomous continuation)",
+              "| Policy | First arms correct /640 | READ /640 | Original/inverted pairs correct normal/blackout |",
+              "|---|---:|---:|---:|"]
+          for name,v in agg.items():
+              lines.append(f'| {name} | {v["first_arm_correct"]}/640 | {v["reads"]}/640 | {v["normal_both_correct"]}/160 / {v["blackout_both_correct"]}/160 |')
+          lines+=["","### Causal effect counts D=-1,0,+1",str(effects),
+                  "### READ selection by causal effect",str(result["lex_hc_read_by_effect"]),
+                  "### 95% paired world-block bootstrap intervals (differences in success rate)",
+                  str(ci),"","### Frozen confirm gate",
+                  "~~~json",json.dumps(gate,indent=2),"~~~",
+                  "**This CONFIRM split is now consumed; do not tune/reopen it.**",
+                  "Original full navigation is not tested; teacher prefix until the fork. The heads imitate a simulated counterfactual oracle.",
+                  "Old F9-T 6300000+, F9-U 7300000+, and historic F9 900000+ remain reserved."]
+          Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text("\n".join(lines)+"\n")
+          print("F9V_FINAL_INDEPENDENT_FROZEN_CONFIRMATION",json.dumps(result,ensure_ascii=False),flush=True)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: f9v-frozen-confirmation-final-report-recovered
+          path: f9v-confirmation-final.json
+          retention-days: 75
+          if-no-files-found: error
