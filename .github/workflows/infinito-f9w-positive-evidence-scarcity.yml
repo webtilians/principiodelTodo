@@ -1,0 +1,186 @@
+name: INFINITO F9-W — Scarce Positive READ Evidence Four New Replicas
+
+on:
+  push:
+    branches: [experiment/f9w-positive-evidence-scarcity]
+    paths:
+      - docs/INFINITO_F9W_TRAIN_DEV_LAUNCH.md
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: f9w-new-train-dev-worlds
+  cancel-in-progress: false
+
+jobs:
+  positive-evidence-scarcity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        seed: [0,1,2,3]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install native F9 CPU-only dependencies
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r observatory/requirements_f9.txt gymnasium==1.4.0
+      - name: Check nested train budgets and original F9-V algorithm unchanged
+        run: |
+          python -m unittest discover -s tests -p 'test_f9w_positive_evidence_scarcity.py' -v
+          python -m unittest discover -s tests -p 'test_f9v_lexicographic_causal_f4.py' -v
+          git diff --exit-code 898b6e43f6f1dd08b970fe4a0e4651d271944e80 -- observatory/f9v_lexicographic_causal_f4.py observatory/f9q_causal_fork.py observatory/f9i_selective_memory.py src/
+          python -m py_compile observatory/f9w_positive_evidence_scarcity.py
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 40957255987
+          repository: webtilians/principiodelTodo
+          github-token: ${{ github.token }}
+          name: f9o-new-models-seed-${{ matrix.seed }}
+          path: original/bc-${{ matrix.seed }}
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 40960267485
+          repository: webtilians/principiodelTodo
+          github-token: ${{ github.token }}
+          name: f9p-ppo-models-seed-${{ matrix.seed }}
+          path: original/ppo-${{ matrix.seed }}
+      - name: Run NEW 9100000 TRAIN and independent NEW 9200000 DEV
+        run: |
+          python -m observatory.f9w_positive_evidence_scarcity \
+            --phase dev --index ${{ matrix.seed }} --train-worlds 128 \
+            --bc-source original/bc-${{ matrix.seed }} \
+            --ppo-source original/ppo-${{ matrix.seed }} \
+            --output f9w-new/seed-${{ matrix.seed }}
+      - name: Audit TRAIN and DEV strictly separate, old confirmation never touched
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          i=int("${{ matrix.seed }}")
+          p=Path(f"f9w-new/seed-{i}")
+          d=json.loads((p/"report.json").read_text())
+          assert d["index"]==i and d["phase"]=="dev"
+          assert d["train_worlds"]==128 and d["dev_worlds"]==16
+          assert len(d["train_samples"])==512 and len(d["dev_samples"])==64
+          assert {x["seed"] for x in d["train_samples"]}=={
+             9100000+10000*i+j for j in range(128)}
+          assert {x["seed"] for x in d["dev_samples"]}=={
+             9200000+10000*i+j for j in range(16)}
+          assert not d["old_8300000_confirmation_used"]
+          assert not d["f9w_9300000_confirmation_opened"]
+          assert not d["f9u_7300000_opened"] and not d["f9t_6300000_opened"]
+          assert not d["old_900000_holdout_opened"]
+          assert not d["actor_retrained"] and not d["F4_writer_changed"] and not d["uses_external_llm"]
+          assert set(d["training"])=={"short32_hc","long128_hc","short32_weighted_hc","long128_public"}
+          for arm,r in d["training"].items():
+              assert r["epochs"]==200 and r["optimizer_steps"]==200
+              assert r["train_cases"]==(128 if arm.startswith("short32") else 512)
+              assert (p/(arm+".pt")).is_file()
+          print("F9W_SCARCITY_NEW_WORLDS_FULL_REPLICA_VERIFIED",i)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: f9w-scarcity-new-train-dev-seed-${{ matrix.seed }}
+          path: f9w-new/seed-${{ matrix.seed }}/
+          retention-days: 60
+          if-no-files-found: warn
+
+  aggregate-and-test-frozen-scarcity-hypothesis:
+    needs: positive-evidence-scarcity
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: f9w-scarcity-new-train-dev-seed-*
+          path: gathered
+      - name: Apply preregistered evidence-scarcity gate without opening confirmation
+        run: |
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          reports=[]
+          for i in range(4):
+              r=json.loads(Path(f"gathered/f9w-scarcity-new-train-dev-seed-{i}/report.json").read_text())
+              assert r["index"]==i and r["phase"]=="dev"
+              reports.append(r)
+          arms=("short32_hc","long128_hc","short32_weighted_hc","long128_public")
+          agg={}
+          for arm in arms:
+              by=[r["dev_summary"][arm] for r in reports]
+              agg[arm]={
+                  "first_correct":sum(x["correct"] for x in by),
+                  "reads":sum(x["reads"] for x in by),
+                  "positive_selected":sum(x["selected_positive"] for x in by),
+                  "positive_available":sum(x["positive_available"] for x in by),
+                  "harmful_selected":sum(x["selected_harmful"] for x in by),
+                  "neutral_selected":sum(x["selected_neutral"] for x in by),
+                  "correct_by_replica":[x["correct"] for x in by],
+                  "positive_selected_by_replica":[x["selected_positive"] for x in by],
+                  "harmful_by_replica":[x["selected_harmful"] for x in by],
+                  "reads_by_replica":[x["reads"] for x in by],
+                  "normal_both_correct":sum(x["regimes"]["history_f4_normal"]["pairs_both_correct"] for x in by),
+                  "blackout_both_correct":sum(x["regimes"]["history_f4_postcue_off"]["pairs_both_correct"] for x in by),
+              }
+          added=[r["training"]["long128_hc"]["n_positive"]-
+                   r["training"]["short32_hc"]["n_positive"] for r in reports]
+          base=agg["short32_hc"];long=agg["long128_hc"]
+          gate={
+            "additional_positive_training_by_replica":added,
+            "seed1_and_seed2_each_gain_at_least_3_positive_training":added[1]>=3 and added[2]>=3,
+            "additional_beneficial_reads_in_seeds1plus2":sum(
+                long["positive_selected_by_replica"][i]-base["positive_selected_by_replica"][i]
+                for i in (1,2)),
+            "additional_harmful_reads_in_seeds1plus2":sum(
+                long["harmful_by_replica"][i]-base["harmful_by_replica"][i]
+                for i in (1,2)),
+            "difference_correct_in_seeds1plus2":sum(
+                long["correct_by_replica"][i]-base["correct_by_replica"][i]
+                for i in (1,2)),
+            "f9w_confirmation_opened":False,
+          }
+          gate["hypothesis_supported_in_DEV"]=(
+              gate["seed1_and_seed2_each_gain_at_least_3_positive_training"]
+              and gate["additional_beneficial_reads_in_seeds1plus2"]>=2
+              and gate["additional_harmful_reads_in_seeds1plus2"]<=2
+              and gate["difference_correct_in_seeds1plus2"]>=-2)
+          result={
+              "experiment":"F9-W prospective independent scarcity study",
+              "stage":"DEV","replicas":4,
+              "train_worlds_short":32,"train_worlds_extended":128,
+              "dev_worlds":16,"total_dev_states":256,
+              "results":agg,"gate":gate,
+              "f9v_confirm_8300000_touched":False,
+              "f9w_confirm_9300000_opened":False,
+          }
+          Path("f9w-scarcity-aggregate.json").write_text(json.dumps(result,indent=2,ensure_ascii=False))
+          lines=["# F9-W — prospective scarcity analysis (independent new 9200000+ DEV)",
+                 "Original frozen F9-P actor and F4, original F9-V causal labels.",
+                 "Short32 vs Long128 strictly nested new TRAIN worlds, equal 200 optimization steps.",
+                 "Weighted-short control. NOT an experiment on consumed F9-V 8300000+ CONFIRM.",
+                 "","| Learner | Correct /256 | READ /256 | Beneficial READ | Harmful READ |",
+                 "|---|---:|---:|---:|---:|"]
+          for name,v in agg.items():
+              lines.append(f'| {name} | {v["first_correct"]} | {v["reads"]} | {v["positive_selected"]} | {v["harmful_selected"]} |')
+          lines+=["","## Preregistered H_scarcity gate","~~~json",json.dumps(gate,indent=2),"~~~",
+                  "**CONFIRM F9-W 9300000+ remains sealed. Original F9-V confirm 8300000+ not reused.**"]
+          Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text("\n".join(lines)+"\n")
+          print("F9W_SCARCITY_FOUR_REPLICA_NEW_DEV_RESULT",json.dumps(result,ensure_ascii=False),flush=True)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: f9w-scarcity-new-dev-aggregate
+          path: f9w-scarcity-aggregate.json
+          retention-days: 60
+          if-no-files-found: error
