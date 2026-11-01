@@ -1,0 +1,108 @@
+name: INFINITO F9-T — Neural H/C F4 Read Gate, DEV Only
+
+on:
+  push:
+    branches: [experiment/f9t-learned-f4-read-gate]
+    paths:
+      - docs/INFINITO_F9T_LEARNED_F4_READ_GATE_PROTOCOL.md
+      - observatory/f9t_learned_f4_read_gate.py
+      - tests/test_f9t_learned_f4_read_gate.py
+      - .github/workflows/infinito-f9t-read-gate-dev.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: f9t-neural-gate-development
+  cancel-in-progress: false
+
+jobs:
+  integrity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install pinned F9 CPU training dependencies
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r observatory/requirements_f9.txt gymnasium==1.4.0
+      - name: Strict seed partition and no privileged input leak tests
+        run: |
+          python -m unittest discover -s tests -p 'test_f9t_learned_f4_read_gate.py' -v
+          python -m unittest discover -s tests -p 'test_f9q_causal_fork.py' -v
+          python -m unittest discover -s tests -p 'test_f9r_recurrent_state_drift.py' -v
+      - name: Check original core and frozen source
+        run: |
+          git diff --exit-code origin/experiment/f9s-cue-subspace-causal-patch -- src/ observatory/f9i_selective_memory.py observatory/f9j_recurrent_memory_attribution.py
+          python -m py_compile observatory/f9t_learned_f4_read_gate.py
+          test -f docs/INFINITO_F9T_LEARNED_F4_READ_GATE_PROTOCOL.md
+          echo F9T_F4_GATE_INTEGRITY_PASSED
+
+  smoke-real-recurrent-agent:
+    needs: integrity
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install real native MiniGrid and RecurrentPPO dependencies (NO OpenAI)
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r observatory/requirements_f9.txt gymnasium==1.4.0
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 40957255987
+          repository: webtilians/principiodelTodo
+          github-token: ${{ github.token }}
+          name: f9o-new-models-seed-0
+          path: frozen/bc-0
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 40960267485
+          repository: webtilians/principiodelTodo
+          github-token: ${{ github.token }}
+          name: f9p-ppo-models-seed-0
+          path: frozen/ppo-0
+      - name: Smoke test one new TRAIN world, two cue variants and genuine actor state
+        run: |
+          python -m observatory.f9t_learned_f4_read_gate \
+            --phase smoke --index 0 --worlds 1 \
+            --bc-source frozen/bc-0 \
+            --ppo-source frozen/ppo-0 \
+            --output f9t-smoke/seed-0
+      - name: Validate actor source SHA, 2 trained gates and actual memory accesses
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path("f9t-smoke/seed-0")
+          r=json.loads((p/"report.json").read_text())
+          assert r["index"]==0 and r["phase"]=="smoke"
+          assert r["no_external_llm"] and not r["actor_training"] and not r["heldout_opened"]
+          assert not r["F9_historical_900000_opened"]
+          assert r["source"]["sha"]
+          assert set(r["training"])=={"learned_hc","learned_public_only"}
+          assert len(r["pairs"])==2
+          assert all(0<=v["mean_read_rate"]<=1 for v in r["summary"].values())
+          for name in ("learned_hc","learned_public_only"):
+              assert (p/(name+".pt")).exists()
+          assert r["summary"]["always"]["mean_read_rate"]==1
+          assert r["summary"]["never"]["mean_read_rate"]==0
+          print("F9T_REAL_NEURAL_ACTOR_SMOKE_PASSED")
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: f9t-real-recurrent-agent-smoke-seed-0
+          path: f9t-smoke/seed-0/
+          if-no-files-found: warn
+          retention-days: 30
