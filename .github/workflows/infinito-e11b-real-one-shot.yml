@@ -1,0 +1,212 @@
+name: INFINITO E11-B — ONE SHOT real LLM / bounded semantic RAG
+
+# Launch only with explicit frozen launch document; no re-runs on code edits.
+on:
+  push:
+    branches: [experiment/e11b-bounded-semantic-memory-llm]
+    paths:
+      - docs/INFINITO_E11B_LAUNCH.md
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e11b-one-shot-confirmation
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install only real API SDK and existing tests
+        run: python -m pip install 'openai>=1.55,<4' pytest
+      - name: Source frozen, no core edits, no future-key leakage
+        run: |
+          git diff --exit-code origin/master -- src/infinito3/
+          python -m pytest -q tests/test_e11b_bounded_semantic_llm.py tests/test_e11_learned_relevance.py
+          python -m pytest -q tests/test_*_v3.py
+      - name: Check real provider credentials (not logged)
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          if [ -z "$OPENAI_API_KEY" ]; then
+            echo "::error::E11-B blocked: OPENAI_API_KEY is required for real LLM/semantic RAG"
+            exit 3
+          fi
+      - name: Real LLM and embedding availability BEFORE new dev/confirm
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          python - <<'PY'
+          import os
+          from openai import OpenAI
+          from observatory.e11b_bounded_semantic_llm import MODEL,EMBEDDING_MODEL,REASONING_EFFORT
+          cli=OpenAI(api_key=os.environ["OPENAI_API_KEY"],timeout=60)
+          vectors=cli.embeddings.create(model=EMBEDDING_MODEL,input=["E11-B real semantic vector"])
+          assert len(vectors.data[0].embedding)>=128
+          response=cli.responses.create(model=MODEL,
+              input=[{"role":"user","content":"Contesta exactamente LISTO."}],
+              reasoning={"effort":REASONING_EFFORT},max_output_tokens=80)
+          assert response.id and response.output_text and int(response.usage.total_tokens)>0
+          print("E11B_REAL_PROVIDER_CHECK_PASSED",response.model,EMBEDDING_MODEL)
+          PY
+
+  development:
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install OpenAI SDK
+        run: python -m pip install 'openai>=1.55,<4'
+      - name: Freeze five independently pretrained E11-A learners; 4 new DEV pairs with REAL LLM
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          python -m observatory.e11b_bounded_semantic_llm \
+            --split dev --output e11b-results/dev
+      - name: Validate four policies, 4 slots, real LLM, context limit and independent DEV seeds
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from observatory.e11b_bounded_semantic_llm import ARMS
+          root=Path("e11b-results/dev")
+          r=json.loads((root/"report.json").read_text())
+          models=json.loads((root/"frozen_models.json").read_text())
+          assert len(models["weights"])==5 and r["split"]=="dev"
+          assert r["results"]["predictive"]["summary"]["paired_worlds"]==4
+          assert r["llm_calls_per_regime"]==64
+          assert r["semantic_embedding_api_calls"]>0
+          assert r["no_core_change"] and r["frozen_E11A_models"]
+          assert len(r["results"]["predictive"]["cases"])==4
+          assert set(r["negative_controls"])==set(ARMS)
+          for c in r["results"]["predictive"]["cases"]:
+              assert 4100000<=c["seed"]<4100004
+              for v in c["variants"].values():
+                  for phase in ("first","second"):
+                      for a in ARMS:
+                          x=v[phase][a]
+                          assert x["provider_model"] and x["response_id"]
+                          assert int(x["usage"]["total_tokens"])>0
+                          assert x["memory_count"]==4 and x["context_tokens"]<=260
+          print("E11B_REAL_DEV_GATE_PASSED")
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e11b-frozen-models-and-real-dev
+          path: e11b-results/dev/
+          retention-days: 45
+          if-no-files-found: warn
+
+  independent-confirmation:
+    needs: development
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: actions/download-artifact@v4
+        with:
+          name: e11b-frozen-models-and-real-dev
+          path: e11b-results/dev
+      - name: Install OpenAI SDK
+        run: python -m pip install 'openai>=1.55,<4'
+      - name: Confirm 15 stable and 15 inverted NEW paired worlds; no model tuning
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          E11B_DEV_GATE_PASSED: "1"
+        run: |
+          echo "E11B_4200000_CONFIRMATION_CONSUMED"
+          python -m observatory.e11b_bounded_semantic_llm \
+            --split confirm --models e11b-results/dev/frozen_models.json \
+            --output e11b-results/confirm
+      - name: Check every model call, fixed four slots, five independent replicas, uniform negative
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from observatory.e11b_bounded_semantic_llm import ARMS
+          r=json.loads(Path("e11b-results/confirm/report.json").read_text())
+          assert r["split"]=="confirm" and r["no_core_change"] and r["frozen_E11A_models"]
+          assert r["memory_slots"]==4 and r["max_reference_tokens"]==260
+          assert r["llm_calls_per_regime"]==240
+          assert r["semantic_embedding_api_calls"]>0
+          assert set(r["results"])=={"predictive","reversed"}
+          assert len(r["negative_controls"])==4
+          assert r["uniform_offline_retention"]["total_worlds"]==2000
+          assert set(r["uniform_offline_retention"]["hits"])==set(ARMS)
+          for regime in ("predictive","reversed"):
+              cases=r["results"][regime]["cases"]
+              assert len(cases)==15
+              assert set(c["replica"] for c in cases)==set(range(5))
+              assert set(r["results"][regime]["summary"]["arms"])==set(ARMS)
+              for c in cases:
+                  assert c["seed"] in {4200000+i*1000+j for i in range(5) for j in range(3)}
+                  for v in c["variants"].values():
+                      for stage in ("first","second"):
+                          for a in ARMS:
+                              x=v[stage][a]
+                              assert x["memory_count"]==4
+                              assert 0<=x["context_tokens"]<=260
+                              assert x["provider_model"] and x["response_id"]
+                              assert int(x["usage"].get("total_tokens",0))>0
+          assert r["preregistered_gate"]["confirmation_consumed"]
+          print("E11B_REAL_RAG_LLM_CONFIRMATION_COMPLETE")
+          PY
+      - name: Publish both positive and negative outcomes with exact matched-arm costs
+        run: |
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          r=json.loads(Path("e11b-results/confirm/report.json").read_text())
+          lines=["# E11-B — bounded semantic RAG with same real LLM",
+                 "Five frozen E11-A learner replicas; 4 slots, 260 estimated context tokens.",
+                 "15 matched predictive pairs + 15 matched reversed-demand pairs, 4 decisions per pair/arm.",
+                 "",
+                 "| Selector | Predictive complete /15 | Reversed complete /15 | Predictive individual /60 | Reversed individual /60 |",
+                 "|---|---:|---:|---:|---:|"]
+          for arm in r["results"]["predictive"]["summary"]["arms"]:
+              p=r["results"]["predictive"]["summary"]["arms"][arm]
+              s=r["results"]["reversed"]["summary"]["arms"][arm]
+              lines.append(f'| {arm} | {p["all_four_correct"]}/15 | {s["all_four_correct"]}/15 | '
+                           f'{p["individual_correct"]}/60 | {s["individual_correct"]}/60 |')
+          lines+=["","## Preregistered advancement gate",
+                  json.dumps(r["preregistered_gate"],ensure_ascii=False,indent=2),
+                  "",
+                  "## Uniform negative control retention (no LLM, 2000 worlds)",
+                  json.dumps(r["uniform_offline_retention"]["rates"],ensure_ascii=False,indent=2),
+                  "",
+                  "## Negative no-fact abstentions (4 per arm)",
+                  json.dumps({a:x["abstained"] for a,x in r["negative_controls"].items()},ensure_ascii=False),
+                  "",
+                  "Scope: synthetic observable feature metadata; not autonomous semantic feature learning.",
+                  "If the full gate FAILS, stop E11 and move E12 to selective retrieval/use. Confirmation 4200000+ consumed."]
+          Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text("\n".join(lines)+"\n")
+          print("E11B_FINAL_SUMMARY",json.dumps({
+              "stable":r["results"]["predictive"]["summary"],
+              "reversed":r["results"]["reversed"]["summary"],
+              "uniform":r["uniform_offline_retention"]["rates"],
+              "negative":{a:x["abstained"] for a,x in r["negative_controls"].items()},
+              "gate":r["preregistered_gate"]},ensure_ascii=False),flush=True)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e11b-30-paired-real-llm-semantics-confirmation
+          path: e11b-results/confirm/
+          retention-days: 45
+          if-no-files-found: warn
