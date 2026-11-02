@@ -1,0 +1,141 @@
+name: INFINITO F9-Y - Conditional H/C Causal Value and Combination Generalization
+
+on:
+  push:
+    branches: [experiment/f9y-conditional-causal-value-transfer]
+    paths:
+      - docs/INFINITO_F9Y_TRAIN_DEV_LAUNCH.md
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: f9y-only-new-101-102m-worlds
+  cancel-in-progress: false
+
+jobs:
+  fresh-conditional-predictors:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        seed: [0,1,2,3]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install frozen F9-P CPU dependencies
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r observatory/requirements_f9.txt gymnasium==1.4.0
+      - name: Verify frozen actor code and isolated F9-Y test contracts before new worlds
+        run: |
+          python -m unittest discover -s tests -p 'test_f9y_conditional_value_transfer.py' -v
+          python -m unittest discover -s tests -p 'test_f9v_lexicographic_causal_f4.py' -v
+          python -m py_compile observatory/f9y_conditional_value_transfer.py observatory/f9y_conditional_aggregate.py
+          git diff --exit-code 898b6e43f6f1dd08b970fe4a0e4651d271944e80 -- observatory/f9v_lexicographic_causal_f4.py observatory/f9q_causal_fork.py observatory/f9i_selective_memory.py observatory/f9j_recurrent_memory_attribution.py observatory/f9t_learned_f4_read_gate.py src/
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 40957255987
+          repository: webtilians/principiodelTodo
+          github-token: ${{ github.token }}
+          name: f9o-new-models-seed-${{ matrix.seed }}
+          path: original/bc-${{ matrix.seed }}
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 40960267485
+          repository: webtilians/principiodelTodo
+          github-token: ${{ github.token }}
+          name: f9p-ppo-models-seed-${{ matrix.seed }}
+          path: original/ppo-${{ matrix.seed }}
+      - name: Run NEW 10100000 TRAIN and independent NEW 10200000 DEV ONLY
+        run: |
+          python -m observatory.f9y_conditional_value_transfer --index ${{ matrix.seed }} --bc-source original/bc-${{ matrix.seed }} --ppo-source original/ppo-${{ matrix.seed }} --output f9y-reports/seed-${{ matrix.seed }}
+      - name: Audit all models, four cells, 160 new worlds, holdout never opened
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          i=int("${{ matrix.seed }}")
+          p=Path(f"f9y-reports/seed-{i}")
+          d=json.loads((p/"report.json").read_text())
+          assert d["index"]==i and d["phase"]=="TRAIN_DEV_ONLY"
+          assert d["train_worlds"]==128 and d["dev_worlds"]==32
+          assert len(d["train_cases"])==512 and len(d["dev_cases"])==128
+          assert len(d["predictions"])==128
+          assert set(d["new_train_seeds"])=={10100000+10000*i+j for j in range(128)}
+          assert set(d["new_dev_seeds"])=={10200000+10000*i+j for j in range(32)}
+          assert len(d["training"])==12
+          assert all(v["optimizer_steps"]==200 and v["pos_weight"]==1. for v in d["training"].values())
+          assert all((p/(name+".pt")).is_file() for name in d["training"])
+          assert all(c["public_fork_equal"] for c in d["train_cases"]+d["dev_cases"])
+          assert all(c["read_branch"]["read"]==1 and c["skip_branch"]["read"]==0 for c in d["dev_cases"])
+          for key in ("f9v_8300000_reused","f9w_9300000_opened","f9x_9600000_opened",
+                      "f9y_10300000_opened","f9t_6300000_opened","f9u_7300000_opened",
+                      "historic_900000_opened","actor_retrained","F4_writer_changed",
+                      "heads_trained_on_DEV"):
+              assert not d[key],key
+          print("F9Y_NEW_WORLD_FROZEN_ACTOR_AND_TRAIN_DEV_AUDIT",i)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: f9y-train-dev-seed-${{ matrix.seed }}
+          path: f9y-reports/seed-${{ matrix.seed }}/
+          retention-days: 75
+          if-no-files-found: warn
+
+  aggregate-preregistered-dev:
+    needs: fresh-conditional-predictors
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: f9y-train-dev-seed-*
+          path: gathered
+      - name: Apply precommitted support and conditional transfer criteria WITHOUT confirm
+        run: |
+          python -m observatory.f9y_conditional_aggregate --gathered gathered --output f9y-dev-gate.json
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          r=json.loads(Path("f9y-dev-gate.json").read_text())
+          assert r["phase"]=="DEV_ONLY_NO_CONFIRM" and r["dev_cases_total"]==512
+          assert r["preregistered_gate"]["f9y_confirm_10300000_opened"] is False
+          assert not r["old_holdouts_reused"]
+          gate=r["preregistered_gate"]
+          lines=["# INFINITO F9-Y — CONDITIONAL H/C CAUSAL MEMORY VALUE",
+                 "TRAIN 10100000+, DEV 10200000+, four original frozen F9-P actors.",
+                 "All four cue x history combinations examined; LOCO means each fold excludes a complete combination from TRAIN.",
+                 "Heads see oracle D labels only during TRAIN; DEV labels remain evaluation-only.",
+                 "Diagnostic controlled heads have PRIVILEGED cue/history indicators and are not deployable.",
+                 "All actors, including negative and no-positive strata, are counted.",
+                 "","## Four-cell support audit",
+                 "| Cell | Positive /128 | Actor positives | Supported | Delta logloss nuisance minus H/C |",
+                 "|---|---:|---|---|---:|"]
+          for k,x in r["cell_support"].items():
+            lines.append(f'| {k} | {x["total_positive"]}/128 | {x["positive_by_replica"]} | {x["supported"]} | {x["delta"]["nuisance_minus_hc"]:.5f} |')
+          lines+=["","## Preregistered transfer gate",
+                  "~~~json",json.dumps(gate,indent=2),"~~~",
+                  "","## Paired world-block uncertainty",
+                  "~~~json",json.dumps(r["bootstrap_95pct"],indent=2),"~~~",
+                  "","## Full DEV diagnostic and actor breakdown",
+                  "~~~json",json.dumps({"global":r["natural_full_dev_all_strata"],
+                    "by_actor":r["per_actor_on_supported"]},indent=2),"~~~",
+                  "**INCONCLUSIVE_SUPPORT is not a pass. 10300000+ CONFIRM remains sealed.**"]
+          Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text("\n".join(lines))
+          print("F9Y_PREREGISTERED_SCIENTIFIC_STATUS",gate["status"])
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: f9y-conditional-dev-preregistered-gate
+          path: f9y-dev-gate.json
+          retention-days: 75
+          if-no-files-found: error
