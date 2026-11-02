@@ -49,16 +49,16 @@ def load_version(version):
         exec(compile(source, "historical/infinito.py", "exec"), scope)
         return scope
     if version == "v2":
-        sys.path.insert(0, str(BASE / "archive"))
-        return module_from_path("archive/infinito_v2_advanced.py", "infinito_v2_historical")
+        sys.path.insert(0, str(BASE / "legacy" / "archive"))
+        return module_from_path("legacy/archive/infinito_v2_advanced.py", "infinito_v2_historical")
     if version == "v3":
-        return module_from_path("archive/infinito_v3_fixed.py", "infinito_v3_historical")
+        return module_from_path("legacy/archive/infinito_v3_fixed.py", "infinito_v3_historical")
     if version == "v4":
-        return module_from_path("src/infinito_grok.py", "infinito_v4_historical")
+        return module_from_path("legacy/src/infinito_grok.py", "infinito_v4_historical")
     if version == "v5":
-        return module_from_path("src/infinito_v5_revolutionary.py", "infinito_v5_historical")
+        return module_from_path("legacy/src/infinito_v5_revolutionary.py", "infinito_v5_historical")
     if version == "v51":
-        return module_from_path("src/infinito_v5_1_consciousness.py", "infinito_v51_historical")
+        return module_from_path("legacy/src/infinito_v5_1_consciousness.py", "infinito_v51_historical")
     raise ValueError(version)
 
 
