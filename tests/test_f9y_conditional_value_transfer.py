@@ -62,8 +62,7 @@ class F9YTests(unittest.TestCase):
             original=feature(cases[i],"loco_hc")
             self.assertTrue(np.array_equal(x[:148],original[:148]))
             self.assertTrue(np.array_equal(x[276:],original[276:]))
-            self.assertFalse(np.array_equal(x[148:276],original[148:276])
-                             if group=="HC" else False)
+            self.assertFalse(np.array_equal(x[148:276],original[148:276]))
         with self.assertRaises(ValueError):
             shuffled_feature(cases,0,"loco_hc","D")
 
