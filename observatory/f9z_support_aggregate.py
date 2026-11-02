@@ -9,9 +9,43 @@ import argparse
 import json
 from pathlib import Path
 
-from observatory.f9z_causal_support_pilot import (
-    BASE, WORLDS, ORDER, CELLS, seed_for, summarize,
-)
+# Pure-stdlib aggregation: do not import torch/numpy/actor from the pilot.
+# Exact constants repeated from immutable F9-Z preregistration.
+WORLDS = 24
+ORDER = ((8,1),(8,4),(8,8),(4,1),(4,4),(4,8),(1,1),(1,4),(1,8))
+CELLS = (("key","history_f4_normal"),
+         ("ball","history_f4_normal"),
+         ("key","history_f4_postcue_off"),
+         ("ball","history_f4_postcue_off"))
+
+
+def seed_for(index,j):
+    if index not in range(4) or j not in range(WORLDS):
+        raise ValueError("Unregistered F9-Z pilot seed")
+    return 11_100_000 + 10_000*index + j
+
+
+def audit_summary(cases, recorded):
+    """Independent exact recomputation, no numpy or frozen actor dependencies."""
+    assert len(recorded)==len(ORDER)
+    for n,w in ORDER:
+        arm=recorded[f"N{n}_W{w}"]
+        assert len(arm)==len(CELLS)
+        for cue,history in CELLS:
+            x=[v for v in cases if v["capacity"]==n and v["window"]==w
+               and v["cue"]==cue and v["regime"]==history]
+            assert len(x)==WORLDS
+            effects={str(i):sum(v["effect"]==i for v in x) for i in (-1,0,1)}
+            expected={
+                "worlds":WORLDS,"effects":effects,
+                "positive":effects["1"],
+                "nonpositive":effects["-1"]+effects["0"],
+                "nonempty_readout":sum(v["f4_nonempty"] for v in x),
+                "read_correct":sum(v["read_branch"]["first_arm_correct"] for v in x),
+                "skip_correct":sum(v["skip_branch"]["first_arm_correct"] for v in x),
+            }
+            assert arm[f"{cue}|{history}"]==expected
+    return True
 
 
 def aggregate(reports):
@@ -36,7 +70,7 @@ def aggregate(reports):
             assert case["capacity"] in (1,4,8) and case["window"] in (1,4,8)
             assert (case["cue"],case["regime"]) in CELLS
             assert case["effect"]==case["read_branch"]["first_arm_correct"]-case["skip_branch"]["first_arm_correct"]
-        assert summarize(report["cases"])==report["summary"]
+        assert audit_summary(report["cases"],report["summary"])
     treatments={}
     eligible=[]
     for n,w in ORDER:
