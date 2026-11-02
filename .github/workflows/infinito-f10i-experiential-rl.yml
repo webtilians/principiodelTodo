@@ -1,0 +1,144 @@
+name: INFINITO F10-I - Experience-Only Paired Counterfactual RL
+
+on:
+  push:
+    branches: [experiment/f10i-experience-paired-rl]
+    paths:
+      - docs/INFINITO_F10I_LAUNCH.md
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: f10i-20100000-new-rl-only
+  cancel-in-progress: false
+
+jobs:
+  original-four-policy-experiments:
+    runs-on: ubuntu-latest
+    timeout-minutes: 95
+    strategy:
+      fail-fast: false
+      matrix:
+        index: [0, 1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install CPU-only PyTorch and NumPy before world creation
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install numpy
+      - name: Preflight generator and actor contracts without opening DEV/OOD
+        run: |
+          python -m unittest discover -s tests -p 'test_f10i_experience_rl.py' -v
+          python -m py_compile observatory/f10i_worlds.py observatory/f10i_actor.py observatory/f10i_experiment.py observatory/f10i_audit.py
+          git diff --exit-code 5d65186135c5193924b5812e59858f4ef4895924 -- observatory/f10h_worlds.py observatory/f10h_experiment.py observatory/f10g_models.py
+      - name: Train all 4 policies from the identical new experiences, freeze THEN open DEV/OOD
+        run: |
+          set -o pipefail
+          python -m observatory.f10i_experiment --index ${{ matrix.index }} --output f10i-out/${{ matrix.index }} | tee f10i-training-${{ matrix.index }}.log
+      - name: Check all 4 SHA frozen models and correct 2-rollout parity of environment budgets
+        run: |
+          python - <<'PY'
+          import json,hashlib
+          from pathlib import Path
+          i=int("${{ matrix.index }}")
+          p=Path(f"f10i-out/{i}")
+          r=json.loads((p/"training.json").read_text())
+          rows=json.loads((p/"rows.json").read_text())
+          assert r["stage"]=="FROZEN_BEFORE_DEV_OOD"
+          assert r["replica"]==i and r["train_worlds"]==512 and r["train_cases"]==2048
+          assert r["no_old_training_or_checkpoint"] and r["no_confirm_20300000"]
+          assert set(r["arms"])=={
+            "rl_standard","rl_pair","rl_pair_predict","supervised_ceiling"}
+          assert len(rows)==4*2*512
+          for arm,meta in r["arms"].items():
+              assert meta["optimizer_steps"]==640
+              assert meta["train_state_presentations"]==40960
+              assert meta["environment_rollouts"]==81920
+              assert meta["environment_verifier_observations"]==81920
+              assert hashlib.sha256((p/(arm+".pt")).read_bytes()).hexdigest()==meta["sha256"]
+          for split,base in (("dev",20200000),("ood",20400000)):
+              group=[row for row in rows if row["split"]==split and row["arm"]=="rl_pair"]
+              assert len(group)==512
+              assert {row["seed"] for row in group}==set(range(base+10000*i,base+10000*i+128))
+          print("F10I_EQUAL_ENVIRONMENT_INTERACTIONS_AND_SHA_CHECKED",i,flush=True)
+          PY
+      - name: Preserve final checkpoints, all trajectories, curves, outcomes and logs
+        if: always()
+        run: |
+          if test -d f10i-out/${{ matrix.index }}; then
+            cp f10i-training-${{ matrix.index }}.log f10i-out/${{ matrix.index }}/run.log || true
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: f10i-actor-${{ matrix.index }}
+          path: f10i-out/${{ matrix.index }}/
+          retention-days: 75
+          if-no-files-found: warn
+
+  independent-prospective-science-gate:
+    needs: original-four-policy-experiments
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install numpy
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: f10i-actor-*
+          path: gathered
+      - name: Independently verify all frozen actors and apply FIXED world bootstrap gates
+        run: |
+          for i in 0 1 2 3; do
+            mkdir -p independent-audit/$i
+            cp gathered/f10i-actor-$i/* independent-audit/$i/
+          done
+          python -m observatory.f10i_audit --root independent-audit --output f10i-audit.json
+          python - <<'PY'
+          import os,json
+          from pathlib import Path
+          r=json.loads(Path("f10i-audit.json").read_text())
+          assert r["technical"]=="F10I_TECHNICAL_COMPLETE"
+          assert r["unique_history_hashes"]==12288
+          assert not r["old_worlds_opened"] and not r["confirm_20300000_opened"]
+          lines=[
+            "# INFINITO F10-I — RL versus paired trajectories versus prediction of consequences",
+            "Original prospectively fixed: 4 replicas x 4 policies x 81920 training rollouts each, NEW 201/202/204 worlds, CONFIRM 203 reserved.",
+            "**Scientific result: "+r["status"]+"**",
+            "Gate counts: "+str(r["gate_counts"]),
+            "",
+            "| Replica | Standard RL OOD | Paired RL OOD | Paired + verifier prediction OOD | Privileged supervised OOD | B−A | C−B |",
+            "|---|---:|---:|---:|---:|---:|---:|"
+          ]
+          for replica,x in r["replicas"].items():
+              m=x["metrics"]["ood"]
+              b=x["contrasts"]["paired_minus_standard"]
+              c=x["contrasts"]["predict_minus_paired"]
+              lines.append("| "+replica+" | "+" | ".join(
+                  f'{100*m[arm]["accuracy"]:.2f}%' for arm in
+                  ("rl_standard","rl_pair","rl_pair_predict","supervised_ceiling"))+
+                  f' | {100*b["estimate"]:+.2f} pp | {100*c["estimate"]:+.2f} pp |')
+          lines+=["","## Full world-bootstrap CI, stratification and interaction budgets",
+                  "~~~json",json.dumps(r["replicas"],indent=2,ensure_ascii=False),"~~~",
+                  "No winner labels given to A/B/C during training; noisy verifier is an experience-based weak target in C.",
+                  "No confirmation opened. Technical SUCCESS must NEVER be described as scientific PASS."
+          ]
+          Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text("\n".join(lines))
+          print("F10I_INDEPENDENT_SCIENTIFIC_STATUS",r["status"],r["gates"],flush=True)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: f10i-independent-fixed-gate-audit
+          path: f10i-audit.json
+          retention-days: 75
+          if-no-files-found: error
