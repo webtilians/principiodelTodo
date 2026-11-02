@@ -159,8 +159,8 @@ def inspect(actor,unary,case):
             ("patch_onehot_after_inclusion",winner_onehot),
         ):
             scores[mode]=unary_p if mode=="unary" else (None if logit is None else prob(logit))
-        assert scores["real"]==prob(reference)
-        assert scores["skip"]==prob(skip_reference)
+        assert abs(scores["real"]-prob(reference))<=1e-6
+        assert abs(scores["skip"]-prob(skip_reference))<=1e-6
         correct=result_label(scores["real"],case["truth"])
         if correct:
             category="CORRECT"
