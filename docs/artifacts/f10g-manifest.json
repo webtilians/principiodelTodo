@@ -1,0 +1,75 @@
+{
+  "preregistration_commit": "eedc1abf639f1f8e6763294bdfcf3010b0e0b30e",
+  "execution_commit": "a11f525af2acf42769962d4ec6b95468526a3ece",
+  "archive_sha256": "e352c29d15deb4c301f1a669930521e46986814321ec29a2dc5f3b96662e6435",
+  "files": {
+    "0/gru.pt": "097698449aab9a401d8066b4ab65ad304d82766a7dee685926ffea50746b1380",
+    "0/relational_aux.pt": "700a6d84964189093e4aaa282abdc4220c17982505240572ff82f0e4d611e14d",
+    "0/relational_joint.pt": "5dfd5fe6d3d2363fffaa294067af4f8fc5005e58359356df6e130893d2050c4b",
+    "0/rows.json": "5a372f6d78f13c1394d8dd558739c808bed4eadb3329a86c5107081881e776e8",
+    "0/training.json": "01a58b7c560a017340b300a581cbd79b1ae7c094fbd1efb3e6fefdd771e6f069",
+    "0/unary_aux.pt": "0ba6ef17e19fed3ba683080f8871094c821ba3a8b51dd222150014b6bf61c941",
+    "0/unary_joint.pt": "55bdbde3ef9a2919016fa6be8b719701b649d20142cf839fc14c386bd331009a",
+    "0/execution.log": "8863f0e8b50edd9999998709c9d6af7d4d82b150bd0d5ff343f7b282c7d0cf95",
+    "1/gru.pt": "3bb9a40cc01f62a134e1ddf873c98a6df1ec7533f3ee5b95c80b48e697b6cce9",
+    "1/relational_aux.pt": "0bf25ef437b2e8aa943f54a751b3ca11abd0d015b839693775011f526f3bbd71",
+    "1/relational_joint.pt": "365567a4eec52147228485fbf0fd8f1b287df5c1ac3be7bd5d43cbd3320ef164",
+    "1/rows.json": "979c15421eda5a1e53e30bafb7e637e809ffd81d616a9822e97c4d93771ab7a9",
+    "1/training.json": "f8fc7804fbdcafd23ed56d2df60319944a50adc55782a5f971132d2732bf67ed",
+    "1/unary_aux.pt": "830515a6253fdbae60150bc6605e66760d052bab31a3ba25c991ef5cbe88a4d8",
+    "1/unary_joint.pt": "93e045402ee5fc63abc1681b1fdff24b100c995885bb2d1fbf67776f46076275",
+    "1/execution.log": "64186d6f921cd7c60f289cc067b897411eeeb6465d11858dcaab61f37d7f14c8",
+    "2/gru.pt": "49fb8bfc6432365c2e72d289f00f204752928cb01768c28275b6132cf7f353c5",
+    "2/relational_aux.pt": "833d0dac893eb807510bd89ecc3f6cb2fc22f98a5033326d656f91fe09390cde",
+    "2/relational_joint.pt": "eb6153116f7cf01bed8c74c2ee6c72cc6ae8a2e832cae7dcb0c8b231886cd12d",
+    "2/rows.json": "9d91c3eeb7da93cbf963f5279ab9f20481f2dbe4314b36067c61fc36ba864878",
+    "2/training.json": "3bb18d66c206ccc822d3f47d92434958997119d660975aba92a5a1bcb3545325",
+    "2/unary_aux.pt": "00669417380b5d34ebd433d619138f87ac2f5f1123cd21f27f962fc9d252e609",
+    "2/unary_joint.pt": "6eb1789bb507d1c2f5d8a29c685d664552cbcb1215c978ce3a98eae9ebd5436c",
+    "2/execution.log": "c5f3b389180f0f04839f67f33886eb0f8fe45606d2fdd14729438060ef923706",
+    "3/gru.pt": "786cf37b3347dfd7bb192a13c53a32efcedee3becce3a8c584d1c28f8afed824",
+    "3/relational_aux.pt": "a9582d9f82ae84278aabedaaff1d456d9e03e5c6609b06122780e892da6d5478",
+    "3/relational_joint.pt": "f10d1ec5a5e722862f8aae9ce92ccd3a403bfcdace2afac2b5f5d9c5e4df6290",
+    "3/rows.json": "ed304b69020e0a5c9ca77b9749863692b29bb10cc6193b174afbd5e871e2676f",
+    "3/training.json": "0508e6a6f615a3bdafb07f89bda39c20f6006201129b2823fab3abb27d035239",
+    "3/unary_aux.pt": "6af5b5ac97d817dc0ba36e9e178ed1caf90d199707e16cb124cfc7959d6d73f2",
+    "3/unary_joint.pt": "0ce3af2ab1480667579c7584b242b0be54b3cc1213fa4358b7c7853517227e72",
+    "3/execution.log": "e228efd3864a290cfb64ba5ad3ab71aacfcc3716876ce1545d3b0a9e90322ab6"
+  },
+  "budgets": {
+    "relational_joint": {
+      "dense_forward_multiply_add_flops_estimate": 624512,
+      "aux_extra_head_flops_per_training_example": 0,
+      "sum_training_seconds_four_replicas": 36.29458990006242
+    },
+    "relational_aux": {
+      "dense_forward_multiply_add_flops_estimate": 624512,
+      "aux_extra_head_flops_per_training_example": 2304,
+      "sum_training_seconds_four_replicas": 37.952035600086674
+    },
+    "unary_joint": {
+      "dense_forward_multiply_add_flops_estimate": 402304,
+      "aux_extra_head_flops_per_training_example": 0,
+      "sum_training_seconds_four_replicas": 17.71850239986088
+    },
+    "unary_aux": {
+      "dense_forward_multiply_add_flops_estimate": 402304,
+      "aux_extra_head_flops_per_training_example": 2304,
+      "sum_training_seconds_four_replicas": 18.574171200045384
+    },
+    "gru": {
+      "dense_forward_multiply_add_flops_estimate": 413882,
+      "aux_extra_head_flops_per_training_example": 0,
+      "sum_training_seconds_four_replicas": 17.450562700047158
+    }
+  },
+  "runtime": {
+    "torch": "2.15.0+cpu",
+    "numpy": "2.4.6",
+    "python": "3.11",
+    "platform": "Windows CPU, four concurrent single-thread processes"
+  },
+  "flops_scope": "Analytic dense multiply-add estimate, 2 FLOPs/MAC. GRU:33*3*(30*w+w*w); head:(w+3)*32+32 (GRU control w+1); selector:32*112 unary or 1024*112 pairwise. Excludes activations, biases, pooling, losses, backward and optimizer; not measured total FLOPs or compute matching.",
+  "changes_after_evaluation": "Audit only: verify every arm has identical world hashes, truth, winner, k and baselines. No model/data/training/evaluation changes or reruns.",
+  "confirmations_opened": false
+}
