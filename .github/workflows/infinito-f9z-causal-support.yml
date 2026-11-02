@@ -1,0 +1,137 @@
+name: INFINITO F9-Z - Prospective Causal Positivity Pilot
+
+on:
+  push:
+    branches: [experiment/f9z-causal-read-positivity-feasibility]
+    paths:
+      - docs/INFINITO_F9Z_PILOT_LAUNCH.md
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: f9z-new-11100000-pilot-only
+  cancel-in-progress: false
+
+jobs:
+  frozen-factorial-pilot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        seed: [0,1,2,3]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install exact existing F9 native actor dependencies
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r observatory/requirements_f9.txt gymnasium==1.4.0
+      - name: Test split, treatment counts and unchanged actor/F4 code before pilot
+        run: |
+          python -m unittest discover -s tests -p 'test_f9z_causal_support_pilot.py' -v
+          python -m unittest discover -s tests -p 'test_f9v_lexicographic_causal_f4.py' -v
+          python -m py_compile observatory/f9z_causal_support_pilot.py observatory/f9z_support_aggregate.py
+          git diff --exit-code 898b6e43f6f1dd08b970fe4a0e4651d271944e80 -- observatory/f9v_lexicographic_causal_f4.py observatory/f9q_causal_fork.py observatory/f9i_selective_memory.py observatory/f9j_recurrent_memory_attribution.py observatory/f9t_learned_f4_read_gate.py src/
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 40957255987
+          repository: webtilians/principiodelTodo
+          github-token: ${{ github.token }}
+          name: f9o-new-models-seed-${{ matrix.seed }}
+          path: original/bc-${{ matrix.seed }}
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 40960267485
+          repository: webtilians/principiodelTodo
+          github-token: ${{ github.token }}
+          name: f9p-ppo-models-seed-${{ matrix.seed }}
+          path: original/ppo-${{ matrix.seed }}
+      - name: Pilot new 11100000 worlds ONLY with all capacity and window combinations
+        run: |
+          python -m observatory.f9z_causal_support_pilot --index ${{ matrix.seed }} --bc-source original/bc-${{ matrix.seed }} --ppo-source original/ppo-${{ matrix.seed }} --output f9z-pilot/seed-${{ matrix.seed }}
+      - name: Audit exact 24 worlds, 864 matched states and F9-V anchor
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          i=int("${{ matrix.seed }}")
+          d=json.loads(Path(f"f9z-pilot/seed-{i}/report.json").read_text())
+          assert d["index"]==i and d["stage"]=="PILOT_NOT_TRAIN_DEV"
+          assert d["worlds"]==24 and d["cases_count"]==864
+          assert len(d["cases"])==864 and len(d["world_seeds"])==24
+          assert set(d["world_seeds"])=={11100000+10000*i+j for j in range(24)}
+          assert d["anchor_original_f9v_w1_n8_passed"] and d["skip_invariant_across_read_window"]
+          assert d["full_factorial_3x3"]
+          assert not any(d[x] for x in ("actor_retrained","head_trained",
+                   "F4_algorithm_modified","prior_holdouts_reused",
+                   "future_F9Z_train_dev_confirm_opened"))
+          assert all(c["public_equal_between_cues"] and c["same_start_hc"] for c in d["cases"])
+          assert set(c["capacity"] for c in d["cases"])=={1,4,8}
+          assert set(c["window"] for c in d["cases"])=={1,4,8}
+          assert set(c["effect"] for c in d["cases"])<= {-1,0,1}
+          print("F9Z_24_WORLDS_9_TREATMENTS_AND_PRIOR_F9V_ANCHOR_VALID",i)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: f9z-pilot-seed-${{ matrix.seed }}
+          path: f9z-pilot/seed-${{ matrix.seed }}/
+          retention-days: 75
+          if-no-files-found: warn
+
+  scientific-support-report:
+    needs: frozen-factorial-pilot
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: f9z-pilot-seed-*
+          path: gathered
+      - name: Apply precommitted common-arm 16-cell support gate
+        run: |
+          python -m observatory.f9z_support_aggregate --gathered gathered --output f9z-pilot-final.json
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          r=json.loads(Path("f9z-pilot-final.json").read_text())
+          assert r["stage"]=="NEW_PILOT_ONLY" and r["unique_worlds"]==96
+          assert r["full_factorial_cases"]==3456
+          assert r["paired_READ_SKIP_continuations"]==6912
+          assert r["preregistered_contracts_all_passed"]
+          assert not r["old_confirm_reused"] and not r["new_future_train_dev_confirm_opened"]
+          lines=[
+              "# F9-Z: prospective causal positivity pilot (24 worlds x 4 frozen actors)",
+              "Only new 11100000+ pilot worlds; actor and original F4 writer preserved.",
+              "Factorial capacities N=1,4,8 x READ windows W=1,4,8.",
+              "READ_W / SKIP matched pre-fork and environment; W1+N8 equals original F9-V.",
+              "Support gate: one COMMON arm >=3 helpful and >=3 nonhelpful worlds in ALL 16 actor x cue x history cells.",
+              "","## Fixed preregistered status: "+r["status"],
+              "Eligible common treatments: "+str(r["eligible_common_treatments"]),
+              "",
+              "| Treatment | D+= | D0= | D-= | Cells 3/3 (of 16) | Cells with ANY D+ (of 16) |",
+              "|---|---:|---:|---:|---:|---:|"
+          ]
+          for n in r["fixed_order"]:
+              x=r["treatments"][n]
+              lines.append(f'| {n} | {x["effect_total"]["1"]} | {x["effect_total"]["0"]} | {x["effect_total"]["-1"]} | {x["cells_with_3_positive_and_3_nonpositive"]}/16 | {x["cells_with_at_least_one_positive"]}/16 |')
+          lines+=["","## All 16 cell outcomes by treatment (no cherry picking)",
+                  "~~~json",json.dumps(r["treatments"],ensure_ascii=False,indent=2),"~~~",
+                  "**Pilot is exploratory, not a memory-value predictor trial; do not open 11200000+, 11300000+ or 11400000+ on this evidence alone.**"]
+          Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text("\n".join(lines))
+          print("F9Z_SCIENTIFIC_PILOT_STATUS",r["status"])
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: f9z-causal-support-aggregate
+          path: f9z-pilot-final.json
+          retention-days: 75
+          if-no-files-found: error
