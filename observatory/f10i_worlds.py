@@ -13,7 +13,7 @@ FEATURES=KEYS+5
 VARIANTS=("U_late","U_early","S_late","S_early")
 SOURCE_MODES=("iid","signed_source_0","signed_source_1","alternating_storage_source")
 BASE={"train":20_100_000,"dev":20_200_000,"ood":20_400_000}
-COUNTS={"train":(5,8),"dev":(5,8),"ood":(12,16)}
+COUNTS={"train":(6,9),"dev":(6,9),"ood":(12,16)}
 SIGNED={"train":(3,5),"dev":(3,5),"ood":(6,9)}
 N={"train":512,"dev":128,"ood":128}
 
@@ -27,7 +27,7 @@ def world(split,replica,j):
     rng=np.random.default_rng(seed)
     k=COUNTS[split][j%2]
     s=SIGNED[split][j%2]
-    assert s<=k-2 and s>=3
+    assert s<=k-3 and s>=3
     q=int(rng.integers(KEYS))
     b=int(rng.integers(2))
     inv=int(rng.integers(2))
@@ -38,7 +38,7 @@ def world(split,replica,j):
     target_sorted=np.argsort(times[:k])
     # Always one unsigned report before and after the latest signed;
     # winner and challenge occupy arbitrary storage positions after permutation.
-    signed_ranks=np.sort(rng.choice(np.arange(1,k-1),size=s,replace=False))
+    signed_ranks=np.sort(rng.choice(np.arange(1,k-2),size=s,replace=False))
     signed_indices=target_sorted[signed_ranks]
     signs=rng.integers(2,size=EVENTS).astype(np.int64)
     signs[:k]=0
@@ -47,7 +47,7 @@ def world(split,replica,j):
         values[slot]=b^((s-1-n)%2)
     assert values[signed_indices[-1]]==b
     last_rank=int(signed_ranks[-1])
-    eligible_after=[int(target_sorted[t]) for t in range(last_rank+1,k)]
+    eligible_after=[int(target_sorted[t]) for t in range(last_rank+1,k-1)]
     x_idx=int(rng.choice(eligible_after))
     before_idx=int(target_sorted[0])
     assert signs[x_idx]==signs[before_idx]==0 and x_idx!=before_idx
