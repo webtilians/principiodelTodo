@@ -5,7 +5,7 @@ through more than 50 protocols. Every number below comes from a preregistered
 report; follow the links for denominators, controls and limits. Reports are in
 Spanish.
 
-Last updated: 2026-11-02.
+Last updated: 2026-11-03.
 
 ## Memory for LLM assistants (product line)
 
@@ -21,6 +21,39 @@ dropped every memory when the question contained *plan*, which a goal-intent
 heuristic treats as a request for goals.
 [Results](https://github.com/webtilians/principiodelTodo/blob/experiment/e10b-semantic-longitudinal-live/docs/INFINITO_E10B_REAL_SEMANTIC_RESULTS_2026-10-30.md) ·
 [evidence audit](https://github.com/webtilians/principiodelTodo/blob/experiment/e10b-semantic-longitudinal-live/docs/INFINITO_E10B_POSTHOC_CONTEXT_AUDIT_2026-10-30.md)
+
+**E10-D: fixing those two causes closes most of the gap, and exposes a third.**
+Real LLM, 24 new paired scenarios in 6 new families, run on 2026-11-01; the
+confirmation results were left in the CI artifact and are summarized here for the
+first time. Semantic RAG 22/24, INFINITO with a store-every-statement gate and the
+*plan* fix 20/24, gate open alone 16/24, original core 0/24, no memory 0/24. The
+fixed variant got every decision before a change right (48/48) but missed 7 of 48
+after it: in all four scenarios of one family, the context builder answered a
+singular question with the original statement and dropped its update. RAG failed
+two of the four scenarios in the review-schedule family.
+[Protocol](https://github.com/webtilians/principiodelTodo/blob/experiment/e10d-single-general-capture-intervention/docs/INFINITO_E10D_SINGLE_INTERVENTION_PROTOCOL.md) ·
+[run](https://github.com/webtilians/principiodelTodo/actions/runs/41312920188)
+
+**Core v0.4 fixes capture and context (2026-11-03).** The core now stores every
+safe statement, keeps every retrieved memory that shares a content word with the
+question, lists memories dated and oldest first, stops reading Spanish *plan*,
+"a partir de hoy" and "esta mañana" as goals, and ends extracted values at the
+next clause. Offline, with hash embeddings and a deterministic reader that picks
+the option mentioned last (24 scenarios per set, all on unused seeds):
+
+| Scenario set | RAG | INFINITO 0.3 | INFINITO 0.4 | Context tokens, RAG / 0.4 |
+|---|---:|---:|---:|---:|
+| E10-B families | 24/24 | 8/24 | 24/24 | 150 / 104 |
+| E10-D families | 24/24 | 0/24 | 24/24 | 157 / 126 |
+| Personal assistant, natural questions | 12/24 | 0/24 | 12/24 | 138 / 74 |
+
+The personal-assistant set was written after a first version of the fix, and its
+first run led to the shared-word rule, so it is not strictly held out. Both
+systems fail the same 12 scenarios there: updates paraphrased with no word in
+common with the question, which hash embeddings cannot match. A real-LLM,
+real-embedding run on a fresh partition is the pending confirmation.
+Reproduce with `python scripts/benchmark_memory_updates.py`; the 0.3 column
+comes from running the same script on commit `28f59a3`.
 
 **E11-A: a learned retention policy helps when demand is predictable, and fails
 badly when it is not.** With 4 memory slots for 16 events, a softmax policy over
