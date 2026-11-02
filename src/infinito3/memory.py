@@ -11,6 +11,12 @@ _TOKEN_RE = re.compile(r"[\wáéíóúüñ]+", re.I)
 class RuleBasedMemoryGate:
     """Transparent baseline gate for INFINITO 3.0.
 
+    Every safe statement is stored: in E10 the facts that mattered later were
+    decisions in the user's own words, and a marker list missed all of them.
+    Markers only raise importance and choose the memory kind. Questions and
+    acknowledgements are not stored; secrets never reach the gate and the
+    engine never persists PII.
+
     This is intentionally simple: every future learned gate must beat this
     baseline on a held-out evaluation set before replacing it.
     """
@@ -25,8 +31,9 @@ class RuleBasedMemoryGate:
     _EVENT_MARKERS = ("mañana ", "pasado mañana", "tengo cita", "tengo reunión", "tengo que ")
     _AGE_RE = re.compile(r"\btengo\s+\d{1,3}\s+años\b", re.I)
 
-    def __init__(self, threshold: float = 0.55):
+    def __init__(self, threshold: float = 0.55, min_statement_tokens: int = 3):
         self.threshold = threshold
+        self.min_statement_tokens = min_statement_tokens
 
     def evaluate(self, text: str) -> GateDecision:
         normalized = " ".join(text.lower().strip().split())
@@ -36,7 +43,7 @@ class RuleBasedMemoryGate:
         if not tokens:
             return GateDecision(False, 0.0, MemoryKind.WORKING, ["empty"])
 
-        if normalized in self._TRIVIAL or (len(tokens) <= 2 and all(t in self._TRIVIAL for t in tokens)):
+        if normalized in self._TRIVIAL or all(t in self._TRIVIAL for t in tokens):
             return GateDecision(False, 0.05, MemoryKind.WORKING, ["trivial"])
 
         score = 0.25
@@ -66,12 +73,16 @@ class RuleBasedMemoryGate:
             score += 0.1
             reasons.append("information_density")
 
-        if "?" in text or "¿" in text:
+        is_question = "?" in text or "¿" in text
+        if is_question:
             score -= 0.20
             reasons.append("question_penalty")
 
         score = max(0.0, min(score, 1.0))
-        return GateDecision(score >= self.threshold, score, kind, reasons or ["baseline"])
+        statement = not is_question and len(tokens) >= self.min_statement_tokens
+        if statement and score < self.threshold:
+            reasons.append("statement")
+        return GateDecision(score >= self.threshold or statement, score, kind, reasons or ["baseline"])
 
 
 class InMemoryMemoryStore:

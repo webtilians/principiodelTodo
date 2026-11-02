@@ -6,7 +6,7 @@ import sqlite3
 import threading
 from collections import Counter, defaultdict
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
@@ -94,13 +94,21 @@ class SimpleFactExtractor:
         (re.compile(r"\bprefiero\s+([^,.!?]+)", re.I), "prefers", False),
     )
 
+    # A value ends where the next clause starts: "Ana y vivo en Madrid" gives
+    # the name "Ana", while "Castilla y León" stays whole.
+    _NEXT_CLAUSE = re.compile(
+        r"\s+(?:(?:y|e|pero|and|but)\s+(?=(?:vivo|tengo|soy|estoy|trabajo|me|mi|mis|i|my)\b)"
+        r"|(?:desde|hace|since)\b)",
+        re.I,
+    )
+
     def extract(self, text: str, kind: MemoryKind) -> Optional[ExtractedFact]:
         if kind != MemoryKind.USER_MODEL:
             return None
         for pattern, predicate, exclusive in self._PATTERNS:
             match = pattern.search(text)
             if match:
-                value = _normalize_text(match.group(1)).strip()
+                value = _normalize_text(self._NEXT_CLAUSE.split(match.group(1), 1)[0]).strip()
                 if value:
                     return ExtractedFact("user", predicate, value, exclusive)
         return None
@@ -134,6 +142,20 @@ class SQLiteCognitiveMemoryStore:
         self._conn = sqlite3.connect(path, check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
         self._init_schema()
+        latest = self._conn.execute("SELECT MAX(updated_at) AS t FROM memories").fetchone()["t"]
+        self._last_write = datetime.fromisoformat(latest) if latest else datetime.min
+
+    def _tick(self) -> datetime:
+        """Return a write time later than every earlier write in this store.
+
+        The context lists memories by this time, so two statements written in
+        the same clock tick must still say which one came last.
+        """
+        now = datetime.utcnow()
+        if now <= self._last_write:
+            now = self._last_write + timedelta(microseconds=1)
+        self._last_write = now
+        return now
 
     def close(self) -> None:
         with self._lock:
@@ -192,11 +214,11 @@ class SQLiteCognitiveMemoryStore:
             record.fact_predicate = fact.predicate
             record.fact_value = fact.value
 
-        now = datetime.utcnow()
-        record.updated_at = now
         embedding = self._safe_embed(record.content)
 
         with self._lock, self._conn:
+            now = self._tick()
+            record.updated_at = now
             exact = self._conn.execute(
                 "SELECT * FROM memories WHERE normalized_content = ? AND status = ? LIMIT 1",
                 (normalized, MemoryStatus.ACTIVE.value),
@@ -268,7 +290,7 @@ class SQLiteCognitiveMemoryStore:
         metadata["reinforcement_count"] = int(metadata.get("reinforcement_count", 0)) + 1
         importance = max(float(row["importance"]), float(incoming.importance))
         confidence = min(1.0, float(row["confidence"]) + 0.05)
-        now = datetime.utcnow().isoformat()
+        now = self._tick().isoformat()
         self._conn.execute(
             """
             UPDATE memories
@@ -467,7 +489,7 @@ class SQLiteCognitiveMemoryStore:
                 "UPDATE memories SET status = ?, updated_at = ? WHERE id = ? AND status = ?",
                 (
                     MemoryStatus.ACTIVE.value,
-                    datetime.utcnow().isoformat(),
+                    self._tick().isoformat(),
                     memory_id,
                     MemoryStatus.FORGOTTEN.value,
                 ),
