@@ -229,7 +229,8 @@ def evaluate(rep,out,training):
             assert sha(cp)==training["arms"][arm]["sha256"]
         print("F10I_SPLIT_COMPLETE",rep,split,len(cases),flush=True)
     assert len(rows)==4*2*512
-    (out/"rows.json").write_text(json.dumps(rows,separators=(",",":"),\n        default=lambda value: value.item() if isinstance(value,np.generic) else _reject_json_value(value)))
+    (out/"rows.json").write_text(json.dumps(rows,separators=(",",":"),
+        default=lambda value: value.item() if isinstance(value,np.generic) else _reject_json_value(value)))
     print("F10I_ALL_FROZEN_RESULTS",rep,len(rows),flush=True)
 
 def main():
