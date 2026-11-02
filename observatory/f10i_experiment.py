@@ -30,7 +30,7 @@ EMA_MOMENTUM=.95
 SENSOR_SUPERVISION=.30
 INTRINSIC_WEIGHT=.10
 
-def sha(path):
+def _reject_json_value(value):\n    raise TypeError(f"Unrecognized JSON value type: {type(value).__name__}")\n\ndef sha(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 def tensors(cases):
@@ -229,7 +229,7 @@ def evaluate(rep,out,training):
             assert sha(cp)==training["arms"][arm]["sha256"]
         print("F10I_SPLIT_COMPLETE",rep,split,len(cases),flush=True)
     assert len(rows)==4*2*512
-    (out/"rows.json").write_text(json.dumps(rows,separators=(",",":")))
+    (out/"rows.json").write_text(json.dumps(rows,separators=(",",":"),\n        default=lambda value: value.item() if isinstance(value,np.generic) else _reject_json_value(value)))
     print("F10I_ALL_FROZEN_RESULTS",rep,len(rows),flush=True)
 
 def main():
