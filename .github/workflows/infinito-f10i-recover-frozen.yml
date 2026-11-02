@@ -1,0 +1,157 @@
+name: INFINITO F10-I - Recovery of Original Frozen Models After JSON Scalar Failure
+on:
+  push:
+    branches: [experiment/f10i-experience-paired-rl]
+    paths: [docs/INFINITO_F10I_FROZEN_RECOVERY_LAUNCH.md]
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: f10i-original-frozen-recovery-only
+  cancel-in-progress: false
+jobs:
+  recovered-frozen-evaluation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        index: [0, 1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install CPU only for original frozen inference (not training)
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install numpy
+      - name: Prove original actor, generator and training functions remain unchanged
+        run: |
+          python -m py_compile observatory/f10i_worlds.py observatory/f10i_actor.py observatory/f10i_experiment.py observatory/f10i_audit.py
+          git diff --exit-code 1350b6381616f3a6f9c9bc9e4a38927f31fd1497 -- observatory/f10i_worlds.py observatory/f10i_actor.py
+          python - <<'PY'
+          import ast,subprocess
+          from pathlib import Path
+          a=subprocess.check_output(["git","show","1350b6381616f3a6f9c9bc9e4a38927f31fd1497:observatory/f10i_experiment.py"],text=True)
+          b=Path("observatory/f10i_experiment.py").read_text()
+          def funcs(s):
+              return {n.name:ast.dump(n,include_attributes=False)
+                      for n in ast.parse(s).body if isinstance(n,ast.FunctionDef)}
+          orig,now=funcs(a),funcs(b)
+          for n in ("tensors","reward","train","main"):
+              assert orig[n]==now[n],"Forbidden change to original training or reward"
+          assert "default=lambda value: value.item() if isinstance(value,np.generic)" in b
+          print("F10I_ORIGINAL_ACTOR_GENERATOR_TRAIN_REWARD_UNCHANGED")
+          PY
+      - name: Download original (not retrained) actor checkpoint artifact
+        uses: actions/download-artifact@v4
+        with:
+          repository: webtilians/principiodelTodo
+          run-id: 41530837321
+          github-token: ${{ github.token }}
+          name: f10i-actor-${{ matrix.index }}
+          path: recovered/${{ matrix.index }}
+      - name: Verify original four frozen checkpoint SHA and budget
+        run: |
+          python - <<'PY'
+          import json,hashlib
+          from pathlib import Path
+          i=int("${{ matrix.index }}")
+          p=Path(f"recovered/{i}")
+          t=json.loads((p/"training.json").read_text())
+          assert t["stage"]=="FROZEN_BEFORE_DEV_OOD" and t["replica"]==i
+          assert set(t["arms"])=={"rl_standard","rl_pair","rl_pair_predict","supervised_ceiling"}
+          assert not (p/"rows.json").exists()
+          for name,v in t["arms"].items():
+              assert v["optimizer_steps"]==640 and v["environment_rollouts"]==81920
+              assert hashlib.sha256((p/(name+".pt")).read_bytes()).hexdigest()==v["sha256"]
+          print("F10I_REUSED_ONLY_ORIGINAL_CHECKPOINTS_NO_TRAINING",i)
+          PY
+      - name: Evaluate ORIGINAL frozen actor once with NumPy int64 JSON serializer fix
+        run: |
+          python - <<'PY'
+          import json,torch
+          from pathlib import Path
+          from observatory.f10i_experiment import evaluate
+          i=int("${{ matrix.index }}")
+          p=Path(f"recovered/{i}")
+          torch.set_num_threads(1)
+          torch.use_deterministic_algorithms(True)
+          evaluate(i,p,json.loads((p/"training.json").read_text()))
+          print("F10I_ORIGINAL_WEIGHTS_FROZEN_INFERENCE_ONLY",i)
+          PY
+      - name: Verify rows and original checkpoint hashes after recovery
+        run: |
+          python - <<'PY'
+          import json,hashlib
+          from pathlib import Path
+          i=int("${{ matrix.index }}")
+          p=Path(f"recovered/{i}")
+          t=json.loads((p/"training.json").read_text())
+          assert len(json.loads((p/"rows.json").read_text()))==4096
+          for name,v in t["arms"].items():
+              assert hashlib.sha256((p/(name+".pt")).read_bytes()).hexdigest()==v["sha256"]
+          print("F10I_RECOVERY_PRESERVED_ALL_ORIGINAL_SHA",i)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: f10i-recovered-${{ matrix.index }}
+          path: recovered/${{ matrix.index }}/
+          retention-days: 75
+          if-no-files-found: warn
+  independent-scientific-gate:
+    needs: recovered-frozen-evaluation
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install numpy
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: f10i-recovered-*
+          path: gathered
+      - name: Run unchanged prospective bootstrap gates on all original models
+        run: |
+          for i in 0 1 2 3; do
+            mkdir -p verified/$i
+            cp gathered/f10i-recovered-$i/* verified/$i/
+          done
+          python -m observatory.f10i_audit --root verified --output f10i-audit.json
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          a=json.loads(Path("f10i-audit.json").read_text())
+          assert a["technical"]=="F10I_TECHNICAL_COMPLETE"
+          assert a["unique_history_hashes"]==12288
+          assert not a["old_worlds_opened"] and not a["confirm_20300000_opened"]
+          lines=["# INFINITO F10-I original frozen models: recovery of JSON scalar output only",
+                 "**Scientific fixed gate: "+a["status"]+"**",
+                 "Gate counts: "+str(a["gate_counts"]),
+                 "",
+                 "| Replica | Standard RL | Paired RL | Paired RL + sensor prediction | Labeled ceiling | B−A | C−B |",
+                 "|---|---:|---:|---:|---:|---:|---:|"]
+          for i,x in a["replicas"].items():
+              m=x["metrics"]["ood"];d=x["contrasts"]
+              vals=[f'{m[arm]["accuracy"]*100:.2f}%' for arm in
+                ("rl_standard","rl_pair","rl_pair_predict","supervised_ceiling")]
+              lines.append("| "+i+" | "+" | ".join(vals)+
+                f' | {d["paired_minus_standard"]["estimate"]*100:+.2f} pp | {d["predict_minus_paired"]["estimate"]*100:+.2f} pp |')
+          lines+=["","## All original frozen-model metrics and bootstrap",
+                  "~~~json",json.dumps(a["replicas"],indent=2),"~~~",
+                  "No training in this recovery. Serializing NumPy metadata was the only repair. 20300000+ sealed."]
+          Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text("\n".join(lines))
+          print("F10I_ORIGINAL_CHECKPOINT_SCIENTIFIC_OUTCOME",a["status"],a["gates"])
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: f10i-fixed-gate-original-frozen-audit
+          path: f10i-audit.json
+          retention-days: 75
+          if-no-files-found: error
