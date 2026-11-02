@@ -9,3 +9,7 @@ Este lanzamiento desencadena workflow **`.github/workflows/infinito-f10i-recover
 El hecho de que los mundos DEV/OOD hayan sido abiertos durante la ejecución fallida se declara explícitamente; el arreglo no usa ni ha inspeccionado sus valores para cambiar el actor, tan solo el error de tipo observado en la salida. La confirmación `20300000+` no se abre. Tanto FAIL técnico original como el nuevo resultado científico se conservan permanentemente en la historia.
 
 **STOP** después de esta recuperación: no otra ejecución de TRAIN, no tuning, no nueva confirmación.
+
+## Segunda recuperación técnica, sin nuevas evaluaciones todavía
+
+El primer intento de recuperación (run #41531538404) se detuvo **antes de descargar checkpoints y antes de ejecutar inferencia** porque el helper de JSON introdujo caracteres literales `\\n` en el código Python. Se corrigió exclusivamente esa sintaxis en commit `e6a77b1e2697fc3876fa8e8950d1a02971f95c75`. La comprobación sintáctica ahora tiene que pasar antes de descargar pesos; no cambia ningún dato, modelo ni función de entrenamiento. **Este commit del documento vuelve a ejecutar solo el recuperador congelado**, no el entrenamiento original.
