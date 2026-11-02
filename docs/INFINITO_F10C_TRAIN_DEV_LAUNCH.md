@@ -9,3 +9,7 @@ Un mundo contiene los mismos 60 informes públicos para cuatro consultas finales
 READ/SKIP, obsolescencia y firma falsa cambian solo contenido F4 en el punto final, nunca la GRU, historia pública, query, pesos ni verdad. Gate prospectivo de cuatro estratos/actor, prioridad temporal acreditada, soporte causal y ventaja relacional sobre control unario reentrenado; bootstrap por mundo completo. No se entrena ninguna cabeza READ. El éxito en esta tarea sintética no equivale a transferencia a INFINITO integrado.
 
 La publicación de este archivo dispara exactamente la ejecución de `.github/workflows/infinito-f10c-relational-versioned.yml`.
+
+## Recuperación de preflight sin datos (2026-11-02)
+
+La ejecución #41447020599 falló en la prueba inicial, **antes del paso de entrenamiento o de abrir mundos nuevos**, por la ausencia de la clave de compatibilidad `latest_unsigned` que usa la función original de F10-B al simular credenciales falsas. El commit `e989651cec2456955ca6d1309beb17db66519f70` añade exclusivamente ese alias a la misma bandera pública `last_unsigned`; no cambian casos, seed, reglas, modelos, presupuesto ni gates. Esta edición lanza el **primer intento que puede llegar a TRAIN/DEV**, no una repetición sobre datos observados.
