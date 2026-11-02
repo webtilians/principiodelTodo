@@ -1,7 +1,7 @@
 """Bounded historical INFINITO probes, *not* complete training reproductions.
 
 The historical implementations are imported unchanged. V1 comes from the
-exact first public release (2025-09-16); legacy scripts are in master/archive.
+exact first public release (2025-09-16); legacy scripts are in legacy/archive and legacy/src.
 Every probe is run in a separate subprocess with a strict timeout.
 """
 from __future__ import annotations
