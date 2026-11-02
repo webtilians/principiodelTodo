@@ -129,7 +129,7 @@ def analyze(root):
             if arm==ARMS[0]:reference=observed
             else:assert observed==reference,"Each arm must see exactly same experiences"
         for split,base,k_allowed in (
-             ("dev",20_200_000,{5,8}),("ood",20_400_000,{12,16})):
+             ("dev",20_200_000,{6,9}),("ood",20_400_000,{12,16})):
             grp=[r for r in rows if r["arm"]==ARMS[0] and r["split"]==split]
             assert len(grp)==512
             assert {r["seed"] for r in grp}==set(range(base+rep*10000,base+rep*10000+128))
