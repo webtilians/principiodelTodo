@@ -68,6 +68,8 @@ def world(split,replica,j):
     assert all(times[t]<times[x_idx] for t in range(pre))
     # A/B nuisance metadata is defined ONCE and remains fixed across the
     # signature interventions (X becomes an adversarial exception).
+    # The storage permutation is also fixed across the four variants.
+    storage_perm=rng.permutation(EVENTS)
     mode=mode_for(split,j)
     if mode=="iid":
         sources=rng.integers(2,size=EVENTS).astype(np.int64)
@@ -76,8 +78,8 @@ def world(split,replica,j):
     elif mode=="signed_source_1":
         sources=signs.copy()
     else:
-        sources=np.arange(EVENTS,dtype=np.int64)%2
-    storage_perm=rng.permutation(EVENTS)
+        sources=np.empty(EVENTS,dtype=np.int64)
+        sources[storage_perm]=np.arange(EVENTS,dtype=np.int64)%2
     rows=[]
     for variant in VARIANTS:
         v_signs=signs.copy()
