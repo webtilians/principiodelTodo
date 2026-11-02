@@ -75,3 +75,13 @@ nueva. En F9-R, 850000+ está consumida; 900000+ sigue reservada.
 
 Para cambios nuevos: rama desde master, PR contra master, tests del módulo
 afectado y protocolo separado si cambia la pregunta científica.
+
+## Reorganización del 2 de noviembre de 2026
+El código y los documentos de la fase de 2025 (métricas IIT/PHI, «consciencia»,
+app de Streamlit, golden seeds) pasan a [`legacy/`](../legacy/README.md) sin
+cambios de contenido; `git log --follow` conserva su historia. La raíz queda
+para el producto: `src/infinito3/`, `examples/`, `pyproject.toml` y un README
+nuevo. `scripts/infinito_replay_probes.py` carga V2–V5.1 desde las rutas nuevas.
+Para ejecutar el código antiguo tal y como estaba, usar el commit `b24e159`.
+Se retira `ci.yml`, que solo se disparaba en `main`/`develop`, y `pytest.ini`
+pasa a usar la sección `[pytest]`, la única que pytest lee en ese fichero.

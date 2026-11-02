@@ -1,6 +1,4 @@
-# 🧠 INFINITO - ARTIFICIAL CONSCIOUSNESS SYSTEM
-# ===============================================
-# Comprehensive .gitignore for consciousness research project
+# INFINITO: memory layer for LLM assistants and research lab
 
 # 🐍 Python
 __pycache__/
