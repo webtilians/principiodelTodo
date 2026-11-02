@@ -18,7 +18,7 @@ pesados; el VPS sólo gestiona trabajos y conserva informes/modelos.
 Revisar rama antes de desplegarla:
 
 - [Cambios del worker](https://github.com/webtilians/principiodelTodo/tree/experiment/f9-windows-remote-worker)
-- [Tests de seguridad y extremo a extremo](../../tests/test_f9_remote_worker.py)
+- [Tests de seguridad y extremo a extremo](../tests/test_f9_remote_worker.py)
 
 Por SSH en el VPS, con privilegios de administrador:
 

@@ -2,6 +2,8 @@
 
 Estado de organización: 30-10-2026. Los informes originales se conservan sin reescribir resultados.
 
+Resumen en inglés de los resultados principales: [FINDINGS.md](FINDINGS.md).
+
 ## Último resultado
 
 [F9-R: resultado primario negativo y rescate tardío parcial](INFINITO_F9R_RECURRENT_STATE_DRIFT_RESULTS_2026-10-30.md).

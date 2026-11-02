@@ -209,7 +209,7 @@ class SQLiteCognitiveMemoryStore:
                     """
                     SELECT * FROM memories
                     WHERE fact_subject = ? AND fact_predicate = ? AND fact_value = ? AND status = ?
-                    ORDER BY updated_at DESC LIMIT 1
+                    ORDER BY updated_at DESC, rowid DESC LIMIT 1
                     """,
                     (fact.subject, fact.predicate, fact.value, MemoryStatus.ACTIVE.value),
                 ).fetchone()
@@ -221,7 +221,7 @@ class SQLiteCognitiveMemoryStore:
                         """
                         SELECT * FROM memories
                         WHERE fact_subject = ? AND fact_predicate = ? AND status = ? AND fact_value != ?
-                        ORDER BY updated_at DESC LIMIT 1
+                        ORDER BY updated_at DESC, rowid DESC LIMIT 1
                         """,
                         (fact.subject, fact.predicate, MemoryStatus.ACTIVE.value, fact.value),
                     ).fetchone()
@@ -288,10 +288,11 @@ class SQLiteCognitiveMemoryStore:
     def all(self, include_inactive: bool = False) -> List[MemoryRecord]:
         with self._lock:
             if include_inactive:
-                rows = self._conn.execute("SELECT * FROM memories ORDER BY created_at").fetchall()
+                # rowid breaks ties between writes that share a timestamp.
+                rows = self._conn.execute("SELECT * FROM memories ORDER BY created_at, rowid").fetchall()
             else:
                 rows = self._conn.execute(
-                    "SELECT * FROM memories WHERE status = ? ORDER BY created_at",
+                    "SELECT * FROM memories WHERE status = ? ORDER BY created_at, rowid",
                     (MemoryStatus.ACTIVE.value,),
                 ).fetchall()
         return [self._row_to_record(row) for row in rows]
@@ -356,7 +357,7 @@ class SQLiteCognitiveMemoryStore:
                 """
                 SELECT * FROM memories
                 WHERE fact_subject = ? AND fact_predicate = ?
-                ORDER BY created_at
+                ORDER BY created_at, rowid
                 """,
                 (subject, predicate),
             ).fetchall()
