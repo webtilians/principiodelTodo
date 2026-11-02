@@ -30,7 +30,10 @@ EMA_MOMENTUM=.95
 SENSOR_SUPERVISION=.30
 INTRINSIC_WEIGHT=.10
 
-def _reject_json_value(value):\n    raise TypeError(f"Unrecognized JSON value type: {type(value).__name__}")\n\ndef sha(path):
+def _reject_json_value(value):
+    raise TypeError(f"Unrecognized JSON value type: {type(value).__name__}")
+
+def sha(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 def tensors(cases):
