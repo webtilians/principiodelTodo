@@ -1,0 +1,141 @@
+name: INFINITO F10-D - Frozen Structural Transfer
+
+on:
+  push:
+    branches: [experiment/f10d-frozen-structural-transfer]
+    paths:
+      - docs/INFINITO_F10D_FROZEN_LAUNCH.md
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: f10d-frozen-15200000-transfer
+  cancel-in-progress: false
+
+jobs:
+  frozen-transfer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        index: [0, 1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install minimal CPU inference dependencies (no optimizers used)
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install numpy
+      - name: Verify prospective generation and immutability of past experiments BEFORE NEW worlds
+        run: |
+          python -m unittest discover -s tests -p 'test_f10d_frozen_structural_transfer.py' -v
+          python -m py_compile observatory/f10d_structural_transfer_worlds.py observatory/f10d_frozen_transfer_dev.py observatory/f10d_structural_transfer_gate.py
+          git diff --exit-code 4a22f2e3904b7e3126ac1daeb5cf6d6d3bb6a82a -- observatory/f10c_multi_version_worlds.py observatory/f10c_relational_actor_training.py observatory/f10c_relational_actor_dev.py observatory/f10c_relational_dev_gate.py
+          git diff --exit-code 9abeae79218f3623fd3aabd1e002c29df425fff1 -- observatory/f10b_temporal_evidence_task.py observatory/f10b_train_evidence_actors.py observatory/f10b_temporal_evidence_dev.py observatory/f10b_temporal_evidence_gate.py
+      - name: Download original F10-C frozen checkpoints from original successful run
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 41447171697
+          repository: webtilians/principiodelTodo
+          github-token: ${{ github.token }}
+          name: f10c-actor-${{ matrix.index }}
+          path: f10c-original/${{ matrix.index }}
+      - name: Download original F10-B frozen checkpoints from original successful run
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 41443064754
+          repository: webtilians/principiodelTodo
+          github-token: ${{ github.token }}
+          name: f10b-actor-${{ matrix.index }}
+          path: f10b-original/${{ matrix.index }}
+      - name: Read ONLY the 15200000+ F10-D worlds and run frozen READ/SKIP contrasts
+        run: |
+          python -m observatory.f10d_frozen_transfer_dev --index ${{ matrix.index }} --f10c-source f10c-original/${{ matrix.index }}/training --f10b-source f10b-original/${{ matrix.index }}/training --output f10d-eval/${{ matrix.index }}
+      - name: Independently audit reports, frozen provenance, four strata and cardinality/source groups
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          i=int("${{ matrix.index }}")
+          r=json.loads(Path(f"f10d-eval/{i}/dev-report.json").read_text())
+          assert r["stage"]=="STRUCTURAL_DEV_ONLY" and r["index"]==i
+          assert r["worlds"]==64 and r["cases"]==256
+          assert r["dev_world_seeds"]==[15200000+10000*i+j for j in range(64)]
+          assert r["frozen_original_checkpoints"] and not r["training_performed"]
+          assert not r["new_reader_trained"] and not r["original_confirmations_opened"]
+          assert not r["F10D_15300000_opened"]
+          assert set(r["by_cell"])=={"signed|stable","unsigned|stable","signed|revised","unsigned|revised"}
+          assert set(r["by_count"])=={"3","4","6","8"}
+          assert set(r["by_source"])=={"iid","signed_A","signed_B","alternating"}
+          assert all(x["cases"]==64 for t in ("by_cell","by_count","by_source") for x in r[t].values())
+          assert all(v["cases"]==16 for group in r["cross_cell_count"].values() for v in group.values())
+          assert len(r["provenance"]["frozen_checkpoint_sha256"])==5
+          assert r["overall"]["correct"]["public_last_signed_rule"]==256
+          print("F10D_FROZEN_CONTRACT_PASS",i,flush=True)
+          PY
+      - name: Preserve original SHA provenance and all paired DEV rows
+        if: always()
+        run: |
+          mkdir -p f10d-artifact
+          if test -f f10d-eval/${{ matrix.index }}/dev-report.json; then
+            cp f10d-eval/${{ matrix.index }}/dev-report.json f10d-artifact/
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: f10d-frozen-actor-${{ matrix.index }}
+          path: f10d-artifact/
+          retention-days: 75
+          if-no-files-found: warn
+
+  independent-preregistered-gates:
+    needs: frozen-transfer
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: f10d-frozen-actor-*
+          path: gathered
+      - name: Apply precommitted F10-D 3 gates from 4 independent model pairs
+        run: |
+          python -m observatory.f10d_structural_transfer_gate --gathered gathered --output f10d-gates.json
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          r=json.loads(Path("f10d-gates.json").read_text())
+          assert r["phase"]=="DEVELOPMENT_TRANSFER_ONLY"
+          assert not r["training_performed"] and not r["future_confirmation_opened"]
+          assert r["four_replicas_complete"] and not r["read_gate_head_trained"]
+          summary=["# INFINITO F10-D frozen structural transfer",
+            "Original F10-C weights run 41447171697 and F10-B run 41443064754, no retraining.",
+            "64 entirely new worlds × 4 queries per actor, 4 actors, 3/4/6/8 records, 4 source regimes.",
+            "",
+            "## Preregistered outcome: "+r["status"],
+            "Gates: "+str(r["gates"]),"Counts: "+str(r["replica_gate_counts"]),
+            "",
+            "| Actor | Relational READ | Unary READ | Same relational SKIP | GRU-only | Historical F10-B READ | Δ READ-SKIP |",
+            "|---|---:|---:|---:|---:|---:|---:|"]
+          for idx,x in r["per_replica"].items():
+              c=x["correct"]
+              summary.append(f'| {idx} | {c["relational_read"]}/256 | {c["unary_read"]}/256 | {c["relational_skip"]}/256 | {c["recurrent_only"]}/256 | {c["f10b_frozen_read"]}/256 | {x["read_skip_delta"]:.3f} |')
+          summary+=["","## Full stratified report",
+                     "~~~json",json.dumps(r["per_replica"],indent=2,ensure_ascii=False),"~~~",
+                     "**F10-D is transfer DEV only; 15300000+ remains unopened.**"]
+          Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text("\n".join(summary))
+          print("F10D_SCIENTIFIC_STATUS",r["status"],flush=True)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: f10d-independent-scientific-transfer-gates
+          path: f10d-gates.json
+          retention-days: 75
+          if-no-files-found: error
