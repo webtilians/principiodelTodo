@@ -159,7 +159,7 @@ def summarize_cases(cases, rows, patch_rows):
                 reg: {"pairs": sum(p["regime"] == reg for p in pairs),
                       "different_READ": sum(p["read_disagreement"] for p in pairs
                                             if p["regime"] == reg)}
-                for reg in REGIMES,
+                for reg in REGIMES
             },
         },
         "history_patches_ineligible_public_mismatch": 2 * WORLDS * 2 -
