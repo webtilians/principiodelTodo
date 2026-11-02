@@ -1,0 +1,74 @@
+name: INFINITO F9-Z - Report-only recovery (no worlds evaluated)
+
+on:
+  push:
+    branches: [experiment/f9z-causal-read-positivity-feasibility]
+    paths:
+      - docs/INFINITO_F9Z_REPORT_RECOVERY.md
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: f9z-report-only-same-pilot
+  cancel-in-progress: false
+
+jobs:
+  recover-only-aggregate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Syntax check stand-alone stdlib aggregation
+        run: |
+          python -m py_compile observatory/f9z_support_aggregate.py
+          python - <<'PY'
+          from observatory.f9z_support_aggregate import ORDER,CELLS,WORLDS,seed_for
+          assert len(ORDER)==9 and len(CELLS)==4 and WORLDS==24
+          assert seed_for(3,23)==11130023
+          print("F9Z_NO_ENVIRONMENT_IMPORT_OR_PILOT_EXECUTION")
+          PY
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 41370406853
+          repository: webtilians/principiodelTodo
+          github-token: ${{ github.token }}
+          pattern: f9z-pilot-seed-*
+          path: gathered
+      - name: Aggregate exact prior four frozen original pilot artifacts
+        run: |
+          python -m observatory.f9z_support_aggregate --gathered gathered --output f9z-pilot-final.json
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          d=json.loads(Path("f9z-pilot-final.json").read_text())
+          assert d["stage"]=="NEW_PILOT_ONLY"
+          assert d["unique_worlds"]==96 and d["full_factorial_cases"]==3456
+          assert d["paired_READ_SKIP_continuations"]==6912
+          assert d["preregistered_contracts_all_passed"]
+          assert not d["old_confirm_reused"] and not d["new_future_train_dev_confirm_opened"]
+          lines=["# F9-Z: original completed pilot / report recovery ONLY",
+                 "Four original per-actor artifacts from run #41370406853.",
+                 "Pilot actors passed frozen original F9-V N8/W1 anchor and SKIP invariance.",
+                 "Previous aggregate job lacked numpy in independent runner; THIS pure-stdlib job never imports actor or executes any new worlds.",
+                 "Precommitted one common N,W >=3 positive and >=3 nonpositive in ALL sixteen cells.",
+                 "","## Preregistered result: "+d["status"],
+                 "Eligible common treatments: "+str(d["eligible_common_treatments"]),
+                 "","| Treatment | D+ | D0 | D- | Cells 3/3 (out of 16) | Cells any D+ |",
+                 "|---|---:|---:|---:|---:|---:|"]
+          for name in d["fixed_order"]:
+              r=d["treatments"][name]
+              lines.append(f'| {name} | {r["effect_total"]["1"]} | {r["effect_total"]["0"]} | {r["effect_total"]["-1"]} | {r["cells_with_3_positive_and_3_nonpositive"]}/16 | {r["cells_with_at_least_one_positive"]}/16 |')
+          lines+=["","## Detailed actor × cue × regime factorial results",
+                  "~~~json",json.dumps(d["treatments"],indent=2,ensure_ascii=False),"~~~",
+                  "**F9-Z-A is a feasibility pilot, NOT a new training or confirmation. 11200000+, 11300000+, 11400000+ remain sealed.**"]
+          Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text("\n".join(lines))
+          print("F9Z_SCIENTIFIC_PILOT_STATUS",d["status"])
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: f9z-original-pilot-recovered-scientific-report
+          path: f9z-pilot-final.json
+          retention-days: 75
+          if-no-files-found: error
