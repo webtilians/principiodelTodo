@@ -70,7 +70,7 @@ Forzar el ganador a entrar entre los cinco slots (`PATCH_WINNER_INCLUDE` con nue
 
 ## Resultado y decisión
 
-**Estado técnico formal: `F10F_MECHANISM_AUDIT_COMPLETE`.** Cuatro modelos congelados, 432 mundos nuevos, 1728 variantes, paridad exacta, cinco checkpoints? **Dos checkpoints F10-C por réplica** (relacional y unario), todos con SHA verificado. Sin reentrenar ni abrir `17_300_000+`, `16_300_000+` ni confirmaciones previas.
+**Estado técnico formal: `F10F_MECHANISM_AUDIT_COMPLETE`.** Cuatro réplicas del actor original congelado, con **dos checkpoints F10-C por réplica** (relacional y unario), 432 mundos nuevos, 1728 variantes, paridad exacta y todos los SHA verificados. Sin reentrenar ni abrir `17_300_000+`, `16_300_000+` ni confirmaciones previas.
 
 **Interpretación científica**: hemos aislado un **límite estructural del selector por clave** al haber >5 informes, y un segundo cuello de botella relacionado con cómo se puntúan/mezclan/evalúan las versiones firmadas. Los errores al interpretar lecturas onehot asistidas por observador no separan por sí solos el `head` del estado recurrente. La heterogeneidad de replicas 0/2 frente a 1 es esencial y debe mantenerse visible.
 
