@@ -47,6 +47,10 @@ def audit(root):
         assert train['replica'] == replica and set(train['arms']) == set(ARMS)
         assert len(rows) == 5*2*128*4
         assert len({(r['split'], r['arm'], r['seed'], r['variant']) for r in rows}) == len(rows)
+        reference = {(r['split'], r['seed'], r['variant']): (r['hash'], r['truth'], r['winner'], r['k'], r['baselines']) for r in rows if r['arm'] == ARMS[0]}
+        for arm in ARMS:
+            observed = {(r['split'], r['seed'], r['variant']): (r['hash'], r['truth'], r['winner'], r['k'], r['baselines']) for r in rows if r['arm'] == arm}
+            assert observed == reference, 'Arms must evaluate exactly the same worlds and labels'
         local_hashes = set(train['train_hashes'])
         assert len(local_hashes) == 2048
         assert not local_hashes & all_hashes

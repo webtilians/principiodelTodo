@@ -1,0 +1,54 @@
+name: INFINITO F10-G - Audit published frozen experiment
+on:
+  push:
+    branches: [experiment/f10g-selection-interpretation]
+    paths:
+      - .github/workflows/infinito-f10g-audit.yml
+      - docs/artifacts/f10g-frozen-run.zip
+      - observatory/f10g_audit.py
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install numpy==2.4.6
+      - name: Verify prospective registration and unchanged executed model code
+        run: |
+          git merge-base --is-ancestor eedc1abf639f1f8e6763294bdfcf3010b0e0b30e a11f525af2acf42769962d4ec6b95468526a3ece
+          git diff --exit-code a11f525af2acf42769962d4ec6b95468526a3ece -- observatory/f10g_worlds.py observatory/f10g_models.py observatory/f10g_experiment.py tests/test_f10g_selection_interpretation.py
+      - name: Verify archive and audit all recorded cases without training
+        run: |
+          python - <<'PY'
+          import hashlib,json,zipfile
+          from pathlib import Path
+          manifest=json.loads(Path('docs/artifacts/f10g-manifest.json').read_text())
+          p=Path('docs/artifacts/f10g-frozen-run.zip')
+          assert hashlib.sha256(p.read_bytes()).hexdigest()==manifest['archive_sha256']
+          with zipfile.ZipFile(p) as z:
+              assert all(not Path(n).is_absolute() and '..' not in Path(n).parts for n in z.namelist())
+              z.extractall('f10g-published')
+          for name,digest in manifest['files'].items():
+              assert hashlib.sha256((Path('f10g-published')/name).read_bytes()).hexdigest()==digest
+          PY
+          python -m observatory.f10g_audit --root f10g-published --output f10g-audit.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          actual=json.loads(Path('f10g-audit.json').read_text())
+          expected=json.loads(Path('docs/artifacts/f10g-audit.json').read_text())
+          assert actual==expected
+          assert actual['technical']=='F10G_TECHNICAL_COMPLETE'
+          print(actual['decoupling'],actual['architecture'])
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: f10g-audited-results
+          path: f10g-audit.json
