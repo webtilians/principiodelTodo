@@ -99,6 +99,7 @@ def world(seed):
             "number_of_matching_reports":len(occurrences),
             "number_of_contradictions":sum(int(row[KEYS])!=true for row in occurrences),
             "last_unsigned":signature=="unsigned",
+            "latest_unsigned":signature=="unsigned",
             "revised":kind=="revised",
         })
     assert len(out)==4 and len({c["key"] for c in out})==4
