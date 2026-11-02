@@ -1,0 +1,135 @@
+name: INFINITO F10-F - Frozen TopK Attention Mechanism Audit
+
+on:
+  push:
+    branches: [experiment/f10f-frozen-retrieval-mechanism-probes]
+    paths:
+      - docs/INFINITO_F10F_MECHANISM_AUDIT_LAUNCH.md
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: f10f-frozen-17200000-mechanism-audit
+  cancel-in-progress: false
+
+jobs:
+  original-frozen-actor-probes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        index: [0, 1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install CPU-only scientific inference dependencies
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install numpy
+      - name: Check prospective probe tests and exact F10-C actor reproduction before running worlds
+        run: |
+          python -m unittest discover -s tests -p 'test_f10f_mechanism_frozen_probe.py' -v
+          python -m py_compile observatory/f10f_mechanism_worlds.py observatory/f10f_frozen_mechanism_probe.py observatory/f10f_mechanism_audit_gate.py
+          git diff --exit-code 18a4304cd11b51b0ebb5ca159f0060bcd957e6cf -- observatory/f10e_public_factorial_worlds.py observatory/f10e_frozen_factorial_dev.py observatory/f10e_factorial_gate.py
+          git diff --exit-code 4a22f2e3904b7e3126ac1daeb5cf6d6d3bb6a82a -- observatory/f10c_relational_actor_training.py observatory/f10c_multi_version_worlds.py observatory/f10c_relational_actor_dev.py
+      - name: Download original F10-C SHA-validated model artifacts without retraining
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 41447171697
+          repository: webtilians/principiodelTodo
+          github-token: ${{ github.token }}
+          name: f10c-actor-${{ matrix.index }}
+          path: original-f10c/${{ matrix.index }}
+      - name: Probe every frozen actor's topk5, scoring and head on new 17200000+ worlds
+        run: |
+          python -m observatory.f10f_frozen_mechanism_probe --index ${{ matrix.index }} --f10c-source original-f10c/${{ matrix.index }}/training --output f10f-probe/${{ matrix.index }}
+      - name: Verify every logit pair, original frozen model provenance and all data rows
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          i=int("${{ matrix.index }}")
+          r=json.loads(Path(f"f10f-probe/{i}/mechanism-report.json").read_text())
+          assert r["stage"]=="NEW_WORLD_MECHANISTIC_DIAGNOSTIC_ONLY"
+          assert r["replica"]==i and r["worlds"]==108 and r["cases"]==432
+          assert r["seeds"]==[17200000+10000*i+j for j in range(108)]
+          assert r["actor_source"]["source_run"]==41447171697
+          assert set(r["actor_source"]["checkpoint_shas"])=={"relational_read","unary_read_control"}
+          assert not r["training_performed"] and not r["model_weights_changed"]
+          assert not r["read_head_trained"] and not r["old_dev_worlds_revisited"]
+          assert not r["confirm_17300000_opened"]
+          assert r["max_read_forward_logit_error"]<=1e-5
+          assert r["max_skip_forward_logit_error"]<=1e-5
+          assert r["read_and_skip_exact_forward_parity_all"]
+          assert len(r["rows"])==432
+          print("F10F_ALL_FROZEN_FORWARD_PARITY_AND_PROVENANCE_VALID",i,flush=True)
+          PY
+      - name: Preserve detailed report and every score, candidate and diagnostic intervention
+        if: always()
+        run: |
+          mkdir -p f10f-artifact
+          if test -f f10f-probe/${{ matrix.index }}/mechanism-report.json; then
+            cp f10f-probe/${{ matrix.index }}/mechanism-report.json f10f-artifact/
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: f10f-actor-${{ matrix.index }}
+          path: f10f-artifact/
+          retention-days: 75
+          if-no-files-found: warn
+
+  independent-descriptive-mechanism-audit:
+    needs: original-frozen-actor-probes
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: f10f-actor-*
+          path: gathered
+      - name: Validate four frozen actors and stagewise explanations with stdlib only
+        run: |
+          python -m observatory.f10f_mechanism_audit_gate --gathered gathered --output f10f-audit.json
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          r=json.loads(Path("f10f-audit.json").read_text())
+          assert r["status"]=="F10F_MECHANISM_AUDIT_COMPLETE"
+          assert not r["training_performed"] and not r["old_confirmations_opened"]
+          assert not r["observer_patches_operational"]
+          lines=[
+            "# INFINITO F10-F — frozen retrieval mechanism audit",
+            "4 independent original frozen F10-C actor replicas, 108 new paired worlds per replica, 4 public-factorial variants per world.",
+            "Exact logit reconstruction parity READ and SKIP confirmed; observer-only patches are NOT operational actor performance.",
+            "",
+            "## Scientific status: "+r["status"],
+            "Cross-replica error mechanism: "+r["dominant_S_after_error_class_across_replicas"],
+            "",
+            "| Actor | READ /432 | S_after wrong /108 | winner absent among S_after errors | head/hidden limit among S_after errors | mixing-sensitive among S_after errors |",
+            "|---|---:|---:|---:|---:|---:|"
+          ]
+          for idx,x in r["per_replica"].items():
+            e=x["S_after"]
+            c=e["error_categories"]
+            lines.append(f'| {idx} | {x["overall"]["read_correct"]}/432 | {e["errors"]}/108 | {c["MISSING_WINNER"]} | {c["HEAD_OR_HIDDEN_LIMIT"]} | {c["MIXING_OR_WEIGHTING_SENSITIVE"]} |')
+          lines+=["","## Complete candidate and patch aggregate",
+                  "~~~json",json.dumps(r["per_replica"],indent=2,ensure_ascii=False),"~~~",
+                  "**This is mechanistic DEV diagnostics, not a new model, independent confirmation or learned-policy success. 17300000+ sealed.**"]
+          Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text("\n".join(lines))
+          print("F10F_INDEPENDENT_AUDIT_STATUS",r["status"],flush=True)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: f10f-independent-mechanism-audit
+          path: f10f-audit.json
+          retention-days: 75
+          if-no-files-found: error
