@@ -1,0 +1,141 @@
+name: INFINITO F10-B - Evidence Provenance and Temporal Memory
+
+on:
+  push:
+    branches: [experiment/f10b-provenance-temporal-evidence]
+    paths:
+      - docs/INFINITO_F10B_TRAIN_DEV_LAUNCH.md
+
+permissions:
+  contents: read
+
+concurrency:
+  group: f10b-13100000-train-13200000-dev
+  cancel-in-progress: false
+
+jobs:
+  actor-train-and-causal-dev:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        index: [0,1,2,3]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install stand-alone evidence-task research dependencies
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install numpy
+      - name: Audit preregistration, no original actor code change, and all new-world tests
+        run: |
+          python -m unittest discover -s tests -p 'test_f10b_temporal_evidence.py' -v
+          python -m py_compile observatory/f10b_temporal_evidence_task.py observatory/f10b_train_evidence_actors.py observatory/f10b_temporal_evidence_dev.py observatory/f10b_temporal_evidence_gate.py
+          git diff --exit-code 898b6e43f6f1dd08b970fe4a0e4651d271944e80 -- observatory/f9v_lexicographic_causal_f4.py observatory/f9q_causal_fork.py observatory/f9i_selective_memory.py observatory/f9j_recurrent_memory_attribution.py observatory/f9o_long_blackout_training.py src/
+      - name: Train both same-capacity GRU actors with original new TRAIN worlds only
+        run: |
+          python -m observatory.f10b_train_evidence_actors --index ${{ matrix.index }} --output f10b-train/${{ matrix.index }}
+      - name: Validate paired model training and frozen plan
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from observatory.f9_external_minigrid import file_sha
+          i=int("${{ matrix.index }}")
+          p=Path(f"f10b-train/{i}")
+          r=json.loads((p/"report.json").read_text())
+          assert r["stage"]=="TRAIN_ONLY" and r["index"]==i
+          assert r["train_worlds"]==256 and r["train_cases"]==1024
+          assert r["epochs"]==12 and r["batch_size"]==64 and r["gru_width"]==64
+          assert r["no_confirm_13300000"] and r["no_old_worlds"]
+          assert r["same_history_across_four_queries"] and r["source_provenance_public"]
+          assert set(r["arms"])=={"memory_available","recurrent_only"}
+          assert all(x["trained_epochs"]==12 and x["updates"]==192 for x in r["arms"].values())
+          assert all(file_sha(p/v["checkpoint"])==v["sha256"] for v in r["arms"].values())
+          print("F10B_PROSPECTIVE_MATCHED_TRAINING_VALID",i,flush=True)
+          PY
+      - name: Run new DEV worlds and counterfactuals with same recurrent state
+        run: |
+          python -m observatory.f10b_temporal_evidence_dev --index ${{ matrix.index }} --trained f10b-train/${{ matrix.index }} --output f10b-dev/${{ matrix.index }}
+      - name: Audit all 64 worlds and every matched DEV condition
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          i=int("${{ matrix.index }}")
+          r=json.loads(Path(f"f10b-dev/{i}/dev-report.json").read_text())
+          assert r["phase"]=="DEV_ONLY" and r["index"]==i
+          assert r["worlds"]==64 and r["cases"]==256
+          assert r["world_seeds"]==[13200000+10000*i+j for j in range(64)]
+          assert r["labels_from_public_signed_reports"]
+          assert r["same_actor_and_hidden_for_read_skip"]
+          assert r["shared_history_across_four_strata"]
+          assert not r["no_confirmation_opened"] is False
+          assert not r["no_reader_gate_trained"] is False
+          assert set(r["by_cell"])=={"signed|stable","unsigned|stable","signed|revised","unsigned|revised"}
+          assert all(v["predictions"]["read_clean"]["cases"]==64 for v in r["by_cell"].values())
+          print("F10B_NEW_DEV_COMPLETE_AND_AUDITED",i,flush=True)
+          PY
+      - name: Preserve both model checkpoints and independent DEV report
+        if: always()
+        run: |
+          mkdir -p f10b-results/training
+          if test -d f10b-train/${{ matrix.index }}; then cp -r f10b-train/${{ matrix.index }}/. f10b-results/training/; fi
+          if test -f f10b-dev/${{ matrix.index }}/dev-report.json; then
+            cp f10b-dev/${{ matrix.index }}/dev-report.json f10b-results/dev-report.json
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: f10b-actor-${{ matrix.index }}
+          path: f10b-results/
+          retention-days: 75
+          if-no-files-found: warn
+
+  independent-scientific-gate:
+    needs: actor-train-and-causal-dev
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: f10b-actor-*
+          path: gathered
+      - name: Aggregate all four complete DEV artifacts without imported Torch or NumPy
+        run: |
+          python -m observatory.f10b_temporal_evidence_gate --gathered gathered --output f10b-independent-gate.json
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          r=json.loads(Path("f10b-independent-gate.json").read_text())
+          assert r["phase"]=="DEV_ONLY" and not r["f10b_confirm_13300000_opened"]
+          assert r["all_train_dev_worlds_new"] and not r["reader_gate_trained"]
+          lines=["# F10-B independent temporal evidence DEV",
+                 "The same 60 public reports precede 4 distinct queries per world, no future query leaked.",
+                 "Four independently seeded GRU64 actors; READ and SKIP share the same recurrent public history.",
+                 "**No old F9/F10-A worlds and no 13300000+ confirmation opened.**",
+                 "","## Preregistered status: "+r["status"],
+                 "Utility gate: "+str(r["causal_utility_gate_pass"]),
+                 "Provenance/temporal gate: "+str(r["provenance_temporal_gate_pass"]),
+                 "","| Replica | READ clean | SKIP | Recurrent-only | Δ READ-SKIP | World-block CI95 | All strata supported |",
+                 "|---|---:|---:|---:|---:|---|---|"]
+          for k,v in r["per_replica"].items():
+              lines.append(f'| {k} | {v["correct"]["read_clean"]}/256 | {v["correct"]["skip"]}/256 | {v["correct"]["recurrent_only"]}/256 | {v["delta_read_vs_skip"]:.3f} | {v["95ci_world_cluster"]} | {v["all_four_cell_support_pass"]} |')
+          lines+=["","## Complete all four actor × four condition outcomes",
+                  "~~~json",json.dumps(r["per_replica"],indent=2,ensure_ascii=False),"~~~",
+                  "**DEV is exploratory. Do not open reserved 13300000+ even with PASS without a separate precommitted confirmation decision.**"]
+          Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text("\n".join(lines))
+          print("F10B_SCIENTIFIC_GATE_STATUS",r["status"])
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: f10b-independent-scientific-dev
+          path: f10b-independent-gate.json
+          retention-days: 75
+          if-no-files-found: error
