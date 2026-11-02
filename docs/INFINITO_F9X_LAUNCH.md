@@ -12,3 +12,6 @@ Determinar si las decisiones READ/SKIP originales de F9-V dependen de H, C, la i
 - Datos a reportar por réplica y globales. No cambiar parámetros ni escoger réplicas según el resultado.
 
 Esta declaración activa `.github/workflows/infinito-f9x-frozen-head-attribution.yml`, y no modifica los experimentos antiguos.
+
+## Registro técnico de primer intento
+Run #41366304145 abortó en los tests ANTES de descargar pesos y ANTES de abrir ningún mundo 9500000+, por un error de sintaxis en el archivo nuevo F9-X (coma al final de comprensión, línea 162). Se corrigió exclusivamente ese error con commit `60ac34539cb62fe8bdff4edc05c2aae0b90528e0`, sin cambiar F9-V, los pesos, el protocolo ni las particiones. Esta edición relanza la misma evaluación exploratoria una vez. No se han observado nuevos resultados DEV.
