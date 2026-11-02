@@ -1,0 +1,112 @@
+name: INFINITO F9-X-B - Posthoc Recurrent Unit Attribution
+
+on:
+  push:
+    branches: [experiment/f9x-frozen-head-information-attribution]
+    paths: [docs/INFINITO_F9XB_POSTHOC_LAUNCH.md]
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: f9xb-no-new-worlds-posthoc-units
+  cancel-in-progress: false
+
+jobs:
+  frozen-unit-attribution:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        seed: [0,1,2,3]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install original F9 CPU dependencies and test syntax
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r observatory/requirements_f9.txt gymnasium==1.4.0
+          python -m py_compile observatory/f9xb_channel_posthoc.py
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 41366421641
+          repository: webtilians/principiodelTodo
+          github-token: ${{ github.token }}
+          name: f9x-frozen-head-new-worlds-seed-${{ matrix.seed }}
+          path: original-950/seed-${{ matrix.seed }}
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 41345497955
+          repository: webtilians/principiodelTodo
+          github-token: ${{ github.token }}
+          name: f9v-frozen-actor-causal-dev-seed-${{ matrix.seed }}
+          path: original-f9v-heads/${{ matrix.seed }}
+      - name: Attribute 64 H and 64 C channels without generating worlds
+        run: |
+          python -m observatory.f9xb_channel_posthoc --index ${{ matrix.seed }} --f9x-report original-950/seed-${{ matrix.seed }}/report.json --f9v-weights original-f9v-heads/${{ matrix.seed }} --output channels/seed-${{ matrix.seed }}.json
+      - name: Check all units and zero new worlds
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          i=int("${{ matrix.seed }}")
+          x=json.loads(Path(f"channels/seed-{i}.json").read_text())
+          assert x["index"]==i and x["new_worlds_evaluated"]==0
+          assert not x["split_8300000_reused"] and not x["split_9600000_opened"]
+          assert all(len(x["units"][g]["all_64_units"])==64 for g in ("H","C"))
+          print("F9XB_EXISTING_WORLD_UNITS_COMPLETE",i)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: f9xb-posthoc-channels-seed-${{ matrix.seed }}
+          path: channels/seed-${{ matrix.seed }}.json
+          retention-days: 75
+          if-no-files-found: warn
+
+  four-actor-channel-report:
+    runs-on: ubuntu-latest
+    needs: frozen-unit-attribution
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: f9xb-posthoc-channels-seed-*
+          path: gathered
+      - name: Publish channel rankings without selecting actor
+        run: |
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          result={"experiment":"F9-X-B","stage":"POSTHOC_NO_NEW_WORLDS","new_worlds":0,
+                  "indices":{}}
+          lines=["# F9-X-B: single-channel H/C patches on frozen F9-X 9500000 data",
+                 "This is posthoc, not a second confirmation; 8300000+ and 9600000+ were NOT accessed.",
+                 "Model-specific unit indices are not transferable across differently trained F9-P replicas."]
+          for i in range(4):
+            d=json.loads(Path(f"gathered/f9xb-posthoc-channels-seed-{i}/seed-{i}.json").read_text())
+            assert d["index"]==i and d["new_worlds_evaluated"]==0
+            result["indices"][str(i)]={
+              group:{k:v for k,v in d["units"][group].items() if k!="all_64_units"}
+              for group in ("H","C")}
+            lines+=["",f"## Frozen replica {i}",
+                    "| Group | Unit index | Mean absolute cue-patch Δlogit | Cue READ flips | Cue sign consistency | History READ flips | History sign consistency |",
+                    "|---|---:|---:|---:|---:|---:|---:|"]
+            for group in ("H","C"):
+              for row in d["units"][group]["top_10_cue_causal"][:5]:
+                lines.append(f'| {group} | {row["channel"]} | {row["cue_mean_abs_logit_effect"]:.4f} | {row["cue_read_flips"]} | {row["cue_signature"]["sign_consistency"]:.2f} | {row["history_read_flips"]} | {row["history_signature"]["sign_consistency"]:.2f} |')
+          Path("f9xb-channel-summary.json").write_text(json.dumps(result,indent=2,ensure_ascii=False))
+          Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text("\n".join(lines))
+          print("F9XB_FOUR_REPLICA_CHANNEL_RESULT",json.dumps(result,ensure_ascii=False),flush=True)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: f9xb-posthoc-channel-summary
+          path: f9xb-channel-summary.json
+          retention-days: 75
+          if-no-files-found: error
