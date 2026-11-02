@@ -14,7 +14,7 @@ from observatory.f9i_selective_memory import SelectiveF4,DIM
 from observatory.f9j_recurrent_memory_attribution import frozen_action
 from observatory.f9n_stage_autonomy import StageObserver
 from observatory.f10a_actor_evidence_training import (
-    ARMS,modify_tail,N_TRAIN,TRAIN_WORLDS,train_seed
+    ARMS,modify_tail,TRAIN_WORLDS,train_seed
 )
 
 DEV_BASE=12200000
@@ -125,7 +125,7 @@ def execute(args):
     validate_training(manifest,old,args.index)
     trained=json.loads((new/"report.json").read_text())
     assert trained["index"]==args.index and trained["phase"]=="TRAIN_ONLY"
-    assert trained["train_worlds"]==N_TRAIN and trained["train_examples_per_arm"]==1536
+    assert trained["train_worlds"]==TRAIN_WORLDS and trained["train_examples_per_arm"]==1536
     assert trained["source_bc_sha256"]==manifest["arms"]["continuous6"]["bc_sha256"]
     assert not trained["reader_head_trained"] and not trained["future_confirm_opened"]
     models={"f9o_original_bc":old/"continuous6_after_bc.zip"}
@@ -139,7 +139,7 @@ def execute(args):
         "phase":"DEV_ONLY","index":args.index,
         "trained_report_sha":file_sha(new/"report.json"),
         "source_f9o_report_sha":file_sha(old/"report.json"),
-        "new_train_worlds":N_TRAIN,"dev_worlds":DEV_WORLDS,
+        "new_train_worlds":TRAIN_WORLDS,"dev_worlds":DEV_WORLDS,
         "new_dev_seeds":[dev_seed(args.index,j) for j in range(DEV_WORLDS)],
         "actor_retrained":True,"old_checkpoints_mutated":False,
         "reader_trained":False,"future_confirm_12300000_opened":False,
