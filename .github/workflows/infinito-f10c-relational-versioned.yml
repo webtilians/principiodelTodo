@@ -1,0 +1,149 @@
+name: INFINITO F10-C - Versioned Credited Evidence Relational Arbitration
+
+on:
+  push:
+    branches: [experiment/f10c-versioned-provenance-relational]
+    paths:
+      - docs/INFINITO_F10C_TRAIN_DEV_LAUNCH.md
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: f10c-new-14100000-14200000
+  cancel-in-progress: false
+
+jobs:
+  relational-training-and-independent-dev:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        index: [0,1,2,3]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install minimal F10-C CPU dependencies
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install numpy
+      - name: Verify preregistered public-only generator and original F10-B files unchanged
+        run: |
+          python -m unittest discover -s tests -p 'test_f10c_relational_versions.py' -v
+          python -m unittest discover -s tests -p 'test_f10b_temporal_evidence.py' -v
+          python -m py_compile observatory/f10c_multi_version_worlds.py observatory/f10c_relational_actor_training.py observatory/f10c_relational_actor_dev.py observatory/f10c_relational_dev_gate.py
+          git diff --exit-code 898b6e43f6f1dd08b970fe4a0e4651d271944e80 -- observatory/f9v_lexicographic_causal_f4.py observatory/f9q_causal_fork.py observatory/f9i_selective_memory.py observatory/f9j_recurrent_memory_attribution.py observatory/f9o_long_blackout_training.py src/
+          git diff --exit-code 9abeae79218f3623fd3aabd1e002c29df425fff1 -- observatory/f10b_temporal_evidence_task.py observatory/f10b_train_evidence_actors.py observatory/f10b_temporal_evidence_dev.py observatory/f10b_temporal_evidence_gate.py
+      - name: Download ORIGINAL F10-B checkpoints from frozen run
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 41443064754
+          repository: webtilians/principiodelTodo
+          github-token: ${{ github.token }}
+          name: f10b-actor-${{ matrix.index }}
+          path: f10b-frozen/${{ matrix.index }}
+      - name: Train new relational, unary and GRU-only controls on 14100000+ only
+        run: |
+          python -m observatory.f10c_relational_actor_training --index ${{ matrix.index }} --output f10c-new/${{ matrix.index }}
+      - name: Audit independent new training weights and budget
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from observatory.f9_external_minigrid import file_sha
+          i=int("${{ matrix.index }}")
+          root=Path(f"f10c-new/{i}")
+          r=json.loads((root/"report.json").read_text())
+          assert r["phase"]=="TRAIN_ONLY" and r["index"]==i
+          assert r["train_worlds"]==512 and r["train_cases"]==2048
+          assert r["epochs"]==12 and r["batch"]==64
+          assert not r["confirm_14300000_opened"] and r["no_old_training_worlds"]
+          assert set(r["arms"])=={"relational_read","unary_read_control","recurrent_only_control"}
+          assert all(x["steps"]==384 and len(x["losses"])==12 for x in r["arms"].values())
+          assert all(file_sha(root/x["checkpoint"])==x["sha256"] for x in r["arms"].values())
+          print("F10C_NEW_TRAINING_CONTRACT_PASS",i)
+          PY
+      - name: Independent new 14200000+ DEV using both ORIGINAL frozen F10-B actors
+        run: |
+          python -m observatory.f10c_relational_actor_dev --index ${{ matrix.index }} --trained f10c-new/${{ matrix.index }} --frozen-f10b f10b-frozen/${{ matrix.index }}/training --output f10c-dev/${{ matrix.index }}
+      - name: Verify all four query strata, causal pairs and frozen model SHAs
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          i=int("${{ matrix.index }}")
+          d=json.loads(Path(f"f10c-dev/{i}/dev-report.json").read_text())
+          assert d["index"]==i and d["phase"]=="DEV_ONLY"
+          assert d["worlds"]==64 and d["cases"]==256
+          assert d["dev_world_seeds"]==[14200000+i*10000+j for j in range(64)]
+          assert d["f10b_weights_frozen"] and not d["f10b_worlds_reused"]
+          assert not d["f10c_confirm_14300000_opened"] and not d["read_head_trained"]
+          assert set(d["by_cell"])=={"signed|stable","unsigned|stable","signed|revised","unsigned|revised"}
+          assert all(row["matching_reports"]==5 for row in d["rows"])
+          print("F10C_INDEPENDENT_DEV_VALID",i)
+          PY
+      - name: Preserve model checkpoints, F10-B SHA evidence and full DEV rows
+        if: always()
+        run: |
+          mkdir -p f10c-results/training
+          if test -d f10c-new/${{ matrix.index }}; then cp -r f10c-new/${{ matrix.index }}/. f10c-results/training/; fi
+          if test -f f10c-dev/${{ matrix.index }}/dev-report.json; then
+            cp f10c-dev/${{ matrix.index }}/dev-report.json f10c-results/dev-report.json
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: f10c-actor-${{ matrix.index }}
+          path: f10c-results/
+          retention-days: 75
+          if-no-files-found: warn
+
+  scientific-independent-aggregate:
+    needs: relational-training-and-independent-dev
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: f10c-actor-*
+          path: gathered
+      - name: Apply F10-C preregistered gates without Torch or NumPy
+        run: |
+          python -m observatory.f10c_relational_dev_gate --gathered gathered --output f10c-gates.json
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          r=json.loads(Path("f10c-gates.json").read_text())
+          assert r["stage"]=="DEV_ONLY" and not r["f10c_confirm_14300000_opened"]
+          assert not r["head_trained"] and not r["prior_f10b_data_reused"]
+          lines=["# F10-C: relational evidence arbitration, new 5-report worlds",
+                 "F10-B comparison frozen from run 41443064754. New 14100000 TRAIN / 14200000 DEV; 14300000 sealed.",
+                 "Four independent models and full 4-stratum evaluations, 64 worlds per actor.",
+                 "",
+                 "## Preregistered scientific result: "+r["status"],
+                 "Gates: "+str(r["gates"]),"Counts: "+str(r["counts"]),
+                 "",
+                 "| Actor | Relational READ | Same actor SKIP | Re-trained unary | Frozen F10-B READ | New GRU-only | Δ READ-SKIP | 95% world CI |",
+                 "|---|---:|---:|---:|---:|---:|---:|"]
+          for idx,x in r["per_replica"].items():
+              c=x["correct"]
+              lines.append(f'| {idx} | {c["read_clean"]}/256 | {c["skip"]}/256 | {c["unary_retrained"]}/256 | {c["f10b_frozen_read"]}/256 | {c["recurrent_retrained"]}/256 | {x["delta_read_minus_skip"]:.3f} | {x["bootstrap_ci95"]} |')
+          lines+=["","## Complete four-stratum scientific audit",
+                  "~~~json",json.dumps(r["per_replica"],indent=2,ensure_ascii=False),"~~~",
+                  "**No READ head training, no old split reuse, no confirmation opened.**"]
+          Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text("\n".join(lines))
+          print("F10C_FINAL_PREREG_STATUS",r["status"],flush=True)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: f10c-independent-scientific-gates
+          path: f10c-gates.json
+          retention-days: 75
+          if-no-files-found: error
