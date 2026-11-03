@@ -91,9 +91,11 @@ def _line(record: MemoryRecord) -> str:
 class AgentMemory:
     """INFINITO's memory as an agent uses it; the MCP tools are thin wrappers around it."""
 
-    def __init__(self, path: Optional[str] = None, *, vault: bool = False):
+    def __init__(self, path: Optional[str] = None, *, vault: bool = False,
+                 store: Optional[SQLiteCognitiveMemoryStore] = None):
         path = path or os.environ.get("INFINITO_MEMORY_DB") or str(DEFAULT_PATH)
-        self.store = SQLiteCognitiveMemoryStore(path=path, embedding_provider=HashEmbeddingProvider(256))
+        # A caller that keeps the database elsewhere (the remote server, encrypted) passes the store.
+        self.store = store or SQLiteCognitiveMemoryStore(path=path, embedding_provider=HashEmbeddingProvider(256))
         self.engine = CognitiveEngine(memory_store=self.store)
         # Whether a refused secret can be pointed at the vault instead.
         self.vault = vault
@@ -180,24 +182,33 @@ def main() -> None:
         vault: Optional[Vault] = Vault()
     except ImportError:
         vault = None
-    memory = AgentMemory(vault=vault is not None)
-    server = MCPServer("infinito-memory", instructions=INSTRUCTIONS + (VAULT_INSTRUCTIONS if vault else ""))
+    # INFINITO_LOCAL_MEMORY=off: the memory lives on an INFINITO server shared by every agent
+    # (remote.py) and this computer only serves the vault, whose windows must open here.
+    local_memory = os.environ.get("INFINITO_LOCAL_MEMORY", "on").strip().lower() not in {"off", "0", "no"}
+    if not local_memory and vault is None:
+        raise SystemExit("INFINITO_LOCAL_MEMORY=off leaves only the vault, which needs pykeepass.")
+    instructions = (INSTRUCTIONS if local_memory else "INFINITO on this computer serves only the user's vault; "
+                    "their memory is on their INFINITO server.") + (VAULT_INSTRUCTIONS if vault else "")
+    server = MCPServer("infinito-memory" if local_memory else "infinito-vault", instructions=instructions)
 
-    @server.tool(description=TOOL_DESCRIPTIONS["remember"])
-    def remember(statement: str) -> str:
-        return memory.remember(statement)
+    if local_memory:
+        memory = AgentMemory(vault=vault is not None)
 
-    @server.tool(description=TOOL_DESCRIPTIONS["recall"])
-    def recall(query: str) -> str:
-        return memory.recall(query)
+        @server.tool(description=TOOL_DESCRIPTIONS["remember"])
+        def remember(statement: str) -> str:
+            return memory.remember(statement)
 
-    @server.tool(description=TOOL_DESCRIPTIONS["list_memories"])
-    def list_memories() -> str:
-        return memory.list_memories()
+        @server.tool(description=TOOL_DESCRIPTIONS["recall"])
+        def recall(query: str) -> str:
+            return memory.recall(query)
 
-    @server.tool(description=TOOL_DESCRIPTIONS["forget"])
-    def forget(memory_ids: List[str], keep: Optional[List[str]] = None) -> str:
-        return memory.forget(memory_ids, keep or [])
+        @server.tool(description=TOOL_DESCRIPTIONS["list_memories"])
+        def list_memories() -> str:
+            return memory.list_memories()
+
+        @server.tool(description=TOOL_DESCRIPTIONS["forget"])
+        def forget(memory_ids: List[str], keep: Optional[List[str]] = None) -> str:
+            return memory.forget(memory_ids, keep or [])
 
     if vault is not None:
         @server.tool(description="Whether the user's vault exists, is locked or is open, and how many entries it has.")

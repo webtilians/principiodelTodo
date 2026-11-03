@@ -1,4 +1,5 @@
 """INFINITO over HTTP: private addresses, one memory per person, over a real streamable HTTP session."""
+import json
 import re
 import socket
 import threading
@@ -94,3 +95,80 @@ def test_each_person_talks_to_their_own_memory_over_http(tmp_path):
     assert forgot.startswith("Deleted 1 memories")
     assert "Leeds" not in recalled and "data engineer" in recalled
     assert unknown == 404 and health == "ok"
+    # What is on disk is sealed: nothing a person said can be read there without their address.
+    on_disk = b"".join(p.read_bytes() for p in (tmp_path / "people").rglob("*") if p.is_file())
+    assert b"data engineer" not in on_disk and b"Leeds" not in on_disk
+
+
+def _memory_of(people, name, token):
+    from src.infinito3.remote import SealedMemories
+
+    return SealedMemories(people), people.key(name, token)
+
+
+def test_a_memory_is_sealed_and_only_its_address_opens_it(tmp_path):
+    pytest.importorskip("cryptography")
+    from cryptography.exceptions import InvalidTag
+
+    people = People(tmp_path)
+    token = people.add("ana")
+    sealed, key = _memory_of(people, "ana", token)
+    sealed.use("ana", key, lambda m: m.remember("Vivo en Leeds y trabajo de enfermera."), writes=True)
+    files = [p.name for p in (tmp_path / "people" / "ana").iterdir()]
+    assert files == ["memory.sealed"]
+    assert b"Leeds" not in (tmp_path / "people" / "ana" / "memory.sealed").read_bytes()
+    assert "Leeds" in sealed.use("ana", key, lambda m: m.list_memories(), writes=False)
+    other = people.key("ana", people.add("luis"))  # the right person, the wrong address
+    with pytest.raises(InvalidTag):
+        sealed.use("ana", other, lambda m: m.list_memories(), writes=False)
+
+
+def test_a_memory_written_before_sealing_is_sealed_and_wiped_at_first_use(tmp_path):
+    pytest.importorskip("cryptography")
+    from src.infinito3.mcp_server import AgentMemory
+
+    people = People(tmp_path)
+    token = people.add("ana")
+    entries = json.loads((tmp_path / "people.json").read_text())
+    del entries["ana"]["salt"]  # as written before sealing existed
+    (tmp_path / "people.json").write_text(json.dumps(entries))
+    folder = tmp_path / "people" / "ana"
+    folder.mkdir(parents=True)
+    plain = AgentMemory(str(folder / "memory.db"))
+    plain.remember("Vivo en Leeds.")
+    plain.close()
+    sealed, key = _memory_of(people, "ana", token)
+    listed = sealed.use("ana", key, lambda m: m.list_memories(), writes=False)
+    assert '"Vivo en Leeds."' in listed
+    assert sorted(p.name for p in folder.iterdir()) == ["memory.sealed"]
+
+
+def test_this_computers_memory_can_be_copied_to_the_server(tmp_path):
+    pytest.importorskip("mcp.server.mcpserver")
+    uvicorn = pytest.importorskip("uvicorn")
+    from src.infinito3.mcp_server import AgentMemory
+    from src.infinito3.remote import build_app, copy_local
+
+    local = AgentMemory(str(tmp_path / "local.db"))
+    local.remember("Mi proyecto principal es INFINITO.")
+    local.remember("Prefiero las explicaciones breves.")
+    local.close()
+    people = People(tmp_path / "server")
+    token = people.add("enrique")
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        port = probe.getsockname()[1]
+    server = uvicorn.Server(uvicorn.Config(build_app(people), host="127.0.0.1", port=port, log_level="warning"))
+    thread = threading.Thread(target=server.run, daemon=True)
+    thread.start()
+    while not server.started:
+        time.sleep(0.05)
+    try:
+        result = copy_local(f"http://127.0.0.1:{port}/u/{token}/mcp", str(tmp_path / "local.db"))
+    finally:
+        server.should_exit = True
+        thread.join(timeout=10)
+    assert result == "Copied 2 of 2 memories; the rest were refused or already there."
+    sealed, key = _memory_of(people, "enrique", token)
+    listed = sealed.use("enrique", key, lambda m: m.list_memories(), writes=False)
+    assert "INFINITO" in listed and "breves" in listed
