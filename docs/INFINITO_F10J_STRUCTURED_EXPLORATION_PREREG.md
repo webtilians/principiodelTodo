@@ -1,0 +1,50 @@
+# INFINITO F10-J — Exploración intervencionista del valor de consultar memoria
+
+**Prerregistro prospectivo (2026-11-03), escrito antes de implementar el generador F10-J, entrenar o inspeccionar un solo resultado de F10-J.** Se parte del resultado NEGATIVO de F10-I: los tres brazos RL convergieron a SKIP y ~48% OOD, mientras el control con ganador/acción supervisados llegó a 100%. No se reutiliza ningún mundo F10-I como TRAIN, DEV, OOD o confirmación de F10-J. El trabajo de producto en `master` y sus benchmarks queda intacto.
+
+## Pregunta e hipótesis falsable
+
+¿Mantener artificialmente abiertas oportunidades de experiencia en READ y SKIP —sin señalar qué recuerdo es el correcto— permite a la misma arquitectura aprender **cuándo la información externa aporta utilidad**, cómo elegir un registro y cómo actuar? ¿Añadir exploración explícita de los índices y diferencias de retorno ayuda más allá de equilibrar el gate? La intervención modifica la **exploración durante TRAIN**, no impone READ ni el índice durante evaluación.
+
+Distinguir aprender la **utilidad de F4** de aprender una respuesta fija. Por eso los nuevos mundos tienen dos tipos observables de consulta, mitad y mitad:
+
+- **INFORMATIVA:** la verdad binaria se encuentra **solo en F4**, determinada por la última actualización firmada de la clave y un XOR público. Los metadatos de firma, clave, origen y marca de tiempo son visibles, pero **el valor de cada informe se oculta del historial recurrente**. Leer un slot elegido de F4 revela exactamente el valor de ese registro; sin READ, es imposible predecir la verdad mejor que el azar por construcción.
+- **PÚBLICA:** el estado verdadero está explícito en un bit del enunciado (visible sin READ); los valores de F4 son irrelevantes para la respuesta. Una lectura innecesaria tiene coste. La política puede y debe elegir SKIP.
+
+Ambas familias contienen las mismas distribuciones de informes, contrafactuales, firmas y fuentes, y el tipo es visible antes de decidir. El actor no recibe la etiqueta winner ni el estado verdadero como objetivo de optimización en los cuatro brazos RL. El evaluador usa ambas para computar recompensa e integridad, solamente después de actuar.
+
+## Mundos, intervenciones y presupuesto (sellados)
+
+Nuevos namespaces, por réplica r=0..3 y mundo j: **TRAIN** `21100000+10000r+j` 512 mundos; **DEV** `21200000+10000r+j` 128; **OOD** `21400000+10000r+j` 128; **CONFIRM** `21300000+` sellada, no generable por el módulo. Cuatro variantes contrafactuales `U_late,U_early,S_late,S_early` por mundo: modificar firma de un informe X o cambiar su marca temporal conservando fuentes, clave, bit de consulta y almacenamiento; para INFORMATIVA, solo `S_late` cambia la respuesta correcta, mientras que en PÚBLICA las cuatro conservan respuesta. Informes de clave TRAIN/DEV k=6/9, OOD k=12/16; 3–5 informes firmados antes del contraste en TRAIN/DEV, 6–9 OOD, varias actualizaciones acreditadas con valores contradictorios y siempre al menos un distractor sin firma posterior a X. 48 informes totales, 24 claves, posiciones F4 y timestamps desacoplados; fuentes IID en TRAIN/DEV y cuatro patrones OOD (IID, source0 asociado con firma, source1 asociado, fuente alternante por almacenamiento). En OOD se reportan estratos por modo informativo/público, k, fuente y variante. Nunca se lee 21300000+.
+
+Una misma GRU + Bernoulli gate + selector de slots + Bernoulli de acción y una cabeza predictora auxiliar INERTE en todos los brazos (mismo número de parámetros). El historial recurrente recibe metadatos visibles y campos de consulta, **NO valores F4**, y la cabeza de acción recibe solo el valor del slot leído cuando hay READ. El selector ve firma/tiempo/origen, pero no valor, índice winner ni truth. Los valores del resto de slots permanecen inaccesibles. Ninguna pérdida RL incluye índices ganadores ni etiquetas de acción.
+
+Entrenamiento: 20 épocas, 2048 casos TRAIN por réplica (512×4), batch64, 640 updates, **2 trayectorias ejecutadas por caso/época = 81.920 episodios por brazo/réplica**. Inicialización emparejada seed `215000+r`, mismo orden de minibatches seed `216000+100r+epoch`. Adam lr 0.002, grad clip1, entropía 0.005, baseline EMA 0.95, gamma 0.99 y retraso sintético de 2–4 pasos (SIN decisiones intermedias). Recompensa externa observada por acción final correcta +1, incorrecta −1, menos 0.05 si READ; 10% de respuestas de recompensa invertidas por un ruido exógeno Bernoulli, **idéntico para ambas trayectorias del mismo mundo/minibatch**, solo durante TRAIN. El actor no observa la verdad ni sabe si el reward se ha invertido. Las métricas OOD comparan acciones contra verdad sin ruido, y reward esperado con coste, sin rewards de entrenamiento intrínsecos. Mismos dos episodios y misma distribución exógena de ruido para A/B/C/D y control etiquetado E.
+
+## Brazos de exploración
+
+Todos comparten modelo/datos/semillas de entorno y **presupuesto completo de episodios**, pero difieren en las distribuciones de comportamiento:
+
+- **A `on_policy`**: dos rollouts on-policy, gate y slot libres, REINFORCE con baseline EMA de retornos previos. Control que reproduce la limitación F10-I **en mundos nuevos y una tarea de utilidad variable**.
+- **B `forced_gate`**: por estado una trayectoria se obliga a READ y otra a SKIP, ambos **realmente ejecutados** con acción final estocástica; selector de READ muestreado on-policy. READ/SKIP forzados NO se tratan como muestras on-policy. La política de gate aprende a partir de `(R_READ−R_SKIP) * sigmoid(gate_logit)` (gradiente de valor de una elección Bernoulli bajo asignación de tratamientos); las cabezas de acción y selector reciben REINFORCE con baseline EMA a partir de cada retorno efectivamente observado.
+- **C `forced_gate_slot_explore`**: igual B, pero la trayectoria READ muestrea slot de una **mezcla 50% política/50% uniforme sobre slots de clave**. El selector se actualiza con `log μ(slot)` del comportamiento mezcla, no con el log-prob de un slot que hubiera elegido sin explorar. Atribuye créditos solo por los episodios ejecutados; compara coste de explorar slots y diversidad.
+- **D `paired_credit`**: igual C (misma mezcla y gate forzado), pero REINFORCE de actor/selector utiliza `R_READ−R_SKIP` como ventaja por par de experiencias en el mismo mundo, en lugar del baseline EMA. El gate conserva el mismo estimador de diferencia READ/SKIP. No se consultan recompensas contrafactuales de acciones no ejecutadas ni índices ganadores.
+- **E `supervised_ceiling`**: control etiquetado de capacidad, con CE del índice ganador, BCE de READ en casos INFORMATIVA/SKIP en PÚBLICA, y BCE de acción correcta. Iguales pesos/arquitectura/presupuesto de episodios, pero **privilegiado, NO comparación sin etiquetas**.
+
+En B/C/D, las decisiones forzadas solo afectan la política de exploración durante TRAIN. Evaluación OPERACIONAL: gate READ si p>=0.5, slot argmax y acción argmax, **sin intervenciones**. En el control E el target de READ está marcado por el modo público/informativo: esto es supervisión privilegiada intencional.
+
+**Interpretación:** los estimadores B/C/D no son estrictamente equivalentes al gradiente on-policy de A, ni se iguala el coste de cómputo; se igualan episodios y parámetros. C cambia la política de exploración sobre slots y D cambia el estimador de crédito. Diferencias positivas no demostrarían capacidad de inventar operaciones fuera del espacio READ/SKIP/slot/action.
+
+## Evaluación y puertas de éxito preregistradas
+
+Congelar los 5 checkpoints de cada réplica **ANTES de generar DEV u OOD**; ningún early stopping, exploración de DEV ni tuning de coeficientes tras ver OOD. Auditor independiente en segundo job verifica hashes, inicialización, 20 SHA, 5×4×2×128×4 = **20.480 predicciones DEV/OOD**, 4×(2048+512+512) = **12.288 historias únicas** y exactamente 81.920 episodios por modelo. Comparar con el mismo mundo y cuatro variantes; 2000 bootstrap remuestreos por **mundo base** con semilla `217000+r` (no tratar variantes como independientes). Guardar datos por brazo, réplica, modo, k, fuente, variante; READ fractions, selector accuracy en INFORMATIVA, accuracy de acción, retorno operativo, causal FORCED_READ−FORCED_SKIP y ablation F4 SHUFFLE, ERASE_SIGN, ERASE_TIME (las intervenciones no cambian historial recurrente).
+
+- **G1 AUTONOMOUS_INFORMATION**: en >=3/4 réplicas **C o D** obtiene en OOD INFORMATIVA accuracy>=75%, selección winner>=65%, READ>=80%, FORCED_READ−FORCED_SKIP>=+20pp con límite inferior IC95>0; en OOD PÚBLICA accuracy>=90% y SKIP>=80%. En cada k y fuente OOD INFORMATIVA accuracy>=65%. Si D y C tienen distintas réplicas, contar éxito por réplica cuando al menos uno lo consiga.
+- **G2 VALUE_GATE_EXPLORATION**: B−A en accuracy OOD INFORMATIVA >=+10 puntos porcentuales y límite inferior IC95>0 en >=3/4 réplicas.
+- **G3 VALUE_SLOT_EXPLORATION**: C−B en accuracy OOD INFORMATIVA >=+8pp y límite inferior IC95>0 en >=3/4 réplicas.
+- **G4 VALUE_PAIRED_CREDIT**: D−C en accuracy OOD INFORMATIVA >=+5pp y límite inferior IC95>0 en >=3/4 réplicas.
+- **GLOBAL PASS** solo si G1+G2+G3+G4 cumplen; de otro modo `F10J_STRUCTURED_EXPLORATION_FAIL`, aunque subgates positivos deben publicarse. Éxito técnico separado `F10J_TECHNICAL_COMPLETE`. El 100% del techo supervisado no rescata un fracaso RL.
+
+Controles **sin memoria** informativa al azar, regla simbólica latest-signed (techo), en pública respuesta sin READ, FORCED_SKIP y SHUFFLED. En particular, la arquitectura NO debe poder acceder a los valores de F4 por `history` o metadatos; tests específicos anti-fuga obligatorios antes de TRAIN. Si fracasa un gate, no reparar F10-J mirando sus OOD; nuevo diseño = F10-K prospectivo. Si fallo puramente técnico después de entrenamiento, permitido recuperar SHA congelados y re-evaluar mismos mundos declarando la incidencia, NUNCA volver a entrenar para mejorar resultado.
+
+**Integración con producto:** rama de investigación sobre F10-I; NO modificar `master`, `src/infinito3` ni utilizar Bemula-Lite / E10 datos de producto para TRAIN/DEV/OOD.
