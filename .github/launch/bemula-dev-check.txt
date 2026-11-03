@@ -1,0 +1,10 @@
+Launch: INFINITO on four Bemula development instances, with the real models.
+
+Approved by the maintainer on 2026-11-03. A check of the whole pipeline (forget
+planner, answers and Bemula's judge) before the evaluation run. It uses only
+development instances; its numbers are not a result, and Bemula-Lite is not
+touched.
+
+Second attempt, 2026-11-03: the first (Actions run 41616352311) stopped at the
+agent preflight, before any instance ran, because OpenAI's API takes
+max_completion_tokens for GPT-5 models and Bemula's client sends max_tokens.

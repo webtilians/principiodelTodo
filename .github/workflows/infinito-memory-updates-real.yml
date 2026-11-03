@@ -4,7 +4,7 @@ name: INFINITO memory updates, real-LLM confirmation
 # starts it; merging to master does not.
 on:
   push:
-    branches: [fix/memory-capture-context]
+    branches: [feat/v0.5-forgetting]
     paths: [".github/launch/memory-updates-real.txt"]
 
 permissions:
@@ -37,11 +37,11 @@ jobs:
             echo "::error::OPENAI_API_KEY is not set"
             exit 3
           fi
-      - name: Real LLM and embeddings on the confirmation partition
+      - name: Real LLM and embeddings on the v0.5 confirmation partition
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: >
-          python scripts/benchmark_memory_updates.py --partition confirm
+          python scripts/benchmark_memory_updates.py --partition confirm2
           --llm openai --embeddings openai --workers 8
           --json results/report.json --summary results/summary.md
       - name: Job summary
@@ -51,7 +51,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: memory-updates-real-confirmation
+          name: memory-updates-real-confirmation-v05
           path: results/
           if-no-files-found: warn
           retention-days: 90

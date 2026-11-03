@@ -10,7 +10,7 @@ import re
 from src.infinito3.context_builder import BalancedContextBuilder
 from src.infinito3.engine import CognitiveEngine
 from src.infinito3.goals import SimpleGoalEngine
-from src.infinito3.memory import RuleBasedMemoryGate
+from src.infinito3.memory import InMemoryMemoryStore, RuleBasedMemoryGate
 from src.infinito3.persistent_memory import SimpleFactExtractor, SQLiteCognitiveMemoryStore
 from src.infinito3.types import MemoryKind, MemoryRecord
 
@@ -130,3 +130,25 @@ def test_write_times_are_strictly_increasing_across_restarts(tmp_path):
     reopened.close()
 
     assert first.updated_at < second.updated_at < third.updated_at
+
+
+def test_a_paraphrased_update_stays_when_it_stands_out_in_meaning():
+    # Similarities as text-embedding-3-small gave them on development data.
+    def memory(content, similarity):
+        record = MemoryRecord(content, MemoryKind.EPISODIC, 0.3)
+        record.similarity = similarity
+        return record
+
+    original = memory("My usual coffee order is an oat latte.", 0.73)
+    update = memory("I've cut down on milk, so these days I get a cold brew.", 0.41)
+    noise = [memory(text, s) for text, s in (
+        ("We had pizza for dinner on Saturday.", 0.15),
+        ("I finally fixed the leaking tap in the kitchen.", 0.07),
+        ("Our neighbours adopted a small dog.", 0.07),
+        ("La lavadora hace un ruido raro desde ayer.", 0.20),
+    )]
+    builder = BalancedContextBuilder(memory_store=InMemoryMemoryStore(), goal_engine=SimpleGoalEngine())
+
+    packet = builder.build("What coffee do I usually order?", memory_candidates=[original, update, *noise])
+
+    assert [item.content for item in packet.items] == [original.content, update.content]

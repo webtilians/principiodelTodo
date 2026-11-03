@@ -141,6 +141,8 @@ class SQLiteCognitiveMemoryStore:
         self._lock = threading.RLock()
         self._conn = sqlite3.connect(path, check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
+        self._vector_cache: Dict[str, Tuple[Optional[List[float]], float]] = {}
+        self._token_cache: Dict[str, Counter] = {}
         self._init_schema()
         latest = self._conn.execute("SELECT MAX(updated_at) AS t FROM memories").fetchone()["t"]
         self._last_write = datetime.fromisoformat(latest) if latest else datetime.min
@@ -164,6 +166,11 @@ class SQLiteCognitiveMemoryStore:
     def _init_schema(self) -> None:
         with self._lock, self._conn:
             self._conn.execute("PRAGMA journal_mode=WAL")
+            # Deleted rows are overwritten, not left in free pages.
+            self._conn.execute("PRAGMA secure_delete=ON")
+            self._conn.execute(
+                "CREATE TABLE IF NOT EXISTS forget_log (purged_at TEXT NOT NULL, purged_count INTEGER NOT NULL)"
+            )
             self._conn.execute(
                 """
                 CREATE TABLE IF NOT EXISTS memories (
@@ -319,26 +326,30 @@ class SQLiteCognitiveMemoryStore:
                 ).fetchall()
         return [self._row_to_record(row) for row in rows]
 
-    def search(self, query: str, top_k: int = 5) -> List[MemoryRecord]:
+    def _rank(self, query: str, statuses: Sequence[str]) -> List[Tuple[float, float, float, sqlite3.Row]]:
+        """Score every memory with one of ``statuses``: (score, lexical, vector, row), best first."""
         query_tokens = Counter(_TOKEN_RE.findall(query.lower()))
         query_embedding = self._safe_embed(query)
+        query_norm = math.sqrt(sum(v * v for v in query_embedding)) if query_embedding else 0.0
         now = datetime.utcnow()
 
+        marks = ",".join("?" for _ in statuses)
         with self._lock:
             rows = self._conn.execute(
-                "SELECT * FROM memories WHERE status = ?",
-                (MemoryStatus.ACTIVE.value,),
+                f"SELECT * FROM memories WHERE status IN ({marks})", tuple(statuses)
             ).fetchall()
 
-        scored: List[Tuple[float, sqlite3.Row]] = []
+        scored: List[Tuple[float, float, float, sqlite3.Row]] = []
         for row in rows:
-            record_tokens = Counter(_TOKEN_RE.findall(row["content"].lower()))
+            record_tokens = self._tokens(row)
             overlap = sum((query_tokens & record_tokens).values())
             union = sum((query_tokens | record_tokens).values()) or 1
             lexical = overlap / union
 
-            embedding = json.loads(row["embedding_json"]) if row["embedding_json"] else None
-            vector = max(0.0, _cosine(query_embedding, embedding)) if query_embedding and embedding else 0.0
+            vector = 0.0
+            embedding, norm = self._vector(row)
+            if query_norm and embedding and norm:
+                vector = max(0.0, sum(a * b for a, b in zip(query_embedding, embedding)) / (query_norm * norm))
 
             created_at = datetime.fromisoformat(row["created_at"])
             age_days = max(0.0, (now - created_at).total_seconds() / 86400.0)
@@ -353,14 +364,35 @@ class SQLiteCognitiveMemoryStore:
                 + 0.04 * recency
                 + 0.03 * access
             )
-            if lexical > 0.0 or vector >= 0.10:
-                scored.append((score, row))
+            scored.append((score, lexical, vector, row))
 
         scored.sort(key=lambda item: item[0], reverse=True)
+        return scored
+
+    def _tokens(self, row: sqlite3.Row) -> Counter:
+        tokens = self._token_cache.get(row["id"])
+        if tokens is None:
+            tokens = Counter(_TOKEN_RE.findall(row["content"].lower()))
+            self._token_cache[row["id"]] = tokens
+        return tokens
+
+    def _vector(self, row: sqlite3.Row) -> Tuple[Optional[List[float]], float]:
+        """The memory's embedding and its norm, decoded once per process."""
+        cached = self._vector_cache.get(row["id"])
+        if cached is None:
+            embedding = json.loads(row["embedding_json"]) if row["embedding_json"] else None
+            norm = math.sqrt(sum(v * v for v in embedding)) if embedding else 0.0
+            cached = (embedding, norm)
+            self._vector_cache[row["id"]] = cached
+        return cached
+
+    def search(self, query: str, top_k: int = 5, *, record_access: bool = True) -> List[MemoryRecord]:
+        scored = [item for item in self._rank(query, (MemoryStatus.ACTIVE.value,))
+                  if item[1] > 0.0 or item[2] >= 0.10]
         selected = scored[:top_k]
 
-        if selected:
-            accessed_at = now.isoformat()
+        if selected and record_access:
+            accessed_at = datetime.utcnow().isoformat()
             with self._lock, self._conn:
                 self._conn.executemany(
                     """
@@ -368,10 +400,75 @@ class SQLiteCognitiveMemoryStore:
                     SET access_count = access_count + 1, last_accessed_at = ?
                     WHERE id = ?
                     """,
-                    [(accessed_at, row["id"]) for _, row in selected],
+                    [(accessed_at, row["id"]) for *_, row in selected],
                 )
 
-        return [self.get(row["id"]) for _, row in selected if self.get(row["id"]) is not None]
+        records = []
+        for _, _, vector, row in selected:
+            record = self.get(row["id"])
+            if record is not None:
+                record.similarity = vector
+                records.append(record)
+        return records
+
+    def forget_candidates(self, query: str, top_k: Optional[int] = None) -> List[MemoryRecord]:
+        """Memories that may hold what a forget request names, most similar first, in any status.
+
+        Superseded and soft-forgotten memories are included: they are not
+        retrieved in conversation, but they still hold the information.
+        ``top_k=None`` returns every memory.
+        """
+        statuses = [status.value for status in MemoryStatus]
+        records = []
+        for _, _, vector, row in self._rank(query, statuses)[:top_k]:
+            record = self._row_to_record(row)
+            record.similarity = vector
+            records.append(record)
+        return records
+
+    def purge(self, memory_ids: Sequence[str]) -> int:
+        """Delete memories for good, with the history of the facts they hold.
+
+        Rows are deleted, not marked: with ``secure_delete`` SQLite overwrites
+        their content, and the write-ahead log is checkpointed so no copy of
+        the deleted pages stays behind. Only the time and the number of rows
+        are logged.
+        """
+        with self._lock:
+            doomed = set()
+            pending = list(memory_ids)
+            while pending:
+                memory_id = pending.pop()
+                if memory_id in doomed:
+                    continue
+                row = self._conn.execute("SELECT * FROM memories WHERE id = ?", (memory_id,)).fetchone()
+                if row is None:
+                    continue
+                doomed.add(memory_id)
+                related = self._conn.execute(
+                    "SELECT id FROM memories WHERE supersedes_id = ? OR id = ?",
+                    (memory_id, row["supersedes_id"] or ""),
+                ).fetchall()
+                if row["fact_subject"] and row["fact_predicate"]:
+                    related += self._conn.execute(
+                        "SELECT id FROM memories WHERE fact_subject = ? AND fact_predicate = ?",
+                        (row["fact_subject"], row["fact_predicate"]),
+                    ).fetchall()
+                pending.extend(r["id"] for r in related if r["id"] not in doomed)
+
+            if not doomed:
+                return 0
+            with self._conn:
+                self._conn.executemany("DELETE FROM memories WHERE id = ?", [(i,) for i in doomed])
+                self._conn.execute(
+                    "INSERT INTO forget_log (purged_at, purged_count) VALUES (?, ?)",
+                    (datetime.utcnow().isoformat(), len(doomed)),
+                )
+            self._conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+            for memory_id in doomed:
+                self._vector_cache.pop(memory_id, None)
+                self._token_cache.pop(memory_id, None)
+        return len(doomed)
 
     def history_for_fact(self, subject: str, predicate: str) -> List[MemoryRecord]:
         with self._lock:

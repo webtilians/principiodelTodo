@@ -54,6 +54,8 @@ class GeneralizedContextBuilder(BalancedContextBuilder):
     ) -> Tuple[Dict[ContextSource, List[ContextItem]], int]:
         filtered = {source: list(items) for source, items in pools.items()}
         before = sum(len(items) for items in filtered.values())
+        if not self.prune:
+            return filtered, 0
 
         # A self-contained request should not receive unrelated personal state.
         if self._self_contained_math(query):
@@ -120,7 +122,7 @@ class GeneralizedContextBuilder(BalancedContextBuilder):
                 # structured predicate; for a singular request keep dominant
                 # evidence only. This works for arbitrary topics, not just a
                 # hand-maintained vocabulary.
-                filtered[source] = self._prune_memory_pool(query, items)
+                filtered[source] = self._prune_memory_pool(query, items, self._semantic_threshold(pools))
 
         after = sum(len(items) for items in filtered.values())
         return filtered, max(0, before - after)

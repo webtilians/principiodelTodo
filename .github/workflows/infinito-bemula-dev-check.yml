@@ -1,0 +1,65 @@
+name: INFINITO on Bemula development check (4 dev instances)
+
+# Paid run: gpt-5.6-luna answers and plans forgetting (OPENAI_API_KEY) and
+# Bemula's judge, DeepSeek-V4.1-Flash, grades (DEEPSEEK_API_KEY). Only a change
+# to the launch file on this branch starts it; merging to master does not.
+on:
+  push:
+    branches: [feat/v0.5-forgetting]
+    paths: [".github/launch/bemula-dev-check.txt"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: infinito-bemula
+  cancel-in-progress: false
+
+jobs:
+  bemula:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Bemula's core dependencies, the OpenAI SDK and pytest
+        run: >
+          python -m pip install 'openai>=1.55,<4' 'pydantic>=2.6' 'pyyaml>=6.0' 'python-dotenv>=1.0'
+          'tenacity>=8.2' 'tqdm>=4.66' 'numpy>=1.26' 'rich>=13.7' pytest
+      - name: Core tests, no API calls
+        run: python -m pytest -q tests/test_*v3.py
+      - name: Bemula at the released commit
+        run: |
+          git clone --quiet https://github.com/Nboxff/bemula-benchmark.git ../bemula
+          git -C ../bemula checkout --quiet 862aff6be384
+      - name: Offline smoke run, no API calls
+        run: python scripts/bemula_infinito.py --bemula ../bemula --split quick_check --offline --out results/smoke
+      - name: Require the API keys without printing them
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: |
+          if [ -z "$OPENAI_API_KEY" ] || [ -z "$DEEPSEEK_API_KEY" ]; then
+            echo "::error::OPENAI_API_KEY and DEEPSEEK_API_KEY must both be set"
+            exit 3
+          fi
+      - name: INFINITO on Bemula
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          BEMULA_JUDGE_MODEL: ${{ vars.BEMULA_JUDGE_MODEL || 'deepseek-flash' }}
+          BEMULA_THINKING: disabled
+        run: python scripts/bemula_infinito.py --bemula ../bemula --split dev --limit 4 --workers 4 --out results/bemula-dev-check
+      - name: Job summary
+        if: always()
+        run: |
+          for f in results/*/report.md; do [ -f "$f" ] && cat "$f" >> "$GITHUB_STEP_SUMMARY"; done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bemula-dev-check
+          path: results/
+          if-no-files-found: warn
+          retention-days: 90

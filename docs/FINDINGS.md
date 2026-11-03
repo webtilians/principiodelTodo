@@ -76,7 +76,76 @@ shares a word with the question. The RAG baseline, with the same embeddings,
 included those updates every time. The other 3 were abstentions with the right
 memory in context. Next: use embedding similarity when selecting context.
 [Run](https://github.com/webtilians/principiodelTodo/actions/runs/41550028202) ·
-[launch and rule](../.github/launch/memory-updates-real.txt)
+[launch and rule](https://github.com/webtilians/principiodelTodo/blob/6934948/.github/launch/memory-updates-real.txt)
+
+**v0.5 with a real LLM: confirmed (2026-11-03).** v0.5 also keeps a retrieved
+memory when its similarity to the question exceeds the median of the retrieved
+memories by 0.12 (at least 0.25), calibrated without an LLM on development seeds
+with real embeddings. Same models, seeds never used before (5600000+ to
+6000000+), and a fifth set whose six templates were written before any run;
+1,200 model calls, 356k input tokens. Same decision rule, fixed in the launch
+commit.
+
+| Scenario set | RAG | INFINITO 0.5 | Context tokens, RAG / 0.5 |
+|---|---:|---:|---:|
+| E10-B families | 24/24 | 22/24 | 147 / 104 |
+| E10-D families | 23/24 | 23/24 | 154 / 134 |
+| Personal assistant, natural questions | 24/24 | 24/24 | 138 / 85 |
+| New templates of the v0.4 run | 24/24 | 23/24 | 142 / 87 |
+| New templates, written for this run | 22/24 | 20/24 | 139 / 83 |
+
+Both systems abstained on all 120 negative controls, and INFINITO is within 2
+scenarios of RAG on every set, so v0.5 is confirmed, with 31% fewer context
+tokens and 15% fewer input tokens. The personal and v0.4 templates were used, on
+other seeds, to calibrate the rule; only the last set is held out at the
+template level, and there INFINITO is 2 scenarios below RAG. INFINITO's 13 wrong
+decisions: 10 updates that never reached the model, in five scenarios where the
+question shares words only with the original statement (a coffee order, a
+commute, and a language class in three seeds), and 3 abstentions with the right
+memory in context. RAG's 3 wrong decisions were all abstentions of that kind.
+[Run](https://github.com/webtilians/principiodelTodo/actions/runs/41609313351) ·
+[launch and rule](https://github.com/webtilians/principiodelTodo/blob/0247c99/.github/launch/memory-updates-real.txt)
+
+**Forgetting on request: v0.5 beats every published system on Bemula-Lite, and
+is far from solved (2026-11-03).** Bemula (arXiv 2610.18052) asks a memory
+system to forget something mid-conversation and then probes efficacy (the
+information is gone), attack robustness (five kinds of adversarial questions),
+retention (before the request), preservation (everything else) and relearning.
+v0.5 recognizes forget requests with rules, lets gpt-5.6-luna review every
+stored memory in batches of 60 and pick those that hold the information, and
+deletes them with the history of their facts. Its configuration was chosen on
+Bemula's 19 development conversations (an offline proxy, then a real check on 4
+of them, run 41616879384); Bemula-Lite (31 conversations, 62 requests, 1,436
+judged answers) ran once, with Bemula's runner, metrics, RAG answer prompt and
+judge, unchanged.
+
+| System | Score | Requests passed | Efficacy | Attack | Retention | Preservation | Relearning |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| INFINITO 0.5 | 45.9 | 3 / 62 | 55.8 | 50.1 | 98.1 | 81.7 | 92.3 |
+| A-MEM | 26.3 | 0 / 62 | 35.6 | 28.9 | 86.5 | 74.2 | 90.4 |
+| Full context | 23.1 | 0 / 62 | 26.0 | 28.5 | 89.4 | 75.3 | 96.2 |
+| LangMem | 20.1 | 0 / 62 | 48.1 | 35.4 | 66.3 | 30.1 | 78.8 |
+| LightMem | 18.1 | 0 / 62 | 22.1 | 19.0 | 98.1 | 90.3 | 86.5 |
+| SimpleMem | 17.5 | 0 / 62 | 17.3 | 22.2 | 96.2 | 84.9 | 94.2 |
+| Naive RAG | 13.1 | 0 / 62 | 17.3 | 14.1 | 84.6 | 79.6 | 88.5 |
+| Mem0 | 5.7 | 0 / 62 | 10.6 | 4.2 | 96.2 | 84.9 | 84.6 |
+
+The other rows are Bemula's published GPT-5.6-Luna runs with the same judge
+(DeepSeek-V4.1-Flash), recomputed on the same conversations; they went through
+an OpenAI-compatible gateway, this run through OpenAI's and DeepSeek's own APIs.
+The rule fixed in the launch commit (score above 26.3 and at least one request
+passed end to end) is met. By request type, forget efficacy was 58% for single
+facts, 63% for several facts, 42% for topics, 29% for inferences, 60% for time
+periods and 100% for replacements; jailbreak questions were the hardest attack
+(40% robust). The rules recognized 50 of 62 requests (73 of 73 on development):
+all single-fact requests, 6 of 10 time-period requests; most misses were
+worded without a verb such as *forget* or *delete*. Efficacy averaged 68% on
+recognized requests and 29% on missed ones. Nine recognized requests got no
+efficacy at all: four inference requests, whose supporting facts stayed in
+memory, and five where the information survived in memories the planner did not
+pick (in two it picked none).
+[Run](https://github.com/webtilians/principiodelTodo/actions/runs/41621190386) ·
+[launch and rule](https://github.com/webtilians/principiodelTodo/blob/92eef8e/.github/launch/bemula-lite.txt)
 
 **E11-A: a learned retention policy helps when demand is predictable, and fails
 badly when it is not.** With 4 memory slots for 16 events, a softmax policy over

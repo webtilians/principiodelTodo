@@ -157,12 +157,20 @@ class BalancedContextBuilder:
         token_estimator: Optional[TokenEstimator] = None,
         max_item_chars: int = 700,
         now_fn=datetime.now,
+        semantic_keep: float = 0.25,
+        semantic_gap: float = 0.12,
+        prune: bool = True,
     ):
         self.memory_store = memory_store
         self.goal_engine = goal_engine
         self.token_estimator = token_estimator or ApproximateTokenEstimator()
         self.max_item_chars = max_item_chars
         self._now_fn = now_fn
+        # See _semantic_threshold.
+        self.semantic_keep = semantic_keep
+        self.semantic_gap = semantic_gap
+        # False keeps every retrieved memory (up to the budget), as a RAG would.
+        self.prune = prune
 
     def build(
         self,
@@ -335,6 +343,8 @@ class BalancedContextBuilder:
     ) -> Tuple[Dict[ContextSource, List[ContextItem]], int]:
         filtered = {source: list(items) for source, items in pools.items()}
         before = sum(len(items) for items in filtered.values())
+        if not self.prune:
+            return filtered, 0
 
         if self._self_contained_math(query):
             return {source: [] for source in filtered}, before
@@ -384,15 +394,32 @@ class BalancedContextBuilder:
                 # relevant; do not let one dominant fact suppress another.
                 filtered[source] = eligible
             else:
-                filtered[source] = self._prune_memory_pool(query, items)
+                filtered[source] = self._prune_memory_pool(query, items, self._semantic_threshold(pools))
 
         after = sum(len(items) for items in filtered.values())
         return filtered, max(0, before - after)
+
+    def _semantic_threshold(self, pools: Dict[ContextSource, List[ContextItem]]) -> Optional[float]:
+        """How similar in meaning a memory must be to be kept without sharing a word with the query.
+
+        It must stand out from the typical retrieved memory (the median) by
+        `semantic_gap`, and reach `semantic_keep` in any case. Measuring
+        against the retrieved memories adapts to the embedding model and to
+        how alike the conversation's messages are.
+        """
+        values = sorted(item.metadata["similarity"] for source in (ContextSource.USER_MODEL, ContextSource.MEMORY)
+                        for item in pools[source] if item.metadata.get("similarity") is not None)
+        if not values:
+            return None
+        middle = len(values) // 2
+        median = values[middle] if len(values) % 2 else (values[middle - 1] + values[middle]) / 2
+        return max(self.semantic_keep, median + self.semantic_gap)
 
     def _prune_memory_pool(
         self,
         query: str,
         items: Sequence[ContextItem],
+        semantic_threshold: Optional[float] = None,
     ) -> List[ContextItem]:
         if len(items) <= 1:
             return list(items)
@@ -403,12 +430,19 @@ class BalancedContextBuilder:
         multi_value = self._query_allows_multiple(query)
         top_predicate = top.metadata.get("fact_predicate")
         query_words = self._content_words(query)
-
         for item in ranked[1:]:
             # A memory that mentions something the query asks about stays even
             # when another one dominates: it may be the earlier value or a later
             # correction of the same subject, and the reader needs both.
             if query_words & self._content_words(item.content):
+                kept.append(item)
+                continue
+
+            # The same holds for a memory close in meaning to the query that
+            # shares no word with it: "Cambié de clínica dental y ahora me
+            # atiende..." is about "¿Quién es mi dentista?".
+            similarity = item.metadata.get("similarity")
+            if semantic_threshold is not None and similarity is not None and similarity >= semantic_threshold:
                 kept.append(item)
                 continue
 
@@ -525,6 +559,8 @@ class BalancedContextBuilder:
                 "fact_predicate": memory.fact_predicate,
                 "fact_value": memory.fact_value,
                 "updated_at": memory.updated_at.isoformat(),
+                "similarity": memory.similarity,
+                "said_at": memory.metadata.get("said_at"),
             },
         )
 
@@ -579,6 +615,9 @@ class BalancedContextBuilder:
         # JSON quoting makes provenance boundaries visible and keeps embedded
         # newlines/quotes from silently becoming new prompt sections.
         quoted = json.dumps(item.content, ensure_ascii=False)
+        if item.metadata.get("said_at"):
+            # When the user said it, as the conversation recorded it.
+            return f"- {item.source.value} ({str(item.metadata['said_at'])[:10]}): {quoted}"
         stated = item.metadata.get("updated_at")
         if stated:
             # Stored times are naive UTC; show the local date, like goal due times.

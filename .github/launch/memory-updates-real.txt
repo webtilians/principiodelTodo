@@ -1,14 +1,18 @@
-Launch: INFINITO v0.4 real-LLM confirmation of the memory-updates benchmark.
+Launch: INFINITO v0.5 real-LLM confirmation of the memory-updates benchmark.
 
-Approved by the maintainer on 2026-11-03. One run on the confirmation partition
-(seeds 3600000+, 3700000+, 3800000+ and 3900000+, never used before). A re-run
-reuses that partition, so it is a replication, not a new test.
+Approved by the maintainer on 2026-11-03. One run on the confirm2 partition
+(seeds 5600000+, 5700000+, 5800000+, 5900000+ and 6000000+, never used
+before). The v0.4 run used the confirm partition (Actions run 41550028202).
 
-Systems: INFINITO v0.4 and a semantic RAG baseline that stores every message
-and shows its top 8 in chronological order. Model gpt-5.6-luna with reasoning
-"none", embeddings text-embedding-3-small, 320 context tokens for both.
-Sets: e10b, e10d, personal, and fresh, whose templates were written before
-any run. 96 scenarios, 960 model calls.
+Systems: INFINITO v0.5 and the semantic RAG baseline that stores every
+message and shows its top 8 in chronological order. Model gpt-5.6-luna with
+reasoning "none", embeddings text-embedding-3-small, 320 context tokens for
+both. Sets: e10b, e10d, personal, fresh, and fresh2, whose six templates were
+written before any run and never embedded. 120 scenarios, 1,200 model calls.
+
+What changed since v0.4: a retrieved memory is also kept when its similarity
+to the query exceeds the median of the retrieved memories by 0.12 (and is at
+least 0.25), calibrated offline on the dev partition only.
 
 Decision rule, fixed before the run: INFINITO is confirmed if on every set it
 is at most 2 scenarios below the RAG baseline and it abstains on at least 90%

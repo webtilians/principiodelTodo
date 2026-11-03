@@ -13,8 +13,8 @@ Scenario sets, 24 scenarios each:
 - e10d: six other project decisions, as in E10-D;
 - personal: Spanish and English facts, paraphrased updates and natural questions
   that do not contain the options;
-- fresh: like personal, with templates written before any run and used only on
-  the confirmation partition.
+- fresh: like personal, with templates written before the v0.4 confirmation;
+- fresh2: six more such templates, written before the v0.5 confirmation.
 
 Baseline: semantic RAG that stores every message, retrieves the top 8 and shows
 them in chronological order, as in E10-B. Both systems get 320 context tokens.
@@ -72,7 +72,12 @@ REASONING_EFFORT = "none"
 EMBEDDING_MODEL = "text-embedding-3-small"
 PARTITIONS = {
     "offline": {"e10b": 2600000, "e10d": 2700000, "personal": 2800000},
+    # Consumed by the v0.4 real-LLM run (Actions run 41550028202).
     "confirm": {"e10b": 3600000, "e10d": 3700000, "personal": 3800000, "fresh": 3900000},
+    # Real embeddings only, to calibrate v0.5 context selection.
+    "dev": {"e10b": 4600000, "e10d": 4700000, "personal": 4800000, "fresh": 4900000},
+    # Reserved for the v0.5 real-LLM confirmation; nothing else may use it.
+    "confirm2": {"e10b": 5600000, "e10d": 5700000, "personal": 5800000, "fresh": 5900000, "fresh2": 6000000},
 }
 MAX_GAP = 2
 MIN_ABSTENTION = 0.90
@@ -224,13 +229,37 @@ FRESH = {
                "My usual coffee order is {v}.", "I've cut down on milk, so these days I get {v}.",
                "What coffee do I usually order?"),
 }
+# Written on 2026-11-03 for the v0.5 confirmation, after v0.5 was calibrated on
+# the dev partition and before any run used these templates.
+FRESH2 = {
+    "physio": (("Lucía Pérez", "Marcos Gil", "Irene Soto", "Pablo Ruiz", "Carmen Vidal", "Hugo Martín"),
+               "Mi fisioterapeuta es {v}.", "Cambié de centro de rehabilitación y ahora me trata {v}.",
+               "¿Quién es mi fisioterapeuta?"),
+    "commute": (("by bike", "by bus", "by train", "on foot", "by tram", "by scooter"),
+                "I get to work {v}.", "Since the office moved, my daily trip there is {v}.",
+                "How do I get to work?"),
+    "language": (("italiano", "francés", "japonés", "árabe", "portugués", "coreano"),
+                 "Estoy aprendiendo {v} por las tardes.", "Dejé aquellas clases; el idioma que estudio ahora es el {v}.",
+                 "¿Qué estoy aprendiendo por las tardes?"),
+    "insurance": (("Mapfre", "Allianz", "AXA", "Generali", "Zurich", "Sanitas"),
+                  "My car insurance is with {v}.",
+                  "I switched providers after the renewal letter, and the policy now sits with {v}.",
+                  "Who is my car insurance with?"),
+    "volunteer": (("los martes", "los jueves", "los sábados", "los domingos", "los lunes", "los viernes"),
+                  "Hago voluntariado en el comedor social {v}.", "Me cambiaron el turno en el comedor: ahora ayudo {v}.",
+                  "¿Qué día hago voluntariado?"),
+    "running": (("5 km", "8 km", "10 km", "12 km", "15 km", "21 km"),
+                "My usual Sunday run is {v}.", "The doctor told me to ease off, so on Sundays I now only do {v}.",
+                "How far do I usually run on Sundays?"),
+}
 SETS = {
     "e10b": (E10B, PROJECT_NOISE),
     "e10d": (E10D, PROJECT_NOISE),
     "personal": (PERSONAL, PERSONAL_NOISE),
     "fresh": (FRESH, PROJECT_NOISE + PERSONAL_NOISE),
+    "fresh2": (FRESH2, PROJECT_NOISE + PERSONAL_NOISE),
 }
-NATURAL_SETS = ("personal", "fresh")
+NATURAL_SETS = ("personal", "fresh", "fresh2")
 
 
 @dataclass(frozen=True)
@@ -370,7 +399,8 @@ class System:
         self.engine.process(text, top_k=TOP_K, context_budget_tokens=CONTEXT_BUDGET)
 
     def context(self, text: str):
-        packet = self.engine.process(text, top_k=TOP_K, context_budget_tokens=CONTEXT_BUDGET).context_packet
+        # A probe reads memory; it is not part of the conversation being remembered.
+        packet = self.engine.recall(text, top_k=TOP_K, context_budget_tokens=CONTEXT_BUDGET)
         if packet is None or not packet.items:
             return "", 0
         return packet.rendered, packet.estimated_tokens
@@ -573,7 +603,8 @@ def main(argv=None, client=None) -> int:
     parser.add_argument("--sets", help="comma-separated subset of the partition's sets")
     parser.add_argument("--limit", type=int, default=24, help="scenarios per set (24 = full set)")
     parser.add_argument("--llm", choices=("none", "openai"), default="none")
-    parser.add_argument("--embeddings", choices=("hash", "openai"), default="hash")
+    parser.add_argument("--embeddings", default="hash",
+                        help="hash, openai, or replay:<file from scripts/fetch_embeddings.py, without suffix>")
     parser.add_argument("--workers", type=int, default=1)
     parser.add_argument("--json", help="write every decision and context to this file")
     parser.add_argument("--summary", help="write a Markdown summary to this file")
@@ -591,6 +622,9 @@ def main(argv=None, client=None) -> int:
     if args.embeddings == "openai":
         embeddings = CachedOpenAIEmbeddings(client)
         embeddings.prefetch(set().union(*(texts_to_embed(sc) for sc in scenarios)))
+    elif args.embeddings.startswith("replay:"):
+        from scripts.replay_embeddings import ReplayEmbeddings
+        embeddings = ReplayEmbeddings(args.embeddings.split(":", 1)[1])
     else:
         embeddings = HashEmbeddingProvider(dimensions=256)
     reported_model = None
@@ -624,13 +658,16 @@ def main(argv=None, client=None) -> int:
 
     meta = {"mode": "real LLM" if args.llm == "openai" else "offline", "partition": args.partition,
             "reader": MODEL if args.llm == "openai" else "last mention",
-            "embeddings": EMBEDDING_MODEL if args.embeddings == "openai" else "hash",
+            "embeddings": EMBEDDING_MODEL if args.embeddings == "openai" else args.embeddings.split(":")[0],
             "commit": commit_id(), "finished": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
             "seed_bases": {s: bases[s] for s in set_names}, "scenarios_per_set": args.limit}
     if reported_model:
         meta["model_reported"] = reported_model
     if args.embeddings == "openai":
         meta["embedding_requests"] = embeddings.calls
+    if args.embeddings.startswith("replay:"):
+        meta["embedding_misses"] = embeddings.misses
+        print(f"embedding misses: {embeddings.misses}")
     if args.summary:
         Path(args.summary).parent.mkdir(parents=True, exist_ok=True)
         Path(args.summary).write_text(markdown(summary, set_names, meta), encoding="utf-8")

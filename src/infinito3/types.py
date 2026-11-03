@@ -55,6 +55,9 @@ class MemoryRecord:
     fact_predicate: Optional[str] = None
     fact_value: Optional[str] = None
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    # Set by a search: cosine similarity between the query and this memory.
+    # Not persisted.
+    similarity: Optional[float] = field(default=None, compare=False, repr=False)
 
 
 @dataclass
@@ -141,6 +144,10 @@ class CognitiveDecision:
     created_goal_ids: List[str] = field(default_factory=list)
     context: List[MemoryRecord] = field(default_factory=list)
     context_packet: Optional[ContextPacket] = None
+    # A message is stored sentence by sentence; stored_memory_id is the first.
+    stored_memory_ids: List[str] = field(default_factory=list)
+    forget_request: bool = False
+    forgotten_count: int = 0
 
     @property
     def stored(self) -> bool:
