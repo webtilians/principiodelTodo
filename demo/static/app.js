@@ -23,6 +23,8 @@ const TEXT = {
     kept_request: "La petición se guarda como un recuerdo más; no borra nada.",
     blocked: (what) => `Bloqueado: parece ${what}. No se guarda ni se envía al modelo.`,
     secret_kept: "Guardado tal cual. Esta demo no se lo envía al modelo, pero una memoria normal sí lo haría.",
+    not_kept: (what) => `No se guarda: parece ${what}. Solo se usa para esta respuesta.`,
+    personal_kinds: { email: "un correo electrónico", phone: "un número de teléfono", personal: "un dato personal" },
     secret_kinds: { password: "una contraseña", pin: "un PIN", api_key: "una clave de API", private_key: "una clave privada",
       national_id: "un número de documento de identidad", bank_account: "un número de cuenta bancaria",
       card_number: "un número de tarjeta", secret: "un secreto" },
@@ -84,6 +86,8 @@ const TEXT = {
     kept_request: "The request is stored as one more memory; nothing is deleted.",
     blocked: (what) => `Blocked: this looks like ${what}. It is not stored or sent to the model.`,
     secret_kept: "Stored as is. This demo does not send it to the model, but a plain memory would.",
+    not_kept: (what) => `Not stored: this looks like ${what}. It is only used for this answer.`,
+    personal_kinds: { email: "an email address", phone: "a phone number", personal: "personal data" },
     secret_kinds: { password: "a password", pin: "a PIN", api_key: "an API key", private_key: "a private key",
       national_id: "an identity document number", bank_account: "a bank account number",
       card_number: "a card number", secret: "a secret" },
@@ -294,7 +298,13 @@ function fillTurn(parts, data, text) {
     return;
   }
   const forgot = typeof inf.forgotten === "number";
-  fillAnswer(parts.inf, inf.answer || t("no_answer"), forgot ? t("erased")(inf.forgotten) : null, "erased");
+  let event = forgot ? t("erased")(inf.forgotten) : null;
+  let eventClass = "erased";
+  if (!forgot && inf.sensitive) {
+    event = t("not_kept")(t("personal_kinds")[inf.sensitive] || t("personal_kinds").personal);
+    eventClass = "blocked";
+  }
+  fillAnswer(parts.inf, inf.answer || t("no_answer"), event, eventClass);
   fillAnswer(parts.plain, plain.answer || t("no_answer"), forgot && plain.stored ? t("kept_request") : null, "kept");
 }
 

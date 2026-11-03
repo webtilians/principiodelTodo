@@ -173,14 +173,18 @@ class RuleBasedMemoryGate:
             reasons.append("information_density")
 
         sentences = split_sentences(text)
-        is_question = "?" in text or "¿" in text or bool(sentences) and all(
+        # A message that only asks is never a memory, even "¿Cómo me llamo?", whose "me llamo"
+        # would otherwise score as an identity statement.
+        if sentences and all(is_question(s) for s in sentences):
+            return GateDecision(False, max(0.0, score - 0.20), kind, reasons + ["question"])
+        asks = "?" in text or "¿" in text or bool(sentences) and all(
             asks_without_marks(s) for s in sentences)
-        if is_question:
+        if asks:
             score -= 0.20
             reasons.append("question_penalty")
 
         score = max(0.0, min(score, 1.0))
-        statement = not is_question and len(tokens) >= self.min_statement_tokens
+        statement = not asks and len(tokens) >= self.min_statement_tokens
         if statement and score < self.threshold:
             reasons.append("statement")
         return GateDecision(score >= self.threshold or statement, score, kind, reasons or ["baseline"])

@@ -77,6 +77,31 @@ def test_a_secret_is_blocked_and_never_reaches_the_model():
     assert "hunter2" not in spy.sent()
 
 
+def test_a_memory_holding_two_facts_answers_a_question_about_either():
+    api, _, _ = client()
+    sid = api.post("/api/session").json()["session"]
+    say(api, sid, "Me llamo Lucía y vivo en Valencia.")
+    reply = say(api, sid, "¿Dónde vivo?").json()
+    assert reply["infinito"]["context_items"] == 1
+    assert "Valencia" in reply["infinito"]["answer"]
+
+
+def test_an_email_is_used_but_not_kept_by_infinito():
+    api, _, _ = client()
+    sid = api.post("/api/session").json()["session"]
+    reply = say(api, sid, "Mi email es lucia@example.com").json()
+    assert reply["infinito"]["sensitive"] == "email"
+    assert reply["infinito"]["memories"] == []
+    assert texts(reply["plain"]["memories"]) == ["Mi email es lucia@example.com"]
+
+
+def test_a_question_is_never_a_memory():
+    api, _, _ = client()
+    sid = api.post("/api/session").json()["session"]
+    reply = say(api, sid, "¿Cómo me llamo y a qué me dedico?").json()
+    assert reply["infinito"]["memories"] == []
+
+
 def test_visitors_do_not_share_memories():
     api, _, _ = client()
     first = api.post("/api/session").json()["session"]
