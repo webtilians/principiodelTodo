@@ -47,7 +47,9 @@ _MEMORY_OBJECT_EN = re.compile(
     r"|about\s+me|(?:everything|anything|all)\s+(?:that\s+)?you(?:'ve|\s+have)?\s+(?:have|know|saved|stored|kept)"
     r"|you\s+(?:have|know|saved|stored)\s+(?:about|on|of)\s+me"
     r"|(?:this|that|those|these|the)\s+(?:personal\s+|private\s+)?(?:details?|information|info|facts?|preference)"
-    r"|(?:details?|information|info)\s+(?:about|of|on)\s+(?:me|my)\b|\bit'?s\s+private\b|\banywhere\b)",
+    r"|(?:details?|information|info)\s+(?:about|of|on)\s+(?:me|my)\b|\bit'?s\s+private\b|\banywhere\b"
+    r"|\b(?:all|any|every)\s+(?:of\s+)?my\s+(?:[\w-]+\s+){0,2}(?:details?|information|info|data)\b"
+    r"|\bmy\s+(?:[\w-]+\s+){0,2}(?:information|info)\b)",
     re.I,
 )
 # Stop keeping: "don't keep it", "no longer be kept", "shouldn't remain in your memory".
@@ -174,31 +176,47 @@ _PLANNER_INSTRUCTIONS = (
 
 
 class LLMForgetPlanner:
-    """Ask an LLM which candidate memories hold the information to forget.
+    """Ask an LLM which stored memories hold the information to forget.
 
-    One call per forget request. The model only sees the request and the
-    candidate memories, and can only return memory numbers and replacement
-    statements; anything else in its reply is ignored.
+    The model reviews every candidate, in batches of ``batch_size`` (the
+    engine passes all memories, most similar first): a request such as "erase
+    my health information" names a category, and similarity alone missed half
+    of its mentions on Bemula's development data. One call per batch, only
+    when the user asks to forget. The model only sees the request and the
+    memories, and can only return memory numbers and replacement statements;
+    anything else in its reply is ignored.
     """
 
-    def __init__(self, adapter: LLMAdapter, max_output_tokens: int = 400):
+    def __init__(self, adapter: LLMAdapter, max_output_tokens: int = 400, batch_size: int = 60):
         self.adapter = adapter
         self.max_output_tokens = max_output_tokens
+        self.batch_size = batch_size
 
     def plan(self, request: str, candidates: Sequence[MemoryRecord]) -> ForgetPlan:
-        numbered = "\n".join(
-            f"[{index}] ({memory.updated_at.date().isoformat()}) {json.dumps(memory.content, ensure_ascii=False)}"
-            for index, memory in enumerate(candidates, start=1)
-        ) or "(none)"
-        prompt = f"Latest user message:\n{json.dumps(request, ensure_ascii=False)}\n\nStored memories:\n{numbered}"
-        response = self.adapter.generate(
-            LLMRequest(
-                [LLMMessage("developer", _PLANNER_INSTRUCTIONS), LLMMessage("user", prompt)],
-                max_output_tokens=self.max_output_tokens,
-                metadata={"purpose": "forget_plan"},
+        batches = [candidates[i:i + self.batch_size] for i in range(0, len(candidates), self.batch_size)] or [[]]
+        plan = ForgetPlan()
+        for number, batch in enumerate(batches, start=1):
+            part = f" (part {number} of {len(batches)})" if len(batches) > 1 else ""
+            numbered = "\n".join(
+                f"[{index}] ({_said_on(memory)}) {json.dumps(memory.content, ensure_ascii=False)}"
+                for index, memory in enumerate(batch, start=1)
+            ) or "(none)"
+            prompt = (f"Latest user message:\n{json.dumps(request, ensure_ascii=False)}\n\n"
+                      f"Stored memories{part}:\n{numbered}")
+            response = self.adapter.generate(
+                LLMRequest(
+                    [LLMMessage("developer", _PLANNER_INSTRUCTIONS), LLMMessage("user", prompt)],
+                    max_output_tokens=self.max_output_tokens,
+                    metadata={"purpose": "forget_plan"},
+                )
             )
-        )
-        return self.parse(response.text, candidates)
+            step = self.parse(response.text, batch)
+            if number == 1:
+                if not step.is_request:
+                    return step
+                plan.remember = step.remember
+            plan.forget_ids.extend(i for i in step.forget_ids if i not in plan.forget_ids)
+        return plan
 
     @staticmethod
     def parse(text: str, candidates: Sequence[MemoryRecord]) -> ForgetPlan:
@@ -223,6 +241,12 @@ class LLMForgetPlanner:
                 forget.append(candidates[index].id)
         remember = [str(item).strip() for item in data.get("remember") or [] if str(item).strip()]
         return ForgetPlan(forget_ids=forget, remember=remember[:5])
+
+
+def _said_on(memory: MemoryRecord) -> str:
+    """The day the user said it, when known, else the day it was stored."""
+    said = memory.metadata.get("said_at")
+    return str(said)[:10] if said else memory.updated_at.date().isoformat()
 
 
 def default_planner(adapter: Optional[LLMAdapter] = None):

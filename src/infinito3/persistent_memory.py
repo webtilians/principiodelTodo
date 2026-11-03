@@ -411,11 +411,12 @@ class SQLiteCognitiveMemoryStore:
                 records.append(record)
         return records
 
-    def forget_candidates(self, query: str, top_k: int = 40) -> List[MemoryRecord]:
-        """Memories that may hold what a forget request names, in any status.
+    def forget_candidates(self, query: str, top_k: Optional[int] = None) -> List[MemoryRecord]:
+        """Memories that may hold what a forget request names, most similar first, in any status.
 
         Superseded and soft-forgotten memories are included: they are not
         retrieved in conversation, but they still hold the information.
+        ``top_k=None`` returns every memory.
         """
         statuses = [status.value for status in MemoryStatus]
         records = []

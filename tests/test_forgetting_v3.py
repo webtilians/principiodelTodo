@@ -158,3 +158,33 @@ def test_search_reports_the_similarity_of_each_memory(tmp_path):
     results = store.search("When is my German class?")
 
     assert results and 0.0 < results[0].similarity <= 1.0
+
+
+def test_the_llm_planner_reviews_every_memory_in_batches(tmp_path):
+    def reply(request):
+        listed = request.messages[-1].content.split(":\n", 2)[-1].split("\n")
+        return json.dumps({"request": True, "forget": [
+            i for i, line in enumerate(listed, start=1) if "health" in line]})
+
+    planner, adapter = _planner(reply)
+    planner.batch_size = 60
+    engine, store = _engine(tmp_path, planner)
+    for n in range(130):
+        engine.process(f"Note {n}: my {'health check' if n % 50 == 7 else 'garden plan'} number {n} went fine.")
+
+    decision = engine.process("Please erase all my health information.")
+
+    assert len(adapter.requests) == 3
+    assert decision.forgotten_count == 3
+    assert not any("health" in text for text in _contents(store))
+
+
+def test_memories_show_the_day_the_user_said_them(tmp_path):
+    from datetime import datetime, timezone
+
+    engine, _ = _engine(tmp_path)
+    engine.process("I spent a family holiday in Penang last December.",
+                   said_at=datetime(2026, 1, 14, 23, 0, tzinfo=timezone.utc))
+
+    assert '(2026-01-14): "I spent a family holiday in Penang last December."' in engine.recall(
+        "Where did I spend my family holiday?").rendered

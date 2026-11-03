@@ -54,6 +54,8 @@ class GeneralizedContextBuilder(BalancedContextBuilder):
     ) -> Tuple[Dict[ContextSource, List[ContextItem]], int]:
         filtered = {source: list(items) for source, items in pools.items()}
         before = sum(len(items) for items in filtered.values())
+        if not self.prune:
+            return filtered, 0
 
         # A self-contained request should not receive unrelated personal state.
         if self._self_contained_math(query):

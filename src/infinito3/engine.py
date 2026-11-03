@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import List, Optional, Sequence
 
 from .forgetting import ForgetRequestDetector, OverlapForgetPlanner
@@ -41,7 +42,7 @@ class CognitiveEngine:
         context_builder: Optional[ContextBuilder] = None,
         forget_detector: Optional[ForgetRequestDetector] = None,
         forget_planner=None,
-        forget_candidates: int = 40,
+        forget_candidates: Optional[int] = None,
     ):
         self.memory_store = memory_store or InMemoryMemoryStore()
         self.memory_gate = memory_gate or RuleBasedMemoryGate()
@@ -53,6 +54,7 @@ class CognitiveEngine:
         )
         self.forget_detector = forget_detector or ForgetRequestDetector()
         self.forget_planner = forget_planner or OverlapForgetPlanner()
+        # How many memories a forget request is checked against; None means all.
         self.forget_candidates = forget_candidates
 
     @classmethod
@@ -79,7 +81,9 @@ class CognitiveEngine:
         context_budget_tokens: int = 1200,
         recent_turns: Optional[Sequence[ConversationTurn]] = None,
         build_context: bool = True,
+        said_at: Optional[datetime] = None,
     ) -> CognitiveDecision:
+        """Handle one user message. ``said_at`` is when the user said it, if not now."""
         safety = self.safety_filter.inspect(text)
 
         # Secrets are blocked before any cognitive subsystem receives them.
@@ -97,7 +101,7 @@ class CognitiveEngine:
         # A forget request is never stored: it usually repeats what it names.
         if self.forget_detector.is_request(query):
             decision = self._forget(text, query, safety, top_k, context_budget_tokens,
-                                    recent_turns, build_context)
+                                    recent_turns, build_context, said_at)
             if decision is not None:
                 return decision
 
@@ -123,7 +127,7 @@ class CognitiveEngine:
                 max_tokens=context_budget_tokens,
             )
 
-        stored_ids = self._store(query) if allow_persistence else []
+        stored_ids = self._store(query, said_at) if allow_persistence else []
 
         return CognitiveDecision(
             input_text=text,
@@ -155,7 +159,7 @@ class CognitiveEngine:
         return self.context_builder.build(text, memory_candidates=candidates,
                                           recent_turns=recent_turns, max_tokens=context_budget_tokens)
 
-    def _store(self, text: str) -> List[str]:
+    def _store(self, text: str, said_at: Optional[datetime] = None) -> List[str]:
         """Store the message if it states something; a message that only asks is skipped.
 
         Real messages mix both ("I manage mild asthma. Should I bring the
@@ -173,12 +177,10 @@ class CognitiveEngine:
                     gate = declarative
         if not gate.should_store:
             return []
-        record = MemoryRecord(
-            content=text,
-            kind=gate.kind,
-            importance=gate.importance,
-            metadata={"gate_reasons": gate.reasons},
-        )
+        metadata = {"gate_reasons": gate.reasons}
+        if said_at is not None:
+            metadata["said_at"] = said_at.isoformat()
+        record = MemoryRecord(content=text, kind=gate.kind, importance=gate.importance, metadata=metadata)
         return [self.memory_store.add(record).id]
 
     def _forget(
@@ -190,6 +192,7 @@ class CognitiveEngine:
         context_budget_tokens: int,
         recent_turns: Optional[Sequence[ConversationTurn]],
         build_context: bool,
+        said_at: Optional[datetime],
     ) -> Optional[CognitiveDecision]:
         finder = getattr(self.memory_store, "forget_candidates", None)
         candidates = (finder(query, top_k=self.forget_candidates) if finder
@@ -202,7 +205,7 @@ class CognitiveEngine:
         stored_ids: List[str] = []
         if safety.level == SafetyLevel.SAFE:
             for statement in plan.remember:
-                stored_ids.extend(self._store(statement))
+                stored_ids.extend(self._store(statement, said_at))
 
         context, packet = [], None
         if build_context:

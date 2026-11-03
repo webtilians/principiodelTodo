@@ -159,6 +159,7 @@ class BalancedContextBuilder:
         now_fn=datetime.now,
         semantic_keep: float = 0.25,
         semantic_gap: float = 0.12,
+        prune: bool = True,
     ):
         self.memory_store = memory_store
         self.goal_engine = goal_engine
@@ -168,6 +169,8 @@ class BalancedContextBuilder:
         # See _semantic_threshold.
         self.semantic_keep = semantic_keep
         self.semantic_gap = semantic_gap
+        # False keeps every retrieved memory (up to the budget), as a RAG would.
+        self.prune = prune
 
     def build(
         self,
@@ -340,6 +343,8 @@ class BalancedContextBuilder:
     ) -> Tuple[Dict[ContextSource, List[ContextItem]], int]:
         filtered = {source: list(items) for source, items in pools.items()}
         before = sum(len(items) for items in filtered.values())
+        if not self.prune:
+            return filtered, 0
 
         if self._self_contained_math(query):
             return {source: [] for source in filtered}, before
@@ -555,6 +560,7 @@ class BalancedContextBuilder:
                 "fact_value": memory.fact_value,
                 "updated_at": memory.updated_at.isoformat(),
                 "similarity": memory.similarity,
+                "said_at": memory.metadata.get("said_at"),
             },
         )
 
@@ -609,6 +615,9 @@ class BalancedContextBuilder:
         # JSON quoting makes provenance boundaries visible and keeps embedded
         # newlines/quotes from silently becoming new prompt sections.
         quoted = json.dumps(item.content, ensure_ascii=False)
+        if item.metadata.get("said_at"):
+            # When the user said it, as the conversation recorded it.
+            return f"- {item.source.value} ({str(item.metadata['said_at'])[:10]}): {quoted}"
         stated = item.metadata.get("updated_at")
         if stated:
             # Stored times are naive UTC; show the local date, like goal due times.

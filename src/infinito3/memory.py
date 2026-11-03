@@ -158,6 +158,11 @@ class InMemoryMemoryStore:
         scored.sort(key=lambda item: item[0], reverse=True)
         return [record for _, record in scored[:top_k]]
 
+    def forget_candidates(self, query: str, top_k=None) -> List[MemoryRecord]:
+        """Every memory, those sharing words with the request first."""
+        found = self.search(query, top_k=len(self._records))
+        return found + [record for record in self._records if record not in found][: None if top_k is None else max(0, top_k - len(found))]
+
     def purge(self, memory_ids) -> int:
         """Delete memories for good."""
         doomed = set(memory_ids)
