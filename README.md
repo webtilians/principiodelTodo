@@ -113,6 +113,37 @@ assistant = CognitiveLoop(engine, OpenAIResponsesAdapter(client, model="<your-mo
 print(assistant.turn("Mañana tengo reunión con el equipo a las 10").response.text)
 ```
 
+## Memory for your AI agent (MCP)
+
+INFINITO also runs as an MCP server, so Claude Code, Claude Desktop, Cursor and other
+MCP clients get a long-term memory about you and your work that stays correct and
+private: it refuses secrets, keeps no questions, lets a newer fact win, and forgets
+for real when you ask. Four tools: `remember`, `recall`, `list_memories` and `forget`.
+The memory is a local SQLite file (`~/.infinito/memory.db`, or `INFINITO_MEMORY_DB`);
+the server itself sends nothing anywhere. It needs [uv](https://docs.astral.sh/uv/).
+
+Claude Code:
+
+```bash
+claude mcp add infinito -- uvx --from "infinito-memory[mcp] @ git+https://github.com/webtilians/principiodelTodo" infinito-mcp
+```
+
+Claude Desktop, Cursor and other clients, in their MCP configuration:
+
+```json
+{
+  "mcpServers": {
+    "infinito": {
+      "command": "uvx",
+      "args": ["--from", "infinito-memory[mcp] @ git+https://github.com/webtilians/principiodelTodo", "infinito-mcp"]
+    }
+  }
+}
+```
+
+Then talk as usual: "remember that I deploy with Docker", "what do you know about my
+project?", "forget everything about my health".
+
 ## How it works
 
 ```text
