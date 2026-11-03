@@ -1,0 +1,167 @@
+name: INFINITO F10-M - Autonomous Operation Sequence Discovery
+
+on:
+  push:
+    branches: [experiment/f10m-autonomous-operation-sequences]
+    paths: [docs/INFINITO_F10M_LAUNCH.md]
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: f10m-single-pre-registered-ood-25400000
+  cancel-in-progress: false
+
+jobs:
+  trial_train:
+    name: Original frozen F10-L skills + four program policies - replica ${{ matrix.replica }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 95
+    strategy:
+      fail-fast: false
+      matrix:
+        replica: [0, 1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install CPU Torch and NumPy
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install numpy
+      - name: TRAIN-only preflight; verify no original F10-L or product edits
+        run: |
+          python -m py_compile observatory/f10m_worlds.py observatory/f10m_experiment.py observatory/f10m_audit.py
+          python -m unittest discover -s tests -p 'test_f10m_program_discovery.py' -v
+          git diff --exit-code dc027f83c2fc557ef6f00b01062bcd369fd301ab -- src/infinito3 observatory/f10l_train.py observatory/f10l_worlds.py observatory/f10l_stage2.py observatory/f10l_confirm_worlds.py
+      - name: Retrieve EXACT original frozen 2026 F10-L models from run 41685499939
+        uses: actions/download-artifact@v4
+        with:
+          repository: webtilians/principiodelTodo
+          run-id: 41685499939
+          github-token: ${{ github.token }}
+          name: f10l-stage1-${{ matrix.replica }}
+          path: old-frozen/${{ matrix.replica }}
+      - name: Retrieve ORIGINAL immutable DEV G0 SHA manifest
+        uses: actions/download-artifact@v4
+        with:
+          repository: webtilians/principiodelTodo
+          run-id: 41685499939
+          github-token: ${{ github.token }}
+          name: f10l-independent-g0-original
+          path: old-g0
+      - name: Execute EXACTLY 98,304 real program trials per arm, freeze new model SHA, THEN evaluate DEV and OOD
+        run: |
+          set -o pipefail
+          python -m observatory.f10m_experiment --replica ${{ matrix.replica }} --original old-frozen/${{ matrix.replica }} --g0 old-g0/f10l-g0.json --out f10m-out/${{ matrix.replica }} | tee f10m-run-${{ matrix.replica }}.log
+      - name: Original SHA and experience-budget integrity (not a science PASS)
+        run: |
+          python - <<'PY'
+          import json,hashlib
+          from pathlib import Path
+          i=int("${{ matrix.replica }}")
+          p=Path(f"f10m-out/{i}")
+          meta=json.loads((p/"training.json").read_text())
+          rows=json.loads((p/"rows.json").read_text())
+          assert meta["status"]=="FROZEN_BEFORE_DEV_AND_OOD"
+          assert meta["confirm_25300000_sealed"]
+          assert meta["unseen_memory_flip1_never_train"]
+          assert meta["no_pretrained_model_training"]
+          assert len(meta["train_case_hashes"])==3072
+          assert len(rows)==4*(768+512)
+          assert set(meta["arms"])=={
+              "global_bandit","context_mlp","factorized","paired_factorized"}
+          for name,x in meta["arms"].items():
+              assert x["executed_environment_episodes"]==98304
+              assert x["updates"]==768 and x["epochs"]==16
+              assert x["no_supervised_labels"]
+              assert hashlib.sha256((p/(name+".pt")).read_bytes()).hexdigest()==x["sha256"]
+          original=meta["original_skills"]["all_5_original_checkpoint_sha"]
+          for name,digest in original.items():
+              assert hashlib.sha256(Path(f"old-frozen/{i}/{name}.pt").read_bytes()).hexdigest()==digest
+          print("F10M_ORIGINAL_OPERATORS_AND_16_CONTROLLERS_SHA_FROZEN",i,flush=True)
+          PY
+      - name: Preserve raw log and all ORIGINAL frozen rows
+        if: always()
+        run: |
+          if test -d f10m-out/${{ matrix.replica }}; then
+            cp f10m-run-${{ matrix.replica }}.log f10m-out/${{ matrix.replica }}/run.log || true
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: f10m-original-${{ matrix.replica }}
+          path: f10m-out/${{ matrix.replica }}/
+          retention-days: 90
+          if-no-files-found: warn
+
+  original_independent_audit:
+    name: Independent 2,000-world bootstrap and preregistered F10-M G0-G4
+    needs: trial_train
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install numpy
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: f10m-original-*
+          path: gathered
+      - name: Data-only SHA and all original fixed scientific gates
+        run: |
+          for i in 0 1 2 3; do
+            mkdir -p audited/$i
+            cp gathered/f10m-original-$i/* audited/$i/
+          done
+          python -m observatory.f10m_audit --root audited --out f10m-fixed-science.json
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          a=json.loads(Path("f10m-fixed-science.json").read_text())
+          assert a["technical"]=="F10M_TECHNICAL_COMPLETE"
+          assert a["unique_case_identity_hashes"]==17408
+          assert a["confirm_25300000_unopened"]
+          lines=[
+            "# INFINITO F10-M — first prospective autonomous ordered-program discovery",
+            "**Scientific fixed result: "+a["status"]+"**",
+            "**Gate counts: "+str(a["gate_counts"])+"**",
+            "Confirmation 25300000+ SEALED.",
+            "",
+            "| Replica | C DEV PUBLIC0 | C DEV PUBLIC1 | C DEV MEMORY0 | A OOD | B OOD | C OOD | D OOD | C top OOD program |",
+            "|---|---:|---:|---:|---:|---:|---:|---:|---|"
+          ]
+          for k,r in a["replicas"].items():
+              dev=r["metrics"]["dev"]["factorized"]
+              ood=r["metrics"]["ood"]
+              fields=[
+                dev["PUBLIC_0"]["accuracy"],dev["PUBLIC_1"]["accuracy"],
+                dev["MEMORY_0"]["accuracy"]]+[
+                    ood[x]["accuracy"] for x in
+                    ("global_bandit","context_mlp","factorized","paired_factorized")]
+              top=next(iter(ood["factorized"]["program_counts"]))
+              lines.append("| "+k+" | "+" | ".join(f"{x*100:.2f}%" for x in fields)+
+                           " | "+top+" |")
+          lines.extend(["",
+            "## Complete preregistered world-bootstrap CIs, original checkpoint SHA and observed learning curves",
+            "~~~json",json.dumps(a["replicas"],ensure_ascii=False,indent=2),"~~~",
+            "All 85 programs were available from the start including invalid and unused orders.",
+            "The agent selects an entire <=3-step program before running it: this is NOT post-observation replanning.",
+            "No original F10-L models were updated. No target programs or nonexecuted rewards were supplied.",
+            "TECHNICAL SUCCESS is not SCIENTIFIC PASS."
+          ])
+          Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text("\n".join(lines))
+          print("F10M_ORIGINAL_FIXED_SCIENTIFIC_STATUS",a["status"],a["gate_counts"],flush=True)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: f10m-original-independent-fixed-audit
+          path: f10m-fixed-science.json
+          retention-days: 90
+          if-no-files-found: error
