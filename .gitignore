@@ -285,3 +285,4 @@ models/interrupted_states/*.pt
 # The demo's deploy kit and icon: the broad deploy/ and *.svg rules above come from the 2025 project.
 !demo/deploy/
 !demo/static/*.svg
+!mcpb/manifest.json

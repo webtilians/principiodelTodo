@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "infinito-memory"
-version = "0.5.0"
+version = "0.6.0"
 description = "Privacy-first long-term memory layer for LLM assistants, with a preregistered evaluation lab."
 readme = "README.md"
 requires-python = ">=3.10"

@@ -123,9 +123,15 @@ correcta y privada: rechaza secretos, no guarda preguntas, deja que gane el dato
 reciente y olvida de verdad cuando se lo pides. Cuatro herramientas: `remember`,
 `recall`, `list_memories` y `forget`. La memoria es un archivo SQLite local
 (`~/.infinito/memory.db`, o `INFINITO_MEMORY_DB`); el servidor no envía nada a ningún
-sitio. Necesita [uv](https://docs.astral.sh/uv/).
+sitio.
 
-Claude Code:
+**Claude Desktop, con un clic:** descarga
+[infinito-memory.mcpb](https://github.com/webtilians/principiodelTodo/releases/latest/download/infinito-memory.mcpb)
+y ábrelo, o arrástralo a Configuración → Extensiones. No hay que instalar nada más. Deja
+la carpeta de memoria por defecto para compartir una sola memoria con Claude Code y otras
+aplicaciones.
+
+Los demás clientes necesitan [uv](https://docs.astral.sh/uv/). Claude Code:
 
 ```bash
 claude mcp add infinito -- uvx --from "infinito-memory[mcp] @ git+https://github.com/webtilians/principiodelTodo" infinito-mcp
