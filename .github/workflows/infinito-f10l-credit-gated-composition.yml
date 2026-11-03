@@ -1,0 +1,241 @@
+name: INFINITO F10-L - Experience Reward Credit and Gated Zero-Shot Composition
+
+on:
+  push:
+    branches: [experiment/f10l-experience-credit-primitives]
+    paths: [docs/INFINITO_F10L_LAUNCH.md]
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: f10l-new-seeds-gated-ood
+  cancel-in-progress: false
+
+jobs:
+  train_dev:
+    name: F10-L original primitive models - replica ${{ matrix.replica }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        replica: [0, 1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install CPU dependencies
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install numpy
+      - name: TRAIN-only preflight, preregistered worlds and product boundary
+        run: |
+          python -m py_compile observatory/f10l_worlds.py observatory/f10l_train.py observatory/f10l_audit_stage1.py observatory/f10l_stage2.py observatory/f10l_audit_stage2.py
+          python -m unittest discover -s tests -p 'test_f10l_primitive_credit.py' -v
+          git diff --exit-code aa8668d6c9c396184fc52d6e2c2287d9428ae7d3 -- src/infinito3
+      - name: Original training - freeze all SHA before DEV - no OOD in this job
+        run: |
+          set -o pipefail
+          python -m observatory.f10l_train --replica ${{ matrix.replica }} --out stage1/${{ matrix.replica }} | tee f10l-train-${{ matrix.replica }}.log
+      - name: Verify 5 original SHA and 65,536 executed actions per policy
+        run: |
+          python - <<'PY'
+          import json,hashlib
+          from pathlib import Path
+          i=int("${{ matrix.replica }}")
+          d=Path(f"stage1/{i}")
+          meta=json.loads((d/"train.json").read_text())
+          rows=json.loads((d/"dev.json").read_text())
+          assert meta["status"]=="FROZEN_BEFORE_DEV_AND_ANY_OOD"
+          assert meta["train_composition_exposure"]==0
+          assert meta["confirm_23300000_unopened"]
+          assert len(rows)==2560 and len(meta["arms"])==5
+          for name,x in meta["arms"].items():
+              assert x["executed_environment_episodes"]==65536
+              assert x["updates"]==512
+              assert not x["loss_supervised_winner_or_answer"]
+              assert hashlib.sha256((d/(name+".pt")).read_bytes()).hexdigest()==x["sha256"]
+          print("F10L_ORIGINAL_PRIMITIVE_MODELS_FROZEN_NO_OOD",i,flush=True)
+          PY
+      - name: Preserve training logs
+        if: always()
+        run: |
+          if test -d stage1/${{ matrix.replica }}; then
+            cp f10l-train-${{ matrix.replica }}.log stage1/${{ matrix.replica }}/run.log || true
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: f10l-stage1-${{ matrix.replica }}
+          path: stage1/${{ matrix.replica }}/
+          retention-days: 90
+          if-no-files-found: warn
+
+  g0_gate:
+    name: Independent original SHA, DEV and G0 prerequisite audit
+    needs: train_dev
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    outputs:
+      eligible: ${{ steps.gate.outputs.eligible }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install numpy
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: f10l-stage1-*
+          path: gathered
+      - name: Frozen independent 2000-world bootstrap and OOD authorization
+        id: gate
+        run: |
+          for i in 0 1 2 3; do
+            mkdir -p audit_input/$i
+            cp gathered/f10l-stage1-$i/* audit_input/$i/
+          done
+          python -m observatory.f10l_audit_stage1 --root audit_input --out f10l-g0.json
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          a=json.loads(Path("f10l-g0.json").read_text())
+          assert a["technical"]=="F10L_PHASE1_TECHNICAL_COMPLETE"
+          assert a["unique_case_identity_hashes"]==36864
+          assert a["composition_23400000_not_opened"]
+          eligible=str(a["eligible_for_composition"]).lower()
+          with open(os.environ["GITHUB_OUTPUT"],"a") as f:
+              f.write("eligible="+eligible+"\n")
+          rows=["# INFINITO F10-L — original independent DEV prerequisite gate",
+                "**Scientific outcome: "+a["scientific_status"]+"**",
+                "**Composition OOD unlocked: "+eligible+"**",
+                "Gate counts: "+str(a["gate_counts"]),"",
+                "| Replica | XOR REINFORCE | XOR pair | Selector on-policy | Selector uniform credit | Selector paired | G0 |",
+                "|---|---:|---:|---:|---:|---:|---|"]
+          arms=("xor_onpolicy","xor_two_actions","sel_onpolicy",
+                "sel_uniform_credit","sel_uniform_pair")
+          for i,r in a["replicas"].items():
+              vals=[f'{100*r["metrics"][x]["accuracy"]:.2f}%' for x in arms]
+              rows.append("| "+i+" | "+" | ".join(vals)+" | "+
+                          str(r["gates"]["G0_both_primitives"])+" |")
+          rows.extend(["","## Detailed world-grouped bootstrap and XOR truth tables",
+                       "~~~json",json.dumps(a["replicas"],ensure_ascii=False,indent=2),"~~~",
+                       "If G0 FAILS, all OOD jobs are SKIPPED; no 23400000+ or 23300000+ opened."])
+          Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text("\n".join(rows))
+          print("F10L_G0_AUTHORIZATION",eligible,flush=True)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: f10l-independent-g0-original
+          path: f10l-g0.json
+          retention-days: 90
+          if-no-files-found: error
+
+  ood_composition:
+    name: F10-L frozen never-trained composition - replica ${{ matrix.replica }}
+    needs: g0_gate
+    if: needs.g0_gate.outputs.eligible == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        replica: [0, 1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install numpy
+      - uses: actions/download-artifact@v4
+        with:
+          name: f10l-stage1-${{ matrix.replica }}
+          path: frozen/${{ matrix.replica }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: f10l-independent-g0-original
+          path: gate
+      - name: Verify G0 passed and original checkpoint SHA before opening OOD
+        run: |
+          python - <<'PY'
+          import json,hashlib
+          from pathlib import Path
+          gate=json.loads(Path("gate/f10l-g0.json").read_text())
+          assert gate["eligible_for_composition"]
+          i=int("${{ matrix.replica }}")
+          m=json.loads(Path(f"frozen/{i}/train.json").read_text())
+          for k,v in m["arms"].items():
+              assert v["sha256"]==gate["replicas"][str(i)]["model_sha256"][k]
+              assert hashlib.sha256(Path(f"frozen/{i}/{k}.pt").read_bytes()).hexdigest()==v["sha256"]
+          print("F10L_ORIGINAL_SHA_COMPOSITION_UNLOCKED_BY_G0",i,flush=True)
+          PY
+      - name: OOD evaluation ONLY - zero training and zero selected checkpoints
+        run: |
+          python -m observatory.f10l_stage2 --replica ${{ matrix.replica }} --stage1 frozen/${{ matrix.replica }} --out f10l-ood-${{ matrix.replica }}.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: f10l-original-ood-${{ matrix.replica }}
+          path: f10l-ood-${{ matrix.replica }}.json
+          retention-days: 90
+          if-no-files-found: error
+
+  final_audit:
+    name: Independent final zero-shot composition causal gate
+    needs: ood_composition
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install numpy
+      - uses: actions/download-artifact@v4
+        with:
+          name: f10l-independent-g0-original
+          path: prerequisite
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: f10l-original-ood-*
+          path: gathered
+      - name: Original frozen causal SHA/bootstrapped composition audit
+        run: |
+          mkdir -p ood
+          for i in 0 1 2 3; do
+            cp gathered/f10l-original-ood-$i/f10l-ood-$i.json ood/$i.json
+          done
+          python -m observatory.f10l_audit_stage2 --stage1 prerequisite/f10l-g0.json --ood-root ood --out f10l-final.json
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          a=json.loads(Path("f10l-final.json").read_text())
+          assert a["technical"]=="F10L_STAGE2_TECHNICAL_COMPLETE"
+          assert a["unique_ood_case_ids"]==2048
+          summary=["# INFINITO F10-L — Frozen zero-shot composition",
+                   "**Scientific result: "+a["status"]+"**",
+                   "G3/G4: "+str(a["gate_counts"]),"",
+                   "| Replica | Composition | Value shuffle | Flip disabled | Winner selection |",
+                   "|---|---:|---:|---:|---:|"]
+          for i,r in a["replicas"].items():
+              m=r["metrics"]
+              summary.append(
+                f'| {i} | {100*m["composed"]:.2f}% | {100*m["shuffle"]:.2f}% | '+
+                f'{100*m["no_flip"]:.2f}% | {100*m["selection"]:.2f}% |')
+          summary.extend(["","~~~json",json.dumps(a["replicas"],ensure_ascii=False,indent=2),"~~~",
+                          "No composition was trained. Confirmation 23300000+ sealed."])
+          Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text("\n".join(summary))
+          print("F10L_SCIENCE_FINAL",a["status"],flush=True)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: f10l-independent-final-gates
+          path: f10l-final.json
+          retention-days: 90
+          if-no-files-found: error
