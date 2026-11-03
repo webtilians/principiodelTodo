@@ -1,0 +1,163 @@
+name: INFINITO F10-L-C - Independent Original Frozen Weight Confirmation
+
+on:
+  push:
+    branches: [experiment/f10l-independent-confirmation-23300000]
+    paths: [docs/INFINITO_F10L_CONFIRM_LAUNCH.md]
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: f10lc-first-and-only-confirm-23300000
+  cancel-in-progress: false
+
+jobs:
+  original_sha_confirmation:
+    name: Original 41685499939 SHA frozen confirmation replica ${{ matrix.replica }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    strategy:
+      fail-fast: false
+      matrix:
+        replica: [0, 1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies for frozen INFERENCE ONLY
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install numpy
+      - name: Prove ORIGINAL actor, training, world, OOD evaluator, gates and product remain immutable
+        run: |
+          git diff --exit-code b5c32cbfb50a24414607e3a24e30e139ca92fede -- observatory/f10l_worlds.py observatory/f10l_train.py observatory/f10l_stage2.py observatory/f10l_audit_stage1.py observatory/f10l_audit_stage2.py src/infinito3
+          python -m py_compile observatory/f10l_confirm_worlds.py observatory/f10l_confirm_eval.py observatory/f10l_confirm_audit.py
+          python -m unittest discover -s tests -p 'test_f10l_confirmation_preflight.py' -v
+      - name: Download ORIGINAL frozen checkpoint artifacts from exact run 41685499939
+        uses: actions/download-artifact@v4
+        with:
+          repository: webtilians/principiodelTodo
+          run-id: 41685499939
+          github-token: ${{ github.token }}
+          name: f10l-stage1-${{ matrix.replica }}
+          path: frozen/${{ matrix.replica }}
+      - name: Download immutable ORIGINAL preregistered DEV G0 audit
+        uses: actions/download-artifact@v4
+        with:
+          repository: webtilians/principiodelTodo
+          run-id: 41685499939
+          github-token: ${{ github.token }}
+          name: f10l-independent-g0-original
+          path: frozen-g0
+      - name: Strict check 20 SHA original run, then OLD OOD bit-exact regression, THEN first CONFIRM data
+        run: |
+          set -o pipefail
+          mkdir -p confirm-output
+          python -m observatory.f10l_confirm_eval --replica ${{ matrix.replica }} --stage1 frozen/${{ matrix.replica }} --gate frozen-g0/f10l-g0.json --out confirm-output/${{ matrix.replica }}.json | tee confirm-${{ matrix.replica }}.log
+      - name: Validate original SHA confirmation evidence with no new training
+        run: |
+          python - <<'PY'
+          import json,hashlib
+          from pathlib import Path
+          i=int("${{ matrix.replica }}")
+          x=json.loads(Path(f"confirm-output/{i}.json").read_text())
+          g=json.loads(Path("frozen-g0/f10l-g0.json").read_text())
+          assert x["original_model_run_id"]==41685499939
+          assert x["original_code_commit"]=="b5c32cbfb50a24414607e3a24e30e139ca92fede"
+          assert x["status"]=="CONFIRMATION_WORLDS_OPENED_ONCE_AND_EVALUATED"
+          assert x["using_unmodified_original_stage2_run"]
+          assert x["old_ood_regression_passed_bit_exact"]
+          assert x["training_updates_during_confirmation"]==0
+          assert x["checkpoint_sha"]==g["replicas"][str(i)]["model_sha256"]
+          for arm,digest in x["checkpoint_sha"].items():
+              assert hashlib.sha256(Path(f"frozen/{i}/{arm}.pt").read_bytes()).hexdigest()==digest
+          assert x["worlds"]==128 and len(x["rows"])==512
+          assert {row["seed"] for row in x["rows"]}==set(
+              range(23_300_000+10_000*i,23_300_000+10_000*i+128))
+          print("F10LC_CONFIRM_ONLY_ORIGINAL_SHA_AND_NO_TRAINING",i,flush=True)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: f10lc-original-confirm-${{ matrix.replica }}
+          path: |
+            confirm-output/${{ matrix.replica }}.json
+            confirm-${{ matrix.replica }}.log
+          retention-days: 90
+          if-no-files-found: warn
+
+  independent_confirmation_science:
+    name: Independent CONFIRM original G3/G4 world-bootstrap audit
+    needs: original_sha_confirmation
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install numpy
+      - uses: actions/download-artifact@v4
+        with:
+          repository: webtilians/principiodelTodo
+          run-id: 41685499939
+          github-token: ${{ github.token }}
+          name: f10l-independent-g0-original
+          path: original-g0
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: f10lc-original-confirm-*
+          path: gathered
+      - name: Independent data-only audit; same F10-L G3/G4 thresholds and grouped bootstrap
+        run: |
+          mkdir -p audited
+          for i in 0 1 2 3; do
+            found="$(find "gathered/f10lc-original-confirm-$i" -type f -name "$i.json")"
+            test "$(printf '%s\\n' "$found" | grep -c .)" -eq 1
+            cp "$found" "audited/$i.json"
+          done
+          python -m observatory.f10l_confirm_audit --root audited --gate original-g0/f10l-g0.json --out f10lc-original-audit.json
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          report=json.loads(Path("f10lc-original-audit.json").read_text())
+          assert report["technical"]=="F10LC_TECHNICAL_COMPLETE"
+          assert report["original_run_id"]==41685499939
+          assert report["unique_confirm_case_hashes"]==2048
+          title="# F10-L-C independent-seed confirmation with ORIGINAL frozen models"
+          lines=[title,"",
+            "**Scientific pre-registered result: "+report["status"]+"**",
+            "**G3 / G4 replicate successes: "+str(report["gate_counts"])+"**",
+            "",
+            "| Replica | Confirm accuracy | Last signed slot | F4 shuffled | Flip off | C-G3 | C-G4 |",
+            "|---|---:|---:|---:|---:|---|---|"]
+          for i,r in report["replicas"].items():
+              m=r["metrics"]
+              gg=r["gates"]
+              lines.append(
+                f'| {i} | {100*m["composed"]:.2f}% | {100*m["selection"]:.2f}% | '+
+                f'{100*m["shuffle"]:.2f}% | {100*m["no_flip"]:.2f}% | '+
+                f'{gg["C_G3_composition"]} | {gg["C_G4_causal_use"]} |')
+          lines.extend(["",
+            "## Full confirmation world-bootstrap CIs, strata and frozen SHA evidence",
+            "~~~json",json.dumps(report["replicas"],ensure_ascii=False,indent=2),"~~~",
+            "Exact same original 41685499939 checkpoints and original actor/evaluator; only input seeds differ.",
+            "CONFIRM same synthetic task family, NOT proof of automatic operator discovery nor reward-pair advantage.",
+            "A technical workflow SUCCESS is independent of scientific confirmation PASS/FAIL."
+          ])
+          Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text("\n".join(lines))
+          print("F10LC_INDEPENDENT_SCIENTIFIC_CONFIRMATION",report["status"],report["gate_counts"],flush=True)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: f10lc-original-independent-confirmation-audit
+          path: f10lc-original-audit.json
+          retention-days: 90
+          if-no-files-found: error
