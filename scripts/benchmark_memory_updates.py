@@ -579,7 +579,8 @@ def main(argv=None, client=None) -> int:
     parser.add_argument("--sets", help="comma-separated subset of the partition's sets")
     parser.add_argument("--limit", type=int, default=24, help="scenarios per set (24 = full set)")
     parser.add_argument("--llm", choices=("none", "openai"), default="none")
-    parser.add_argument("--embeddings", choices=("hash", "openai"), default="hash")
+    parser.add_argument("--embeddings", default="hash",
+                        help="hash, openai, or replay:<file from scripts/fetch_embeddings.py, without suffix>")
     parser.add_argument("--workers", type=int, default=1)
     parser.add_argument("--json", help="write every decision and context to this file")
     parser.add_argument("--summary", help="write a Markdown summary to this file")
@@ -597,6 +598,9 @@ def main(argv=None, client=None) -> int:
     if args.embeddings == "openai":
         embeddings = CachedOpenAIEmbeddings(client)
         embeddings.prefetch(set().union(*(texts_to_embed(sc) for sc in scenarios)))
+    elif args.embeddings.startswith("replay:"):
+        from scripts.replay_embeddings import ReplayEmbeddings
+        embeddings = ReplayEmbeddings(args.embeddings.split(":", 1)[1])
     else:
         embeddings = HashEmbeddingProvider(dimensions=256)
     reported_model = None
@@ -630,13 +634,16 @@ def main(argv=None, client=None) -> int:
 
     meta = {"mode": "real LLM" if args.llm == "openai" else "offline", "partition": args.partition,
             "reader": MODEL if args.llm == "openai" else "last mention",
-            "embeddings": EMBEDDING_MODEL if args.embeddings == "openai" else "hash",
+            "embeddings": EMBEDDING_MODEL if args.embeddings == "openai" else args.embeddings.split(":")[0],
             "commit": commit_id(), "finished": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
             "seed_bases": {s: bases[s] for s in set_names}, "scenarios_per_set": args.limit}
     if reported_model:
         meta["model_reported"] = reported_model
     if args.embeddings == "openai":
         meta["embedding_requests"] = embeddings.calls
+    if args.embeddings.startswith("replay:"):
+        meta["embedding_misses"] = embeddings.misses
+        print(f"embedding misses: {embeddings.misses}")
     if args.summary:
         Path(args.summary).parent.mkdir(parents=True, exist_ok=True)
         Path(args.summary).write_text(markdown(summary, set_names, meta), encoding="utf-8")
