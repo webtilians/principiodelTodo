@@ -142,6 +142,37 @@ class ContextEcho:
         return prompt.split("Context:\n", 1)[1].split("\n\nQuestion:", 1)[0]
 
 
+class OpenAIChatCompat:
+    """Bemula's chat client on OpenAI's own API.
+
+    Bemula sends `max_tokens`, which OpenAI's API refuses for GPT-5 models (its
+    published runs went through an OpenAI-compatible gateway); the same limit is
+    sent as `max_completion_tokens`. If the model also refuses `temperature`, the
+    provider default is used from then on and recorded in run_meta.json.
+    """
+
+    def __init__(self, llm):
+        from openai import BadRequestError
+        self.bad_request = BadRequestError
+        self.create = llm._client.chat.completions.create
+        self.temperature_dropped = False
+        llm._client.chat.completions.create = self
+
+    def __call__(self, **kwargs):
+        if "max_tokens" in kwargs:
+            kwargs["max_completion_tokens"] = kwargs.pop("max_tokens")
+        if self.temperature_dropped:
+            kwargs.pop("temperature", None)
+        try:
+            return self.create(**kwargs)
+        except self.bad_request as error:
+            if "temperature" not in kwargs or "temperature" not in str(error):
+                raise
+            self.temperature_dropped = True
+            kwargs.pop("temperature")
+            return self.create(**kwargs)
+
+
 class BemulaChatAdapter:
     """INFINITO's LLMAdapter on top of a Bemula chat client, for the forget planner."""
 
@@ -363,6 +394,7 @@ def main(argv=None) -> int:
         reader, judge = ContextEcho(), judge_module.MockJudge()
     else:
         reader = llm_module.get_llm(model=AGENT_MODEL)
+        agent_api = OpenAIChatCompat(reader)
         judge = judge_module.LLMJudge(llm_module.get_llm(model=args.judge_model), temperature=0.0)
         # Fail fast on a missing key or model before any instance runs.
         print("agent:", reader.chat([{"role": "user", "content": "Reply only READY."}], temperature=0.0,
@@ -410,6 +442,7 @@ def main(argv=None) -> int:
         meta["embedding_requests"] = embeddings.requests
     if not args.offline:
         meta["judge_failures"] = judge.failures
+        meta["agent_temperature"] = "provider default" if agent_api.temperature_dropped else 0.0
 
     (out / "metrics.json").write_text(json.dumps(result, indent=1, ensure_ascii=False), encoding="utf-8")
     (out / "baselines.json").write_text(json.dumps({k: headline(v) for k, v in baselines.items()}, indent=1),
