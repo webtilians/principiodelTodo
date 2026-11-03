@@ -1,0 +1,137 @@
+name: INFINITO F10-K - Reward-Learned Primitives and Zero-Shot Composition
+
+on:
+  push:
+    branches: [experiment/f10k-reward-learned-primitives-composition]
+    paths: [docs/INFINITO_F10K_LAUNCH.md]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: infinito-f10k-zero-shot-22100000
+  cancel-in-progress: false
+
+jobs:
+  prefreeze-four-replicas:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      matrix:
+        replica: [0, 1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install CPU PyTorch and NumPy
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install numpy
+      - name: TRAIN-only primitive tests and independent-product-boundary check
+        run: |
+          python -m py_compile observatory/f10k_worlds.py observatory/f10k_experiment.py observatory/f10k_audit.py
+          python -m unittest discover -s tests -p 'test_f10k_primitive_composition.py' -v
+          git diff --exit-code fd8761fd0f35f0cb5356f01a56896305a64f4bc3 -- src/infinito3
+      - name: Train exact-budget 4 skills models, freeze ALL SHAs THEN first generate holdouts
+        run: |
+          set -o pipefail
+          python -m observatory.f10k_experiment --replica ${{ matrix.replica }} --out f10k-out/${{ matrix.replica }} | tee f10k-run-${{ matrix.replica }}.log
+      - name: Verify original checkpoints, budgets and zero TRAIN composition
+        run: |
+          python - <<'PY'
+          import json,hashlib
+          from pathlib import Path
+          i=int("${{ matrix.replica }}")
+          p=Path(f"f10k-out/{i}")
+          t=json.loads((p/"train.json").read_text())
+          rows=json.loads((p/"eval.json").read_text())
+          assert t["status"]=="ALL_CHECKPOINTS_FROZEN_BEFORE_DEV_AND_OOD"
+          assert t["never_train_memory_plus_flip_one"]
+          assert t["confirm_22300000_unopened"]
+          assert len(t["train_case_sha"])==6144
+          assert set(t["arms"])=={
+              "joint_shared","staged_shared","staged_unshared","supervised_ceiling"}
+          for arm,meta in t["arms"].items():
+              assert meta["episodes"]==24576 and meta["updates"]==384
+              assert meta["episode_counts"]=={"P":8192,"I":8192,"S":8192,"M":0}
+              assert hashlib.sha256((p/(arm+".pt")).read_bytes()).hexdigest()==meta["sha256"]
+          assert len(rows)==4*(768+512)
+          assert all(r["task"]!="M" for r in rows if r["split"]=="dev")
+          assert all(r["task"]=="M" for r in rows if r["split"]=="ood")
+          assert all(r["flip"]==1 for r in rows if r["split"]=="ood")
+          print("F10K_16_SHA_EXPERIENCE_PARITY_AND_UNSEEN_COMPOSITION_CHECK",i,flush=True)
+          PY
+      - name: Capture ORIGINAL checkpoints and frozen zero-shot results
+        if: always()
+        run: |
+          if test -d f10k-out/${{ matrix.replica }}; then
+            cp f10k-run-${{ matrix.replica }}.log f10k-out/${{ matrix.replica }}/run.log || true
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: f10k-original-${{ matrix.replica }}
+          path: f10k-out/${{ matrix.replica }}/
+          retention-days: 90
+          if-no-files-found: warn
+
+  independent-fixed-scientific-audit:
+    needs: prefreeze-four-replicas
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install numpy
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: f10k-original-*
+          path: gathered
+      - name: Audit 16 ORIGINAL frozen SHA, primitive skills, zero-shot M and world bootstrap
+        run: |
+          for i in 0 1 2 3; do
+            mkdir -p audited/$i
+            cp gathered/f10k-original-$i/* audited/$i/
+          done
+          python -m observatory.f10k_audit --root audited --out f10k-fixed-audit.json
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          x=json.loads(Path("f10k-fixed-audit.json").read_text())
+          assert x["technical"]=="F10K_TECHNICAL_COMPLETE"
+          assert x["unique_case_id_hashes_with_seeds"]==29696
+          assert x["confirm_22300000_never_opened"]
+          lines=[
+            "# INFINITO F10-K — original preregistered zero-shot composition audit",
+            "**Scientific outcome: "+x["status"]+"**",
+            "Gates by replica: "+str(x["gate_counts"]),"",
+            "| Replica | DEV P B | DEV I B | DEV S B | Selector S B | M A joint | M B staged | M C untied | M D privileged |",
+            "|---|---:|---:|---:|---:|---:|---:|---:|---:|"
+          ]
+          for i,v in x["replicas"].items():
+              ds=v["metrics"]["dev"]["staged_shared"]
+              oo=v["metrics"]["ood"]
+              fields=[ds["P"]["accuracy"],ds["I"]["accuracy"],ds["S"]["accuracy"],
+                      ds["S"]["selected_winner"]]+[
+                      oo[a]["M"]["accuracy"] for a in (
+                          "joint_shared","staged_shared","staged_unshared","supervised_ceiling")]
+              lines.append("| "+i+" | "+" | ".join(f"{f*100:.2f}%" for f in fields)+" |")
+          lines.extend(["","## Full 2,000-world-bootstrap CIs, strata, SHAs and training curves",
+                        "~~~json",json.dumps(x["replicas"],ensure_ascii=False,indent=2),"~~~",
+                        "No OOD composition in TRAIN. E is privileged. Confirm 22300000+ remains sealed.",
+                        "Technical SUCCESS is NOT a scientific PASS."])
+          Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text("\n".join(lines))
+          print("F10K_AUDITED_SCIENTIFIC_OUTCOME",x["status"],x["scientific_gates"],flush=True)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: f10k-independent-fixed-scientific-audit
+          path: f10k-fixed-audit.json
+          retention-days: 90
+          if-no-files-found: error
