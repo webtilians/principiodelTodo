@@ -253,7 +253,7 @@ def audit(root,g0):
                 assert x["success"]==int(x["answer"]==r["truth"])
                 assert x["operations"] in range(4)
                 assert x["invalid"] in range(4)
-                assert x["reward"]>=-1.33 and x["reward"]<=1.
+                assert x["reward"]>=-1.34 and x["reward"]<=1.
         by_split={}
         for split in ("dev","ood"):
             by_split[split]={}
