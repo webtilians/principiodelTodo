@@ -13,8 +13,8 @@ Scenario sets, 24 scenarios each:
 - e10d: six other project decisions, as in E10-D;
 - personal: Spanish and English facts, paraphrased updates and natural questions
   that do not contain the options;
-- fresh: like personal, with templates written before any run and used only on
-  the confirmation partition.
+- fresh: like personal, with templates written before the v0.4 confirmation;
+- fresh2: six more such templates, written before the v0.5 confirmation.
 
 Baseline: semantic RAG that stores every message, retrieves the top 8 and shows
 them in chronological order, as in E10-B. Both systems get 320 context tokens.
@@ -77,7 +77,7 @@ PARTITIONS = {
     # Real embeddings only, to calibrate v0.5 context selection.
     "dev": {"e10b": 4600000, "e10d": 4700000, "personal": 4800000, "fresh": 4900000},
     # Reserved for the v0.5 real-LLM confirmation; nothing else may use it.
-    "confirm2": {"e10b": 5600000, "e10d": 5700000, "personal": 5800000, "fresh": 5900000},
+    "confirm2": {"e10b": 5600000, "e10d": 5700000, "personal": 5800000, "fresh": 5900000, "fresh2": 6000000},
 }
 MAX_GAP = 2
 MIN_ABSTENTION = 0.90
@@ -229,13 +229,37 @@ FRESH = {
                "My usual coffee order is {v}.", "I've cut down on milk, so these days I get {v}.",
                "What coffee do I usually order?"),
 }
+# Written on 2026-11-03 for the v0.5 confirmation, after v0.5 was calibrated on
+# the dev partition and before any run used these templates.
+FRESH2 = {
+    "physio": (("Lucía Pérez", "Marcos Gil", "Irene Soto", "Pablo Ruiz", "Carmen Vidal", "Hugo Martín"),
+               "Mi fisioterapeuta es {v}.", "Cambié de centro de rehabilitación y ahora me trata {v}.",
+               "¿Quién es mi fisioterapeuta?"),
+    "commute": (("by bike", "by bus", "by train", "on foot", "by tram", "by scooter"),
+                "I get to work {v}.", "Since the office moved, my daily trip there is {v}.",
+                "How do I get to work?"),
+    "language": (("italiano", "francés", "japonés", "árabe", "portugués", "coreano"),
+                 "Estoy aprendiendo {v} por las tardes.", "Dejé aquellas clases; el idioma que estudio ahora es el {v}.",
+                 "¿Qué estoy aprendiendo por las tardes?"),
+    "insurance": (("Mapfre", "Allianz", "AXA", "Generali", "Zurich", "Sanitas"),
+                  "My car insurance is with {v}.",
+                  "I switched providers after the renewal letter, and the policy now sits with {v}.",
+                  "Who is my car insurance with?"),
+    "volunteer": (("los martes", "los jueves", "los sábados", "los domingos", "los lunes", "los viernes"),
+                  "Hago voluntariado en el comedor social {v}.", "Me cambiaron el turno en el comedor: ahora ayudo {v}.",
+                  "¿Qué día hago voluntariado?"),
+    "running": (("5 km", "8 km", "10 km", "12 km", "15 km", "21 km"),
+                "My usual Sunday run is {v}.", "The doctor told me to ease off, so on Sundays I now only do {v}.",
+                "How far do I usually run on Sundays?"),
+}
 SETS = {
     "e10b": (E10B, PROJECT_NOISE),
     "e10d": (E10D, PROJECT_NOISE),
     "personal": (PERSONAL, PERSONAL_NOISE),
     "fresh": (FRESH, PROJECT_NOISE + PERSONAL_NOISE),
+    "fresh2": (FRESH2, PROJECT_NOISE + PERSONAL_NOISE),
 }
-NATURAL_SETS = ("personal", "fresh")
+NATURAL_SETS = ("personal", "fresh", "fresh2")
 
 
 @dataclass(frozen=True)
