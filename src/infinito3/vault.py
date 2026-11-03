@@ -46,8 +46,9 @@ class Vault:
 
     def __init__(self, path: Optional[str] = None, ui: Optional[VaultUI] = None, *,
                  home: Optional[Path] = None, idle_minutes: Optional[float] = None):
-        self.home = Path(home) if home else HOME
-        self.path = Path(path or os.environ.get("INFINITO_VAULT") or self.home / "boveda.kdbx")
+        self.path = Path(path or os.environ.get("INFINITO_VAULT") or (Path(home) if home else HOME) / "boveda.kdbx")
+        # Settings and the log live next to the vault file.
+        self.home = Path(home) if home else self.path.parent
         self.ui = ui or TkVaultUI()
         self.idle_seconds = 60 * float(idle_minutes if idle_minutes is not None
                                        else os.environ.get("INFINITO_VAULT_IDLE_MINUTES", 15))

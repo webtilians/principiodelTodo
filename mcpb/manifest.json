@@ -24,7 +24,8 @@
       "command": "uv",
       "args": ["run", "--directory", "${__dirname}", "server/main.py"],
       "env": {
-        "INFINITO_MEMORY_DB": "${user_config.memory_folder}/memory.db"
+        "INFINITO_MEMORY_DB": "${user_config.memory_folder}/memory.db",
+        "INFINITO_VAULT": "${user_config.memory_folder}/boveda.kdbx"
       }
     }
   },
@@ -32,7 +33,13 @@
     {"name": "remember", "description": "Store one durable fact, preference or decision about you, in your own words."},
     {"name": "recall", "description": "What INFINITO remembers about a topic, oldest first, with dates."},
     {"name": "list_memories", "description": "Every stored memory with its id and date."},
-    {"name": "forget", "description": "Delete memories for good, keeping what you did not ask to forget."}
+    {"name": "forget", "description": "Delete memories for good, keeping what you did not ask to forget."},
+    {"name": "vault_unlock", "description": "Open your vault: you type the master password in a window on your screen."},
+    {"name": "vault_add", "description": "Keep a new secret: you type it in a window on your screen."},
+    {"name": "vault_reveal", "description": "Show you a secret in a window on your screen; Claude never sees it."},
+    {"name": "vault_list", "description": "The names of your secrets, never their values."},
+    {"name": "vault_status", "description": "Whether your vault is locked or open."},
+    {"name": "vault_lock", "description": "Lock your vault now."}
   ],
   "user_config": {
     "memory_folder": {
