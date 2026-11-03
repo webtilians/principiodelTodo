@@ -1,0 +1,173 @@
+name: INFINITO F10-N - Episodic Scores versus Learned Operation Effects
+
+on:
+  push:
+    branches: [experiment/f10n-explicit-experience-effect-memory]
+    paths: [docs/INFINITO_F10N_LAUNCH.md]
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: f10n-single-preregistered-trial-26400000
+  cancel-in-progress: false
+
+jobs:
+  original_experience_train:
+    name: Four explicit memories / replica ${{ matrix.replica }} (original F10-L operators frozen)
+    runs-on: ubuntu-latest
+    timeout-minutes: 100
+    strategy:
+      fail-fast: false
+      matrix:
+        replica: [0, 1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install CPU-only original actor dependencies
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install numpy
+      - name: TRAIN-only prospective preflight; product and F10-L/M frozen
+        run: |
+          python -m py_compile observatory/f10n_worlds.py observatory/f10n_memory.py observatory/f10n_experiment.py observatory/f10n_audit.py
+          python -m unittest discover -s tests -p 'test_f10n_explicit_experience_memory.py' -v
+          git diff --exit-code 8548b44bfdac45474afbc7c5f70fd6b12b46bcb5 -- src/infinito3 observatory/f10l_train.py observatory/f10l_worlds.py observatory/f10l_stage2.py observatory/f10m_experiment.py observatory/f10m_worlds.py
+      - name: Fetch ORIGINAL frozen five F10-L checkpoints from exact run 41685499939
+        uses: actions/download-artifact@v4
+        with:
+          repository: webtilians/principiodelTodo
+          run-id: 41685499939
+          github-token: ${{ github.token }}
+          name: f10l-stage1-${{ matrix.replica }}
+          path: original/${{ matrix.replica }}
+      - name: Fetch ORIGINAL pre-OOD G0 SHA audit from same run
+        uses: actions/download-artifact@v4
+        with:
+          repository: webtilians/principiodelTodo
+          run-id: 41685499939
+          github-token: ${{ github.token }}
+          name: f10l-independent-g0-original
+          path: original-g0
+      - name: Execute EXACTLY 98304 observed trials per approach, freeze all explicit memories, only THEN DEV/OOD
+        run: |
+          set -o pipefail
+          python -m observatory.f10n_experiment --replica ${{ matrix.replica }} --original original/${{ matrix.replica }} --g0 original-g0/f10l-g0.json --out f10n-original/${{ matrix.replica }} | tee f10n-replica-${{ matrix.replica }}.log
+      - name: Check training budgets and original SHA without interpreting scientific pass
+        run: |
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          i=int("${{ matrix.replica }}")
+          p=Path(f"f10n-original/{i}")
+          meta=json.loads((p/"training.json").read_text())
+          rows=json.loads((p/"rows.json").read_text())
+          g0=json.loads(Path("original-g0/f10l-g0.json").read_text())
+          assert meta["status"]=="MEMORIES_SHA_FROZEN_BEFORE_DEV_OOD"
+          assert meta["train_heldout_srx_count"]==0
+          assert meta["heldout_program"]=="SRX" and meta["train_program_catalog_size"]==84
+          assert meta["episodes_per_condition"]==98304
+          assert meta["confirm_26300000_sealed"]
+          assert len(meta["train_case_shas"])==3072
+          assert len(rows)==4*(768+512)
+          assert meta["original_skills"]["all_5_original_checkpoint_sha"]==g0["replicas"][str(i)]["model_sha256"]
+          for name,value in meta["original_skills"]["all_5_original_checkpoint_sha"].items():
+              assert hashlib.sha256(Path(f"original/{i}/{name}.pt").read_bytes()).hexdigest()==value
+          for desc in list(meta["memory_files"].values())+list(meta["experience_log_files"].values()):
+              assert hashlib.sha256((p/desc["file"]).read_bytes()).hexdigest()==desc["sha256"]
+          assert all(v==0 for v in (
+              meta["attempt_counts"]["uniform"][meta["heldout_program_id"]],
+              meta["attempt_counts"]["directed"][meta["heldout_program_id"]]))
+          print("F10N_ORIGINAL_SHA_98304_REAL_TRIALS_ZERO_HELDOUT_PROGRAM",i,flush=True)
+          PY
+      - name: Save original raw run log
+        if: always()
+        run: |
+          if test -d f10n-original/${{ matrix.replica }}; then
+            cp f10n-replica-${{ matrix.replica }}.log f10n-original/${{ matrix.replica }}/run.log || true
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: f10n-original-experience-${{ matrix.replica }}
+          path: f10n-original/${{ matrix.replica }}/
+          retention-days: 90
+          if-no-files-found: warn
+
+  independent_frozen_audit:
+    name: F10-N independent replay of experiment logs, SHA and fixed world-gates
+    needs: original_experience_train
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install audit-only NumPy (never torch or original actors)
+        run: python -m pip install numpy
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: f10n-original-experience-*
+          path: gathered
+      - uses: actions/download-artifact@v4
+        with:
+          repository: webtilians/principiodelTodo
+          run-id: 41685499939
+          github-token: ${{ github.token }}
+          name: f10l-independent-g0-original
+          path: original-g0
+      - name: Reconstruct all 786432 observed trial logs, check SHA and grouped bootstrap
+        run: |
+          for i in 0 1 2 3; do
+            mkdir -p independently-audited/$i
+            cp gathered/f10n-original-experience-$i/* independently-audited/$i/
+          done
+          python -m observatory.f10n_audit --root independently-audited --original-g0 original-g0/f10l-g0.json --out f10n-original-science.json
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          a=json.loads(Path("f10n-original-science.json").read_text())
+          assert a["technical"]=="F10N_TECHNICAL_COMPLETE"
+          assert a["unique_case_identity_hashes"]==17408
+          assert a["confirm_26300000_unopened"]
+          lines=[
+             "# INFINITO F10-N: original preregistered experiential effect-memory result",
+             "**Scientific outcome: "+a["status"]+"**",
+             "**Original 3/4 gates: "+str(a["gate_counts"])+"**",
+             "Original frozen F10-L models, 98,304 real trial episodes per condition/r.",
+             "SRX never executed during TRAIN, OOD only MEMORY+FLIP1.",
+             "CONFIRM 26300000+ SEALED.", "",
+             "| Replica | C DEV PUBLIC0 | C DEV PUBLIC1 | C DEV MEMORY0 | A OOD reward | B OOD additive | C OOD effects | D OOD directed | C OOD top program |",
+             "|---|---:|---:|---:|---:|---:|---:|---:|---|",
+          ]
+          for k,rep in a["replicas"].items():
+              dev=rep["metrics"]["dev"]["learned_effects_uniform"]
+              ood=rep["metrics"]["ood"]
+              values=[dev["PUBLIC_0"]["accuracy"],dev["PUBLIC_1"]["accuracy"],
+                      dev["MEMORY_0"]["accuracy"]]+[
+                        ood[arm]["accuracy"] for arm in (
+                          "reward_table","additive_reward_table",
+                          "learned_effects_uniform","learned_effects_directed")]
+              top=next(iter(ood["learned_effects_uniform"]["program_counts"]))
+              lines.append("| "+k+" | "+" | ".join(f"{v*100:.2f}%" for v in values)+
+                           " | "+top+" |")
+          lines.extend(["",
+             "## Complete per-replica original confidence intervals, gate evidence and trial integrity",
+             "~~~json",json.dumps(a["replicas"],ensure_ascii=False,indent=2),"~~~",
+             "TECHNICAL SUCCESS does not entail SCIENTIFIC PASS; no retuning allowed.",
+          ])
+          Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text("\n".join(lines))
+          print("F10N_INDEPENDENT_ORIGINAL_RESULT",a["status"],a["gate_counts"],flush=True)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: f10n-independent-original-audit
+          path: f10n-original-science.json
+          retention-days: 90
+          if-no-files-found: error
