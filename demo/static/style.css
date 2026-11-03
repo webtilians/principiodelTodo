@@ -176,6 +176,13 @@ button, textarea { font: inherit; color: inherit; }
 .event.erased { color: var(--danger); background: var(--danger-soft); }
 .event.blocked { color: var(--ok); background: color-mix(in srgb, var(--ok) 14%, transparent); }
 .event.kept { color: var(--plain); background: var(--plain-soft); }
+.nudge {
+  border: 1px solid var(--inf);
+  background: var(--inf-soft);
+  border-radius: 12px;
+  padding: 0.75rem 0.9rem;
+  font-weight: 500;
+}
 .turn.error .answers { display: none; }
 .turn-error { color: var(--danger); font-weight: 500; }
 

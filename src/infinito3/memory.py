@@ -22,11 +22,59 @@ _STATEMENT_THEN_QUESTION = re.compile(
 )
 
 
+_LEAD_WORDS = {"y", "pero", "oye", "entonces", "and", "so", "hey"}
+_PREPOSITIONS = {"con", "a", "de", "en", "para", "por", "sobre", "desde", "hasta",
+                 "with", "for", "about", "to", "from"}
+_ASKING = {"qué", "quién", "quiénes", "dónde", "adónde", "cuándo", "cómo", "cuál", "cuáles",
+           "cuánto", "cuánta", "cuántos", "cuántas"}
+# "¡Qué bien lo pasé!" exclaims, it does not ask.
+_EXCLAIMED = {"bien", "mal", "pena", "suerte", "bonito", "bonita", "rico", "rica", "guay", "gracia",
+              "horror", "bueno", "buena", "maravilla"}
+_ASKING_UNACCENTED = {"que", "quien", "quienes", "donde", "adonde", "cuando", "como", "cual", "cuales",
+                      "cuanto", "cuanta", "cuantos", "cuantas"}
+# Without an accent the same words start statements ("cuando llegue te llamo", "como te
+# dije, vivo en Madrid"), so they ask only before a verb that usually asks about the user.
+_ASKING_VERBS = {"sabes", "recuerdas", "conoces", "crees", "tienes", "puedes", "es", "son", "era",
+                 "fue", "voy", "vivo", "trabajo", "estudio", "estoy", "soy", "tengo", "hago", "hice",
+                 "dije", "llamo", "hay"}
+_WH = {"what", "who", "whom", "whose", "where", "when", "why", "which", "how"}
+_WH_CONTRACTED = {"what's", "who's", "where's", "when's", "how's", "whats", "wheres", "hows"}
+_AUXILIARIES = {"is", "are", "was", "were", "am", "do", "does", "did", "can", "could", "should",
+                "would", "will", "have", "has", "had", "may", "might", "shall"}
+_HOW_MUCH = {"much", "many", "long", "old", "far", "often"}
+_SUBJECTS = {"i", "you", "my", "your", "we", "our", "he", "she", "it", "they", "there", "this", "that"}
+
+
+def asks_without_marks(sentence: str) -> bool:
+    """True for a question typed without ? or ¿, as most people chat: "con quien voy el jueves".
+
+    It errs towards statements: a question taken for a statement is stored, a statement
+    taken for a question is lost.
+    """
+    words = re.findall(r"[\wáéíóúüñ']+", sentence.casefold().replace("’", "'"))
+    while words and words[0] in _LEAD_WORDS:
+        words = words[1:]
+    if words and words[0] in _PREPOSITIONS:
+        words = words[1:]
+    if len(words) < 2:
+        return False
+    first, second = words[0], words[1]
+    if first in _ASKING:
+        return second not in _EXCLAIMED
+    if first in _ASKING_UNACCENTED:
+        return second in _ASKING_VERBS and len(words) <= 10 and "," not in sentence
+    if first in _WH_CONTRACTED:
+        return True
+    if first in _WH:
+        return second in _AUXILIARIES or (first == "how" and second in _HOW_MUCH)
+    return first in _AUXILIARIES and second in _SUBJECTS
+
+
 def is_question(sentence: str) -> bool:
     """True for a sentence that only asks; one that states something first is not."""
     s = sentence.strip().rstrip("\"'”’»)").strip()
     if not (s.endswith("?") or s.startswith("¿")):
-        return False
+        return "¿" not in s and "?" not in s and asks_without_marks(s)
     if s.find("¿") > 3:  # "Tengo asma, ¿debería llevar el inhalador?"
         return False
     return not _STATEMENT_THEN_QUESTION.search(s.replace("’", "'"))
@@ -115,7 +163,9 @@ class RuleBasedMemoryGate:
             score += 0.1
             reasons.append("information_density")
 
-        is_question = "?" in text or "¿" in text
+        sentences = split_sentences(text)
+        is_question = "?" in text or "¿" in text or bool(sentences) and all(
+            asks_without_marks(s) for s in sentences)
         if is_question:
             score -= 0.20
             reasons.append("question_penalty")
