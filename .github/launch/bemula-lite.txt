@@ -1,0 +1,32 @@
+Launch: INFINITO v0.5 on Bemula-Lite, once.
+
+Approved by the maintainer on 2026-11-03. Bemula-Lite: 31 instances, 62 forget
+requests, 848 questions (github.com/Nboxff/bemula-benchmark at 862aff6). None
+of it was used to develop or calibrate v0.5: that used only the 19 other
+instances of the full benchmark.
+
+Configuration, fixed before the run and chosen on the development instances:
+INFINITO stores what the user says, recognizes forget requests with rules,
+plans them with gpt-5.6-luna reviewing every memory in batches of 60, and
+deletes the chosen rows with the history of their facts. Questions get the
+16 most relevant memories, without pruning, under 3,000 tokens. Answers use
+Bemula's RAG prompt with gpt-5.6-luna (reasoning none); the judge is
+DeepSeek-V4.1-Flash at temperature 0, as in the paper's GPT-5.6-Luna runs;
+embeddings text-embedding-3-small.
+
+Comparison: Bemula's published GPT-5.6-Luna runs (Naive RAG, Mem0, A-MEM,
+LangMem, LightMem, SimpleMem, Full Context), recomputed on the same 31
+instances. Best Bemula Score among them: A-MEM, 26.3. Requests passed end to
+end: 0 of 62 for every one of them.
+
+Decision rule, fixed before the run: INFINITO's forgetting is called better
+than every published system if its Bemula Score is above 26.3 and it passes
+at least one forget request end to end. Retention, preservation and
+relearning are reported alongside. Whatever the outcome, it is reported as
+found.
+
+Models are called through OpenAI's and DeepSeek's own APIs (Bemula's runs used
+an OpenAI-compatible gateway), so Bemula's token limit reaches GPT-5 as
+max_completion_tokens. The development check that preceded this run (Actions
+run 41616879384, 4 development instances) ran the whole pipeline with these
+models; nothing was changed after it.
