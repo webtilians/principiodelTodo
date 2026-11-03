@@ -42,6 +42,11 @@ _WH_CONTRACTED = {"what's", "who's", "where's", "when's", "how's", "whats", "whe
 _AUXILIARIES = {"is", "are", "was", "were", "am", "do", "does", "did", "can", "could", "should",
                 "would", "will", "have", "has", "had", "may", "might", "shall"}
 _HOW_MUCH = {"much", "many", "long", "old", "far", "often"}
+# Requests for information addressed to the assistant ask too: "dime dónde vivo",
+# "haz una lista de todo lo que sabes de mí", "tell me my dentist's name".
+_TELL_ME = {"dime", "dígame", "cuéntame", "cuentame", "muéstrame", "muestrame", "enséñame", "enseñame",
+            "explícame", "explicame", "enumera", "list"}
+_TELL_ME_EN = {"tell", "show", "give"}
 _SUBJECTS = {"i", "you", "my", "your", "we", "our", "he", "she", "it", "they", "there", "this", "that"}
 
 
@@ -59,6 +64,10 @@ def asks_without_marks(sentence: str) -> bool:
     if len(words) < 2:
         return False
     first, second = words[0], words[1]
+    short = len(words) <= 12 and "," not in sentence
+    if first in _TELL_ME or (first in _TELL_ME_EN and second == "me") or words[:3] in (
+            ["haz", "una", "lista"], ["make", "a", "list"]):
+        return short
     if first in _ASKING:
         return second not in _EXCLAIMED
     if first in _ASKING_UNACCENTED:

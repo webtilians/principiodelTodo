@@ -37,8 +37,9 @@ INFINITO ataca los tres problemas y mide si de verdad ayuda.
 
 ## Qué hace hoy
 
-- **Seguridad antes que memoria.** Contraseñas, claves de API, claves privadas y
-  PIN se bloquean antes de que ningún componente los vea y nunca se envían al LLM.
+- **Seguridad antes que memoria.** Contraseñas, claves de API, claves privadas, PIN,
+  números de documento (DNI y NIE, SSN de EE. UU.), IBAN y números de tarjeta se
+  bloquean antes de que ningún componente los vea y nunca se envían al LLM.
   Los correos y teléfonos pueden usarse en el turno actual, pero no se guardan por
   defecto.
 - **Recuerda lo que dices, no lo que espera una lista de palabras clave.** Guarda
