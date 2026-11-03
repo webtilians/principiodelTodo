@@ -1,0 +1,8 @@
+Launch: real embeddings for INFINITO v0.5 development data.
+
+Approved by the maintainer on 2026-11-03 as part of the v0.5 plan. Embeddings
+only (text-embedding-3-small, about 0.85 million tokens, a few cents), no LLM
+calls. Texts: the memory-updates benchmark on its dev partition (seeds
+4600000+ to 4900000+) and the 19 Bemula instances that are not in Bemula-Lite.
+Bemula-Lite and the confirm2 partition are not embedded; they are kept for
+evaluation.
