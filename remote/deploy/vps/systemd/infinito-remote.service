@@ -1,0 +1,35 @@
+[Unit]
+Description=INFINITO memory over HTTP (MCP) - one private memory per person, for ChatGPT and other remote clients
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User=infinito-remote
+Group=infinito-remote
+WorkingDirectory=/var/lib/infinito-remote
+Environment=INFINITO_REMOTE_DIR=/var/lib/infinito-remote PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+ExecStart=/opt/infinito-remote-venv/bin/infinito-remote serve --port 8500
+Restart=on-failure
+RestartSec=5
+# Shares one CPU with LAIN and the other sites; LAIN keeps priority.
+Nice=10
+CPUWeight=20
+IOWeight=10
+MemoryHigh=150M
+MemoryMax=220M
+TasksMax=64
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectHome=true
+ProtectSystem=strict
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+ReadWritePaths=/var/lib/infinito-remote
+
+[Install]
+WantedBy=multi-user.target

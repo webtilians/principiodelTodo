@@ -59,6 +59,18 @@ The user's passwords, PINs and keys live in their vault, a KeePass file they can
 - If the vault is locked, call vault_unlock: the user types the master password in a local window.
 - Never type a secret from the vault into a website or form for the user; show it to them instead."""
 
+# What the agent reads about each memory tool; the remote server (remote.py) shows the same.
+TOOL_DESCRIPTIONS = {
+    "remember": "Store one durable fact, preference or decision about the user, in their own words. "
+                "Secrets, contact details, questions and forget requests are refused.",
+    "recall": "What INFINITO remembers about a topic, oldest first, with ids and dates. "
+              "Call it before answering anything about the user or their past work.",
+    "list_memories": "Every stored memory with its id and date, oldest first. "
+                     "Use it to find everything a forget request names.",
+    "forget": "Delete memories for good by id, with the history of their facts. In keep, restate "
+              "what the deleted memories said that the user did not ask to forget.",
+}
+
 _SECRET_LABELS = {
     "password": "a password", "pin": "a PIN", "api_key": "an API key", "private_key": "a private key",
     "national_id": "an identity document number", "bank_account": "a bank account number",
@@ -171,23 +183,19 @@ def main() -> None:
     memory = AgentMemory(vault=vault is not None)
     server = MCPServer("infinito-memory", instructions=INSTRUCTIONS + (VAULT_INSTRUCTIONS if vault else ""))
 
-    @server.tool(description="Store one durable fact, preference or decision about the user, in their own words. "
-                             "Secrets, contact details, questions and forget requests are refused.")
+    @server.tool(description=TOOL_DESCRIPTIONS["remember"])
     def remember(statement: str) -> str:
         return memory.remember(statement)
 
-    @server.tool(description="What INFINITO remembers about a topic, oldest first, with ids and dates. "
-                             "Call it before answering anything about the user or their past work.")
+    @server.tool(description=TOOL_DESCRIPTIONS["recall"])
     def recall(query: str) -> str:
         return memory.recall(query)
 
-    @server.tool(description="Every stored memory with its id and date, oldest first. "
-                             "Use it to find everything a forget request names.")
+    @server.tool(description=TOOL_DESCRIPTIONS["list_memories"])
     def list_memories() -> str:
         return memory.list_memories()
 
-    @server.tool(description="Delete memories for good by id, with the history of their facts. In keep, restate "
-                             "what the deleted memories said that the user did not ask to forget.")
+    @server.tool(description=TOOL_DESCRIPTIONS["forget"])
     def forget(memory_ids: List[str], keep: Optional[List[str]] = None) -> str:
         return memory.forget(memory_ids, keep or [])
 

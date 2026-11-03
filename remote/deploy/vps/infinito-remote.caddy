@@ -1,0 +1,14 @@
+# Written by setup.sh into /etc/caddy/sites.d/. Caddy gets and renews the HTTPS certificate.
+# No access log on purpose: each person's secret address is in the request path.
+__HOST__ {
+	request_body {
+		max_size 256KB
+	}
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+		-Server
+	}
+	reverse_proxy 127.0.0.1:8500
+}
