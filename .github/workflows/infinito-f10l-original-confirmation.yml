@@ -119,7 +119,9 @@ jobs:
         run: |
           mkdir -p audited
           for i in 0 1 2 3; do
-            cp gathered/f10lc-original-confirm-$i/$i.json audited/$i.json
+            found="$(find "gathered/f10lc-original-confirm-$i" -type f -name "$i.json")"
+            test "$(printf '%s\\n' "$found" | grep -c .)" -eq 1
+            cp "$found" "audited/$i.json"
           done
           python -m observatory.f10l_confirm_audit --root audited --gate original-g0/f10l-g0.json --out f10lc-original-audit.json
           python - <<'PY'
