@@ -24,6 +24,8 @@ dependencies = []
 [project.optional-dependencies]
 openai = ["openai>=1.40"]
 mcp = ["mcp>=2,<3"]
+# The agent's vault: secrets in a KeePass file, shown only on the user's screen.
+vault = ["pykeepass>=4.1,<5"]
 dev = ["pytest>=8"]
 
 [project.scripts]

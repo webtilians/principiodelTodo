@@ -130,7 +130,7 @@ default memory folder to share one memory with Claude Code and other apps.
 The other clients need [uv](https://docs.astral.sh/uv/). Claude Code:
 
 ```bash
-claude mcp add infinito -- uvx --from "infinito-memory[mcp] @ git+https://github.com/webtilians/principiodelTodo" infinito-mcp
+claude mcp add infinito -- uvx --from "infinito-memory[mcp,vault] @ git+https://github.com/webtilians/principiodelTodo" infinito-mcp
 ```
 
 Claude Desktop, Cursor and other clients, in their MCP configuration:
@@ -140,7 +140,7 @@ Claude Desktop, Cursor and other clients, in their MCP configuration:
   "mcpServers": {
     "infinito": {
       "command": "uvx",
-      "args": ["--from", "infinito-memory[mcp] @ git+https://github.com/webtilians/principiodelTodo", "infinito-mcp"]
+      "args": ["--from", "infinito-memory[mcp,vault] @ git+https://github.com/webtilians/principiodelTodo", "infinito-mcp"]
     }
   }
 }
@@ -148,6 +148,17 @@ Claude Desktop, Cursor and other clients, in their MCP configuration:
 
 Then talk as usual: "remember that I deploy with Docker", "what do you know about my
 project?", "forget everything about my health".
+
+**Your vault.** Secrets never go in memory; they go in your vault, a KeePass file
+(`~/.infinito/boveda.kdbx`) encrypted with a master password and, if you like, a key
+file on a USB stick, so it also opens with KeePassXC or KeePassDX on any computer or
+phone. The agent only ever sees entry names. "Save my router's password" opens a small
+window on your screen where you type it; "what was my router's password?" shows it in
+another one, with a button that copies it for 20 seconds. The master password and the
+values never pass through the agent, its model or the chat, so nobody who tricks the
+agent can get them. Every unlock, addition and reveal is logged, without values, in
+`~/.infinito/vault-log.jsonl`. If you forget the master password, nobody can recover
+the vault: write it down and keep it at home.
 
 ## How it works
 

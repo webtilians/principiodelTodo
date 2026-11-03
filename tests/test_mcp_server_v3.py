@@ -88,6 +88,12 @@ def test_the_server_works_over_mcp_stdio(tmp_path):
                 return tools, forgot, recalled
 
     tools, forgot, recalled = anyio.run(session)
-    assert tools == ["forget", "list_memories", "recall", "remember"]
+    memory_tools = ["forget", "list_memories", "recall", "remember"]
+    try:
+        import pykeepass  # noqa: F401
+        vault_tools = ["vault_add", "vault_list", "vault_lock", "vault_reveal", "vault_status", "vault_unlock"]
+    except ImportError:
+        vault_tools = []
+    assert tools == sorted(memory_tools + vault_tools)
     assert forgot.startswith("Deleted 1 memories")
     assert "Leeds" not in recalled and "data engineer" in recalled
