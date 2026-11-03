@@ -120,9 +120,14 @@ MCP clients get a long-term memory about you and your work that stays correct an
 private: it refuses secrets, keeps no questions, lets a newer fact win, and forgets
 for real when you ask. Four tools: `remember`, `recall`, `list_memories` and `forget`.
 The memory is a local SQLite file (`~/.infinito/memory.db`, or `INFINITO_MEMORY_DB`);
-the server itself sends nothing anywhere. It needs [uv](https://docs.astral.sh/uv/).
+the server itself sends nothing anywhere.
 
-Claude Code:
+**Claude Desktop, one click:** download
+[infinito-memory.mcpb](https://github.com/webtilians/principiodelTodo/releases/latest/download/infinito-memory.mcpb)
+and open it, or drag it into Settings → Extensions. Nothing else to install. Keep the
+default memory folder to share one memory with Claude Code and other apps.
+
+The other clients need [uv](https://docs.astral.sh/uv/). Claude Code:
 
 ```bash
 claude mcp add infinito -- uvx --from "infinito-memory[mcp] @ git+https://github.com/webtilians/principiodelTodo" infinito-mcp
