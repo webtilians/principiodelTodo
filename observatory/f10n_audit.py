@@ -278,7 +278,7 @@ def audit(root,g0):
         }
         ci=accuracy_ci(c,rep)
         comp=by_split["ood"]["learned_effects_uniform"]
-        g0=all(dev[f"{src}_{flip}"]["accuracy"]>=.90 for src,flip in CONTEXTS)
+        g0_pass=all(dev[f"{src}_{flip}"]["accuracy"]>=.90 for src,flip in CONTEXTS)
         g1=(comp["accuracy"]>=.80 and ci[0]>.70 and comp["srx_fraction"]>=.80
             and min(comp["by_n"].values())>=.70
             and min(comp["by_source"].values())>=.70
@@ -294,7 +294,7 @@ def audit(root,g0):
             "metrics":by_split,"contrasts":contrasts,
             "world_bootstrap_ci95":ci,
             "integrity":integrity,
-            "gates":{"G0_seen_tasks":g0,"G1_never_executed_SRX":g1,
+            "gates":{"G0_seen_tasks":g0_pass,"G1_never_executed_SRX":g1,
                      "G2_F4_and_X_causality":g2,
                      "G3_effect_vs_reward":g3,
                      "G4_directed_vs_uniform":g4},
