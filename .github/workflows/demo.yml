@@ -1,0 +1,27 @@
+name: Demo tests
+
+on:
+  pull_request:
+    paths: ["demo/**", "src/**", ".github/workflows/demo.yml"]
+  push:
+    branches: [master]
+    paths: ["demo/**", "src/**", ".github/workflows/demo.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  demo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install the demo's dependencies
+        run: python -m pip install -r demo/requirements.txt pytest httpx
+      - name: Demo tests, offline
+        run: python -m pytest -q demo/tests
+      - name: Deploy scripts parse
+        run: for f in demo/deploy/vps/setup.sh demo/deploy/vps/bin/*; do bash -n "$f"; done

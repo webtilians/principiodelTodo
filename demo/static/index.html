@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>INFINITO, memoria que olvida</title>
+  <meta name="description" content="Prueba INFINITO, una memoria para asistentes de IA que olvida de verdad cuando se lo pides, junto a una memoria normal que lo guarda todo.">
+  <meta property="og:title" content="INFINITO, memoria que olvida">
+  <meta property="og:description" content="Memoria para asistentes de IA que olvida de verdad cuando se lo pides. Pruébala junto a una memoria normal.">
+  <link rel="icon" href="/static/icon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@112,700;112,800&family=JetBrains+Mono:wght@400;500&family=Public+Sans:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="top-inner">
+      <a class="brand" href="#try">INFINITO</a>
+      <nav aria-label="Secciones">
+        <a href="#try" data-i18n="nav_try">Pruébalo</a>
+        <a href="#results" data-i18n="nav_results">Resultados</a>
+        <a href="https://github.com/webtilians/principiodelTodo" target="_blank" rel="noopener" data-i18n="nav_code">Código</a>
+        <button type="button" class="lang" id="lang" aria-label="Language">EN</button>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero" id="try">
+      <div class="wrap">
+        <h1 data-i18n="tagline">Una memoria para asistentes de IA que olvida de verdad cuando se lo pides.</h1>
+        <p class="lede" data-i18n="intro">Escribe como hablarías con un asistente. INFINITO y una memoria normal reciben lo mismo y responden con el mismo modelo. Ninguno ve el chat: solo lo que recuerda.</p>
+        <p class="notice" id="notice" hidden></p>
+      </div>
+    </section>
+
+    <section class="playground" aria-label="Demo">
+      <div class="wrap play-grid">
+        <div class="conversation">
+          <div class="timeline" id="timeline" aria-live="polite">
+            <div class="empty" id="empty">
+              <p class="eyebrow" data-i18n="try_label">Prueba esta secuencia</p>
+              <p data-i18n="try_hint">Cuéntale dos cosas, intenta darle una contraseña, pídele que olvide una y pregúntale con trampa.</p>
+            </div>
+          </div>
+          <div class="examples" id="examples" aria-label="Ejemplos"></div>
+          <form class="composer" id="composer" autocomplete="off">
+            <label class="sr" for="message" data-i18n="placeholder">Escribe un mensaje…</label>
+            <textarea id="message" rows="2" maxlength="400" data-i18n-placeholder="placeholder" placeholder="Escribe un mensaje…"></textarea>
+            <div class="composer-bar">
+              <span class="left" id="left"></span>
+              <button type="submit" id="send" data-i18n="send">Enviar</button>
+            </div>
+          </form>
+        </div>
+
+        <aside class="memories" aria-label="Memorias">
+          <section class="panel inf" aria-labelledby="inf-title">
+            <header>
+              <h2 id="inf-title">INFINITO</h2>
+              <p data-i18n="inf_sub">Guarda lo que dices, bloquea secretos y borra cuando se lo pides.</p>
+            </header>
+            <h3 class="panel-label"><span data-i18n="remembers">Lo que recuerda</span> <span class="count" id="inf-count">0</span></h3>
+            <ul class="rows" id="inf-rows"></ul>
+          </section>
+          <section class="panel plain" aria-labelledby="plain-title">
+            <header>
+              <h2 id="plain-title" data-i18n="plain_name">Memoria normal</h2>
+              <p data-i18n="plain_sub">Guarda cada mensaje y recupera los más parecidos, como hacen la mayoría.</p>
+            </header>
+            <h3 class="panel-label"><span data-i18n="remembers">Lo que recuerda</span> <span class="count" id="plain-count">0</span></h3>
+            <ul class="rows" id="plain-rows"></ul>
+          </section>
+          <button type="button" class="reset" id="reset" data-i18n="reset">Borrar todo y empezar de cero</button>
+          <p class="privacy" id="privacy"></p>
+        </aside>
+      </div>
+    </section>
+
+    <section class="results" id="results">
+      <div class="wrap narrow">
+        <h2 data-i18n="results_title">Resultados</h2>
+        <p data-i18n="results_intro">Bemula es un benchmark público de olvido a petición: a mitad de una conversación el usuario pide olvidar algo y después se comprueba si de verdad se ha olvidado, también con preguntas trampa. INFINITO se ejecutó una sola vez en Bemula-Lite, con el mismo modelo y el mismo juez que los sistemas publicados en el paper.</p>
+        <div class="table-wrap">
+          <table id="bemula">
+            <thead>
+              <tr>
+                <th scope="col" data-i18n="col_system">Sistema</th>
+                <th scope="col" data-i18n="col_score">Puntuación</th>
+                <th scope="col" data-i18n="col_passed">Peticiones superadas</th>
+                <th scope="col" data-i18n="col_efficacy">Olvido</th>
+                <th scope="col" data-i18n="col_attack">Ante ataques</th>
+                <th scope="col" data-i18n="col_retention">Retención</th>
+                <th scope="col" data-i18n="col_preservation">Preservación</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <p class="muted" data-i18n="results_note">Lejos de estar resuelto: en el 44 % de las preguntas sobre algo olvidado, la respuesta todavía lo dejó ver.</p>
+        <p data-i18n="updates">Con datos que cambian («ahora vivo en Valencia»), y un LLM real, INFINITO acierta 112 de 120 escenarios frente a 117 de un RAG que lo guarda todo, enviando un 31 % menos de contexto.</p>
+        <p class="links">
+          <a href="https://github.com/webtilians/principiodelTodo/actions/runs/41621190386" target="_blank" rel="noopener" data-i18n="link_bemula">Ejecución de Bemula-Lite</a>
+          <a href="https://github.com/webtilians/principiodelTodo/actions/runs/41609313351" target="_blank" rel="noopener" data-i18n="link_updates">Confirmación con LLM real</a>
+          <a href="https://github.com/webtilians/principiodelTodo#evaluation" target="_blank" rel="noopener" data-i18n="link_method">Metodología completa</a>
+          <a href="https://arxiv.org/abs/2610.18052" target="_blank" rel="noopener">arXiv 2610.18052</a>
+        </p>
+
+        <h2 data-i18n="how_title">Cómo olvida</h2>
+        <ol class="how">
+          <li><strong data-i18n="how1_t">Reconoce la petición.</strong> <span data-i18n="how1">Unas reglas detectan «olvida», «borra», «deja de guardar»… antes de que el mensaje se guarde.</span></li>
+          <li><strong data-i18n="how2_t">Elige qué borrar.</strong> <span data-i18n="how2">Un LLM revisa todos los recuerdos guardados y señala los que contienen ese dato.</span></li>
+          <li><strong data-i18n="how3_t">Borra de verdad.</strong> <span data-i18n="how3">Las filas se eliminan con su historial y se sobrescriben en la base de datos. Solo queda un contador.</span></li>
+        </ol>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <div class="wrap">
+      <span data-i18n="footer">INFINITO es open source (MIT).</span>
+      <a href="https://github.com/webtilians/principiodelTodo" target="_blank" rel="noopener">github.com/webtilians/principiodelTodo</a>
+    </div>
+  </footer>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
