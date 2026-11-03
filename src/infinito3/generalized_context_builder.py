@@ -120,7 +120,7 @@ class GeneralizedContextBuilder(BalancedContextBuilder):
                 # structured predicate; for a singular request keep dominant
                 # evidence only. This works for arbitrary topics, not just a
                 # hand-maintained vocabulary.
-                filtered[source] = self._prune_memory_pool(query, items)
+                filtered[source] = self._prune_memory_pool(query, items, self._semantic_threshold(pools))
 
         after = sum(len(items) for items in filtered.values())
         return filtered, max(0, before - after)
