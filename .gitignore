@@ -281,3 +281,7 @@ models/interrupted_states/*.pt
 !.github/
 # Streamlit secrets
 .streamlit/secrets.toml
+
+# The demo's deploy kit and icon: the broad deploy/ and *.svg rules above come from the 2025 project.
+!demo/deploy/
+!demo/static/*.svg

@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+# Keeps the INFINITO demo in step with its GitHub branch (/etc/infinito-demo/branch).
+# infinito-demo-update.timer runs it every 2 minutes. It does nothing while GitHub has no new commit.
+# If a new version does not start, it goes back to the previous one and skips that commit.
+# When the branch is gone from GitHub (merged and deleted), it follows master from then on.
+#   infinito-demo-update                        install the newest commit, if there is one
+#   infinito-demo-update --force                reinstall even without a new commit
+#   DEMO_BRANCH=feat/x infinito-demo-update     follow another branch from now on
+set -euo pipefail
+REPO=https://github.com/webtilians/principiodelTodo.git
+APP=/opt/infinito-demo
+VENV=/opt/infinito-demo-venv
+CONF=/etc/infinito-demo
+STATE=/var/lib/infinito-demo-deploy
+PORT=8400
+
+[ "$(id -u)" -eq 0 ] || { echo "Ejecuta este comando como root." >&2; exit 1; }
+exec 9>/run/infinito-demo-update.lock
+flock -n 9 || { echo "Ya hay una actualización en curso."; exit 0; }
+cd /
+install -d -m 755 "$STATE"
+force=""; [ "${1:-}" = "--force" ] && force=1
+if [ -n "${DEMO_BRANCH:-}" ]; then echo "$DEMO_BRANCH" > "$CONF/branch"; force=1; fi
+branch=$(cat "$CONF/branch" 2>/dev/null || echo master)
+
+remote=$(git ls-remote "$REPO" "refs/heads/$branch" | cut -f1)
+if [ -z "$remote" ] && [ "$branch" != master ]; then
+  echo "La rama $branch ya no existe en GitHub: a partir de ahora se sigue master."
+  branch=master
+  echo master > "$CONF/branch"
+  force=1
+  remote=$(git ls-remote "$REPO" refs/heads/master | cut -f1)
+fi
+[ -n "$remote" ] || { echo "La rama $branch no existe en GitHub." >&2; exit 1; }
+if [ -z "$force" ]; then
+  [ "$remote" = "$(cat "$STATE/deployed" 2>/dev/null || true)" ] && exit 0
+  # This commit already failed to start: wait for the next one.
+  [ "$remote" = "$(cat "$STATE/bad" 2>/dev/null || true)" ] && exit 0
+fi
+
+healthy() { curl -fs --max-time 3 -o /dev/null "http://127.0.0.1:$PORT/healthz"; }
+previous=$(git -C "$APP" rev-parse -q --verify HEAD 2>/dev/null || true)
+new=""
+rollback() {
+  echo "La versión ${new:0:7} no arranca (${1}); se vuelve a la anterior ${previous:0:7}." >&2
+  [ -n "$new" ] && echo "$new" > "$STATE/bad"
+  if [ -n "$previous" ]; then
+    git -C "$APP" reset -q --hard "$previous"
+    systemctl restart infinito-demo || true
+  fi
+  journalctl -u infinito-demo -n 20 --no-pager -o cat >&2 || true
+  exit 1
+}
+
+echo "Actualizando $branch: ${previous:0:7} -> ${remote:0:7}"
+[ -d "$APP/.git" ] || git clone -q --depth 1 --branch "$branch" "$REPO" "$APP"
+git -C "$APP" fetch -q --depth 1 origin "+refs/heads/$branch:refs/remotes/origin/$branch"
+git -C "$APP" checkout -q -B "$branch" "origin/$branch"
+git -C "$APP" reset -q --hard "origin/$branch"
+new=$(git -C "$APP" rev-parse HEAD)
+
+[ -f "$APP/demo/requirements.txt" ] || rollback "falta demo/requirements.txt"
+[ -x "$VENV/bin/python" ] || python3 -m venv "$VENV"
+req=$(sha256sum "$APP/demo/requirements.txt" | cut -d' ' -f1)
+if [ "$req" != "$(cat "$STATE/requirements" 2>/dev/null || true)" ]; then
+  "$VENV/bin/pip" install -q --disable-pip-version-check -r "$APP/demo/requirements.txt" \
+    || rollback "pip install"
+  echo "$req" > "$STATE/requirements"
+fi
+# Import it as the service user before touching the running service.
+runuser -u infinito-demo -- env -C "$APP" PYTHONPATH="$APP" PYTHONDONTWRITEBYTECODE=1 \
+  "$VENV/bin/python" -c 'import demo.app' || rollback "error al importar"
+
+systemctl restart infinito-demo
+for _ in $(seq 1 30); do healthy && break; sleep 1; done
+healthy || rollback "no responde en el puerto $PORT"
+echo "$new" > "$STATE/deployed"
+rm -f "$STATE/bad"
+git -C "$APP" log -1 --format='Instalado: %h %s (%cd)' --date=format:'%Y-%m-%d %H:%M'

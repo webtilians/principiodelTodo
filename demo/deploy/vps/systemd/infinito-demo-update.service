@@ -1,0 +1,9 @@
+[Unit]
+Description=Install the newest INFINITO demo commit from GitHub, if there is one
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/infinito-demo-update
+TimeoutStartSec=15min
