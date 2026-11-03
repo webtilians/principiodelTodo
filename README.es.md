@@ -115,6 +115,38 @@ assistant = CognitiveLoop(engine, OpenAIResponsesAdapter(client, model="<tu-mode
 print(assistant.turn("Mañana tengo reunión con el equipo a las 10").response.text)
 ```
 
+## Memoria para tu agente de IA (MCP)
+
+INFINITO también funciona como servidor MCP: Claude Code, Claude Desktop, Cursor y otros
+clientes MCP tienen así una memoria a largo plazo sobre ti y tu trabajo que se mantiene
+correcta y privada: rechaza secretos, no guarda preguntas, deja que gane el dato más
+reciente y olvida de verdad cuando se lo pides. Cuatro herramientas: `remember`,
+`recall`, `list_memories` y `forget`. La memoria es un archivo SQLite local
+(`~/.infinito/memory.db`, o `INFINITO_MEMORY_DB`); el servidor no envía nada a ningún
+sitio. Necesita [uv](https://docs.astral.sh/uv/).
+
+Claude Code:
+
+```bash
+claude mcp add infinito -- uvx --from "infinito-memory[mcp] @ git+https://github.com/webtilians/principiodelTodo" infinito-mcp
+```
+
+Claude Desktop, Cursor y otros clientes, en su configuración MCP:
+
+```json
+{
+  "mcpServers": {
+    "infinito": {
+      "command": "uvx",
+      "args": ["--from", "infinito-memory[mcp] @ git+https://github.com/webtilians/principiodelTodo", "infinito-mcp"]
+    }
+  }
+}
+```
+
+Después habla como siempre: «recuerda que despliego con Docker», «¿qué sabes de mi
+proyecto?», «olvida todo lo de mi salud».
+
 ## Cómo funciona
 
 ```text
