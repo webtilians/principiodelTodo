@@ -13,6 +13,9 @@ Decide qué recordar, mantiene los datos al día cuando cambian, nunca guarda
 secretos y entrega al modelo solo el contexto necesario, marcado como datos y no
 como instrucciones.
 
+**[Prueba la demo en vivo](https://demo.178-105-103-4.sslip.io/)**: habla a la vez con INFINITO y
+con una memoria normal, pídeles que olviden algo y mira qué guarda cada una.
+
 > **Estado: alfa (v0.5).** El núcleo funciona y está probado. En Bemula-Lite, un
 > benchmark público de olvido a petición, obtiene 45,9 puntos frente a 26,3 del
 > mejor sistema de memoria publicado, con los mismos modelos, y es el único que

@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+# Give the demo its OpenAI key. The key is typed here, on the server, never echoed, checked
+# against OpenAI, and stored only in /etc/infinito-demo/demo.env (root, 600).
+#
+#   infinito-demo-set-key          ask for the key (or read it from SSH's input, as clave-openai.ps1 sends it)
+#   infinito-demo-set-key --off    delete it: the demo shows its results but stops answering
+set -euo pipefail
+umask 077
+[ "$(id -u)" -eq 0 ] || { echo "Ejecuta como root." >&2; exit 1; }
+env_file=/etc/infinito-demo/demo.env
+[ -f "$env_file" ] || { echo "Falta $env_file: instala antes la demo con setup.sh." >&2; exit 1; }
+
+keep_others() { grep -v '^OPENAI_API_KEY=' "$env_file" > "$env_file.new" || true; }
+
+if [ "${1:-}" = "--off" ]; then
+  keep_others
+  mv "$env_file.new" "$env_file"
+  systemctl restart infinito-demo
+  echo "Clave borrada: la demo ya no responde (los resultados siguen visibles)."
+  exit 0
+fi
+
+if [ -t 0 ]; then
+  read -rsp "Pega tu clave de OpenAI y pulsa Enter (no se verá en pantalla): " key
+  echo
+else
+  read -r key || true
+fi
+# Terminals may wrap a paste in ESC[200~...ESC[201~; Windows PowerShell may prefix a byte order mark.
+key=${key//$'\xef\xbb\xbf'/}
+key=${key//$'\e[200~'/}
+key=${key//$'\e[201~'/}
+key=$(printf '%s' "$key" | tr -d '[:space:][:cntrl:]')
+if ! [[ $key =~ ^sk-[A-Za-z0-9_-]{20,300}$ ]]; then
+  echo "Eso no parece una clave de OpenAI (empiezan por sk-). No se ha cambiado nada." >&2
+  exit 2
+fi
+# A free call: it lists models, and fails if OpenAI does not accept the key.
+code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 -H "Authorization: Bearer $key" \
+  https://api.openai.com/v1/models || true)
+if [ "$code" != 200 ]; then
+  echo "OpenAI no acepta esa clave (respuesta $code). No se ha cambiado nada." >&2
+  exit 3
+fi
+keep_others
+printf 'OPENAI_API_KEY=%s\n' "$key" >> "$env_file.new"
+mv "$env_file.new" "$env_file"
+key=""
+systemctl restart infinito-demo
+for _ in $(seq 1 20); do
+  curl -fs --max-time 3 http://127.0.0.1:8400/api/status 2>/dev/null | grep -q '"mode":"openai"' && {
+    echo "Clave guardada: la demo ya responde con OpenAI."
+    exit 0
+  }
+  sleep 1
+done
+echo "Clave guardada, pero la demo aún no responde: journalctl -u infinito-demo -n 30" >&2
+exit 1

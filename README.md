@@ -13,6 +13,9 @@ to remember, keeps facts current when they change, never stores secrets, and
 gives the model only the context it needs, marked as data rather than
 instructions.
 
+**[Try the live demo](https://demo.178-105-103-4.sslip.io/)**: talk to INFINITO and to a plain
+memory at once, ask both to forget something, and watch what each one keeps.
+
 > **Status: alpha (v0.5).** The core works and is tested. On Bemula-Lite, a public
 > benchmark of forgetting on request, it scores 45.9 against 26.3 for the best
 > published memory system, with the same models, and it is the only one that
