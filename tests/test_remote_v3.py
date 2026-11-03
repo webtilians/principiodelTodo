@@ -143,7 +143,8 @@ def test_a_memory_written_before_sealing_is_sealed_and_wiped_at_first_use(tmp_pa
     assert sorted(p.name for p in folder.iterdir()) == ["memory.sealed"]
 
 
-def test_this_computers_memory_can_be_copied_to_the_server(tmp_path):
+def test_this_computers_memory_can_be_copied_to_the_server(tmp_path, caplog):
+    caplog.set_level("INFO")
     pytest.importorskip("mcp.server.mcpserver")
     uvicorn = pytest.importorskip("uvicorn")
     from src.infinito3.mcp_server import AgentMemory
@@ -165,10 +166,13 @@ def test_this_computers_memory_can_be_copied_to_the_server(tmp_path):
         time.sleep(0.05)
     try:
         result = copy_local(f"http://127.0.0.1:{port}/u/{token}/mcp", str(tmp_path / "local.db"))
+        again = copy_local(f"http://127.0.0.1:{port}/u/{token}/mcp", str(tmp_path / "local.db"))
     finally:
         server.should_exit = True
         thread.join(timeout=10)
-    assert result == "Copied 2 of 2 memories; the rest were refused or already there."
+    assert result == "Copied 2 of 2 memories."
+    assert again == "Copied 0 of 2 memories; 2 were already there."  # copying twice duplicates nothing
+    assert token not in caplog.text  # the address is never written to a log
     sealed, key = _memory_of(people, "enrique", token)
     listed = sealed.use("enrique", key, lambda m: m.list_memories(), writes=False)
     assert "INFINITO" in listed and "breves" in listed

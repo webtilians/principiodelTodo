@@ -30,6 +30,7 @@ import argparse
 import base64
 import hashlib
 import json
+import logging
 import os
 import re
 import secrets
@@ -38,7 +39,7 @@ import sqlite3
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Dict, List, Optional, Tuple
 
 from .mcp_server import INSTRUCTIONS, TOOL_DESCRIPTIONS, AgentMemory
 from .persistent_memory import HashEmbeddingProvider, SQLiteCognitiveMemoryStore
@@ -263,20 +264,26 @@ def build_app(people: People):
     return _PersonalAddress(app, people)
 
 
-async def _copy(address: str, statements: List[str]) -> List[str]:
+async def _copy(address: str, statements: List[str]) -> Tuple[List[str], int]:
     from mcp import ClientSession
     from mcp.client.streamable_http import streamable_http_client
 
     async with streamable_http_client(address) as (read, write):
         async with ClientSession(read, write) as client:
             await client.initialize()
-            return [(await client.call_tool("remember", {"statement": s})).content[0].text for s in statements]
+            # What is already there is not sent again, so copying twice changes nothing.
+            listed = (await client.call_tool("list_memories", {})).content[0].text
+            new = [s for s in statements if f'"{s}"' not in listed]
+            answers = [(await client.call_tool("remember", {"statement": s})).content[0].text for s in new]
+            return answers, len(statements) - len(new)
 
 
 def copy_local(address: str, local_db: Optional[str] = None) -> str:
     """Send this computer's memories, oldest first, to a personal address with remember."""
     import anyio
 
+    for library in ("httpx", "httpx2"):  # their request lines would show the address
+        logging.getLogger(library).setLevel(logging.WARNING)
     local = AgentMemory(local_db)
     try:
         statements = [record.content for record in local.store.all()]
@@ -284,9 +291,12 @@ def copy_local(address: str, local_db: Optional[str] = None) -> str:
         local.close()
     if not statements:
         return "This computer has no memories to copy."
-    answers = anyio.run(_copy, address, statements)
+    answers, already = anyio.run(_copy, address, statements)
     kept = sum(answer.startswith("Remembered") for answer in answers)
-    return f"Copied {kept} of {len(statements)} memories; the rest were refused or already there."
+    refused = len(answers) - kept
+    return (f"Copied {kept} of {len(statements)} memories"
+            + (f"; {already} were already there" if already else "")
+            + (f"; {refused} were refused" if refused else "") + ".")
 
 
 def main(argv: Optional[List[str]] = None) -> None:
