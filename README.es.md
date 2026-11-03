@@ -13,10 +13,11 @@ Decide qué recordar, mantiene los datos al día cuando cambian, nunca guarda
 secretos y entrega al modelo solo el contexto necesario, marcado como datos y no
 como instrucciones.
 
-> **Estado: alfa (v0.4).** El núcleo funciona y está probado. Tras corregir cómo
-> captura los datos y construye el contexto, iguala a un RAG que lo guarda todo en
-> 72 escenarios nuevos sin conexión y envía entre un 20 % y un 46 % menos de tokens
-> de contexto. Falta confirmarlo con un LLM real (ver [Evaluación](#evaluación)).
+> **Estado: alfa (v0.4).** El núcleo funciona y está probado. Con un LLM real ya
+> iguala a un RAG que lo guarda todo en las decisiones de proyecto y envía menos
+> tokens de contexto, pero todavía pierde cuando una actualización está redactada
+> sin ninguna palabra en común con la pregunta (15–16 de 24 escenarios frente a
+> 24). Es el siguiente arreglo (ver [Evaluación](#evaluación)).
 
 ## Por qué
 
@@ -183,11 +184,33 @@ El último conjunto se escribió después de una primera versión del arreglo, y
 primera ejecución motivó un cambio más (la regla de la palabra compartida), así
 que no es una prueba ciega en sentido estricto. Sus fallos restantes son los
 mismos en los dos sistemas: paráfrasis que no comparten ninguna palabra con la
-pregunta, que los embeddings hash no pueden emparejar. El siguiente paso es la
-misma comparación con un LLM real y embeddings reales sobre una partición nueva.
+pregunta, que los embeddings hash no pueden emparejar.
 
 La tabla se reproduce en unos 30 segundos, sin instalar nada:
 `python scripts/benchmark_memory_updates.py`.
+
+**Confirmación con LLM real (3 de noviembre de 2026).** El mismo benchmark con
+gpt-5.6-luna y text-embedding-3-small, sobre semillas nunca usadas y con un
+cuarto conjunto cuyas plantillas se escribieron antes de la ejecución:
+
+| Conjunto de escenarios, 24 cada uno | RAG | INFINITO 0.4 | Tokens de contexto, RAG / INFINITO |
+|---|---:|---:|---:|
+| Familias de E10-B | 24/24 | 22/24 | 145 / 103 |
+| Familias de E10-D | 24/24 | **24/24** | 156 / 138 |
+| Asistente personal, preguntas naturales | 24/24 | 15/24 | 138 / 80 |
+| Plantillas nuevas, preguntas naturales | 24/24 | 16/24 | 141 / 83 |
+
+Los dos sistemas se abstuvieron en los 96 controles negativos (preguntas sobre
+datos que nunca se dijeron). Según la regla fijada antes de la ejecución (como
+mucho 2 escenarios por debajo del RAG en cada conjunto), la v0.4 **no queda
+confirmada**. 32 de las 35 decisiones erróneas de INFINITO tienen una misma
+causa: una actualización redactada sin ninguna palabra en común con la pregunta
+(«Cambié de clínica dental y ahora me atiende…» para «¿Quién es mi dentista?»).
+El constructor de contexto solo conserva un segundo recuerdo si comparte alguna
+palabra con la pregunta, así que esas actualizaciones nunca llegaron al modelo;
+el RAG, con los mismos embeddings, las incluyó siempre. Las otras 3 fueron
+abstenciones con el recuerdo correcto en el contexto.
+[Ejecución](https://github.com/webtilians/principiodelTodo/actions/runs/41550028202)
 
 Los resultados relacionados con producto (retención aprendida, búsqueda de memoria
 decidida por el LLM) y los de investigación se resumen en
@@ -210,15 +233,15 @@ publicados tal cual.
 
 ## Hoja de ruta
 
-1. Confirmar el arreglo de la v0.4 con un LLM real y embeddings reales sobre una
-   partición nueva.
-2. Usar la similitud de la recuperación al elegir el contexto, para que llegue al
-   modelo una actualización que no comparte ninguna palabra con la pregunta.
-3. Pruebas públicas de memoria a largo plazo (LongMemEval, LoCoMo) frente a Mem0,
+1. Usar la similitud de los embeddings, y no solo las palabras compartidas, al
+   elegir el contexto, para que llegue al modelo una actualización redactada de
+   otra forma que la pregunta; después, repetir la confirmación con LLM real
+   sobre semillas nuevas.
+2. Pruebas públicas de memoria a largo plazo (LongMemEval, LoCoMo) frente a Mem0,
    Letta y Zep con el mismo presupuesto de tokens.
-4. Extracción de datos multilingüe (hoy los patrones están pensados para español).
-5. Recuperación vectorizada (NumPy o sqlite-vec) para memorias grandes.
-6. Servicio HTTP y paquete en PyPI.
+3. Extracción de datos multilingüe (hoy los patrones están pensados para español).
+4. Recuperación vectorizada (NumPy o sqlite-vec) para memorias grandes.
+5. Servicio HTTP y paquete en PyPI.
 
 ## Historia del proyecto
 

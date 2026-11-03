@@ -50,10 +50,33 @@ the option mentioned last (24 scenarios per set, all on unused seeds):
 The personal-assistant set was written after a first version of the fix, and its
 first run led to the shared-word rule, so it is not strictly held out. Both
 systems fail the same 12 scenarios there: updates paraphrased with no word in
-common with the question, which hash embeddings cannot match. A real-LLM,
-real-embedding run on a fresh partition is the pending confirmation.
+common with the question, which hash embeddings cannot match.
 Reproduce with `python scripts/benchmark_memory_updates.py`; the 0.3 column
 comes from running the same script on commit `28f59a3`.
+
+**v0.4 with a real LLM: parity on project decisions, not on paraphrased
+updates; not confirmed.** gpt-5.6-luna and text-embedding-3-small, seeds never
+used before (3600000+ to 3900000+), plus a fourth set whose templates were
+written before the run; 960 model calls, 290k input tokens. The decision rule,
+fixed in the launch commit, required INFINITO to be at most 2 scenarios below
+RAG on every set and to abstain on at least 90% of negative controls.
+
+| Scenario set | RAG | INFINITO 0.4 | Context tokens, RAG / 0.4 |
+|---|---:|---:|---:|
+| E10-B families | 24/24 | 22/24 | 145 / 103 |
+| E10-D families | 24/24 | 24/24 | 156 / 138 |
+| Personal assistant, natural questions | 24/24 | 15/24 | 138 / 80 |
+| New templates, natural questions | 24/24 | 16/24 | 141 / 83 |
+
+Both systems abstained on all 96 negative controls. 32 of INFINITO's 35 wrong
+decisions came from four families whose update shares no word with the question
+(dentist, manager, coffee order, German class): the current value never reached
+the model, because the context builder keeps a second memory only when it
+shares a word with the question. The RAG baseline, with the same embeddings,
+included those updates every time. The other 3 were abstentions with the right
+memory in context. Next: use embedding similarity when selecting context.
+[Run](https://github.com/webtilians/principiodelTodo/actions/runs/41550028202) ·
+[launch and rule](../.github/launch/memory-updates-real.txt)
 
 **E11-A: a learned retention policy helps when demand is predictable, and fails
 badly when it is not.** With 4 memory slots for 16 events, a softmax policy over

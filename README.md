@@ -13,10 +13,11 @@ to remember, keeps facts current when they change, never stores secrets, and
 gives the model only the context it needs, marked as data rather than
 instructions.
 
-> **Status: alpha (v0.4).** The core works and is tested. After a fix to how it
-> captures facts and builds context, it matches a store-everything RAG baseline on
-> 72 new offline scenarios while sending 20–46% fewer context tokens. Confirmation
-> with a real LLM is pending (see [Evaluation](#evaluation)).
+> **Status: alpha (v0.4).** The core works and is tested. With a real LLM it now
+> matches a store-everything RAG baseline on project decisions while sending fewer
+> context tokens, but it still loses when an update is worded with no words in
+> common with the question (15–16 of 24 scenarios against 24). That is the next
+> fix (see [Evaluation](#evaluation)).
 
 ## Why
 
@@ -178,11 +179,32 @@ that picks the option mentioned last:
 The last set was written after a first version of the fix, and its first run led
 to one more change (the shared-word rule above), so it is not strictly held out.
 Its remaining failures are the same for both systems: paraphrases that share no
-word with the question, which hash embeddings cannot match. The next step is the
-same comparison with a real LLM and real embeddings on a fresh partition.
+word with the question, which hash embeddings cannot match.
 
 Reproduce the table in about 30 seconds, with nothing to install:
 `python scripts/benchmark_memory_updates.py`.
+
+**Real-LLM confirmation (2026-11-03).** The same benchmark with gpt-5.6-luna and
+text-embedding-3-small on seeds never used before, plus a fourth set whose
+templates were written before the run:
+
+| Scenario set, 24 each | RAG | INFINITO 0.4 | Context tokens, RAG / INFINITO |
+|---|---:|---:|---:|
+| E10-B families | 24/24 | 22/24 | 145 / 103 |
+| E10-D families | 24/24 | **24/24** | 156 / 138 |
+| Personal assistant, natural questions | 24/24 | 15/24 | 138 / 80 |
+| New templates, natural questions | 24/24 | 16/24 | 141 / 83 |
+
+Both systems abstained on all 96 negative controls (questions about facts never
+stated). By the rule fixed before the run, at most 2 scenarios below RAG on
+every set, v0.4 is **not confirmed**. 32 of INFINITO's 35 wrong decisions share
+one cause: an update worded with no words in common with the question
+("Cambié de clínica dental y ahora me atiende…" for "¿Quién es mi dentista?").
+The context builder keeps a second memory only when it shares a word with the
+question, so those updates never reached the model, while the RAG baseline,
+with the same embeddings, always included them. The other 3 were abstentions
+with the right memory in context.
+[Run](https://github.com/webtilians/principiodelTodo/actions/runs/41550028202)
 
 Product-relevant follow-ups (learned retention, LLM-routed memory search) and the
 research results are summarized in [docs/FINDINGS.md](docs/FINDINGS.md).
@@ -203,14 +225,14 @@ mandatory and negative results are published as they come.
 
 ## Roadmap
 
-1. Confirm the v0.4 fix with a real LLM and real embeddings on a fresh partition.
-2. Use retrieval similarity when selecting context, so an update worded with no
-   words in common with the question still reaches the model.
-3. Public long-term memory benchmarks (LongMemEval, LoCoMo) against Mem0, Letta
+1. Use embedding similarity, not only shared words, when selecting context, so
+   an update worded differently from the question still reaches the model; then
+   repeat the real-LLM confirmation on new seeds.
+2. Public long-term memory benchmarks (LongMemEval, LoCoMo) against Mem0, Letta
    and Zep at equal token budget.
-4. Multilingual fact extraction (patterns are Spanish-first today).
-5. Vectorized retrieval (NumPy or sqlite-vec) for large memories.
-6. HTTP service and PyPI package.
+3. Multilingual fact extraction (patterns are Spanish-first today).
+4. Vectorized retrieval (NumPy or sqlite-vec) for large memories.
+5. HTTP service and PyPI package.
 
 ## Project history
 
