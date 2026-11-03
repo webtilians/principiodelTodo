@@ -151,6 +151,28 @@ def test_statements_are_stored_with_the_questions_around_them(tmp_path):
     assert is_question("¿Quién es mi dentista?") and not is_question("Tengo asma, ¿debería llevar el inhalador?")
 
 
+def test_questions_typed_without_marks_are_not_stored(tmp_path):
+    engine, store = _engine(tmp_path)
+
+    for text in ("con quien voy a montar en bici el jueves", "que sabes sobre infinito",
+                 "donde trabajo", "qué tal estoy", "where do I live", "can you remember my name",
+                 "what's my dentist's name"):
+        engine.process(text)
+    for text in ("el jueves voy a montar en bici con mi padre", "como te dije, vivo en Madrid",
+                 "cuando llegue a casa te llamo", "qué bien lo pasé en Roma",
+                 "when I was a kid I lived in Porto", "what I need is a quieter office"):
+        engine.process(text)
+
+    assert _contents(store) == [
+        "el jueves voy a montar en bici con mi padre",
+        "como te dije, vivo en Madrid",
+        "cuando llegue a casa te llamo",
+        "qué bien lo pasé en Roma",
+        "when I was a kid I lived in Porto",
+        "what I need is a quieter office",
+    ]
+
+
 def test_search_reports_the_similarity_of_each_memory(tmp_path):
     engine, store = _engine(tmp_path)
     engine.process("My German class is on Monday evenings.")

@@ -35,6 +35,7 @@ const TEXT = {
       network: "No hay conexión con la demo. Inténtalo de nuevo.",
     },
     expired: "Tu sesión anterior caducó: empezamos de cero.",
+    nudge: "Hasta aquí las dos memorias se comportan igual. Ahora pídele que olvide algo de lo que le has contado («olvida lo de…») y compara qué sigue guardando cada una.",
     offline: "Modo sin conexión: las respuestas son simuladas, pero el borrado es real.",
     privacy: (model, minutes) => `Tus mensajes solo existen en la memoria de esta demo, sin escribirse en disco, y se borran al recargar o tras ${minutes} minutos sin uso. No se guarda ningún registro de lo que escribes.${model ? ` Las respuestas las genera ${model} de OpenAI.` : ""}`,
     examples: [
@@ -93,6 +94,7 @@ const TEXT = {
       network: "The demo cannot be reached. Try again.",
     },
     expired: "Your earlier session expired: starting over.",
+    nudge: "So far both memories behave the same. Now ask it to forget something you told it (“forget what I said about…”) and compare what each one still keeps.",
     offline: "Offline mode: answers are simulated, but deletion is real.",
     privacy: (model, minutes) => `Your messages exist only in this demo's memory, never written to disk, and are erased when you reload or after ${minutes} idle minutes. No record of what you write is kept.${model ? ` Answers come from OpenAI's ${model}.` : ""}`,
     examples: [
@@ -139,7 +141,11 @@ const state = {
   busy: false,
   status: null,
   seen: { inf: new Set(), plain: new Set() },
+  // Turns since the visitor last saw INFINITO differ: a forget request or a blocked secret.
+  sameTurns: 0,
+  nudged: false,
 };
+const NUDGE_AFTER = 3;
 
 function pickLanguage() {
   let saved = null;
@@ -357,6 +363,7 @@ async function send(text) {
     fillTurn(parts, data, text);
     renderRows("inf", data.infinito.memories);
     renderRows("plain", data.plain.memories);
+    nudgeTowardsForgetting(data);
     state.left = data.messages_left;
     renderLeft();
   } catch (error) {
@@ -365,6 +372,17 @@ async function send(text) {
     state.busy = false;
     $("send").disabled = !!(state.status && !state.status.available);
   }
+}
+
+function nudgeTowardsForgetting(data) {
+  const differed = data.infinito.blocked || typeof data.infinito.forgotten === "number";
+  state.sameTurns = differed ? 0 : state.sameTurns + 1;
+  if (differed) state.nudged = true;
+  if (state.nudged || state.sameTurns < NUDGE_AFTER) return;
+  state.nudged = true;
+  const note = element("p", "nudge", t("nudge"));
+  $("timeline").append(note);
+  note.scrollIntoView({ block: "nearest" });
 }
 
 function clearMemories() {
@@ -382,7 +400,9 @@ async function resetAll() {
   if (old) {
     try { await api("/api/forget-everything", { session: old }); } catch (e) { /* the server drops it after an hour anyway */ }
   }
-  $("timeline").querySelectorAll(".turn, p.muted").forEach((el) => el.remove());
+  $("timeline").querySelectorAll(".turn, p.muted, p.nudge").forEach((el) => el.remove());
+  state.sameTurns = 0;
+  state.nudged = false;
   $("empty").hidden = false;
   document.querySelectorAll(".examples button.used").forEach((b) => b.classList.remove("used"));
   clearMemories();
