@@ -1,0 +1,57 @@
+name: INFINITO memory updates, real-LLM confirmation
+
+# Paid run with OPENAI_API_KEY. Only a change to the launch file on this branch
+# starts it; merging to master does not.
+on:
+  push:
+    branches: [fix/memory-capture-context]
+    paths: [".github/launch/memory-updates-real.txt"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: infinito-memory-updates-real
+  cancel-in-progress: false
+
+jobs:
+  confirm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install the OpenAI SDK and pytest
+        run: python -m pip install 'openai>=1.55,<4' pytest
+      - name: Core tests and offline benchmark, no API calls
+        run: |
+          python -m pytest -q tests/test_*v3.py
+          python scripts/benchmark_memory_updates.py
+      - name: Require the API key without printing it
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          if [ -z "$OPENAI_API_KEY" ]; then
+            echo "::error::OPENAI_API_KEY is not set"
+            exit 3
+          fi
+      - name: Real LLM and embeddings on the confirmation partition
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: >
+          python scripts/benchmark_memory_updates.py --partition confirm
+          --llm openai --embeddings openai --workers 8
+          --json results/report.json --summary results/summary.md
+      - name: Job summary
+        if: always()
+        run: |
+          if [ -f results/summary.md ]; then cat results/summary.md >> "$GITHUB_STEP_SUMMARY"; fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: memory-updates-real-confirmation
+          path: results/
+          if-no-files-found: warn
+          retention-days: 90

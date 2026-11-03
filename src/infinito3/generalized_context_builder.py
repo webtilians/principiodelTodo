@@ -106,11 +106,12 @@ class GeneralizedContextBuilder(BalancedContextBuilder):
                         eligible.append(item)
                         continue
 
-                    # Episodic memory may still support the non-facet part of a
-                    # compound request. Unrequested profile facts are excluded.
-                    if source == ContextSource.MEMORY and additional_words:
-                        if additional_words & self._content_words(item.content):
-                            eligible.append(item)
+                    # Any memory may still support the non-facet part of a
+                    # compound request. Profile facts that share nothing with
+                    # it stay out, but a goal word in the query must not wipe
+                    # out the memories it is about.
+                    if additional_words & self._content_words(item.content):
+                        eligible.append(item)
 
                 filtered[source] = eligible
             else:

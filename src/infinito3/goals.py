@@ -21,6 +21,13 @@ class SimpleGoalEngine:
         "qué ", "que ", "cuándo ", "cuando ", "dónde ", "donde ",
         "cómo ", "como ", "cuál ", "cual ", "cuáles ", "cuales ",
     )
+    _FUTURE_REFERENCE = re.compile(r"\b(?:hoy|mañana|semana que viene)\b")
+    # "A partir de hoy se envía a X" announces a new state and "esta mañana"
+    # is this morning: neither gives a task a due date.
+    _NOT_A_DUE_DATE = re.compile(
+        r"\b(?:a partir de|desde)\s+(?:hoy|mañana)\b|\bde hoy en adelante\b|\bhoy en d[ií]a\b"
+        r"|\b(?:esta|la)\s+mañana\b"
+    )
 
     def __init__(self, now_fn=datetime.now):
         self._now_fn = now_fn
@@ -53,13 +60,12 @@ class SimpleGoalEngine:
 
     def _looks_like_goal(self, text: str) -> bool:
         has_marker = any(marker in text for marker in self._REMINDER_MARKERS)
-        has_future_reference = any(
-            marker in text for marker in ("hoy", "mañana", "pasado mañana", "semana que viene")
-        )
+        has_future_reference = bool(self._FUTURE_REFERENCE.search(self._NOT_A_DUE_DATE.sub(" ", text)))
         return has_marker or has_future_reference
 
     def _parse_due_at(self, text: str) -> Optional[datetime]:
         now = self._now_fn()
+        text = self._NOT_A_DUE_DATE.sub(" ", text)
 
         # Most specific phrases first.
         if "pasado mañana" in text:
