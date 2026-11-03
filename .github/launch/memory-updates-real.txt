@@ -1,0 +1,15 @@
+Launch: INFINITO v0.4 real-LLM confirmation of the memory-updates benchmark.
+
+Approved by the maintainer on 2026-11-03. One run on the confirmation partition
+(seeds 3600000+, 3700000+, 3800000+ and 3900000+, never used before). A re-run
+reuses that partition, so it is a replication, not a new test.
+
+Systems: INFINITO v0.4 and a semantic RAG baseline that stores every message
+and shows its top 8 in chronological order. Model gpt-5.6-luna with reasoning
+"none", embeddings text-embedding-3-small, 320 context tokens for both.
+Sets: e10b, e10d, personal, and fresh, whose templates were written before
+any run. 96 scenarios, 960 model calls.
+
+Decision rule, fixed before the run: INFINITO is confirmed if on every set it
+is at most 2 scenarios below the RAG baseline and it abstains on at least 90%
+of its negative controls. Whatever the outcome, it is reported as found.
