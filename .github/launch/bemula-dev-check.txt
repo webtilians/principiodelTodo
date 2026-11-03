@@ -1,0 +1,6 @@
+Launch: INFINITO on four Bemula development instances, with the real models.
+
+Approved by the maintainer on 2026-11-03. A check of the whole pipeline (forget
+planner, answers and Bemula's judge) before the evaluation run. It uses only
+development instances; its numbers are not a result, and Bemula-Lite is not
+touched.
