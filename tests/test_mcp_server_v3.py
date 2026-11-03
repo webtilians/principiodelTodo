@@ -54,6 +54,7 @@ def test_forget_deletes_for_good_and_keeps_what_was_not_asked(memory):
               if "34 años" in line]
     result = memory.forget(target, keep=["Me llamo Ana y trabajo de arquitecta."])
     assert result.startswith("Deleted 1 memories")
+    assert "anywhere else" in result  # the agent's own notes must forget it too
     listed = memory.list_memories()
     assert "34" not in listed
     assert '"Me llamo Ana y trabajo de arquitecta."' in listed and '"Mi hermano se llama Pablo."' in listed
