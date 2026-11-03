@@ -26,8 +26,8 @@ def seed_for(split,replica,j):
 def world(split,replica,j):
     seed=seed_for(split,replica,j)
     rng=np.random.default_rng(seed)
-    k=COUNTS[split][j%2]
-    s=SIGNED[split][j%2]
+    k=COUNTS[split][(j//2)%2]
+    s=SIGNED[split][(j//2)%2]
     assert s<=k-3 and s>=3
     info=(j%2==0)
     query=int(rng.integers(KEYS))
@@ -58,7 +58,7 @@ def world(split,replica,j):
     assert signs[x_slot]==0 and signs[early_slot]==0
     values[x_slot]=1-latest_bit
     storage=rng.permutation(EVENTS)
-    mode=SOURCE_MODES[(j//2)%4] if split=="ood" else "iid"
+    mode=SOURCE_MODES[(j//4)%4] if split=="ood" else "iid"
     if mode=="iid":
         sources=rng.integers(2,size=EVENTS).astype(np.int64)
     elif mode=="signed_source_0":
