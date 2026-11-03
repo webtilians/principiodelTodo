@@ -84,7 +84,7 @@ def import_bemula(path: Path):
             key = os.environ.get("DEEPSEEK_API_KEY")
             if not key:
                 raise RuntimeError("DEEPSEEK_API_KEY is not set")
-            return os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1"), key
+            return os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com"), key
         key = os.environ.get("OPENAI_API_KEY")
         if not key:
             raise RuntimeError("OPENAI_API_KEY is not set")
