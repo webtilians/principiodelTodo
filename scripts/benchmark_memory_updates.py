@@ -72,7 +72,12 @@ REASONING_EFFORT = "none"
 EMBEDDING_MODEL = "text-embedding-3-small"
 PARTITIONS = {
     "offline": {"e10b": 2600000, "e10d": 2700000, "personal": 2800000},
+    # Consumed by the v0.4 real-LLM run (Actions run 41550028202).
     "confirm": {"e10b": 3600000, "e10d": 3700000, "personal": 3800000, "fresh": 3900000},
+    # Real embeddings only, to calibrate v0.5 context selection.
+    "dev": {"e10b": 4600000, "e10d": 4700000, "personal": 4800000, "fresh": 4900000},
+    # Reserved for the v0.5 real-LLM confirmation; nothing else may use it.
+    "confirm2": {"e10b": 5600000, "e10d": 5700000, "personal": 5800000, "fresh": 5900000},
 }
 MAX_GAP = 2
 MIN_ABSTENTION = 0.90
@@ -370,7 +375,8 @@ class System:
         self.engine.process(text, top_k=TOP_K, context_budget_tokens=CONTEXT_BUDGET)
 
     def context(self, text: str):
-        packet = self.engine.process(text, top_k=TOP_K, context_budget_tokens=CONTEXT_BUDGET).context_packet
+        # A probe reads memory; it is not part of the conversation being remembered.
+        packet = self.engine.recall(text, top_k=TOP_K, context_budget_tokens=CONTEXT_BUDGET)
         if packet is None or not packet.items:
             return "", 0
         return packet.rendered, packet.estimated_tokens
