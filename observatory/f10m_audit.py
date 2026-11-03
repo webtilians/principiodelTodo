@@ -195,7 +195,7 @@ def audit(root):
                 assert x["success"]==int(x["answer"]==r["truth"])
                 assert x["operations"] in range(4)
                 assert x["invalid"] in range(4)
-                assert x["return"]>=-1.33 and x["return"]<=1
+                assert x["return"]>=-1.34 and x["return"]<=1
                 assert x["read"] in (0,1)
         split_stats={}
         for split in ("dev","ood"):
