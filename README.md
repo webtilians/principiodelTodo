@@ -37,7 +37,8 @@ INFINITO addresses all three, and measures whether it actually helps.
 
 ## What it does today
 
-- **Safety before memory.** Passwords, API keys, private keys and PINs are blocked
+- **Safety before memory.** Passwords, API keys, private keys, PINs, identity
+  document numbers (Spanish DNI and NIE, US SSN), IBANs and card numbers are blocked
   before any component sees them and are never sent to the LLM. Emails and phone
   numbers can be used in the current turn but are not persisted by default.
 - **Remembers what you say, not what a keyword list expects.** Every safe
