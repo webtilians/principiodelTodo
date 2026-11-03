@@ -162,6 +162,7 @@ def train(rep,out,original_models,g0):
         "original_program_catalog_size":len(PROGRAMS),
         "train_program_catalog_size":len(TRAIN_PROGRAMS),
         "heldout_program":"SRX",
+        "heldout_program_id":PROGRAM_INDEX[HELDOUT_PROGRAM],
         "memory_files":{
             name:{"file":name+".json","sha256":sha(out/(name+".json"))}
             for name in memories
