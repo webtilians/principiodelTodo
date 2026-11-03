@@ -1,0 +1,10 @@
+{
+  "archive": "evidence.zip",
+  "sha256": "377970f6a73624857e06c769853d1026200c47b7ba87dab0d2fabdede4d80de5",
+  "bytes": 15771409,
+  "members": 188,
+  "tested_all_member_sha256": true,
+  "core_tests": "137 passed, 2 skipped",
+  "prereg_commit": "752e99af6974c7cf853aa4a31b6bd8d8b0bdc2c6",
+  "execution_commit": "0c49df4e66d3eba0dd0e14947cdc13e571f80c72"
+}
