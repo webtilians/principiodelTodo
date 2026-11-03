@@ -27,11 +27,16 @@ ORDINARY = [
     "Should the limited PDF be password-protected before I upload it?",
     "Uso un gestor de contraseñas para todo.",
     "I keep the recovery key in a password manager as a secure note.",
+    "La clave es la constancia.",
+    "Mi código postal es 46001.",
+    "The key is to start early.",
 ]
 
 
 @pytest.mark.parametrize("text", ["Mi contraseña del banco es hunter2", "My bank password is hunter2",
-                                  "password: hunter2", "La contraseña=hunter2"])
+                                  "password: hunter2", "La contraseña=hunter2",
+                                  "La clave del wifi es Prueba1234", "la clave del wifi es gatitos",
+                                  "El código de la alarma es 4471", "The door code is 9918#"])
 def test_a_given_password_is_still_blocked(text):
     decision = SensitiveInformationFilter().inspect(text)
     assert (decision.level, decision.reason) == (SafetyLevel.FORBIDDEN, "password")

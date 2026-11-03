@@ -29,6 +29,19 @@ def _card_ok(found: str, text: str) -> bool:
     return total % 10 == 0
 
 
+_GUARDED = re.compile(r"\b(?:wi-?fi|router|banco|bank|correo|e-?mail|cuenta|account|alarma|alarm|puerta|door|"
+                      r"caja fuerte|safe|m[oó]vil|phone|ordenador|computer|port[aá]til|laptop|acceso|login)\b", re.I)
+
+
+def _given_secret(found: str, text: str) -> bool:
+    """A key or code actually given: it looks like one, or it guards something ("la clave del wifi es ...")."""
+    if re.search(r"c[oó]digo postal|postal code|zip code", found, re.I):
+        return False
+    value = re.split(r"\b(?:es|is|era|was)\b|[:=]", found, maxsplit=1)[-1].strip().strip("\"'«»“”.,;")
+    looks_like_one = len(value) >= 4 and bool(re.search(r"\d|[^\w\s]", value))
+    return looks_like_one or bool(_GUARDED.search(found))
+
+
 class SensitiveInformationFilter:
     """Fail-closed filter for secrets that must never enter long-term memory.
 
@@ -57,6 +70,11 @@ class SensitiveInformationFilter:
     _CHECKED_FORBIDDEN: List[Tuple[Pattern[str], str, Callable[[str, str], bool]]] = [
         (re.compile(r"\b[A-Za-z]{2}\d{2}(?:[ ]?[A-Za-z0-9]){11,30}\b"), "bank_account", _iban_ok),
         (re.compile(r"\b\d(?:[ -]?\d){12,18}\b"), "card_number", _card_ok),
+        # "Clave" and "code" also mean a key to a problem ("la clave es la constancia"): a given
+        # value that looks like a secret, or a word for what it guards, confirms it.
+        # Within one sentence: "the QR code instead. Is it best..." gives nothing.
+        (re.compile(r"\b(?:clave|c[oó]digo|key|code|passcode|passphrase)\b(?:[ \t]+[\w-]+){0,4}?[ \t]*"
+                    r"(?:\b(?:es|is|era|was)\b|[:=])[ \t]*\S+", re.I), "password", _given_secret),
     ]
 
     _SENSITIVE_PATTERNS: List[Tuple[Pattern[str], str]] = [

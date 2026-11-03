@@ -134,7 +134,7 @@ aplicaciones.
 Los demás clientes necesitan [uv](https://docs.astral.sh/uv/). Claude Code:
 
 ```bash
-claude mcp add infinito -- uvx --from "infinito-memory[mcp] @ git+https://github.com/webtilians/principiodelTodo" infinito-mcp
+claude mcp add infinito -- uvx --from "infinito-memory[mcp,vault] @ git+https://github.com/webtilians/principiodelTodo" infinito-mcp
 ```
 
 Claude Desktop, Cursor y otros clientes, en su configuración MCP:
@@ -144,7 +144,7 @@ Claude Desktop, Cursor y otros clientes, en su configuración MCP:
   "mcpServers": {
     "infinito": {
       "command": "uvx",
-      "args": ["--from", "infinito-memory[mcp] @ git+https://github.com/webtilians/principiodelTodo", "infinito-mcp"]
+      "args": ["--from", "infinito-memory[mcp,vault] @ git+https://github.com/webtilians/principiodelTodo", "infinito-mcp"]
     }
   }
 }
@@ -152,6 +152,17 @@ Claude Desktop, Cursor y otros clientes, en su configuración MCP:
 
 Después habla como siempre: «recuerda que despliego con Docker», «¿qué sabes de mi
 proyecto?», «olvida todo lo de mi salud».
+
+**Tu bóveda.** Los secretos nunca van a la memoria: van a tu bóveda, un archivo de
+KeePass (`~/.infinito/boveda.kdbx`) cifrado con una contraseña maestra y, si quieres, un
+archivo-llave en un pendrive, así que también se abre con KeePassXC o KeePassDX en
+cualquier ordenador o móvil. El agente solo ve los nombres de las entradas. «Guarda la
+clave del router» abre una ventanita en tu pantalla donde la escribes; «¿cuál era la
+clave del router?» te la muestra en otra, con un botón que la copia durante 20
+segundos. La contraseña maestra y los valores nunca pasan por el agente, su modelo ni
+el chat, así que nadie que engañe al agente puede sacarlos. Cada apertura, alta y
+consulta queda registrada, sin valores, en `~/.infinito/vault-log.jsonl`. Si olvidas
+la contraseña maestra, nadie puede recuperar la bóveda: apúntala y guárdala en casa.
 
 ## Cómo funciona
 
