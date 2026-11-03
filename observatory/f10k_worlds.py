@@ -73,7 +73,7 @@ def world(split,replica,task,j):
                 winner=slot
                 valid[slot]=1.
                 f[slot]=[1.,.25+(vi%2)*.5, .25+(vi%2)*.5,float((vi//2)%2)]
-                v[slot]=float(vi//2)
+                v[slot]=float((vi//2)*2-1)
                 truth=vi//2
             rows.append(_case(seed,split,replica,task,variant,f,v,valid,
                               public_bit,flip,winner,truth,"iid"))
