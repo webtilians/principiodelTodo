@@ -1,0 +1,144 @@
+name: INFINITO F10-J — Structured Information Exploration, Frozen Independent Gates
+
+on:
+  push:
+    branches: [experiment/f10j-forced-information-exploration]
+    paths: [docs/INFINITO_F10J_LAUNCH.md]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: f10j-prospective-new-worlds
+  cancel-in-progress: false
+
+jobs:
+  train-five-conditions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 110
+    strategy:
+      fail-fast: false
+      matrix:
+        replica: [0, 1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install CPU-only model dependencies
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install numpy
+      - name: Preflight only new TRAIN generator and no-value-leak tests
+        run: |
+          python -m py_compile observatory/f10j_worlds.py observatory/f10j_experiment.py observatory/f10j_audit.py
+          python -m unittest discover -s tests -p 'test_f10j_information_exploration.py' -v
+          git diff --exit-code 72d5cc2363abdb9cf3adef77db108717c597925c -- src/infinito3 observatory/f10i_actor.py observatory/f10i_experiment.py observatory/f10i_worlds.py
+      - name: Train five matched original actors and freeze SHA before DEV/OOD
+        run: |
+          set -o pipefail
+          python -m observatory.f10j_experiment --replica ${{ matrix.replica }} --out f10j-out/${{ matrix.replica }} | tee f10j-run-${{ matrix.replica }}.log
+      - name: Verify five frozen checkpoints and episode parity
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib,json
+          i=int("${{ matrix.replica }}")
+          p=Path(f"f10j-out/{i}")
+          t=json.loads((p/"training.json").read_text())
+          rows=json.loads((p/"rows.json").read_text())
+          assert t["status"]=="FROZEN_BEFORE_DEV_OOD"
+          assert t["confirm_21300000_unopened"]
+          assert len(rows)==5120 and len(t["train_hashes"])==2048
+          assert set(t["arms"])=={
+              "on_policy","forced_gate","forced_gate_slot_explore",
+              "paired_credit","supervised_ceiling"}
+          for name,arm in t["arms"].items():
+              assert arm["optimizer_steps"]==640
+              assert arm["train_presentations"]==40960
+              assert arm["executed_environment_episodes"]==81920
+              assert hashlib.sha256((p/(name+".pt")).read_bytes()).hexdigest()==arm["sha256"]
+          for split,base in (("dev",21_200_000),("ood",21_400_000)):
+              refs=[r for r in rows if r["split"]==split and r["arm"]=="on_policy"]
+              assert len(refs)==512
+              assert {r["seed"] for r in refs}==set(range(base+10_000*i,base+10_000*i+128))
+          print("F10J_ORIGINAL_MODELS_FROZEN_SHA_AND_EQUAL_REAL_EPISODES",i,flush=True)
+          PY
+      - name: Preserve original SHA checkpoints, training curves and frozen rows
+        if: always()
+        run: |
+          if test -d f10j-out/${{ matrix.replica }}; then
+            cp f10j-run-${{ matrix.replica }}.log f10j-out/${{ matrix.replica }}/run.log || true
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: f10j-original-${{ matrix.replica }}
+          path: f10j-out/${{ matrix.replica }}/
+          retention-days: 90
+          if-no-files-found: warn
+
+  independent-preregistered-gates:
+    needs: train-five-conditions
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install numpy
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: f10j-original-*
+          path: gathered
+      - name: No-training standalone world-bootstrap gate audit
+        run: |
+          for i in 0 1 2 3; do
+            mkdir -p audited/$i
+            cp gathered/f10j-original-$i/* audited/$i/
+          done
+          python -m observatory.f10j_audit --root audited --output f10j-audit.json
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          r=json.loads(Path("f10j-audit.json").read_text())
+          assert r["technical_status"]=="F10J_TECHNICAL_COMPLETE"
+          assert r["unique_history_and_F4_hashes"]==12288
+          assert r["confirm_21300000_unopened"]
+          lines=[
+            "# INFINITO F10-J — Original independent preregistered audit",
+            "",
+            "**Scientific outcome: "+r["status"]+"**",
+            "**Technical audit: "+r["technical_status"]+"**",
+            "Gate counts: "+str(r["gate_counts"]),
+            "",
+            "| Replica | A on-policy info | B forced gate info | C + slot info | D paired info | E supervised info |",
+            "|---|---:|---:|---:|---:|---:|"
+          ]
+          names=("on_policy","forced_gate","forced_gate_slot_explore",
+                 "paired_credit","supervised_ceiling")
+          for i,x in r["replicas"].items():
+              vals=[f'{100*x["metrics"]["ood"][name]["informative"]["accuracy"]:.2f}%'
+                    for name in names]
+              lines.append("| "+i+" | "+" | ".join(vals)+" |")
+          lines.extend(["",
+            "All five arms share architecture, initial weights per replica, 81920 executed train episodes and 640 updates.",
+            "A/B/C/D use environment rewards and never supervisor winner/truth labels.",
+            "E is a privileged labeled upper bound and NOT an experience-only competitor.",
+            "",
+            "## Fully audited strata, memory ablations, bootstrap CIs and learning curves",
+            "~~~json",json.dumps(r["replicas"],ensure_ascii=False,indent=2),"~~~",
+            "CONFIRM 21300000+ remains sealed. Technical SUCCESS does not imply scientific PASS.",
+          ])
+          Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text("\n".join(lines))
+          print("F10J_FINAL_SCIENTIFIC_STATUS",r["status"],r["gates"],flush=True)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: f10j-original-fixed-gates-and-bootstrap
+          path: f10j-audit.json
+          retention-days: 90
+          if-no-files-found: error
