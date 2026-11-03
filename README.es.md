@@ -13,11 +13,12 @@ Decide qué recordar, mantiene los datos al día cuando cambian, nunca guarda
 secretos y entrega al modelo solo el contexto necesario, marcado como datos y no
 como instrucciones.
 
-> **Estado: alfa (v0.4).** El núcleo funciona y está probado. Con un LLM real ya
-> iguala a un RAG que lo guarda todo en las decisiones de proyecto y envía menos
-> tokens de contexto, pero todavía pierde cuando una actualización está redactada
-> sin ninguna palabra en común con la pregunta (15–16 de 24 escenarios frente a
-> 24). Es el siguiente arreglo (ver [Evaluación](#evaluación)).
+> **Estado: alfa (v0.5).** El núcleo funciona y está probado. Con un LLM real
+> mantiene los datos al día casi igual que un RAG que lo guarda todo (112 y 117 de
+> 120 escenarios, dentro del margen fijado antes de la ejecución) y envía un 31 %
+> menos de tokens de contexto. La v0.5 además olvida cuando se le pide y borra los
+> datos de verdad; lo siguiente es evaluarlo en Bemula, un benchmark de olvido
+> (ver [Evaluación](#evaluación)).
 
 ## Por qué
 
@@ -43,15 +44,22 @@ INFINITO ataca los tres problemas y mide si de verdad ayuda.
 - **Memoria persistente con linaje.** Almacén SQLite con recuperación híbrida
   (léxica y por embeddings), refuerzo de datos repetidos, sustitución de los datos
   que solo admiten un valor (conservando el historial) y olvido reversible.
+- **Olvida cuando se le pide, de verdad.** Peticiones como «olvida dónde vivo» o
+  «deja de guardar mis datos de salud» se reconocen con reglas. Después un LLM
+  revisa todos los recuerdos guardados y elige los que contienen ese dato, y el
+  almacén los borra junto con el historial de sus datos y los sobrescribe en
+  disco. Solo se registran la hora y el número de filas borradas; la petición en
+  sí no se guarda.
 - **Contexto con presupuesto y atento a los cambios.** Un constructor de contexto
-  elige la memoria dentro de un límite de tokens y se la pasa al modelo como datos
-  de referencia no confiables (higiene frente a inyección de prompts). Los
+  elige la memoria dentro de un límite de tokens, por palabras compartidas y por
+  cercanía de significado, y se la pasa al modelo como datos de referencia no
+  confiables (higiene frente a inyección de prompts). Los
   recuerdos van fechados y del más antiguo al más reciente, para que el modelo
   distinga una actualización del valor que sustituye.
 - **Independiente del proveedor.** El núcleo no importa ningún SDK de LLM. Incluye
   un adaptador para la API Responses de OpenAI y otro determinista para tests.
-- **Sin dependencias.** El núcleo es Python de la librería estándar; sus 84 tests
-  tardan menos de un segundo.
+- **Sin dependencias.** El núcleo es Python de la librería estándar; sus 97 tests
+  tardan alrededor de un segundo.
 
 ## Inicio rápido
 
@@ -212,6 +220,35 @@ el RAG, con los mismos embeddings, las incluyó siempre. Las otras 3 fueron
 abstenciones con el recuerdo correcto en el contexto.
 [Ejecución](https://github.com/webtilians/principiodelTodo/actions/runs/41550028202)
 
+**El arreglo (v0.5) y su confirmación (3 de noviembre de 2026).** Ahora un
+recuerdo recuperado también se conserva cuando su similitud con la pregunta
+supera en 0,12 la mediana de los recuerdos recuperados (y es al menos 0,25). Los
+dos valores se calibraron sin LLM, solo con semillas de desarrollo y embeddings
+reales. La ejecución con LLM real usó semillas nunca usadas (de 5600000 a
+6000000) y un quinto conjunto cuyas seis plantillas se escribieron antes de
+ninguna ejecución:
+
+| Conjunto de escenarios, 24 cada uno | RAG | INFINITO 0.5 | Tokens de contexto, RAG / INFINITO |
+|---|---:|---:|---:|
+| Familias de E10-B | 24/24 | 22/24 | 147 / 104 |
+| Familias de E10-D | 23/24 | **23/24** | 154 / 134 |
+| Asistente personal, preguntas naturales | 24/24 | **24/24** | 138 / 85 |
+| Plantillas nuevas de la ejecución v0.4 | 24/24 | 23/24 | 142 / 87 |
+| Plantillas nuevas, escritas para esta ejecución | 22/24 | 20/24 | 139 / 83 |
+
+Los dos sistemas se abstuvieron en los 120 controles negativos, e INFINITO queda
+como mucho 2 escenarios por debajo del RAG en cada conjunto: la v0.5 **queda
+confirmada** según la regla fijada antes de la ejecución, con un 31 % menos de
+tokens de contexto. La calibración usó las plantillas del asistente personal y
+las de la v0.4, con otras semillas, así que el último conjunto es la prueba
+estricta. Las decisiones erróneas de INFINITO bajan de 35 a 13. Diez siguen
+siendo actualizaciones que no llegaron al modelo, en cinco escenarios donde la
+pregunta solo comparte palabras con la afirmación original (un pedido de café,
+el trayecto al trabajo y, en tres de ellos, una clase de idiomas). Las otras 3
+son abstenciones con el recuerdo correcto en el contexto, el mismo tipo de error
+que los 3 del RAG.
+[Ejecución](https://github.com/webtilians/principiodelTodo/actions/runs/41609313351)
+
 Los resultados relacionados con producto (retención aprendida, búsqueda de memoria
 decidida por el LLM) y los de investigación se resumen en
 [docs/FINDINGS.md](docs/FINDINGS.md) (en inglés).
@@ -233,10 +270,9 @@ publicados tal cual.
 
 ## Hoja de ruta
 
-1. Usar la similitud de los embeddings, y no solo las palabras compartidas, al
-   elegir el contexto, para que llegue al modelo una actualización redactada de
-   otra forma que la pregunta; después, repetir la confirmación con LLM real
-   sobre semillas nuevas.
+1. Evaluar el olvido a petición en Bemula-Lite, una sola vez, frente a los
+   sistemas de memoria publicados con el benchmark (Mem0, A-MEM, LangMem y
+   otros).
 2. Pruebas públicas de memoria a largo plazo (LongMemEval, LoCoMo) frente a Mem0,
    Letta y Zep con el mismo presupuesto de tokens.
 3. Extracción de datos multilingüe (hoy los patrones están pensados para español).

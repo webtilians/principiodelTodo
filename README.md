@@ -13,11 +13,12 @@ to remember, keeps facts current when they change, never stores secrets, and
 gives the model only the context it needs, marked as data rather than
 instructions.
 
-> **Status: alpha (v0.4).** The core works and is tested. With a real LLM it now
-> matches a store-everything RAG baseline on project decisions while sending fewer
-> context tokens, but it still loses when an update is worded with no words in
-> common with the question (15–16 of 24 scenarios against 24). That is the next
-> fix (see [Evaluation](#evaluation)).
+> **Status: alpha (v0.5).** The core works and is tested. With a real LLM it keeps
+> facts current almost as well as a store-everything RAG baseline (112 and 117 of
+> 120 scenarios, within the margin fixed before the run) while sending 31% fewer
+> context tokens. v0.5 also forgets on request and deletes the data for real; its
+> evaluation on Bemula, a forgetting benchmark, comes next (see
+> [Evaluation](#evaluation)).
 
 ## Why
 
@@ -42,14 +43,21 @@ INFINITO addresses all three, and measures whether it actually helps.
 - **Persistent memory with lineage.** SQLite store with hybrid retrieval (lexical
   and embeddings), reinforcement of repeated facts, supersession of facts that can
   only have one value (keeping the full history) and reversible forgetting.
+- **Forgets on request, for real.** Requests such as "forget where I live" or
+  "delete all my health information" are recognized by rules. An LLM then
+  reviews every stored memory and picks those that hold that information, and
+  the store deletes them with the history of their facts and overwrites them on
+  disk. Only the time and the number of deleted rows are logged; the request
+  itself is not stored.
 - **Budgeted, update-aware context.** A context builder selects memory under a
-  token budget and hands it to the model as untrusted reference data
+  token budget, by shared words and by closeness in meaning, and hands it to the
+  model as untrusted reference data
   (prompt-injection hygiene). Memories are dated and listed oldest first, so the
   model can tell an update from the value it replaces.
 - **Provider-agnostic.** The core imports no LLM SDK. It ships an adapter for the
   OpenAI Responses API and a deterministic recording adapter for tests.
-- **Zero dependencies.** The core is standard-library Python; its 84 tests run in
-  under a second.
+- **Zero dependencies.** The core is standard-library Python; its 97 tests run in
+  about a second.
 
 ## Quickstart
 
@@ -206,6 +214,32 @@ with the same embeddings, always included them. The other 3 were abstentions
 with the right memory in context.
 [Run](https://github.com/webtilians/principiodelTodo/actions/runs/41550028202)
 
+**The fix (v0.5) and its confirmation (2026-11-03).** A retrieved memory is now
+also kept when its similarity to the question exceeds the median of the
+retrieved memories by 0.12 (and is at least 0.25). Both values were calibrated
+without an LLM, on development seeds only, with real embeddings. The real-LLM
+run used seeds never used before (5600000+ to 6000000+) and a fifth set whose
+six templates were written before any run:
+
+| Scenario set, 24 each | RAG | INFINITO 0.5 | Context tokens, RAG / INFINITO |
+|---|---:|---:|---:|
+| E10-B families | 24/24 | 22/24 | 147 / 104 |
+| E10-D families | 23/24 | **23/24** | 154 / 134 |
+| Personal assistant, natural questions | 24/24 | **24/24** | 138 / 85 |
+| New templates of the v0.4 run | 24/24 | 23/24 | 142 / 87 |
+| New templates, written for this run | 22/24 | 20/24 | 139 / 83 |
+
+Both systems abstained on all 120 negative controls, and INFINITO is at most 2
+scenarios below RAG on every set: v0.5 is **confirmed** by the rule fixed before
+the run, with 31% fewer context tokens. The calibration used the personal and
+v0.4 templates, on other seeds, so the last set is the strict test. INFINITO's
+wrong decisions fell from 35 to 13. Ten are still updates that never reached the
+model, in five scenarios where the question shares words only with the original
+statement (a coffee order, a commute, and a language class in three of them).
+The other 3 are abstentions with the right memory in context, the kind of error
+behind all 3 of RAG's.
+[Run](https://github.com/webtilians/principiodelTodo/actions/runs/41609313351)
+
 Product-relevant follow-ups (learned retention, LLM-routed memory search) and the
 research results are summarized in [docs/FINDINGS.md](docs/FINDINGS.md).
 
@@ -225,9 +259,8 @@ mandatory and negative results are published as they come.
 
 ## Roadmap
 
-1. Use embedding similarity, not only shared words, when selecting context, so
-   an update worded differently from the question still reaches the model; then
-   repeat the real-LLM confirmation on new seeds.
+1. Evaluate forgetting on request on Bemula-Lite, once, against the memory
+   systems published with the benchmark (Mem0, A-MEM, LangMem and others).
 2. Public long-term memory benchmarks (LongMemEval, LoCoMo) against Mem0, Letta
    and Zep at equal token budget.
 3. Multilingual fact extraction (patterns are Spanish-first today).
