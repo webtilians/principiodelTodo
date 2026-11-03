@@ -47,6 +47,10 @@ class MemoryStore(Protocol):
     def all(self) -> List[MemoryRecord]:
         ...
 
+    def purge(self, memory_ids: Sequence[str]) -> int:
+        """Delete memories for good; used by forgetting on request."""
+        ...
+
 
 class GoalEngine(Protocol):
     def ingest(self, text: str) -> List[Goal]:

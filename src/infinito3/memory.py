@@ -7,6 +7,48 @@ from .types import GateDecision, MemoryKind, MemoryRecord
 
 _TOKEN_RE = re.compile(r"[\wáéíóúüñ]+", re.I)
 
+# A sentence ends at . ! ? or … followed by a space and a capital, a digit or
+# an opening quote; "Dr. Pardo" and "1.150" stay whole.
+_SENTENCE_BREAK = re.compile(r"(?<=[.!?…])[\"'”’»)\]]*\s+(?=[\"'“‘«(¿¡]*[A-ZÁÉÍÓÚÑ0-9])")
+_ABBREVIATIONS = {
+    "dr", "dra", "sr", "sra", "srta", "mr", "mrs", "ms", "st", "prof", "vs", "etc", "approx",
+    "no", "nº", "av", "avda", "ud", "uds", "jr", "inc", "ltd", "co", "mt", "ft",
+}
+
+
+# "I support a food bank each winter, so could you suggest...?" states a fact.
+_STATEMENT_THEN_QUESTION = re.compile(
+    r"^(?:i|i'm|i've|i'd|my|we|we're|we've|our)\b[^?]{8,}?,\s*(?:so|but|and|because)\b", re.I
+)
+
+
+def is_question(sentence: str) -> bool:
+    """True for a sentence that only asks; one that states something first is not."""
+    s = sentence.strip().rstrip("\"'”’»)").strip()
+    if not (s.endswith("?") or s.startswith("¿")):
+        return False
+    if s.find("¿") > 3:  # "Tengo asma, ¿debería llevar el inhalador?"
+        return False
+    return not _STATEMENT_THEN_QUESTION.search(s.replace("’", "'"))
+
+
+def split_sentences(text: str) -> List[str]:
+    """Split a message into sentences."""
+    sentences: List[str] = []
+    for line in re.split(r"\n+", text):
+        current: List[str] = []
+        for piece in _SENTENCE_BREAK.split(line.strip()):
+            piece = piece.strip()
+            if not piece:
+                continue
+            words = current[-1][:-1].split() if current and current[-1].endswith(".") else []
+            if words and words[-1].lower() in _ABBREVIATIONS:
+                current[-1] = f"{current[-1]} {piece}"
+            else:
+                current.append(piece)
+        sentences.extend(current)
+    return sentences
+
 
 class RuleBasedMemoryGate:
     """Transparent baseline gate for INFINITO 3.0.
@@ -115,3 +157,10 @@ class InMemoryMemoryStore:
 
         scored.sort(key=lambda item: item[0], reverse=True)
         return [record for _, record in scored[:top_k]]
+
+    def purge(self, memory_ids) -> int:
+        """Delete memories for good."""
+        doomed = set(memory_ids)
+        before = len(self._records)
+        self._records = [record for record in self._records if record.id not in doomed]
+        return before - len(self._records)

@@ -9,6 +9,12 @@ from .benchmark_cases import extended_evaluation_suite
 from .cognitive_loop import CognitiveLoop
 from .context_builder import ApproximateTokenEstimator, BalancedContextBuilder
 from .generalized_context_builder import GeneralizedContextBuilder
+from .forgetting import (
+    ForgetPlan,
+    ForgetRequestDetector,
+    LLMForgetPlanner,
+    OverlapForgetPlanner,
+)
 from .engine import CognitiveEngine
 from .evaluation import (
     CallablePairwiseJudge,
@@ -70,8 +76,11 @@ __all__ = [
     "EvaluationReport",
     "EvaluationScenario",
     "EvaluationSummary",
+    "ForgetPlan",
+    "ForgetRequestDetector",
     "HashEmbeddingProvider",
     "InMemoryMemoryStore",
+    "LLMForgetPlanner",
     "LLMMessage",
     "LLMRequest",
     "LLMResponse",
@@ -80,6 +89,7 @@ __all__ = [
     "MemoryRecord",
     "MemoryStatus",
     "OpenAIEmbeddingProvider",
+    "OverlapForgetPlanner",
     "OpenAIResponsesAdapter",
     "PairwiseJudgeResult",
     "RecordingLLMAdapter",
