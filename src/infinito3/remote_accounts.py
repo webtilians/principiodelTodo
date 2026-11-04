@@ -409,6 +409,10 @@ def build_auth(accounts: Accounts, grants: Grants, issuer: str,
             if key is None:
                 return again(t["bad_code"])
             grants.drop_account(name)  # a new password signs every app out
+        elif not accounts.exists(name):
+            # Most people who try to sign in to a name that does not exist have not created it yet:
+            # the page offers to, with the name already filled in.
+            return _form(t, token, "signup", _asking(pending), name=name, error=t["no_such"].format(name=name))
         else:
             key = await anyio.to_thread.run_sync(accounts.open, name, password, limiter=one_at_a_time)
             if key is None:
@@ -468,6 +472,7 @@ _TEXT = {
         "differ": "Las dos contraseñas no coinciden.",
         "taken": "Ese nombre ya está en uso. Elige otro, o entra si es tuyo.",
         "bad_password": "Ese nombre y esa contraseña no abren ninguna memoria.",
+        "no_such": "Todavía no hay ninguna memoria llamada «{name}». Créala ahora: escribe tu contraseña dos veces.",
         "bad_code": "Ese nombre y ese código de recuperación no abren ninguna memoria.",
         "expired_title": "Esta página ha caducado",
         "expired": "Vuelve a la app (Claude, ChatGPT…) y conecta INFINITO otra vez.",
@@ -499,6 +504,7 @@ _TEXT = {
         "differ": "The two passwords differ.",
         "taken": "That name is taken. Choose another, or sign in if it is yours.",
         "bad_password": "That name and password open no memory.",
+        "no_such": "There is no memory called “{name}” yet. Create it now: type your password twice.",
         "bad_code": "That name and recovery code open no memory.",
         "expired_title": "This page has expired",
         "expired": "Go back to the app (Claude, ChatGPT…) and connect INFINITO again.",

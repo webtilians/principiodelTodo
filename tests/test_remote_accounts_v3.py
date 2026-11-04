@@ -192,3 +192,17 @@ def test_when_the_access_runs_out_the_app_renews_it_without_asking_again(server)
                                  "accept": "application/json, text/event-stream",
                                  "mcp-protocol-version": "2025-06-18"})
     assert tools.status_code == 200 and "verde" in tools.text
+
+
+def test_signing_in_with_a_name_that_does_not_exist_offers_to_create_it(server):
+    base, _, _ = server
+    registered = httpx2.post(f"{base}/register", json={"redirect_uris": ["http://localhost:3030/callback"],
+                                                        "client_name": "Prueba"}).json()
+    authorize = httpx2.get(f"{base}/authorize", params={
+        "client_id": registered["client_id"], "response_type": "code", "code_challenge": "x" * 43,
+        "code_challenge_method": "S256", "redirect_uri": "http://localhost:3030/callback"})
+    request = parse_qs(urlparse(authorize.headers["location"]).query)["r"][0]
+    page = httpx2.post(f"{base}/login", data={"r": request, "action": "signin", "name": "nueva",
+                                               "password": PASSWORD}, headers={"accept-language": "es"})
+    assert page.status_code == 200 and "<h1>Crea tu memoria</h1>" in page.text
+    assert 'value="nueva"' in page.text and "Todavía no hay ninguna memoria llamada «nueva»" in page.text
