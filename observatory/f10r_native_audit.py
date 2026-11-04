@@ -84,7 +84,7 @@ def audit_one(r,root):
         g:choose(shuffle,g) for g in GOALS}
     rows={}
     for arm in ARMS:
-        d=json.loads((root/(arm+".json")).read_text())
+        d=json.loads((root/("eval_"+arm+".json")).read_text())
         x=d["rows"]
         assert len(x)==48
         assert d["db_file"]=="OOD-"+arm+".db"
