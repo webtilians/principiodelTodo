@@ -1,0 +1,136 @@
+name: INFINITO F10-S - Two-Agent MCP Temporal Coherence
+
+on:
+  push:
+    branches: [experiment/f10s-cross-agent-temporal-coherence-20261104]
+    paths: [docs/INFINITO_F10S_LAUNCH.md]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: f10s-original-two-agent-mcp-one-run
+  cancel-in-progress: false
+
+jobs:
+  real_mcp_two_agents:
+    name: F10-S real A/B MCP replica ${{ matrix.replica }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        replica: [0, 1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/checkout@v4
+        with:
+          repository: webtilians/principiodelTodo
+          ref: 2e563ddb194cb3a0193b77a22cc97575a8baba73
+          path: real-product
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install authentic pinned INFINITO MCP
+        run: |
+          test "$(git -C real-product rev-parse HEAD)" = 2e563ddb194cb3a0193b77a22cc97575a8baba73
+          python -m pip install -e './real-product[mcp]'
+          python -c 'from infinito3.mcp_server import AgentMemory; from mcp import Client, StdioServerParameters; print("REAL_MCP_READY")'
+      - name: Verify preregistration and never modify INFINITO production code
+        run: |
+          python -m py_compile observatory/f10s_mcp_coherence.py observatory/f10s_audit.py
+          test -f docs/INFINITO_F10S_PREREG_2026-11-04.md
+          test "$(git -C real-product rev-parse HEAD)" = 2e563ddb194cb3a0193b77a22cc97575a8baba73
+      - name: Execute two independent concurrent real MCP processes sharing only ephemeral SQLite
+        run: |
+          mkdir -p outputs
+          set -o pipefail
+          python -m observatory.f10s_mcp_coherence \
+            --replica ${{ matrix.replica }} \
+            --out outputs/${{ matrix.replica }} | tee outputs/f10s-${{ matrix.replica }}.log
+      - name: Verify SHA, 24 immutable case reports and synthetic DB boundary
+        run: |
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          rep=${{ matrix.replica }}
+          d=Path(f'outputs/{rep}')
+          m=json.loads((d/'manifest.json').read_text())
+          cases=json.loads((d/'cases.json').read_text())
+          sha=lambda x:hashlib.sha256((d/x).read_bytes()).hexdigest()
+          assert len(cases)==24 and m['cases']==24
+          assert m['source_product_sha']=='2e563ddb194cb3a0193b77a22cc97575a8baba73'
+          assert m['db_user_memory_touched'] is False and m['db_only_ephemeral']
+          assert m['sqlite']['db_within_temporary_directory']
+          assert sha('cases.json')==m['cases_sha256']
+          assert sha('mcp_trace.jsonl.gz')==m['trace_sha256']
+          assert m['case_seed_range']==[32100000+10000*rep,32100503+10000*rep]
+          print('F10S_FROZEN_REAL_MCP_CASES_SHA_PASS',rep)
+          PY
+          test "$(git -C real-product rev-parse HEAD)" = 2e563ddb194cb3a0193b77a22cc97575a8baba73
+      - name: Preserve logs even on failure
+        if: always()
+        run: |
+          if test -d outputs/${{ matrix.replica }}; then
+            cp outputs/f10s-${{ matrix.replica }}.log outputs/${{ matrix.replica }}/run.log || true
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: f10s-original-two-agent-replica-${{ matrix.replica }}
+          path: outputs/${{ matrix.replica }}/
+          if-no-files-found: warn
+          retention-days: 90
+
+  independent_audit:
+    name: F10-S independent JSON-only SHA and temporal consistency audit
+    needs: real_mcp_two_agents
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: f10s-original-two-agent-replica-*
+          path: originals
+      - name: Recompute scientific gates without MCP or SQLite imports
+        run: |
+          mkdir -p audited
+          for r in 0 1 2 3; do
+            mkdir -p audited/$r
+            cp originals/f10s-original-two-agent-replica-$r/* audited/$r/
+          done
+          python -m observatory.f10s_audit \
+            --root audited --out f10s-science.json
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          x=json.loads(Path('f10s-science.json').read_text())
+          assert x['technical']=='F10S_INDEPENDENT_AUDIT_COMPLETE'
+          assert x['total_cases']==96
+          lines=[
+            '# F10-S: native MCP temporal consistency between two independent agents',
+            '**Scientific status: '+x['status']+'**',
+            'Four replicas, each 24 cases on a *shared* ephemeral SQLite file, two real stdio processes, and new third/fourth processes for restart.',
+            'Safety: no user MCP, real secrets, production server or original core edits.',
+            'Scientific gates: '+str(x['gate_counts']),
+            '',
+            '| Family | Cases passed |',
+            '|---|---:|']
+          for k,v in x['pooled'].items():
+            lines.append('| '+k+' | '+str(v['correct'])+'/'+str(v['total'])+' |')
+          lines.append('Old text in an agent local cached prior response remains: this is not a server-side resurrection; revalidated fresh MCP reads must not return deleted facts.')
+          Path(os.environ['GITHUB_STEP_SUMMARY']).write_text('\n'.join(lines))
+          print('F10S_INDEPENDENT_FINAL',x['status'],x['gate_counts'],x['pooled'])
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: f10s-independent-science
+          path: f10s-science.json
+          if-no-files-found: error
+          retention-days: 90
