@@ -57,7 +57,9 @@ rollback() {
 echo "Actualizando $branch: ${previous:0:7} -> ${remote:0:7}"
 [ -d "$APP/.git" ] || git clone -q --depth 1 --branch "$branch" "$REPO" "$APP"
 git -C "$APP" fetch -q --depth 1 origin "+refs/heads/$branch:refs/remotes/origin/$branch"
-git -C "$APP" checkout -q -B "$branch" "origin/$branch"
+# -f: the server runs what is on GitHub; an edit made by hand on the server (one once blocked every update)
+# is thrown away, never left to stop the next version.
+git -C "$APP" checkout -q -f -B "$branch" "origin/$branch"
 git -C "$APP" reset -q --hard "origin/$branch"
 new=$(git -C "$APP" rev-parse HEAD)
 
