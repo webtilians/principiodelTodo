@@ -147,8 +147,9 @@ class SealedMemories:
 
     owners keeps the folders: People for private addresses, Accounts (remote_accounts.py) for sign-in."""
 
-    def __init__(self, owners):
+    def __init__(self, owners, ranker=None):
         self.owners = owners
+        self.ranker = ranker  # orders memories by meaning in recall (semantic.py), when the server has a model
         self._locks: Dict[str, threading.Lock] = {}
         self._guard = threading.Lock()
 
@@ -195,7 +196,8 @@ class SealedMemories:
     def use(self, name: str, key: bytes, action: Callable[[AgentMemory], str], *, writes: bool) -> str:
         with self._lock_of(name):
             image = self.read(name, key)
-            memory = AgentMemory(store=SQLiteCognitiveMemoryStore.from_bytes(image, HashEmbeddingProvider(256)))
+            memory = AgentMemory(store=SQLiteCognitiveMemoryStore.from_bytes(image, HashEmbeddingProvider(256)),
+                                 ranker=self.ranker)
             try:
                 result = action(memory)
                 plain_left = (self.owners.memory_folder(name) / "memory.db").exists()
@@ -273,13 +275,19 @@ def build_app(people: People, issuer: Optional[str] = None):
     from mcp.server.transport_security import TransportSecuritySettings
     from mcp.types import ToolAnnotations
 
-    sealed = {"people": SealedMemories(people)}
+    from .semantic import ranker_from
+
+    # With a model in INFINITO_EMBEDDINGS, recall finds memories by meaning; it loads in the background.
+    ranker = ranker_from(os.environ.get("INFINITO_EMBEDDINGS"))
+    if ranker is not None:
+        threading.Thread(target=ranker.warm, daemon=True).start()
+    sealed = {"people": SealedMemories(people, ranker)}
     auth = None
     if issuer:
         from .remote_accounts import Accounts, Grants, build_auth
 
         accounts = Accounts(people.folder)
-        sealed["accounts"] = SealedMemories(accounts)
+        sealed["accounts"] = SealedMemories(accounts, ranker)
 
         def adopt(name: str, key: bytes, address: str) -> bool:
             """Someone who used a private address signs up with it: the memory moves and the address ends."""
@@ -317,8 +325,8 @@ def build_app(people: People, issuer: Optional[str] = None):
         return with_memory(ctx, lambda memory: memory.remember(statement), writes=True)
 
     @memory_tool("recall")
-    def recall(query: str, ctx: Context) -> str:
-        return with_memory(ctx, lambda memory: memory.recall(query), writes=False)
+    def recall(query: str, ctx: Context, limit: Optional[int] = None) -> str:
+        return with_memory(ctx, lambda memory: memory.recall(query, limit), writes=False)
 
     @memory_tool("list_memories")
     def list_memories(ctx: Context) -> str:

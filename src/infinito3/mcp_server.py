@@ -38,7 +38,7 @@ DEFAULT_PATH = Path.home() / ".infinito" / "memory.db"
 # songs"). A person's memory reached 40 within a day of use; 150 short facts are still only
 # a few pages for the agent. Past it, the most related ones.
 SHOW_ALL_UP_TO = 150
-RECALL_TOP_K = 16
+RECALL_TOP_K = 20
 LIST_LIMIT = 200
 
 INSTRUCTIONS = """INFINITO is your long-term memory about the user and their work, kept across sessions.
@@ -105,13 +105,16 @@ class AgentMemory:
     """INFINITO's memory as an agent uses it; the MCP tools are thin wrappers around it."""
 
     def __init__(self, path: Optional[str] = None, *, vault: bool = False,
-                 store: Optional[SQLiteCognitiveMemoryStore] = None):
+                 store: Optional[SQLiteCognitiveMemoryStore] = None, ranker=None):
         path = path or os.environ.get("INFINITO_MEMORY_DB") or str(DEFAULT_PATH)
         # A caller that keeps the database elsewhere (the remote server, encrypted) passes the store.
         self.store = store or SQLiteCognitiveMemoryStore(path=path, embedding_provider=HashEmbeddingProvider(256))
         self.engine = CognitiveEngine(memory_store=self.store)
         # Whether a refused secret can be pointed at the vault instead.
         self.vault = vault
+        # Something with rank(query, texts) that orders by meaning (semantic.py); without it, the store's
+        # word-hashing search picks the related memories.
+        self.ranker = ranker
 
     def close(self) -> None:
         self.store.close()
@@ -143,13 +146,21 @@ class AgentMemory:
     def _active(self) -> List[MemoryRecord]:
         return self.store.all()
 
-    def recall(self, query: str) -> str:
+    def _related(self, query: str, memories: List[MemoryRecord], count: int) -> List[MemoryRecord]:
+        if self.ranker is not None:
+            chosen = set(self.ranker.rank(query or "", [r.content for r in memories])[:count])
+            return [r for i, r in enumerate(memories) if i in chosen]
+        related = {r.id for r in self.store.search(query or "", top_k=count, record_access=False)}
+        return [r for r in memories if r.id in related]
+
+    def recall(self, query: str, limit: Optional[int] = None) -> str:
+        """Every memory up to SHOW_ALL_UP_TO; past it, or past limit, the most related ones, oldest first."""
         memories = self._active()
         if not memories:
             return "No memories yet."
-        if len(memories) > SHOW_ALL_UP_TO:
-            related = {r.id for r in self.store.search(query or "", top_k=RECALL_TOP_K, record_access=False)}
-            memories = [r for r in memories if r.id in related]
+        most = min(limit or SHOW_ALL_UP_TO, SHOW_ALL_UP_TO)
+        if len(memories) > most:
+            memories = self._related(query, memories, limit or RECALL_TOP_K)
             if not memories:
                 return "No memories about that."
         header = ("Memories about the user, oldest first; when two disagree, the later one is current. "
