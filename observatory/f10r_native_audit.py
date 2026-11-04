@@ -61,8 +61,10 @@ def audit_one(r,root):
                x["agent_calls"]>=0 for x in observed)
     assert Counter((x["intent"],x["action"]) for x in observed)=={
         (g,a):4 for g in GOALS for a in ACTIONS}
-    assert all(31_100_000+10_000*r<=x["seed"]<
-               31_100_000+10_000*(r+1) for x in observed)
+    seed_contract_ok=all(31_100_000+10_000*r<=x["seed"]<
+                        31_100_000+10_000*(r+1) for x in observed)
+    # Preserve the violation as an audited negative integrity finding,
+    # never silently revise TRAIN seeds after OOD was already opened.
     stats=json.loads((root/"LEARNED.json").read_text())
     shuffle=json.loads((root/"SHUFFLED.json").read_text())
     assert len(stats)==len(shuffle)==25
@@ -154,7 +156,7 @@ def audit_one(r,root):
                   "deleted_sqlite_violations","lineage_violations",
                   "question_stored_violations"))
     gates={
-        "G0_integrity":True,
+        "G0_integrity":seed_contract_ok,
         "G1_learner_safe_90pct":(
             learned["accuracy"]>=.90 and
             all(learned[k]==0 for k in (
@@ -170,6 +172,8 @@ def audit_one(r,root):
     }
     return {
         "original_source_commit":SOURCE_COMMIT,
+        "train_seed_contract_ok":seed_contract_ok,
+        "training_seed_values":[x["seed"] for x in observed],
         "model_choices":{
             "learned":manifest["learner_choices"],
             "shuffled":manifest["shuffled_choices"]},
@@ -198,6 +202,16 @@ def main():
         print("F10R_REPLICA",rep,
               {k:v["accuracy"] for k,v in d["scores"].items()},
               "GATES",d["gates"],flush=True)
+    # Cross-replica training seed reuse is a preregistration violation, not
+    # something a post-hoc audit should permit or repair.
+    seeds=[set(x["training_seed_values"]) for x in data["replicas"].values()]
+    overlaps=[
+        {"replicas":[a,b],"shared_training_seeds":len(seeds[a]&seeds[b])}
+        for a in range(4) for b in range(a+1,4) if seeds[a]&seeds[b]
+    ]
+    data["training_seed_overlaps"]=overlaps
+    for item in data["replicas"].values():
+        del item["training_seed_values"]
     keys=tuple(data["replicas"]["0"]["gates"])
     data["gate_counts"]={
         key:sum(int(x["gates"][key]) for x in data["replicas"].values())
@@ -215,6 +229,14 @@ def main():
         data["gate_counts"]["G1_learner_safe_90pct"]>=3 and
         data["gate_counts"]["G2_incremental_vs_docs"]>=3
         else "F10R_NO_INCREMENTAL_GAIN")
+    if data["gate_counts"]["G0_integrity"]!=4 or overlaps:
+        data["status"]="F10R_INCONCLUSIVE"
+        data["integrity_qualification"]=(
+            "TRAIN seeds violated preregistered disjoint per-replica windows; "
+            "the original OOD had already been opened. No relabeling, retuning "
+            "or replay with changed training seeds was performed. Descriptive "
+            "paired metrics remain informative but cannot be a scientific PASS."
+        )
     a.out.write_text(json.dumps(data,indent=2,ensure_ascii=False))
     print("F10R_FINAL_SCIENCE",data["status"],
           data["gate_counts"],data["pooled"],flush=True)
