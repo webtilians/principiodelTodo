@@ -383,7 +383,7 @@ async def experiment(rep,product,out):
             x=await eval_policy(
                 rep,arm,None if arm=="DOCS" else
                 learned if arm=="LEARNED" else shuffled,d)
-            save(out/(arm+".json"),x)
+            save(out/("eval_"+arm+".json"),x)
             result[arm]={
                 "successes":sum(row["success"] for row in x["rows"]),
                 "total":48,
