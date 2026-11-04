@@ -302,9 +302,13 @@ def build_app(people: People, issuer: Optional[str] = None):
                                                        writes=writes)
 
     server = MCPServer("infinito-memory", instructions=INSTRUCTIONS)
+    # OpenAI's apps (ChatGPT, Codex) also read, per tool, that it needs the person signed in with OAuth.
+    # Every tool does: without a token the server answers 401, as the MCP specification asks.
+    signed_in = {"securitySchemes": [{"type": "oauth2", "scopes": ["memory"]}]} if issuer else None
 
     def memory_tool(name: str):
-        return server.tool(description=TOOL_DESCRIPTIONS[name], annotations=ToolAnnotations(**TOOL_HINTS[name]))
+        return server.tool(description=TOOL_DESCRIPTIONS[name], annotations=ToolAnnotations(**TOOL_HINTS[name]),
+                           meta=signed_in)
 
     @memory_tool("remember")
     def remember(statement: str, ctx: Context) -> str:

@@ -232,3 +232,16 @@ def test_an_app_that_asks_for_other_scopes_can_still_register(server):
     assert answer.status_code == 201, answer.text
     for alias in ("/.well-known/openid-configuration", "/.well-known/oauth-authorization-server/mcp"):
         assert httpx2.get(f"{base}{alias}").json()["registration_endpoint"] == f"{base}/register"
+
+
+def test_every_tool_says_it_needs_sign_in_and_nothing_answers_without_it(server):
+    base, _, _ = server
+    _, _, app = app_session(base, [], mode="signup", name="lola")
+    for tool in app.tools:
+        assert tool.meta == {"securitySchemes": [{"type": "oauth2", "scopes": ["memory"]}]}, tool.name
+    hello = {"jsonrpc": "2.0", "id": 1, "method": "initialize",
+             "params": {"protocolVersion": "2025-06-18", "capabilities": {}, "clientInfo": {"name": "x", "version": "1"}}}
+    for method in ("initialize", "tools/list"):
+        answer = httpx2.post(f"{base}/mcp", json=dict(hello, method=method),
+                             headers={"accept": "application/json, text/event-stream"})
+        assert answer.status_code == 401, method  # clients learn they must sign in from this answer
