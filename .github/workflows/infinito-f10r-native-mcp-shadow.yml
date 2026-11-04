@@ -72,7 +72,7 @@ jobs:
           assert h('LEARNED.json')==frozen['learned_sha']
           assert h('SHUFFLED.json')==frozen['shuffled_sha']
           for arm in ('DOCS','LEARNED','SHUFFLED'):
-              assert len(json.loads((p/(arm+'.json')).read_text())['rows'])==48
+              assert len(json.loads((p/('eval_'+arm+'.json')).read_text())['rows'])==48
           print('F10R_NATIVE_MCP_FROZEN_INPUTS_VERIFIED',r,flush=True)
           PY
           test "$(git -C actual-product rev-parse HEAD)" = f6bd6239bfc1734c04c233a5cf8cef050c6d54c2
