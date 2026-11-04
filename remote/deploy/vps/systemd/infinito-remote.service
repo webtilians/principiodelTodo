@@ -1,0 +1,41 @@
+[Unit]
+Description=INFINITO memory over HTTP (MCP) - one sealed memory per person, for ChatGPT, Claude and other apps
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User=infinito-remote
+Group=infinito-remote
+WorkingDirectory=/var/lib/infinito-remote
+Environment=INFINITO_REMOTE_DIR=/var/lib/infinito-remote PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+# The model that finds memories by meaning (semantic.py): about 80 MB of RAM, its vectors memory-mapped.
+Environment=INFINITO_EMBEDDINGS=/opt/infinito-remote-models/potion-multilingual-int8
+# The public URL lets people sign in (OAuth needs to name itself); setup.sh writes the host.
+# $$ is a literal $ for systemd.
+ExecStart=/bin/sh -c 'exec /opt/infinito-remote-venv/bin/infinito-remote serve --port 8500 --url "https://$$(cat /etc/infinito-remote/host)"'
+Restart=on-failure
+RestartSec=5
+# Shares one CPU with LAIN and the other sites; LAIN keeps priority.
+Nice=10
+CPUWeight=20
+IOWeight=10
+# Past MemoryHigh the kernel throttles every allocation, and with no swap the service hangs instead of
+# slowing down: keep it well above what the service holds.
+MemoryHigh=300M
+MemoryMax=400M
+TasksMax=64
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectHome=true
+ProtectSystem=strict
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+ReadWritePaths=/var/lib/infinito-remote
+
+[Install]
+WantedBy=multi-user.target

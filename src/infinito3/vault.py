@@ -194,7 +194,7 @@ _TEXT = {
     "es": {
         "title": "INFINITO · bóveda",
         "open": "Abrir la bóveda", "create_head": "Crear tu bóveda",
-        "open_note": "Escribe tu contraseña maestra. Hilo no la verá nunca.",
+        "open_note": "Escribe la contraseña maestra de tu bóveda, la que elegiste al crearla. Hilo no la verá nunca.",
         "create_note": ("Elige una contraseña maestra. Apúntala en papel y guárdala en casa: "
                         "si la olvidas, nadie podrá recuperar tus claves, ni siquiera tú."),
         "password": "Contraseña maestra", "repeat": "Repítela",
@@ -202,8 +202,11 @@ _TEXT = {
         "make_keyfile": "Crear un archivo-llave en otra carpeta (por ejemplo, un pendrive)",
         "open_button": "Abrir", "create_button": "Crear", "cancel": "Cancelar",
         "short": "Usa al menos 8 caracteres.", "differ": "Las dos contraseñas no coinciden.",
-        "new_head": "Guardar una clave", "user": "Usuario (opcional)", "secret": "Contraseña o clave",
-        "show": "Mostrar", "save": "Guardar", "empty": "Escribe la clave.",
+        "new_head": "Guardar en tu bóveda",
+        "new_note": ("Pega o escribe aquí lo que quieres guardar con este nombre. "
+                     "Se guarda cifrado en tu bóveda; Hilo no lo verá."),
+        "secret": "Lo que quieres guardar", "user": "Usuario de esa cuenta, si tiene (puedes dejarlo vacío)",
+        "show": "Mostrar", "save": "Guardar", "empty": "Pega o escribe lo que quieres guardar.",
         "user_label": "Usuario", "secret_label": "Clave", "copy": "Copiar la clave", "close": "Cerrar",
         "copied": "Copiada. Se borrará del portapapeles en {n} s.",
         "closing": "Esta ventana se cierra sola en {n} s.",
@@ -211,7 +214,7 @@ _TEXT = {
     "en": {
         "title": "INFINITO · vault",
         "open": "Open the vault", "create_head": "Create your vault",
-        "open_note": "Type your master password. Your agent never sees it.",
+        "open_note": "Type your vault's master password, the one you chose when you created it. Your agent never sees it.",
         "create_note": ("Choose a master password. Write it down and keep it at home: if you forget it, "
                         "nobody can recover your secrets, not even you."),
         "password": "Master password", "repeat": "Repeat it",
@@ -219,8 +222,11 @@ _TEXT = {
         "make_keyfile": "Create a key file in another folder (a USB stick, for example)",
         "open_button": "Open", "create_button": "Create", "cancel": "Cancel",
         "short": "Use at least 8 characters.", "differ": "The two passwords differ.",
-        "new_head": "Save a secret", "user": "Username (optional)", "secret": "Password or key",
-        "show": "Show", "save": "Save", "empty": "Type the secret.",
+        "new_head": "Save in your vault",
+        "new_note": ("Paste or type what you want to keep under this name. "
+                     "It is stored encrypted in your vault; your agent never sees it."),
+        "secret": "What to keep", "user": "Username for that account, if any (you can leave it empty)",
+        "show": "Show", "save": "Save", "empty": "Paste or type what you want to keep.",
         "user_label": "Username", "secret_label": "Secret", "copy": "Copy the secret", "close": "Close",
         "copied": "Copied. It will be cleared from the clipboard in {n} s.",
         "closing": "This window closes by itself in {n} s.",
@@ -344,16 +350,19 @@ class TkVaultUI:
 
         with self._one_at_a_time:
             t = self.t
-            root, frame = self._window(f"{t['new_head']}: {title}")
-            tk.Label(frame, text=t["user"]).pack(anchor="w", pady=(10, 0))
-            user = tk.Entry(frame, width=40)
-            user.pack(anchor="w", fill="x")
-            tk.Label(frame, text=t["secret"]).pack(anchor="w", pady=(8, 0))
+            root, frame = self._window(t["new_head"])
+            # What is being saved comes first and gets the cursor; the username, rarely needed, goes last.
+            tk.Label(frame, text=title, font=("Segoe UI", 11, "bold"), fg="#1d4ed8").pack(anchor="w", pady=(2, 0))
+            tk.Label(frame, text=t["new_note"], wraplength=420, justify="left").pack(anchor="w", pady=(4, 10))
+            tk.Label(frame, text=t["secret"]).pack(anchor="w")
             secret = tk.Entry(frame, show="•", width=40)
             secret.pack(anchor="w", fill="x")
             visible = tk.BooleanVar(value=False)
             tk.Checkbutton(frame, text=t["show"], variable=visible,
                            command=lambda: secret.config(show="" if visible.get() else "•")).pack(anchor="w")
+            tk.Label(frame, text=t["user"], fg="#5a6476").pack(anchor="w", pady=(8, 0))
+            user = tk.Entry(frame, width=40)
+            user.pack(anchor="w", fill="x")
             message = tk.Label(frame, text="", fg="#b42318")
             message.pack(anchor="w")
             result: List[Tuple[str, str]] = []
@@ -372,7 +381,7 @@ class TkVaultUI:
             root.bind("<Return>", submit)
             root.bind("<Escape>", lambda _e: root.destroy())
             self._finish(root)
-            user.focus_set()
+            secret.focus_set()
             root.mainloop()
             return result[0] if result else None
 

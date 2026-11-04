@@ -163,6 +163,32 @@ class SQLiteCognitiveMemoryStore:
         with self._lock:
             self._conn.close()
 
+    def to_bytes(self) -> bytes:
+        """The whole database as one image (Python 3.11+), for a caller that keeps it encrypted.
+
+        VACUUM first, so pages freed by a forget request are not in the image at all.
+        """
+        with self._lock:
+            self._conn.execute("VACUUM")
+            return self._conn.serialize()
+
+    @classmethod
+    def from_bytes(cls, image: Optional[bytes], embedding_provider: Optional[EmbeddingProvider] = None,
+                   ) -> "SQLiteCognitiveMemoryStore":
+        """A store held only in memory, loaded from an image made by to_bytes (empty when there is none)."""
+        store = cls(path=":memory:", embedding_provider=embedding_provider)
+        if image:
+            if image[18:20] == b"\x02\x02":
+                # A file kept in WAL mode: an in-memory database cannot open it as such, so mark it
+                # as an ordinary rollback-journal database (header bytes 18-19), as SQLite itself does.
+                image = image[:18] + b"\x01\x01" + image[20:]
+            with store._lock:
+                store._conn.deserialize(image)
+                store._init_schema()  # tables an older image lacks, and this connection's pragmas
+                latest = store._conn.execute("SELECT MAX(updated_at) AS t FROM memories").fetchone()["t"]
+                store._last_write = datetime.fromisoformat(latest) if latest else datetime.min
+        return store
+
     def _init_schema(self) -> None:
         with self._lock, self._conn:
             self._conn.execute("PRAGMA journal_mode=WAL")

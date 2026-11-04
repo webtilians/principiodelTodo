@@ -286,3 +286,5 @@ models/interrupted_states/*.pt
 !demo/deploy/
 !demo/static/*.svg
 !mcpb/manifest.json
+# The remote memory server's deploy kit (ChatGPT and other remote MCP clients).
+!remote/deploy/

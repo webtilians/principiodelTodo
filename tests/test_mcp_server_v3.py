@@ -88,7 +88,7 @@ def test_the_server_works_over_mcp_stdio(tmp_path):
                 return tools, forgot, recalled
 
     tools, forgot, recalled = anyio.run(session)
-    memory_tools = ["forget", "list_memories", "recall", "remember"]
+    memory_tools = ["forget", "list_memories", "recall", "remember", "remember_many"]
     try:
         import pykeepass  # noqa: F401
         vault_tools = ["vault_add", "vault_list", "vault_lock", "vault_reveal", "vault_status", "vault_unlock"]
@@ -97,3 +97,33 @@ def test_the_server_works_over_mcp_stdio(tmp_path):
     assert tools == sorted(memory_tools + vault_tools)
     assert forgot.startswith("Deleted 1 memories")
     assert "Leeds" not in recalled and "data engineer" in recalled
+
+
+def test_with_the_memory_on_a_server_this_computer_serves_only_the_vault(tmp_path):
+    pytest.importorskip("mcp.server.mcpserver")
+    pytest.importorskip("pykeepass")
+    anyio = pytest.importorskip("anyio")
+    from mcp import ClientSession, StdioServerParameters
+    from mcp.client.stdio import stdio_client
+
+    params = StdioServerParameters(
+        command=sys.executable, args=["-m", "src.infinito3.mcp_server"], cwd=str(REPO),
+        env={**os.environ, "INFINITO_LOCAL_MEMORY": "off", "INFINITO_VAULT": str(tmp_path / "boveda.kdbx")})
+
+    async def session():
+        async with stdio_client(params) as (read, write):
+            async with ClientSession(read, write) as client:
+                info = await client.initialize()
+                return info.server_info.name, sorted(t.name for t in (await client.list_tools()).tools)
+
+    name, tools = anyio.run(session)
+    assert name == "infinito-vault"
+    assert tools == ["vault_add", "vault_list", "vault_lock", "vault_reveal", "vault_status", "vault_unlock"]
+
+
+def test_recall_finds_a_memory_that_shares_no_word_with_the_question(memory):
+    # A memory grown past a few dozen facts, as one did within a day of real use.
+    for n in range(60):
+        memory.remember(f"Mi proyecto número {n} usa la librería {n} para procesar datos.")
+    memory.remember("Ahora mismo mis canciones favoritas son Iris de Goo Goo Dolls y Duvet de bôa.")
+    assert "Iris de Goo Goo Dolls" in memory.recall("¿Qué música me gusta?")
