@@ -116,7 +116,9 @@ def test_an_app_asks_to_sign_in_and_the_server_says_where(server):
     assert "resource_metadata" in answer.headers["www-authenticate"]
     metadata = httpx2.get(f"{base}/.well-known/oauth-protected-resource/mcp").json()
     assert metadata["resource"] == f"{base}/mcp"
-    assert httpx2.get(f"{base}/.well-known/oauth-authorization-server").json()["registration_endpoint"]
+    server = httpx2.get(f"{base}/.well-known/oauth-authorization-server").json()
+    assert server["registration_endpoint"] == f"{base}/register" and server["scopes_supported"] == ["memory"]
+    assert "none" in server["token_endpoint_auth_methods_supported"]  # apps without a secret, like ChatGPT
 
 
 def test_one_password_opens_the_same_memory_from_every_app_and_nothing_on_disk_reads(server):

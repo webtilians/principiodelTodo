@@ -263,7 +263,9 @@ def build_auth(accounts: Accounts, grants: Grants, issuer: str,
 
     from mcp.server.auth.provider import (AccessToken, AuthorizationCode, AuthorizationParams, RefreshToken,
                                           TokenError, construct_redirect_uri)
-    from mcp.server.auth.routes import create_auth_routes, create_protected_resource_routes
+    from mcp.server.auth.handlers.metadata import MetadataHandler
+    from mcp.server.auth.routes import (build_metadata, cors_middleware, create_auth_routes,
+                                        create_protected_resource_routes)
     from mcp.server.auth.settings import AuthSettings, ClientRegistrationOptions, RevocationOptions
     from mcp.shared.auth import OAuthClientInformationFull, OAuthToken
 
@@ -352,10 +354,18 @@ def build_auth(accounts: Accounts, grants: Grants, issuer: str,
     # Some clients look for the metadata without the /mcp suffix.
     resource_routes.append(Route("/.well-known/oauth-protected-resource", resource_routes[0].endpoint,
                                  methods=["GET", "OPTIONS"]))
-    # And some look for the server's own metadata under these names.
-    server_metadata = next(r.endpoint for r in routes if r.path == "/.well-known/oauth-authorization-server")
-    for alias in ("/.well-known/oauth-authorization-server/mcp", "/.well-known/openid-configuration"):
-        resource_routes.append(Route(alias, server_metadata, methods=["GET", "OPTIONS"]))
+    # The server's own metadata also names the one scope, and says apps without a secret of their own may sign
+    # in (PKCE protects them; Claude and ChatGPT register that way), so no app stops before registering.
+    metadata = build_metadata(settings.issuer_url, None, settings.client_registration_options,
+                              settings.revocation_options)
+    metadata.scopes_supported = [SCOPE]
+    metadata.token_endpoint_auth_methods_supported = ["none", "client_secret_post", "client_secret_basic"]
+    server_metadata = cors_middleware(MetadataHandler(metadata).handle, ["GET", "OPTIONS"])
+    routes = [r for r in routes if r.path != "/.well-known/oauth-authorization-server"]
+    # Some clients look for it under these other names too.
+    for path in ("/.well-known/oauth-authorization-server", "/.well-known/oauth-authorization-server/mcp",
+                 "/.well-known/openid-configuration"):
+        resource_routes.append(Route(path, server_metadata, methods=["GET", "OPTIONS"]))
 
     # Each password check takes about 32 MB and a tenth of a second on purpose (scrypt); one at a time,
     # so a flood of attempts waits in line instead of filling the server's memory.
