@@ -213,7 +213,8 @@ def test_the_front_page_gives_the_address_and_the_steps_for_each_app(server):
     base, _, _ = server
     page = httpx2.get(f"{base}/", headers={"accept-language": "es-ES,es;q=0.9"})
     assert page.status_code == 200
-    assert f'value="{base}/mcp"' in page.text and "En Claude" in page.text and "En ChatGPT" in page.text
+    assert f'value="{base}/mcp"' in page.text
+    assert "En Claude" in page.text and "En ChatGPT" in page.text and "codex mcp login infinito" in page.text
     assert "One memory" in httpx2.get(f"{base}/", headers={"accept-language": "en-GB"}).text
 
 

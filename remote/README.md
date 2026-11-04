@@ -17,6 +17,8 @@ that app is connected. Each other app is one more sign-in. To tell someone, send
   connector**, name `INFINITO`, URL `https://<host>/mcp`, then **Connect**.
 - **ChatGPT** (Plus or Pro): Settings → Apps & Connectors → Advanced settings, turn on **Developer
   mode**; create a connector with that URL and authentication **OAuth**.
+- **Codex** (app and terminal): `codex mcp add infinito --url https://<host>/mcp`, then
+  `codex mcp login infinito` to sign in.
 - **Claude Code in a terminal**: `claude mcp add --transport http --scope user infinito https://<host>/mcp`,
   then `/mcp` to sign in.
 

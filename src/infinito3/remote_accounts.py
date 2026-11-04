@@ -633,7 +633,12 @@ _HOME = {
         "lead": "Lo que le cuentas a Claude, lo recuerda ChatGPT, y al revés. Tu memoria se guarda cifrada: "
                 "solo tu contraseña la abre, ni quien administra este servidor puede leerla.",
         "address": "La dirección para conectar", "copy": "Copiar", "copied": "Copiada",
-        "claude": "En Claude", "chatgpt": "En ChatGPT",
+        "claude": "En Claude", "chatgpt": "En ChatGPT", "codex": "En Codex",
+        "codex_steps": [
+            "En una terminal: <code>codex mcp add infinito --url</code> y la dirección de arriba.",
+            "Después <code>codex mcp login infinito</code>: se abre la página de INFINITO y entras.",
+            "Ya está, en Codex de escritorio y en la terminal.",
+        ],
         "claude_steps": [
             "En <b>claude.ai</b>, desde el navegador: Configuración → Conectores → <b>Añadir conector personalizado</b>.",
             "Nombre <b>INFINITO</b> y, como URL, la dirección de arriba. Pulsa Añadir y después <b>Conectar</b>.",
@@ -658,7 +663,12 @@ _HOME = {
         "lead": "What you tell Claude, ChatGPT remembers, and the other way round. Your memory is stored encrypted: "
                 "only your password opens it, not even whoever runs this server can read it.",
         "address": "The address to connect", "copy": "Copy", "copied": "Copied",
-        "claude": "In Claude", "chatgpt": "In ChatGPT",
+        "claude": "In Claude", "chatgpt": "In ChatGPT", "codex": "In Codex",
+        "codex_steps": [
+            "In a terminal: <code>codex mcp add infinito --url</code> and the address above.",
+            "Then <code>codex mcp login infinito</code>: INFINITO's page opens and you sign in.",
+            "That's it, in the Codex app and in the terminal.",
+        ],
         "claude_steps": [
             "On <b>claude.ai</b>, in your browser: Settings → Connectors → <b>Add custom connector</b>.",
             "Name it <b>INFINITO</b> and use the address above as the URL. Click Add, then <b>Connect</b>.",
@@ -688,6 +698,8 @@ main { max-width: 40rem; }
 .address button { width: auto; margin: 0; padding: .65rem 1rem; }
 h2 { font-size: 1.1rem; margin: 1.4rem 0 .4rem; }
 ol { margin: 0; padding-left: 1.3rem; } li { margin: .35rem 0; }
+code { font: .88em ui-monospace, Consolas, monospace; padding: .05rem .3rem; border-radius: 5px;
+  background: rgba(127, 127, 127, .16); word-break: break-all; }
 """
 
 
@@ -703,6 +715,7 @@ def _home_page(lang: str, address: str):
             f'<div class="address"><input id="address" type="text" readonly value="{e(address)}">'
             f'<button type="button" id="copy">{t["copy"]}</button></div>'
             f'<h2>{t["claude"]}</h2>{steps("claude_steps")}<h2>{t["chatgpt"]}</h2>{steps("chatgpt_steps")}'
+            f'<h2>{t["codex"]}</h2>{steps("codex_steps")}'
             f'<h2>{t["try"]}</h2><p>{t["try_text"]}</p><p class="note">{t["forget"]}</p>'
             f'<p class="note" style="margin-top:1.2rem">{t["menus"]}</p>'
             # The only script on the site: the copy button, which also selects the address where copying is refused.
