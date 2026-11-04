@@ -90,7 +90,7 @@ def test_each_person_talks_to_their_own_memory_over_http(tmp_path):
         server.should_exit = True
         thread.join(timeout=10)
 
-    assert tools == ["forget", "list_memories", "recall", "remember"]  # no vault from a server
+    assert tools == ["forget", "list_memories", "recall", "remember", "remember_many"]  # no vault from a server
     assert luis_sees == "No memories yet."
     assert forgot.startswith("Deleted 1 memories")
     assert "Leeds" not in recalled and "data engineer" in recalled

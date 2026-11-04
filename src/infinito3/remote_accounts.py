@@ -666,6 +666,14 @@ _HOME = {
         "try": "Pruébalo",
         "try_text": "Dile a una «recuerda que mi color favorito es el verde» y pregúntale a la otra «¿qué sabes de mí?».",
         "forget": "Para borrar algo, pídeselo a cualquiera: «olvida mi color favorito». Se borra de verdad.",
+        "work": "Para tu trabajo",
+        "work_steps": [
+            "Pega una reunión, un correo o un documento y di: «guarda esto en INFINITO, es del cliente Acme». "
+            "Guardará los hechos, las decisiones, los acuerdos y lo pendiente, cada uno con su fecha y su fuente.",
+            "Semanas después, en cualquiera de tus IAs: «¿por dónde íbamos con Acme?» o «¿qué tengo pendiente con "
+            "Acme?». Te lo dirá separando lo decidido de lo que solo se propuso, y de dónde sale cada cosa.",
+            "Lo de cada cliente queda aparte, y nadie más puede leerlo: ni quien administra este servidor.",
+        ],
         "menus": "Los nombres de los menús cambian a veces; los pasos son los mismos.",
     },
     "en": {
@@ -695,6 +703,14 @@ _HOME = {
         "try": "Try it",
         "try_text": "Tell one “remember that my favourite colour is green” and ask the other “what do you know about me?”.",
         "forget": "To delete something, ask either: “forget my favourite colour”. It is deleted for real.",
+        "work": "For your work",
+        "work_steps": [
+            "Paste a meeting, an email or a document and say: “save this in INFINITO, it's for the client Acme”. It "
+            "keeps the facts, decisions, agreements and pending items, each with its date and source.",
+            "Weeks later, in any of your AIs: “where were we with Acme?” or “what's pending with Acme?”. It answers "
+            "keeping what was decided apart from what was only proposed, and says where each thing came from.",
+            "Each client's memories stay apart, and nobody else can read them: not even whoever runs this server.",
+        ],
         "menus": "Menu names change now and then; the steps stay the same.",
     },
 }
@@ -727,6 +743,7 @@ def _home_page(lang: str, address: str):
             f'<h2>{t["claude"]}</h2>{steps("claude_steps")}<h2>{t["chatgpt"]}</h2>{steps("chatgpt_steps")}'
             f'<h2>{t["codex"]}</h2>{steps("codex_steps")}'
             f'<h2>{t["try"]}</h2><p>{t["try_text"]}</p><p class="note">{t["forget"]}</p>'
+            f'<h2>{t["work"]}</h2>{steps("work_steps")}'
             f'<p class="note" style="margin-top:1.2rem">{t["menus"]}</p>'
             # The only script on the site: the copy button, which also selects the address where copying is refused.
             f'<script>document.getElementById("copy").onclick=function(){{var a=document.getElementById("address");'

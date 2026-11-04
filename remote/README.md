@@ -44,6 +44,24 @@ password signs every app out, so a lost phone stops working too.
 - There is no vault here: its windows can only open on your own screen. Keep the local server for it
   (below).
 
+## A memory for work
+
+For someone who works with several clients, a memory also says what it is, where it came from and whose
+it is. An agent can give each memory:
+
+- `kind`: `fact`, `decision`, `agreement`, `pending` or `proposal`, so a proposal is never read as a decision;
+- `source`: where it came from, such as "email from Ana" or "meeting with Marta";
+- `project`: the client or project. The same sentence about two clients stays two memories, and one client's
+  facts never replace another's;
+- `date`: when it was said, so an old email takes its place among the rest.
+
+`remember_many` saves everything a meeting or a document established in one call, so apps that ask before
+each write ask once. `recall` and `list_memories` take `project` and `kind`, which answer "where were we with
+Acme?" and "what's pending?". Secrets and contact details are refused here too.
+
+INFINITO is the memory, not the assistant: it does not read your email, send reminders or move files. Whatever
+does (ChatGPT, n8n, another agent) can share this memory instead of each keeping its own.
+
 ## The memory in every message
 
 Agents look at the memory when they think to, which is not always. Claude Code and Codex can run a

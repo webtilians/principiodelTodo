@@ -46,14 +46,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple
 
-from .mcp_server import INSTRUCTIONS, TOOL_DESCRIPTIONS, TOOL_HINTS, AgentMemory
+from .mcp_server import INSTRUCTIONS, TOOL_DESCRIPTIONS, TOOL_HINTS, AgentMemory, MemoryItem
 from .persistent_memory import HashEmbeddingProvider, SQLiteCognitiveMemoryStore
 
 DEFAULT_DIR = Path.home() / ".infinito-remote"
 NAME = re.compile(r"[a-z0-9][a-z0-9-]{0,31}")
 PERSONAL_PATH = re.compile(r"/u/([A-Za-z0-9_-]{32,64})/mcp/?")
 # One statement is one fact; a long text is a document, not a memory.
-MAX_STATEMENT = 2000
 SEALED = b"INF1"  # format of a sealed memory: magic, 12-byte nonce, AES-GCM ciphertext and tag
 
 
@@ -319,18 +318,23 @@ def build_app(people: People, issuer: Optional[str] = None):
                            meta=signed_in)
 
     @memory_tool("remember")
-    def remember(statement: str, ctx: Context) -> str:
-        if len(statement or "") > MAX_STATEMENT:
-            return f"Not stored: one memory is one fact, at most {MAX_STATEMENT} characters."
-        return with_memory(ctx, lambda memory: memory.remember(statement), writes=True)
+    def remember(statement: str, ctx: Context, kind: Optional[str] = None, source: Optional[str] = None,
+                 project: Optional[str] = None, date: Optional[str] = None) -> str:
+        return with_memory(ctx, lambda memory: memory.remember(statement, kind, source, project, date), writes=True)
+
+    @memory_tool("remember_many")
+    def remember_many(items: List[MemoryItem], ctx: Context, source: Optional[str] = None,
+                      project: Optional[str] = None, date: Optional[str] = None) -> str:
+        return with_memory(ctx, lambda memory: memory.remember_many(items, source, project, date), writes=True)
 
     @memory_tool("recall")
-    def recall(query: str, ctx: Context, limit: Optional[int] = None) -> str:
-        return with_memory(ctx, lambda memory: memory.recall(query, limit), writes=False)
+    def recall(query: str, ctx: Context, limit: Optional[int] = None, project: Optional[str] = None,
+               kind: Optional[str] = None) -> str:
+        return with_memory(ctx, lambda memory: memory.recall(query, limit, project, kind), writes=False)
 
     @memory_tool("list_memories")
-    def list_memories(ctx: Context) -> str:
-        return with_memory(ctx, lambda memory: memory.list_memories(), writes=False)
+    def list_memories(ctx: Context, project: Optional[str] = None, kind: Optional[str] = None) -> str:
+        return with_memory(ctx, lambda memory: memory.list_memories(project, kind), writes=False)
 
     @memory_tool("forget")
     def forget(memory_ids: List[str], ctx: Context, keep: Optional[List[str]] = None) -> str:

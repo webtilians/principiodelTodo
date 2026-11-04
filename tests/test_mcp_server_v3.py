@@ -88,7 +88,7 @@ def test_the_server_works_over_mcp_stdio(tmp_path):
                 return tools, forgot, recalled
 
     tools, forgot, recalled = anyio.run(session)
-    memory_tools = ["forget", "list_memories", "recall", "remember"]
+    memory_tools = ["forget", "list_memories", "recall", "remember", "remember_many"]
     try:
         import pykeepass  # noqa: F401
         vault_tools = ["vault_add", "vault_list", "vault_lock", "vault_reveal", "vault_status", "vault_unlock"]

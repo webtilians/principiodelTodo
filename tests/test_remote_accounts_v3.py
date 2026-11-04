@@ -225,7 +225,8 @@ def test_apps_are_told_which_tools_only_read_so_they_need_not_ask_first(server):
     base, _, _ = server
     _, _, app = app_session(base, [], mode="signup", name="pepa")
     reads = {tool.name: tool.annotations.read_only_hint for tool in app.tools}
-    assert reads == {"recall": True, "list_memories": True, "remember": False, "forget": False}
+    assert reads == {"recall": True, "list_memories": True, "remember": False, "remember_many": False,
+                     "forget": False}
     assert [t.annotations.destructive_hint for t in app.tools if t.name == "forget"] == [True]
 
 
@@ -300,3 +301,27 @@ def test_the_hook_never_stops_a_message(tmp_path, monkeypatch):
     out = io.StringIO()
     remote_client.context(io.StringIO('{"prompt": "hola"}'), out)  # nothing listens there
     assert out.getvalue() == ""
+
+
+def test_an_app_saves_a_whole_meeting_and_asks_about_one_client(server):
+    base, _, folder = server
+    steps = [
+        ("remember_many", {"items": [
+            {"statement": "Acme aprueba el presupuesto de la web.", "kind": "decision"},
+            {"statement": "Reclamar las fotos al fotógrafo.", "kind": "pending"},
+            {"statement": "Quizá hacer también un vídeo.", "kind": "proposal"},
+        ], "source": "reunión con Marta", "project": "Acme", "date": "2026-10-26"}),
+        ("remember", {"statement": "Falta el contrato.", "kind": "pending", "project": "Globex"}),
+        ("recall", {"query": "¿por dónde íbamos?", "project": "Acme"}),
+        ("recall", {"query": "qué falta", "project": "Acme", "kind": "pending"}),
+        ("list_memories", {"project": "Globex"}),
+    ]
+    [saved, _, where, pending, other], _, app = app_session(base, steps, mode="signup", name="marta")
+    assert saved == "Remembered 3 of 3."
+    assert "(2026-10-26, decision, Acme, source: reunión con Marta)" in where and "Globex" not in where
+    assert "fotógrafo" in pending and "presupuesto" not in pending
+    assert "contrato" in other and "Acme" not in other
+    schema = next(tool for tool in app.tools if tool.name == "remember_many").input_schema
+    assert "statement" in str(schema) and "kind" in str(schema)  # the app is told what each item takes
+    on_disk = b"".join(p.read_bytes() for p in folder.rglob("*") if p.is_file())
+    assert "fotógrafo".encode() not in on_disk and b"presupuesto" not in on_disk  # sealed, like everything else
