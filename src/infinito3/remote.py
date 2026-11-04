@@ -233,7 +233,7 @@ class _Router:
                 await send(message)
 
             await self.auth_app(scope, receive, noted)
-            if path != "/":
+            if not (path == "/" and scope["method"] == "GET"):  # visits to the front page are not sign-in steps
                 print(f"sign-in: {scope['method']} {path} {status.get('code')}", flush=True)
             return
         if path in ("/mcp", "/mcp/") and self.bearer:
@@ -250,6 +250,9 @@ class _Router:
             match = PERSONAL_PATH.fullmatch(path)
             name = self.people.who(match.group(1)) if match else None
             if not name:
+                # An app pointed at a wrong address shows up here; a private address is never written out.
+                shown = "/u/…/mcp" if match else path[:80]
+                print(f"sign-in: {scope['method']} {shown} 404 (no such address)", flush=True)
                 return await _plain(send, 404, "Not found")
             key, memories = self.people.key(name, match.group(1)), "people"
         state = dict(scope.get("state") or {}, infinito_person=name, infinito_key=key, infinito_memories=memories)
