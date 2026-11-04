@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# Puts a copy of INFINITO's sealed memories back: stops the service, restores, starts it again.
+#   infinito-remote-restore                  lists the copies on this server
+#   infinito-remote-restore <file>           restores that copy (a name from the list, or a path)
+# What was there moves aside to /var/lib/infinito-remote/before-restore-<date>, never deleted.
+# Each person's apps have to sign in again afterwards; their passwords and memories are the same.
+set -euo pipefail
+[ "$(id -u)" -eq 0 ] || { echo "Ejecuta como root." >&2; exit 1; }
+COPIES=/var/lib/infinito-remote-backups
+VENV=/opt/infinito-remote-venv
+if [ $# -eq 0 ]; then
+  ls -1 "$COPIES" 2>/dev/null || echo "Todavía no hay copias en $COPIES."
+  exit 0
+fi
+file=$1
+[ -f "$file" ] || file="$COPIES/$1"
+[ -f "$file" ] || { echo "No encuentro la copia $1." >&2; exit 1; }
+# Checked before stopping anything: a damaged copy leaves the service as it was.
+"$VENV/bin/infinito-remote" verify-backup "$file"
+incoming=$(mktemp)
+trap 'rm -f "$incoming"' EXIT
+install -m 600 -o infinito-remote -g infinito-remote "$file" "$incoming"
+systemctl stop infinito-remote
+restored=0
+if runuser -u infinito-remote -- env -C / INFINITO_REMOTE_DIR=/var/lib/infinito-remote \
+    "$VENV/bin/infinito-remote" restore "$incoming"; then
+  restored=1
+fi
+systemctl start infinito-remote
+[ "$restored" -eq 1 ] || { echo "La copia no se ha restaurado; el servicio sigue con lo que tenía." >&2; exit 1; }
+for _ in $(seq 1 30); do curl -fs --max-time 3 -o /dev/null http://127.0.0.1:8500/health && break; sleep 1; done
+curl -fs --max-time 3 -o /dev/null http://127.0.0.1:8500/health \
+  && echo "Servicio en marcha con la copia restaurada." \
+  || { echo "El servicio no responde: mira journalctl -u infinito-remote." >&2; exit 1; }

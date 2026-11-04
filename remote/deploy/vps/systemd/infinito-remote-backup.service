@@ -1,0 +1,22 @@
+[Unit]
+Description=One more copy of INFINITO's sealed memories, unreadable without each person's password
+
+[Service]
+Type=oneshot
+User=infinito-remote
+Group=infinito-remote
+Environment=INFINITO_REMOTE_DIR=/var/lib/infinito-remote PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+# Creates /var/lib/infinito-remote-backups, readable only by the service's user.
+StateDirectory=infinito-remote-backups
+StateDirectoryMode=0700
+ExecStart=/opt/infinito-remote-venv/bin/infinito-remote backup /var/lib/infinito-remote-backups --keep 14
+Nice=19
+CPUWeight=10
+IOWeight=10
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectHome=true
+ProtectSystem=strict
+ReadOnlyPaths=/var/lib/infinito-remote

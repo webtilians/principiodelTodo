@@ -69,8 +69,9 @@ if ! check=$(caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile 2>
 fi
 systemctl reload caddy
 
-step "Actualización automática"
+step "Actualización automática y copias de seguridad"
 systemctl enable -q --now infinito-remote-update.timer
+systemctl enable -q --now infinito-remote-backup.timer
 
 step "Comprobación"
 ok=""

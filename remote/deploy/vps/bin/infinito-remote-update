@@ -82,6 +82,7 @@ if [ -d "$KIT" ]; then
     cmp -s "$unit" "/etc/systemd/system/$(basename "$unit")" || { install -m 644 "$unit" /etc/systemd/system/; changed=1; }
   done
   if [ -n "$changed" ]; then systemctl daemon-reload; fi
+  systemctl enable -q --now infinito-remote-backup.timer
 fi
 
 systemctl restart infinito-remote

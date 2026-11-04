@@ -1,0 +1,10 @@
+[Unit]
+Description=Copy INFINITO's sealed memories every day
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+RandomizedDelaySec=30min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

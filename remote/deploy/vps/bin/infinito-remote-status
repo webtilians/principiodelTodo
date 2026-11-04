@@ -3,12 +3,15 @@
 set -uo pipefail
 APP=/opt/infinito-remote
 STATE=/var/lib/infinito-remote-deploy
-echo "Dirección:  https://$(cat /etc/infinito-remote/host 2>/dev/null)/u/<dirección de cada persona>/mcp"
+echo "Dirección:  https://$(cat /etc/infinito-remote/host 2>/dev/null)/mcp"
 echo "Rama:       $(cat /etc/infinito-remote/branch 2>/dev/null)"
 git -C "$APP" log -1 --format='Versión:    %h %s (%cd)' --date=format:'%Y-%m-%d %H:%M' 2>/dev/null
 echo "Servicio:   $(systemctl is-active infinito-remote)  ·  revisión automática: $(systemctl is-active infinito-remote-update.timer)"
 echo "Memoria:    $(systemctl show infinito-remote -p MemoryCurrent --value | awk '{ printf "%.0f MB", $1 / 1048576 }')"
 people=$(infinito-remote-person list 2>/dev/null | tr '\n' ' ')
 echo "Personas:   ${people:-ninguna}"
+newest=$(ls -1 /var/lib/infinito-remote-backups 2>/dev/null | tail -1)
+copies=$(ls -1 /var/lib/infinito-remote-backups 2>/dev/null | wc -l)
+echo "Copias:     $copies, la última ${newest:-ninguna}  ·  diaria: $(systemctl is-active infinito-remote-backup.timer)"
 [ -s "$STATE/bad" ] && echo "Fallida:    $(cut -c1-7 "$STATE/bad") no arrancó; se espera al siguiente commit"
 exit 0
