@@ -272,10 +272,13 @@ def test_this_computer_signs_in_once_and_every_message_brings_the_memory(server,
 
     def hook(prompt):
         out = io.StringIO()
-        remote_client.context(io.StringIO(json.dumps({"prompt": prompt, "hook_event_name": "UserPromptSubmit"})), out)
+        event = json.dumps({"prompt": prompt, "hook_event_name": "UserPromptSubmit"}, ensure_ascii=False)
+        remote_client.context(io.BytesIO(event.encode("utf-8")), out)  # as Claude Code sends it: UTF-8 bytes
+        assert out.getvalue().isascii()  # readable whatever code page the console uses
         return json.loads(out.getvalue())["hookSpecificOutput"]["additionalContext"] if out.getvalue() else None
 
     assert "Nena" in hook("¿Cómo se llama mi perra?")
+    assert "Mi perra se llama Nena." in hook("¿Cómo se llama mi perra?")  # accents and all
     session = json.loads((tmp_path / "session.json").read_text())
     session["expires_at"] = 0  # its hour is over: the hook renews the access by itself
     (tmp_path / "session.json").write_text(json.dumps(session))

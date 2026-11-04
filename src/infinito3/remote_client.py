@@ -167,9 +167,12 @@ def recall(query: str, timeout: float = HOOK_SECONDS) -> Optional[str]:
 
 def context(stdin=None, stdout=None) -> None:
     """The hook: the message in on stdin (JSON from Claude Code or Codex), related memories out. Never fails."""
-    stdin, stdout = stdin or sys.stdin, stdout or sys.stdout
+    # Hooks speak UTF-8; on Windows Python's own streams use the console's code page, so bytes are read here
+    # and the answer is written as ASCII-only JSON (accents as \u escapes), which no code page can garble.
+    stdin, stdout = stdin or sys.stdin.buffer, stdout or sys.stdout
     try:
-        event = json.loads(stdin.read() or "{}")
+        raw = stdin.read() or b"{}"
+        event = json.loads(raw.decode("utf-8") if isinstance(raw, bytes) else raw)
         prompt = str(event.get("prompt") or event.get("user_prompt") or "").strip()
         found = recall(prompt) if prompt else None
     except Exception:  # noqa: BLE001  # a memory that cannot be read must not stop the person's message
@@ -177,4 +180,4 @@ def context(stdin=None, stdout=None) -> None:
     if not found or found.startswith("No memories"):
         return
     json.dump({"hookSpecificOutput": {"hookEventName": event.get("hook_event_name") or "UserPromptSubmit",
-                                      "additionalContext": f"{CONTEXT_HEADER}\n{found}"}}, stdout, ensure_ascii=False)
+                                      "additionalContext": f"{CONTEXT_HEADER}\n{found}"}}, stdout)
