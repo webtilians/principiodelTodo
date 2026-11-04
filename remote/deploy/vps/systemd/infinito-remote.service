@@ -8,8 +8,8 @@ User=infinito-remote
 Group=infinito-remote
 WorkingDirectory=/var/lib/infinito-remote
 Environment=INFINITO_REMOTE_DIR=/var/lib/infinito-remote PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
-# The model that finds memories by meaning (semantic.py) is off here for now: loaded, it took about
-# 500 MB on this 2 GB server. INFINITO_EMBEDDINGS=/opt/infinito-remote-models/potion-multilingual-int8
+# The model that finds memories by meaning (semantic.py): about 80 MB of RAM, its vectors memory-mapped.
+Environment=INFINITO_EMBEDDINGS=/opt/infinito-remote-models/potion-multilingual-int8
 # The public URL lets people sign in (OAuth needs to name itself); setup.sh writes the host.
 # $$ is a literal $ for systemd.
 ExecStart=/bin/sh -c 'exec /opt/infinito-remote-venv/bin/infinito-remote serve --port 8500 --url "https://$$(cat /etc/infinito-remote/host)"'
