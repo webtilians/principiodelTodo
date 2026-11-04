@@ -82,12 +82,18 @@ memory into an address's memory.
 ## Run it on a server
 
 ```bash
-pip install "infinito-memory[mcp] @ git+https://github.com/webtilians/principiodelTodo"
-infinito-remote serve --port 8500 --url https://memory.example.org   # behind an HTTPS proxy
+pip install "infinito-memory[mcp,semantic] @ git+https://github.com/webtilians/principiodelTodo"
+python -m infinito3.semantic save /opt/infinito-models/potion-multilingual-int8   # once, ~600 MB of RAM
+INFINITO_EMBEDDINGS=/opt/infinito-models/potion-multilingual-int8 \
+  infinito-remote serve --port 8500 --url https://memory.example.org   # behind an HTTPS proxy
 ```
 
 `--url` (or `INFINITO_REMOTE_URL`) is the server's public address; without it there is no sign-in,
-only private addresses. `deploy/vps/` installs it on a Debian or Ubuntu server with Caddy:
+only private addresses. With a model in `INFINITO_EMBEDDINGS`, recall finds memories by meaning
+("what music do I like?" finds "my favourite songs are…"): a static multilingual model, 122 MB of
+RAM once loaded, no GPU. Without it, recall matches words. Saving the model needs more RAM than
+running it; on a small server, save it on another computer and copy the folder over.
+`deploy/vps/` installs it on a Debian or Ubuntu server with Caddy:
 `bash remote/deploy/vps/setup.sh` as root, then `infinito-remote-person list` or `remove <name>` and
 `infinito-remote-status`. It follows its GitHub branch every 2 minutes, its commands and service
 included.
