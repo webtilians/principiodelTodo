@@ -1,0 +1,175 @@
+name: INFINITO F10-P - Public Tool Outputs and Learned Effects
+
+on:
+  push:
+    branches: [experiment/f10p-observable-tool-results-20261104]
+    paths: [docs/INFINITO_F10P_LAUNCH.md]
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: f10p-single-preregistered-public-events
+  cancel-in-progress: false
+
+jobs:
+  frozen_public_event_train:
+    name: F10-P public event learner and originals SHA / replica ${{ matrix.replica }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        replica: [0, 1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install original skill CPU dependencies
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install numpy
+      - name: Run TRAIN-only preflight and verify predecessor science/product untouched
+        run: |
+          python -m py_compile observatory/f10p_worlds.py observatory/f10p_events.py observatory/f10p_experiment.py observatory/f10p_audit.py
+          python -m unittest discover -s tests -p 'test_f10p_observable_events.py' -v
+          git diff --exit-code f1ba7db6364cb92f0443d63a4d13eb527049f60d -- src/infinito3 observatory/f10l_train.py observatory/f10n_worlds.py observatory/f10n_memory.py observatory/f10n_experiment.py observatory/f10n_confirm_eval.py
+      - name: Load five ORIGINAL frozen F10-L checkpoints from run 41685499939
+        uses: actions/download-artifact@v4
+        with:
+          repository: webtilians/principiodelTodo
+          run-id: 41685499939
+          github-token: ${{ github.token }}
+          name: f10l-stage1-${{ matrix.replica }}
+          path: original/${{ matrix.replica }}
+      - name: Load ORIGINAL G0 pre-OOD skill manifest
+        uses: actions/download-artifact@v4
+        with:
+          repository: webtilians/principiodelTodo
+          run-id: 41685499939
+          github-token: ${{ github.token }}
+          name: f10l-independent-g0-original
+          path: original-g0
+      - name: Real 98304 executed trials shared across seven arms, SHA freeze before DEV/OOD
+        run: |
+          mkdir -p output
+          set -o pipefail
+          python -m observatory.f10p_experiment --replica ${{ matrix.replica }} \
+            --original original/${{ matrix.replica }} --g0 original-g0/f10l-g0.json \
+            --out output/${{ matrix.replica }} | tee output/f10p-${{ matrix.replica }}.log
+      - name: Verify original skills and memory SHA AFTER frozen evaluation
+        run: |
+          python - <<'PY'
+          import json,hashlib
+          from pathlib import Path
+          r=int("${{ matrix.replica }}")
+          p=Path(f"output/{r}")
+          meta=json.loads((p/"frozen.json").read_text())
+          g0=json.loads(Path("original-g0/f10l-g0.json").read_text())
+          assert meta["state"]=="ALL_MEMORY_SHA_FROZEN_BEFORE_DEV_OOD"
+          assert meta["trials_executed"]==98304 and meta["train_cases"]==3072
+          assert meta["no_train_srx"] and meta["no_train_memory_flip1"]
+          assert meta["confirm_28300000_sealed"]
+          assert len(meta["trained_memory_files"])==7
+          assert len(json.loads((p/"eval_rows.json").read_text()))==7*(768+512)
+          for name,digest in g0["replicas"][str(r)]["model_sha256"].items():
+              assert hashlib.sha256(Path(f"original/{r}/{name}.pt").read_bytes()).hexdigest()==digest
+          for item in meta["trained_memory_files"].values():
+              assert hashlib.sha256((p/item["path"]).read_bytes()).hexdigest()==item["sha256"]
+          item=meta["public_trial_log"]
+          assert hashlib.sha256((p/item["path"]).read_bytes()).hexdigest()==item["sha256"]
+          print("F10P_SHA_ORIGINAL_SKILLS_AND_PUBLIC_EVENT_MEMORIES_PASS",r,flush=True)
+          PY
+      - name: Preserve original logs, model SHA and complete frozen predictions
+        if: always()
+        run: |
+          if test -d output/${{ matrix.replica }}; then
+            cp output/f10p-${{ matrix.replica }}.log output/${{ matrix.replica }}/run.log || true
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: f10p-original-public-events-${{ matrix.replica }}
+          path: output/${{ matrix.replica }}/
+          retention-days: 90
+          if-no-files-found: warn
+
+  independent_scientific_audit:
+    name: F10-P independent public event replay and 2000 grouped-world bootstrap
+    needs: frozen_public_event_train
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Independent auditor installs only NumPy (no Torch, no world/learner import)
+        run: python -m pip install numpy
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: f10p-original-public-events-*
+          path: originals
+      - uses: actions/download-artifact@v4
+        with:
+          repository: webtilians/principiodelTodo
+          run-id: 41685499939
+          github-token: ${{ github.token }}
+          name: f10l-independent-g0-original
+          path: original-g0
+      - name: Reconstruct 393216 individual public event logs, all event memory counters, gates G0-G6
+        run: |
+          mkdir -p audited
+          for i in 0 1 2 3; do
+            mkdir -p audited/$i
+            cp originals/f10p-original-public-events-$i/* audited/$i/
+          done
+          python -m observatory.f10p_audit \
+            --root audited --original-g0 original-g0/f10l-g0.json \
+            --out f10p-original-science.json
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          d=json.loads(Path("f10p-original-science.json").read_text())
+          assert d["technical"]=="F10P_TECHNICAL_COMPLETE"
+          assert d["unique_case_hashes"]==17408
+          assert d["confirm_28300000_sealed"]
+          lines=[
+             "# INFINITO F10-P — Preregistered ORIGINAL public tool output observation experiment",
+             "**Scientific outcome: "+d["status"]+"**",
+             "**Original fixed G0–G6 gate counts: "+str(d["gate_counts"])+"**",
+             "Same 98304 executed training trials per replica across every arm, no SRX TRAIN.",
+             "Exact original F10-L skill SHA and 7 immutable explicit memories per replica.",
+             "28300000+ CONFIRM SEALED. No production change.",
+             "",
+             "| Replica | E100 full | E50 half missing | E0 terminal | E_noX | E_shuffleX | B reward | I privileged | E100 program |",
+             "|---|---:|---:|---:|---:|---:|---:|---:|---|",
+          ]
+          for i,r in d["replicas"].items():
+              m=r["ood"]
+              vals=[m[a]["accuracy"] for a in
+                    ("E100","E50","E0","E_noX","E_shuffleX",
+                     "B_reward","I_privileged")]
+              program=next(iter(m["E100"]["program_counts"]))
+              lines.append(
+                  "| "+i+" | "+" | ".join(f"{100*v:.2f}%" for v in vals)+
+                  " | "+program+" |")
+          lines.extend(["",
+             "## Original SHA, grouped-world 95% intervals, preregistered gates and negative controls",
+             "~~~json",json.dumps(d["replicas"],ensure_ascii=False,indent=2),"~~~",
+             "A PASS only supports designed tool-output observability with an engineered planner.",
+             "Technical SUCCESS is not automatically scientific PASS."
+          ])
+          Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text("\n".join(lines))
+          print("F10P_ORIGINAL_INDEPENDENT_RESULT",d["status"],d["gate_counts"],flush=True)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: f10p-independent-public-event-science
+          path: f10p-original-science.json
+          retention-days: 90
+          if-no-files-found: error
