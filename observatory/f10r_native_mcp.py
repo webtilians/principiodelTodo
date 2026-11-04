@@ -146,19 +146,13 @@ def contains(text,statement):
     return ('"'+statement+'"') in text
 
 async def prepare(session,sc,workflow):
-    """Same initial synthetic setup for all policies; never counted as agent."""
+    """Identical initial data for every policy; never counted as agent."""
+    assert (await session.remember(sc["other"])).startswith("Remembered")
     if sc["kind"] in (1,4):
         assert (await session.remember(sc["old"])).startswith("Remembered")
     if sc["kind"] in (2,5):
-        assert (await session.remember(sc["other"])).startswith("Remembered")
-    if sc["kind"] in (2,3,4):
-        if sc["kind"] in (2,3):
-            assert (await session.remember(sc["target"])).startswith("Remembered")
-    if sc["kind"] in (0,):
-        assert (await session.remember(sc["other"])).startswith("Remembered")
-    if sc["kind"]==5:
         assert (await session.remember(sc["target"])).startswith("Remembered")
-    # Note: store→erase needs target inserted by step1, not in setup.
+    # store->erase deliberately starts WITHOUT target; the agent must store it.
 
 def train_prep(kind,session,sc):
     # Coroutines are handled in train below, this returns statements to seed.
@@ -340,6 +334,9 @@ async def eval_policy(rep,arm,model,tmpdir):
                 text not in content for text in row["deleted"])
         else:
             row["deleted_absent_database"]=True
+        # Updating then forgetting must also purge superseded old history.
+        row["old_lineage_absent_database"]=(
+            row["kind"]!=4 or scenario(row["seed"],4)["old"] not in content)
     return {
         "rows":results,"total_agent_calls":all_call_count,
         "total_tool_calls_including_evaluator":tool_count,
