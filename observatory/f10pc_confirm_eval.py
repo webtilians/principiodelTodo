@@ -90,7 +90,7 @@ def frozen_preflight(rep,folder,skills,g0,science,out):
     memories=original_memories(folder,meta)
     selector,xor,lut,skill_metadata=frozen_original_models(rep,skills,g0)
     assert tuple(lut)==(1,0)
-    assert skill_metadata==meta["original_skills"]
+    assert json.loads(json.dumps(skill_metadata))==meta["original_skills"]
     for name,digest in meta["original_skills"][
         "all_5_original_checkpoint_sha"].items():
         assert sha(skills/(name+".pt"))==digest
