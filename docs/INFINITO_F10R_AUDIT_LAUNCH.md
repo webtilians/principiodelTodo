@@ -1,0 +1,7 @@
+# F10-R auditoría SOLO sobre el experimento original ya ejecutado
+
+El primer run 41912981283 ejecutó TRAIN y OOD auténticos sobre MCP de producto en cuatro réplicas, pero falló control SHA porque el script reusó nombres LEARNED.json y SHUFFLED.json para salidas de OOD y borró los snapshots congelados. Estado técnico: INCONCLUSIVE.
+
+La reproducción técnica con rutas separadas, run 41913251736, conservó los SHA y ejecutó la misma OOD con los mismos parámetros, pero el auditor detectó una SEGUNDA violación prospectiva: TRAIN seed = 31100000+10000*r+10000*goal+100*action+case, que solapa ventanas de semillas entre réplicas y contraviene el diseño de TRAIN independientes del prerregistro f7c6425ce6efebff4756740fc613908c37e8774e. NO ajustar TRAIN ni abrir nuevas OOD para rescatar el estudio. Los 31300000+ de confirmación permanecen reservados.
+
+Este archivo solo dispara una auditoría de los 4 artefactos congelados del run 41913251736, SIN INVOCAR MCP NI ENTRENAR. La auditoría debe marcar F10R_INCONCLUSIVE por integridad, recomputar las cifras descriptivas bajo criterios existentes, y registrar los dos errores técnicos. Nunca presentar los resultados observados como nuevo PASS científico; únicamente evidencia exploratoria acerca de la comparación con la política documentada.
