@@ -119,3 +119,11 @@ def test_with_the_memory_on_a_server_this_computer_serves_only_the_vault(tmp_pat
     name, tools = anyio.run(session)
     assert name == "infinito-vault"
     assert tools == ["vault_add", "vault_list", "vault_lock", "vault_reveal", "vault_status", "vault_unlock"]
+
+
+def test_recall_finds_a_memory_that_shares_no_word_with_the_question(memory):
+    # A memory grown past a few dozen facts, as one did within a day of real use.
+    for n in range(60):
+        memory.remember(f"Mi proyecto número {n} usa la librería {n} para procesar datos.")
+    memory.remember("Ahora mismo mis canciones favoritas son Iris de Goo Goo Dolls y Duvet de bôa.")
+    assert "Iris de Goo Goo Dolls" in memory.recall("¿Qué música me gusta?")

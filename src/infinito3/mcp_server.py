@@ -33,9 +33,11 @@ from .persistent_memory import HashEmbeddingProvider, SQLiteCognitiveMemoryStore
 from .types import MemoryRecord, SafetyLevel
 
 DEFAULT_PATH = Path.home() / ".infinito" / "memory.db"
-# Up to this many memories, recall shows them all: the agent reads them better than
-# local embeddings rank them. Past it, the most related ones.
-SHOW_ALL_UP_TO = 40
+# Up to this many memories, recall shows them all: the agent reads them better than local
+# embeddings rank them, which match words, not meanings ("music" never finds "favourite
+# songs"). A person's memory reached 40 within a day of use; 150 short facts are still only
+# a few pages for the agent. Past it, the most related ones.
+SHOW_ALL_UP_TO = 150
 RECALL_TOP_K = 16
 LIST_LIMIT = 200
 
