@@ -40,6 +40,11 @@ def test_secrets_contact_details_questions_and_forget_requests_are_not_stored(me
     assert memory.list_memories() == "No memories yet."
 
 
+def test_a_statement_that_only_mentions_deleting_is_stored(memory):
+    assert memory.remember("Decidimos eliminar duplicados sin tocar los originales.").startswith("Remembered")
+    assert "asks to forget" in memory.remember("Olvida mi edad.")
+
+
 def test_a_new_value_supersedes_the_old_one(memory):
     memory.remember("Me llamo Ana.")
     assert "replaces an earlier value" in memory.remember("Me llamo Lucía.")
