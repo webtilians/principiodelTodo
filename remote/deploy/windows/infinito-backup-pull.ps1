@@ -5,7 +5,7 @@ Nobody can read them without each person's password. Run it once with -Install t
     powershell -ExecutionPolicy Bypass -File infinito-backup-pull.ps1 -Server root@1.2.3.4 -Install
 
 It then runs every day and at each sign-in, brings the copies this computer does not have, checks each
-one, and keeps the newest 60. It writes pull.log in the folder, and warns on screen if the newest copy is
+one, and keeps the newest 30. It writes pull.log in the folder, and warns on screen if the newest copy is
 over 3 days old, because a backup that stopped working in silence is the one that fails when needed.
 #>
 param(
@@ -14,7 +14,7 @@ param(
     [string]$Folder = "$env:USERPROFILE\.infinito\copias-servidor",
     [string]$RemoteFolder = '/var/lib/infinito-remote-backups',
     [string]$Checker = "$env:USERPROFILE\.infinito\venv\Scripts\infinito-remote.exe",
-    [int]$Keep = 60,
+    [int]$Keep = 30,
     [int]$WarnAfterDays = 3,
     [switch]$Install
 )

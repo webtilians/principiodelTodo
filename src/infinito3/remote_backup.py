@@ -10,6 +10,9 @@ or the address a copy opens nothing, so it can be kept anywhere. What can be rea
 and how large each memory is. A plain memory left from before sealing is never copied, and neither are
 the apps' sign-ins (grants.db): after a restore each app simply signs in again.
 
+A forgotten memory stays, sealed, in the copies made before it was forgotten until they age out, so
+restoring an old copy brings it back: keep few, and say how long (remote/README.md).
+
 Every copy lists the checksum of each file. It is checked right after writing and before any restore, so
 a damaged copy is found out when it can still be replaced.
 """

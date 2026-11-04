@@ -40,7 +40,8 @@ password signs every app out, so a lost phone stops working too.
   arrive. Use a server run by someone you trust, as with any service.
 - Lose both the password and the recovery code and the memory cannot be opened again, by you or by
   anyone.
-- Forgetting works as in the local version: deleted for good, with the history of each fact.
+- Forgetting works as in the local version: deleted for good, with the history of each fact. Older backups
+  keep it, sealed, until they age out (see Backups).
 - There is no vault here: its windows can only open on your own screen. Keep the local server for it
   (below).
 
@@ -103,6 +104,10 @@ A copy holds only what is already sealed: each memory, and each person's key loc
 address. Without those a copy opens nothing, so it can be kept anywhere; the usernames and the size of each
 memory are all that can be read in one. A person who loses their password and recovery code can't be saved
 by a backup either: the copy is as locked as the original.
+
+**Forgetting and copies.** `forget` deletes a memory for good from the live memory at once, but it stays,
+sealed, in the copies made before, until they age out: 14 days on the server and 30 on the computer that
+brings them. Restoring an old copy brings back what was forgotten since; ask again to forget it.
 
 - `infinito-remote backup <folder> --keep 14` writes one more copy and checks it; `verify-backup <file>`
   checks one; `restore <file>` puts one back, moving what was there aside. Apps sign in again after a restore.
