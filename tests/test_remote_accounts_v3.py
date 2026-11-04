@@ -2,6 +2,7 @@
 
 The apps here are the MCP SDK's own OAuth client, as Claude and ChatGPT use one: it finds the sign-in
 from the server's 401, registers itself, sends the person to the page and gets its tokens."""
+import json
 import re
 import socket
 import threading
@@ -248,3 +249,51 @@ def test_every_tool_says_it_needs_sign_in_and_nothing_answers_without_it(server)
         answer = httpx2.post(f"{base}/mcp", json=dict(hello, method=method),
                              headers={"accept": "application/json, text/event-stream"})
         assert answer.status_code == 401, method  # clients learn they must sign in from this answer
+
+
+def test_this_computer_signs_in_once_and_every_message_brings_the_memory(server, tmp_path, monkeypatch):
+    import io
+
+    from src.infinito3 import remote_client
+
+    base, _, _ = server
+    app_session(base, [("remember", {"statement": "Mi perra se llama Nena."})], mode="signup")
+    monkeypatch.setenv("INFINITO_REMOTE_SESSION", str(tmp_path / "session.json"))
+
+    def person_signs_in(page):  # what the person does in the browser the command opens
+        with httpx2.Client() as browser:
+            login = browser.get(page).headers["location"]
+            request = parse_qs(urlparse(login).query)["r"][0]
+            back = browser.post(f"{base}/login", data={"r": request, "action": "signin", "name": "ana",
+                                                        "password": PASSWORD})
+            browser.get(back.headers["location"])  # the browser returns to the command's local page
+
+    assert "is signed in" in remote_client.login(f"{base}/mcp", open_page=person_signs_in, wait_seconds=20)
+
+    def hook(prompt):
+        out = io.StringIO()
+        remote_client.context(io.StringIO(json.dumps({"prompt": prompt, "hook_event_name": "UserPromptSubmit"})), out)
+        return json.loads(out.getvalue())["hookSpecificOutput"]["additionalContext"] if out.getvalue() else None
+
+    assert "Nena" in hook("¿Cómo se llama mi perra?")
+    session = json.loads((tmp_path / "session.json").read_text())
+    session["expires_at"] = 0  # its hour is over: the hook renews the access by itself
+    (tmp_path / "session.json").write_text(json.dumps(session))
+    assert "Nena" in hook("y mi perra?")
+    assert json.loads((tmp_path / "session.json").read_text())["refresh_token"] != session["refresh_token"]
+    assert remote_client.logout().startswith("Signed out")
+    assert hook("¿Cómo se llama mi perra?") is None  # no session: the message goes on without memory
+
+
+def test_the_hook_never_stops_a_message(tmp_path, monkeypatch):
+    import io
+
+    from src.infinito3 import remote_client
+
+    monkeypatch.setenv("INFINITO_REMOTE_SESSION", str(tmp_path / "session.json"))
+    (tmp_path / "session.json").write_text(json.dumps({
+        "server": "http://127.0.0.1:9", "client_id": "x", "token_endpoint": "http://127.0.0.1:9/token",
+        "refresh_token": "x", "access_token": "x", "expires_at": 0}))
+    out = io.StringIO()
+    remote_client.context(io.StringIO('{"prompt": "hola"}'), out)  # nothing listens there
+    assert out.getvalue() == ""

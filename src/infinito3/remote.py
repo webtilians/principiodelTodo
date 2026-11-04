@@ -377,12 +377,22 @@ def main(argv: Optional[List[str]] = None) -> None:
     commands.add_parser("remove", help="delete someone's memory and end their sign-ins or address").add_argument("name")
     commands.add_parser("list", help="who has a memory: accounts and addresses")
     commands.add_parser("copy-local", help="copy this computer's memory into an address's memory")
+    # On a person's computer (remote_client.py): sign it in once, then agents' hooks bring the memory in.
+    commands.add_parser("login", help="sign this computer in to an INFINITO server").add_argument("server")
+    commands.add_parser("logout", help="delete this computer's session")
+    commands.add_parser("context", help="hook for Claude Code and Codex: the memories related to a message")
     serve = commands.add_parser("serve", help="run the server")
     serve.add_argument("--port", type=int, default=8500)
     serve.add_argument("--bind", default="127.0.0.1")
     serve.add_argument("--url", default=os.environ.get("INFINITO_REMOTE_URL"),
                        help="the server's public URL; without it there is no sign-in, only addresses")
     args = parser.parse_args(argv)
+    if args.command in ("login", "logout", "context"):
+        from . import remote_client
+
+        if args.command == "context":
+            return remote_client.context()
+        return print(remote_client.login(args.server) if args.command == "login" else remote_client.logout())
     people = People()
 
     if args.command == "add":
