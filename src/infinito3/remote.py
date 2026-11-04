@@ -46,7 +46,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple
 
-from .mcp_server import INSTRUCTIONS, TOOL_DESCRIPTIONS, AgentMemory
+from .mcp_server import INSTRUCTIONS, TOOL_DESCRIPTIONS, TOOL_HINTS, AgentMemory
 from .persistent_memory import HashEmbeddingProvider, SQLiteCognitiveMemoryStore
 
 DEFAULT_DIR = Path.home() / ".infinito-remote"
@@ -255,6 +255,7 @@ def build_app(people: People, issuer: Optional[str] = None):
     With issuer (the server's public URL), people can also sign in at issuer/mcp (remote_accounts.py)."""
     from mcp.server.mcpserver import Context, MCPServer
     from mcp.server.transport_security import TransportSecuritySettings
+    from mcp.types import ToolAnnotations
 
     sealed = {"people": SealedMemories(people)}
     auth = None
@@ -286,21 +287,24 @@ def build_app(people: People, issuer: Optional[str] = None):
 
     server = MCPServer("infinito-memory", instructions=INSTRUCTIONS)
 
-    @server.tool(description=TOOL_DESCRIPTIONS["remember"])
+    def memory_tool(name: str):
+        return server.tool(description=TOOL_DESCRIPTIONS[name], annotations=ToolAnnotations(**TOOL_HINTS[name]))
+
+    @memory_tool("remember")
     def remember(statement: str, ctx: Context) -> str:
         if len(statement or "") > MAX_STATEMENT:
             return f"Not stored: one memory is one fact, at most {MAX_STATEMENT} characters."
         return with_memory(ctx, lambda memory: memory.remember(statement), writes=True)
 
-    @server.tool(description=TOOL_DESCRIPTIONS["recall"])
+    @memory_tool("recall")
     def recall(query: str, ctx: Context) -> str:
         return with_memory(ctx, lambda memory: memory.recall(query), writes=False)
 
-    @server.tool(description=TOOL_DESCRIPTIONS["list_memories"])
+    @memory_tool("list_memories")
     def list_memories(ctx: Context) -> str:
         return with_memory(ctx, lambda memory: memory.list_memories(), writes=False)
 
-    @server.tool(description=TOOL_DESCRIPTIONS["forget"])
+    @memory_tool("forget")
     def forget(memory_ids: List[str], ctx: Context, keep: Optional[List[str]] = None) -> str:
         return with_memory(ctx, lambda memory: memory.forget(memory_ids, keep or []), writes=True)
 

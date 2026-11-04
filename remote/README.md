@@ -10,7 +10,8 @@ tell ChatGPT, Claude remembers, and the other way round.
 
 Every app gets the same public address, `https://<host>/mcp`. The first time, the app opens
 INFINITO's page: choose a username and a password (or sign in, if you already have a memory) and
-that app is connected. Each other app is one more sign-in.
+that app is connected. Each other app is one more sign-in. To tell someone, send them
+`https://<host>/`: that page shows the address, with a copy button, and the steps below.
 
 - **Claude** (desktop, web, phone and Claude Code in the app): Settings → Connectors → **Add custom
   connector**, name `INFINITO`, URL `https://<host>/mcp`, then **Connect**.

@@ -431,8 +431,12 @@ def build_auth(accounts: Accounts, grants: Grants, issuer: str,
         host = re.sub(r"^[a-z]+://([^/:]+).*$", r"\1", pending["data"]["redirect_uri"])
         return f"{client.get('client_name') or host} ({host})"
 
+    async def home(request: Request):
+        return _home_page(_texts(request)["lang"], f"{issuer}/mcp")
+
     app = Starlette(routes=routes + resource_routes + [Route("/login", sign_in_page, methods=["GET"]),
-                                                       Route("/login", sign_in, methods=["POST"])])
+                                                       Route("/login", sign_in, methods=["POST"]),
+                                                       Route("/", home, methods=["GET"])])
 
     def bearer(token: str) -> Optional[Tuple[str, bytes]]:
         found = grants.find("access", token)
@@ -613,3 +617,98 @@ def _recovery_page(t: dict, code: str, onward: str, *, moved: bool, old_given: b
             f'<form method="post" action="/login"><input type="hidden" name="action" value="continue">'
             f'<input type="hidden" name="c" value="{e(onward)}"><button type="submit">{t["continue"]}</button></form>')
     return _page(t, t["code_title"], body)
+
+
+# The server's front page: the link to send someone, with the steps for each app.
+
+_HOME = {
+    "es": {
+        "title": "Una memoria para todas tus IAs",
+        "lead": "Lo que le cuentas a Claude, lo recuerda ChatGPT, y al revés. Tu memoria se guarda cifrada: "
+                "solo tu contraseña la abre, ni quien administra este servidor puede leerla.",
+        "address": "La dirección para conectar", "copy": "Copiar", "copied": "Copiada",
+        "claude": "En Claude", "chatgpt": "En ChatGPT",
+        "claude_steps": [
+            "En <b>claude.ai</b>, desde el navegador: Configuración → Conectores → <b>Añadir conector personalizado</b>.",
+            "Nombre <b>INFINITO</b> y, como URL, la dirección de arriba. Pulsa Añadir y después <b>Conectar</b>.",
+            "Se abre la página de INFINITO: <b>crea tu memoria</b> con un usuario y una contraseña, y guarda el "
+            "código de recuperación.",
+            "Ya está, también en la app de escritorio y en el móvil.",
+        ],
+        "chatgpt_steps": [
+            "En <b>chatgpt.com</b>: Configuración → Aplicaciones y conectores → Configuración avanzada → activa el "
+            "<b>modo desarrollador</b>.",
+            "Crea un conector: nombre <b>INFINITO</b>, la dirección de arriba y autenticación <b>OAuth</b>.",
+            "Entra con tu usuario y tu contraseña de INFINITO (o crea tu memoria si es la primera vez).",
+            "En cada chat, pulsa <b>+</b> → modo desarrollador y activa INFINITO.",
+        ],
+        "try": "Pruébalo",
+        "try_text": "Dile a una «recuerda que mi color favorito es el verde» y pregúntale a la otra «¿qué sabes de mí?».",
+        "forget": "Para borrar algo, pídeselo a cualquiera: «olvida mi color favorito». Se borra de verdad.",
+        "menus": "Los nombres de los menús cambian a veces; los pasos son los mismos.",
+    },
+    "en": {
+        "title": "One memory for all your AIs",
+        "lead": "What you tell Claude, ChatGPT remembers, and the other way round. Your memory is stored encrypted: "
+                "only your password opens it, not even whoever runs this server can read it.",
+        "address": "The address to connect", "copy": "Copy", "copied": "Copied",
+        "claude": "In Claude", "chatgpt": "In ChatGPT",
+        "claude_steps": [
+            "On <b>claude.ai</b>, in your browser: Settings → Connectors → <b>Add custom connector</b>.",
+            "Name it <b>INFINITO</b> and use the address above as the URL. Click Add, then <b>Connect</b>.",
+            "INFINITO's page opens: <b>create your memory</b> with a username and a password, and keep the "
+            "recovery code.",
+            "That's it, in the desktop app and on your phone too.",
+        ],
+        "chatgpt_steps": [
+            "On <b>chatgpt.com</b>: Settings → Apps & Connectors → Advanced settings → turn on <b>Developer mode</b>.",
+            "Create a connector: name <b>INFINITO</b>, the address above and authentication <b>OAuth</b>.",
+            "Sign in with your INFINITO username and password (or create your memory if it is your first time).",
+            "In each chat, click <b>+</b> → Developer mode and turn INFINITO on.",
+        ],
+        "try": "Try it",
+        "try_text": "Tell one “remember that my favourite colour is green” and ask the other “what do you know about me?”.",
+        "forget": "To delete something, ask either: “forget my favourite colour”. It is deleted for real.",
+        "menus": "Menu names change now and then; the steps stay the same.",
+    },
+}
+
+_HOME_STYLE = """
+main { max-width: 40rem; }
+.lead { font-size: 1.05rem; margin: 0 0 1.4rem; }
+.address { display: flex; gap: .5rem; margin: .4rem 0 1.6rem; }
+.address input { flex: 1; min-width: 0; padding: .65rem .75rem; font: 600 .95rem ui-monospace, Consolas, monospace;
+  color: inherit; background: transparent; border: 1px solid var(--accent); border-radius: 9px; }
+.address button { width: auto; margin: 0; padding: .65rem 1rem; }
+h2 { font-size: 1.1rem; margin: 1.4rem 0 .4rem; }
+ol { margin: 0; padding-left: 1.3rem; } li { margin: .35rem 0; }
+"""
+
+
+def _home_page(lang: str, address: str):
+    from starlette.responses import HTMLResponse
+
+    t, e = _HOME[lang], html.escape
+
+    def steps(key: str) -> str:
+        return "<ol>" + "".join(f"<li>{step}</li>" for step in t[key]) + "</ol>"
+
+    body =(f'<p class="lead">{t["lead"]}</p><label for="address">{t["address"]}</label>'
+            f'<div class="address"><input id="address" type="text" readonly value="{e(address)}">'
+            f'<button type="button" id="copy">{t["copy"]}</button></div>'
+            f'<h2>{t["claude"]}</h2>{steps("claude_steps")}<h2>{t["chatgpt"]}</h2>{steps("chatgpt_steps")}'
+            f'<h2>{t["try"]}</h2><p>{t["try_text"]}</p><p class="note">{t["forget"]}</p>'
+            f'<p class="note" style="margin-top:1.2rem">{t["menus"]}</p>'
+            # The only script on the site: the copy button, which also selects the address where copying is refused.
+            f'<script>document.getElementById("copy").onclick=function(){{var a=document.getElementById("address");'
+            f'a.select();(navigator.clipboard?navigator.clipboard.writeText(a.value):Promise.reject()).then('
+            f'function(){{document.getElementById("copy").textContent={json.dumps(t["copied"])};}},function(){{}});}};'
+            f'</script>')
+    headers = dict(_HEADERS, **{"Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; "
+                                "script-src 'unsafe-inline'; frame-ancestors 'none'",
+                                "Cache-Control": "public, max-age=300"})
+    return HTMLResponse(
+        f'<!doctype html><html lang="{lang}"><head><meta charset="utf-8">'
+        f'<meta name="viewport" content="width=device-width, initial-scale=1"><title>INFINITO · {e(t["title"])}</title>'
+        f'<style>{_STYLE}{_HOME_STYLE}</style></head><body><main><div class="card"><p class="brand">INFINITO</p>'
+        f'<h1>{e(t["title"])}</h1>{body}</div></main></body></html>', headers=headers)

@@ -103,6 +103,7 @@ def app_session(base, steps, *, mode="signin", name="ana", password=PASSWORD, ex
             async with streamable_http_client(f"{base}/mcp", http_client=http) as (read, write):
                 async with ClientSession(read, write) as client:
                     await client.initialize()
+                    storage.tools = (await client.list_tools()).tools
                     return [(await client.call_tool(tool, arguments)).content[0].text for tool, arguments in steps]
 
     return anyio.run(run), seen.get("recovery"), storage
@@ -206,3 +207,19 @@ def test_signing_in_with_a_name_that_does_not_exist_offers_to_create_it(server):
                                                "password": PASSWORD}, headers={"accept-language": "es"})
     assert page.status_code == 200 and "<h1>Crea tu memoria</h1>" in page.text
     assert 'value="nueva"' in page.text and "Todavía no hay ninguna memoria llamada «nueva»" in page.text
+
+
+def test_the_front_page_gives_the_address_and_the_steps_for_each_app(server):
+    base, _, _ = server
+    page = httpx2.get(f"{base}/", headers={"accept-language": "es-ES,es;q=0.9"})
+    assert page.status_code == 200
+    assert f'value="{base}/mcp"' in page.text and "En Claude" in page.text and "En ChatGPT" in page.text
+    assert "One memory" in httpx2.get(f"{base}/", headers={"accept-language": "en-GB"}).text
+
+
+def test_apps_are_told_which_tools_only_read_so_they_need_not_ask_first(server):
+    base, _, _ = server
+    _, _, app = app_session(base, [], mode="signup", name="pepa")
+    reads = {tool.name: tool.annotations.read_only_hint for tool in app.tools}
+    assert reads == {"recall": True, "list_memories": True, "remember": False, "forget": False}
+    assert [t.annotations.destructive_hint for t in app.tools if t.name == "forget"] == [True]

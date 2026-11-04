@@ -71,6 +71,17 @@ TOOL_DESCRIPTIONS = {
               "what the deleted memories said that the user did not ask to forget.",
 }
 
+# How each memory tool behaves, for clients that ask before acting (ChatGPT asks before a tool that
+# writes): recall and list_memories only read. Turned into the MCP SDK's ToolAnnotations by the servers.
+TOOL_HINTS = {
+    "remember": {"title": "Remember", "readOnlyHint": False, "destructiveHint": False, "idempotentHint": False,
+                 "openWorldHint": False},
+    "recall": {"title": "Recall", "readOnlyHint": True, "openWorldHint": False},
+    "list_memories": {"title": "List memories", "readOnlyHint": True, "openWorldHint": False},
+    "forget": {"title": "Forget", "readOnlyHint": False, "destructiveHint": True, "idempotentHint": True,
+               "openWorldHint": False},
+}
+
 _SECRET_LABELS = {
     "password": "a password", "pin": "a PIN", "api_key": "an API key", "private_key": "a private key",
     "national_id": "an identity document number", "bank_account": "a bank account number",
@@ -171,6 +182,7 @@ class AgentMemory:
 def main() -> None:
     try:
         from mcp.server.mcpserver import MCPServer
+        from mcp.types import ToolAnnotations
     except ImportError as error:  # the core has no dependencies; the server needs the MCP SDK
         raise SystemExit('The MCP server needs the MCP SDK: pip install "infinito-memory[mcp]"') from error
 
@@ -194,19 +206,22 @@ def main() -> None:
     if local_memory:
         memory = AgentMemory(vault=vault is not None)
 
-        @server.tool(description=TOOL_DESCRIPTIONS["remember"])
+        def memory_tool(name: str):
+            return server.tool(description=TOOL_DESCRIPTIONS[name], annotations=ToolAnnotations(**TOOL_HINTS[name]))
+
+        @memory_tool("remember")
         def remember(statement: str) -> str:
             return memory.remember(statement)
 
-        @server.tool(description=TOOL_DESCRIPTIONS["recall"])
+        @memory_tool("recall")
         def recall(query: str) -> str:
             return memory.recall(query)
 
-        @server.tool(description=TOOL_DESCRIPTIONS["list_memories"])
+        @memory_tool("list_memories")
         def list_memories() -> str:
             return memory.list_memories()
 
-        @server.tool(description=TOOL_DESCRIPTIONS["forget"])
+        @memory_tool("forget")
         def forget(memory_ids: List[str], keep: Optional[List[str]] = None) -> str:
             return memory.forget(memory_ids, keep or [])
 
