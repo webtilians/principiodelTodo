@@ -1,0 +1,7 @@
+# F10-R — primer y único lanzamiento del ensayo preregistrado con MCP auténtico
+
+2026-11-04. Protocolo prospectivo fijado antes de implementar: commit f7c6425ce6efebff4756740fc613908c37e8774e. Código del producto real fijado al master histórico f6bd6239bfc1734c04c233a5cf8cef050c6d54c2. PR #75 DRAFT. Ninguna escritura/lectura en memoria MCP personal.
+
+Esta marca dispara un ensayo original: 4 réplicas, 100 llamadas de entrenamiento por réplica a remember/recall/list_memories/forget auténticos, 48 tareas OOD de dos subobjetivos por réplica y TRES brazos distintos con BDs SQLite temporales (política documental competente, política aprendida sobre resultados MCP y control de etiquetas permutadas). El servidor y los 4 tools proceden del producto real, no de una imitación del laboratorio.
+
+Congelar por SHA estadísticas de las políticas aprendidas ANTES de abrir OOD. Puntuación principal: mejora incremental frente a la política documentada, con gates estrictos y controles de borrado irreversibles, actualización, preservación de hechos ajenos y costes de llamadas. Un empate no es PASS científico. CI exitoso no equivale a ganancia cognitiva. Confirmación 31300000+ reservada. Sin cambiar modelo/umbrales después de OOD, sin merge/despliegue.
