@@ -1,0 +1,74 @@
+name: INFINITO F10-R - Audit ONLY Original MCP Synthetic Runs
+
+on:
+  push:
+    branches: [experiment/f10r-native-memory-mcp-shadow-20261104]
+    paths: [docs/INFINITO_F10R_AUDIT_LAUNCH.md]
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  independent_reanalysis:
+    name: Data-only audit of frozen original workflow, no MCP reruns
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install only numpy
+        run: python -m pip install 'numpy>=1.26,<3'
+      - uses: actions/download-artifact@v4
+        with:
+          repository: webtilians/principiodelTodo
+          run-id: 41913251736
+          github-token: ${{ github.token }}
+          pattern: f10r-original-native-mcp-*
+          path: originals
+      - name: Audit original frozen input/output and keep prereg seed overlap visible
+        run: |
+          mkdir -p audited
+          for r in 0 1 2 3; do
+            mkdir -p audited/$r
+            cp originals/f10r-original-native-mcp-$r/* audited/$r/
+          done
+          python -m observatory.f10r_native_audit \
+            --root audited --out f10r-original-inconclusive-audit.json
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          a=json.loads(Path('f10r-original-inconclusive-audit.json').read_text())
+          assert a['technical']=='F10R_INDEPENDENT_AUDIT_COMPLETE'
+          assert a['status']=='F10R_INCONCLUSIVE',a['status']
+          assert a['training_seed_overlaps']
+          lines=[
+            '# F10-R: forensic audit of ORIGINAL opened OOD (never rerun)',
+            '**'+a['status']+'** — prereg TRAIN seeds overlap across replicas.',
+            '**No legitimate scientific PASS even though the task outcomes can be recomputed.**',
+            'Gates: '+str(a['gate_counts']),
+            'Cross-replica overlap: '+str(a['training_seed_overlaps']),
+            '',
+            '| Replica | DOCS correct | Learned correct | Shuffled correct | DOCS MCP calls | Learned MCP calls | G0 |',
+            '|---|---:|---:|---:|---:|---:|---|',
+          ]
+          for rep,d in a['replicas'].items():
+            x=d['scores']
+            lines.append('| '+rep+' | '+' | '.join(
+                f"{x[arm]['correct']}/48" for arm in
+                ('DOCS','LEARNED','SHUFFLED'))+
+                ' | '+str(x['DOCS']['agent_calls'])+
+                ' | '+str(x['LEARNED']['agent_calls'])+
+                ' | '+str(d['gates']['G0_integrity'])+' |')
+          lines.append('The paired results are descriptive only, from the same opened OOD. No new seeds were run or selected.')
+          Path(os.environ['GITHUB_STEP_SUMMARY']).write_text('\n'.join(lines))
+          print('F10R_AUDIT_ONLY_ORIGINAL',a['status'],a['gate_counts'],a['pooled'],flush=True)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: f10r-independent-inconclusive-forensic-audit
+          path: f10r-original-inconclusive-audit.json
+          if-no-files-found: error
+          retention-days: 90
