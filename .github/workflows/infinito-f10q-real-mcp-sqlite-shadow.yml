@@ -1,0 +1,153 @@
+name: INFINITO F10-Q - Actual MCP SQLite Readonly Shadow
+
+on:
+  push:
+    branches: [experiment/f10q-mcp-sqlite-shadow-20261104]
+    paths: [docs/INFINITO_F10Q_LAUNCH.md]
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: f10q-real-mcp-sqlite-shadow-once
+  cancel-in-progress: false
+
+jobs:
+  mcp_shadow:
+    name: F10-Q actual MCP stdio SQLite replica ${{ matrix.replica }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    strategy:
+      fail-fast: false
+      matrix:
+        replica: [0, 1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install real MCP Python SDK from project's declared extra
+        run: |
+          python -m pip install -e '.[mcp]' 'numpy>=1.26,<3'
+          python -c "from mcp import Client,StdioServerParameters; from mcp.server.mcpserver import MCPServer; print('MCP SDK CLIENT SERVER PRESENT')"
+      - name: Preflight code, frozen previous research, no product changes
+        run: |
+          python -m py_compile \
+            observatory/f10q_sqlite_mcp.py \
+            observatory/f10q_sqlite_worlds.py \
+            observatory/f10q_shadow_run.py \
+            observatory/f10q_sqlite_audit.py
+          git diff --exit-code beb9a2534e5bae1f11ee37670f7af21cc28f3262 -- src/infinito3 \
+            observatory/f10p_events.py observatory/f10p_experiment.py \
+            observatory/f10p_worlds.py \
+            observatory/f10pc_confirm_eval.py observatory/f10pc_confirm_audit.py
+          test -f docs/INFINITO_F10Q_PREREG_2026-11-04.md
+      - name: Retrieve exact original frozen F10-P effects model for zero-shot control
+        uses: actions/download-artifact@v4
+        with:
+          repository: webtilians/principiodelTodo
+          run-id: 41888234405
+          github-token: ${{ github.token }}
+          name: f10p-original-public-events-${{ matrix.replica }}
+          path: original/${{ matrix.replica }}
+      - name: Real MCP call train, freeze SHA then synthesize OOD; shadow SELECT-only
+        run: |
+          mkdir -p results
+          set -o pipefail
+          python -m observatory.f10q_shadow_run \
+            --replica ${{ matrix.replica }} --original original/${{ matrix.replica }} \
+            --out results/${{ matrix.replica }} | tee results/f10q-${{ matrix.replica }}.log
+      - name: Verify frozen effects and logs after original OOD completed
+        run: |
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          r=${{ matrix.replica }}
+          p=Path(f'results/{r}')
+          d=json.loads((p/'frozen.json').read_text())
+          c=json.loads((p/'complete.json').read_text())
+          H=lambda name:hashlib.sha256((p/name).read_bytes()).hexdigest()
+          assert c['frozen_sha']==H('frozen.json')
+          assert c['ood_sha']==H('ood_rows.json')
+          assert d['state']=='F10Q_ALL_MEMORIES_FROZEN_BEFORE_OOD_GENERATED'
+          assert d['readonly_insert_rejected']
+          assert d['train_tool_calls']>=1000
+          assert d['training_trials']==1024
+          assert all(H(a+'.json')==h for a,h in d['snapshot_sha'].items())
+          assert H('train_mcp.jsonl.gz')==d['train_log_sha']
+          assert c['model_sha_still_immutable']
+          print('F10Q_REAL_MCP_FROZEN_SHA_POST_OOD_PASS',r)
+          PY
+      - name: Preserve execution evidence
+        if: always()
+        run: |
+          if test -d results/${{ matrix.replica }}; then
+            cp results/f10q-${{ matrix.replica }}.log results/${{ matrix.replica }}/run.log || true
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: f10q-real-mcp-sqlite-original-${{ matrix.replica }}
+          path: results/${{ matrix.replica }}/
+          if-no-files-found: warn
+          retention-days: 90
+
+  independent_audit:
+    name: F10-Q data-only independent 2000 world-bootstrap audit
+    runs-on: ubuntu-latest
+    needs: mcp_shadow
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install only NumPy, no MCP SDK, no backend or learner
+        run: python -m pip install 'numpy>=1.26,<3'
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: f10q-real-mcp-sqlite-original-*
+          path: originals
+      - name: Recheck SHA, public tool transcripts, paired outcomes and prereg gates
+        run: |
+          mkdir -p audited
+          for i in 0 1 2 3; do
+            mkdir -p audited/$i
+            cp originals/f10q-real-mcp-sqlite-original-$i/* audited/$i/
+          done
+          python -m observatory.f10q_sqlite_audit \
+            --root audited --out f10q-science.json
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          a=json.loads(Path('f10q-science.json').read_text())
+          assert a['technical']=='F10Q_INDEPENDENT_AUDIT_COMPLETE'
+          lines=['# INFINITO F10-Q: REAL stdio MCP calls on synthetic read-only SQLite',
+                 '**SCIENCE STATUS: '+a['status']+'**',
+                 'Frozen before OOD. Four replicas, data-only audit independent of MCP, SQLite and learner.',
+                 '| Replica | E100 | E50 | E0 | E_noX | Frozen_F10P | Zero | G0,G1,G2,G3,G4 |',
+                 '|---|---:|---:|---:|---:|---:|---:|---|']
+          for i,r in a['replicas'].items():
+              x=r['arms']
+              fields=['E100','E50','E0','E_noX','Frozen_F10P','Zero']
+              vals=['%.2f%%'%(100*x[k]['accuracy']) for k in fields]
+              gates=[str(r['gates'][k]) for k in (
+                  'G0_real_MCP_readonly','G1_new_shadow_transfer',
+                  'G2_public_output_dependency','G3_SQL_causal_controls',
+                  'G4_safety_abstention')]
+              lines.append('| '+i+' | '+' | '.join(vals)+' | '+','.join(gates)+' |')
+          lines.extend(['','Gates: '+str(a['gate_counts']),
+              'Scores are on valid synthetic episodes only; missing/null are assessed separately for abstention.',
+              'These tool templates and the event adapter were authored by researchers. No production integration.'])
+          Path(os.environ['GITHUB_STEP_SUMMARY']).write_text('\n'.join(lines))
+          print('F10Q_FINAL_SCIENCE',a['status'],a['gate_counts'],flush=True)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: f10q-independent-mcp-sqlite-science
+          path: f10q-science.json
+          if-no-files-found: error
+          retention-days: 90
