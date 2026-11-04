@@ -44,6 +44,21 @@ password signs every app out, so a lost phone stops working too.
 - There is no vault here: its windows can only open on your own screen. Keep the local server for it
   (below).
 
+## The memory in every message
+
+Agents look at the memory when they think to, which is not always. Claude Code and Codex can run a
+hook before each message that brings the related memories in by themselves.
+
+- **Codex** already has the memory connected, so its hook calls the server's recall directly. In
+  `~/.codex/hooks.json`:
+  `{"hooks": {"UserPromptSubmit": [{"hooks": [{"type": "mcp_tool", "server": "infinito", "tool": "recall", "input": {"query": "${prompt}"}}]}]}}`
+- **Claude Code**: sign the computer in once with `infinito-remote login https://<host>` (the server's page
+  opens in the browser), then add to `~/.claude/settings.json`:
+  `{"hooks": {"UserPromptSubmit": [{"hooks": [{"type": "command", "command": "infinito-remote", "args": ["context"], "timeout": 10}]}]}}`.
+  The session is kept in `~/.infinito/remote-session.json`; `infinito-remote logout` deletes it. Without
+  a session, or when the server does not answer within a few seconds, the hook adds nothing and the
+  message goes on.
+
 ## Keep the vault on your computer
 
 The local server (`infinito-mcp`) can serve only the vault, so the memory lives on the server and the
