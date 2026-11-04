@@ -97,6 +97,21 @@ INFINITO with a private address?" when creating your memory and paste the addres
 comes along and the address stops working. `infinito-remote copy-local` copies a computer's local
 memory into an address's memory.
 
+## Backups
+
+A copy holds only what is already sealed: each memory, and each person's key locked under their password or
+address. Without those a copy opens nothing, so it can be kept anywhere; the usernames and the size of each
+memory are all that can be read in one. A person who loses their password and recovery code can't be saved
+by a backup either: the copy is as locked as the original.
+
+- `infinito-remote backup <folder> --keep 14` writes one more copy and checks it; `verify-backup <file>`
+  checks one; `restore <file>` puts one back, moving what was there aside. Apps sign in again after a restore.
+- `deploy/vps/` makes a copy every night into `/var/lib/infinito-remote-backups`. On that server,
+  `infinito-remote-restore` lists them and `infinito-remote-restore <file>` restores one.
+- Copies on the server do not survive losing the server. `deploy/windows/infinito-backup-pull.ps1 -Server
+  root@<ip> -Install` schedules a Windows computer to bring them every day, check them and warn on screen if
+  the newest is over 3 days old.
+
 ## Run it on a server
 
 ```bash

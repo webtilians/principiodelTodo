@@ -25,6 +25,8 @@ local server serves it alone (INFINITO_LOCAL_MEMORY=off).
     infinito-remote remove ana     # Ana's memory is deleted, and her sign-ins or address stop working
     infinito-remote add ana        # the older way: prints a private address for Ana, once
     infinito-remote copy-local     # copies this computer's memory into an address's memory
+    infinito-remote backup <folder>  # one more copy of the sealed memories (remote_backup.py)
+    infinito-remote restore <file>   # puts a copy back, with the service stopped
 
 Data lives in INFINITO_REMOTE_DIR (default ~/.infinito-remote): accounts.json, grants.db and
 accounts/<name>/memory.sealed for sign-in; people.json and people/<name>/memory.sealed for addresses.
@@ -389,6 +391,11 @@ def main(argv: Optional[List[str]] = None) -> None:
     commands.add_parser("remove", help="delete someone's memory and end their sign-ins or address").add_argument("name")
     commands.add_parser("list", help="who has a memory: accounts and addresses")
     commands.add_parser("copy-local", help="copy this computer's memory into an address's memory")
+    backup = commands.add_parser("backup", help="write one more copy of the sealed memories into a folder")
+    backup.add_argument("folder")
+    backup.add_argument("--keep", type=int, default=14, help="how many copies to keep in the folder")
+    commands.add_parser("verify-backup", help="check that a copy is whole").add_argument("file")
+    commands.add_parser("restore", help="put a copy back, with the service stopped").add_argument("file")
     # On a person's computer (remote_client.py): sign it in once, then agents' hooks bring the memory in.
     commands.add_parser("login", help="sign this computer in to an INFINITO server").add_argument("server")
     commands.add_parser("logout", help="delete this computer's session")
@@ -405,6 +412,10 @@ def main(argv: Optional[List[str]] = None) -> None:
         if args.command == "context":
             return remote_client.context()
         return print(remote_client.login(args.server) if args.command == "login" else remote_client.logout())
+    if args.command == "verify-backup":
+        from . import remote_backup
+
+        return print(remote_backup.verify(args.file))
     people = People()
 
     if args.command == "add":
@@ -426,6 +437,11 @@ def main(argv: Optional[List[str]] = None) -> None:
 
         names = people.names() + [f"{name} (sign-in)" for name in Accounts(people.folder).names()]
         print("\n".join(names) or "Nobody yet.")
+    elif args.command in ("backup", "restore"):
+        from . import remote_backup
+
+        print(remote_backup.backup(people.folder, args.folder, args.keep) if args.command == "backup"
+              else remote_backup.restore(args.file, people.folder))
     elif args.command == "copy-local":
         import getpass
 
