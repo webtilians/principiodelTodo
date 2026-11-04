@@ -8,8 +8,8 @@ User=infinito-remote
 Group=infinito-remote
 WorkingDirectory=/var/lib/infinito-remote
 Environment=INFINITO_REMOTE_DIR=/var/lib/infinito-remote PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
-# The model that finds memories by meaning (semantic.py): 122 MB of RAM once loaded.
-Environment=INFINITO_EMBEDDINGS=/opt/infinito-remote-models/potion-multilingual-int8
+# The model that finds memories by meaning (semantic.py) is off here for now: loaded, it took about
+# 500 MB on this 2 GB server. INFINITO_EMBEDDINGS=/opt/infinito-remote-models/potion-multilingual-int8
 # The public URL lets people sign in (OAuth needs to name itself); setup.sh writes the host.
 # $$ is a literal $ for systemd.
 ExecStart=/bin/sh -c 'exec /opt/infinito-remote-venv/bin/infinito-remote serve --port 8500 --url "https://$$(cat /etc/infinito-remote/host)"'
@@ -19,10 +19,10 @@ RestartSec=5
 Nice=10
 CPUWeight=20
 IOWeight=10
-# With its model loaded the service holds about 330 MB. MemoryHigh well above that: past it the kernel
-# throttles every allocation, and with no swap the service hung instead of slowing down.
-MemoryHigh=450M
-MemoryMax=520M
+# Past MemoryHigh the kernel throttles every allocation, and with no swap the service hangs instead of
+# slowing down: keep it well above what the service holds.
+MemoryHigh=300M
+MemoryMax=400M
 TasksMax=64
 UMask=0077
 NoNewPrivileges=true
