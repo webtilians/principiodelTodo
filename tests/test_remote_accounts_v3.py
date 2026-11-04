@@ -223,3 +223,12 @@ def test_apps_are_told_which_tools_only_read_so_they_need_not_ask_first(server):
     reads = {tool.name: tool.annotations.read_only_hint for tool in app.tools}
     assert reads == {"recall": True, "list_memories": True, "remember": False, "forget": False}
     assert [t.annotations.destructive_hint for t in app.tools if t.name == "forget"] == [True]
+
+
+def test_an_app_that_asks_for_other_scopes_can_still_register(server):
+    base, _, _ = server
+    answer = httpx2.post(f"{base}/register", json={"redirect_uris": ["https://chatgpt.com/connector_platform_oauth_redirect"],
+                                                    "client_name": "ChatGPT", "scope": "openid profile email"})
+    assert answer.status_code == 201, answer.text
+    for alias in ("/.well-known/openid-configuration", "/.well-known/oauth-authorization-server/mcp"):
+        assert httpx2.get(f"{base}{alias}").json()["registration_endpoint"] == f"{base}/register"

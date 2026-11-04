@@ -275,8 +275,10 @@ def build_auth(accounts: Accounts, grants: Grants, issuer: str,
 
     issuer = issuer.rstrip("/")
     settings = AuthSettings(issuer_url=issuer, resource_server_url=f"{issuer}/mcp", validate_token_resource=False,
+                            # Any scope an app asks for is accepted (openid, profile...): there is only one
+                            # thing to grant, the person's memory, so refusing them would only lock apps out.
                             client_registration_options=ClientRegistrationOptions(
-                                enabled=True, valid_scopes=[SCOPE], default_scopes=[SCOPE]),
+                                enabled=True, default_scopes=[SCOPE]),
                             revocation_options=RevocationOptions(enabled=True))
 
     def tokens(client_id: str, account: str, key: bytes, scopes: List[str], resource: Optional[str]) -> OAuthToken:
@@ -350,6 +352,10 @@ def build_auth(accounts: Accounts, grants: Grants, issuer: str,
     # Some clients look for the metadata without the /mcp suffix.
     resource_routes.append(Route("/.well-known/oauth-protected-resource", resource_routes[0].endpoint,
                                  methods=["GET", "OPTIONS"]))
+    # And some look for the server's own metadata under these names.
+    server_metadata = next(r.endpoint for r in routes if r.path == "/.well-known/oauth-authorization-server")
+    for alias in ("/.well-known/oauth-authorization-server/mcp", "/.well-known/openid-configuration"):
+        resource_routes.append(Route(alias, server_metadata, methods=["GET", "OPTIONS"]))
 
     # Each password check takes about 32 MB and a tenth of a second on purpose (scrypt); one at a time,
     # so a flood of attempts waits in line instead of filling the server's memory.

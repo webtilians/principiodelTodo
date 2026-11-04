@@ -223,12 +223,25 @@ class _Router:
         if path == "/health":
             return await _plain(send, 200, "ok")
         if path in self.auth_paths:
-            return await self.auth_app(scope, receive, send)
+            # The service log shows how far an app got signing in: method, path and status only, never a
+            # query, a name, an address or a token.
+            status = {}
+
+            async def noted(message):
+                if message["type"] == "http.response.start":
+                    status["code"] = message["status"]
+                await send(message)
+
+            await self.auth_app(scope, receive, noted)
+            if path != "/":
+                print(f"sign-in: {scope['method']} {path} {status.get('code')}", flush=True)
+            return
         if path in ("/mcp", "/mcp/") and self.bearer:
             header = dict(scope["headers"]).get(b"authorization", b"").decode("latin-1")
             opened = self.bearer(header[7:].strip()) if header.lower().startswith("bearer ") else None
             if not opened:
                 # The MCP way to say "sign in": the client finds the OAuth pages from this header.
+                print(f"sign-in: {scope['method']} /mcp 401 ({'expired token' if header else 'no token'})", flush=True)
                 challenge = f'Bearer error="invalid_token", resource_metadata="{self.metadata_url}"'
                 return await _plain(send, 401, "Sign in to your INFINITO memory.",
                                     [(b"www-authenticate", challenge.encode())])

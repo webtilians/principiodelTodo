@@ -32,7 +32,8 @@ password signs every app out, so a lost phone stops working too.
   (AES-256-GCM) with a random key that is stored only locked under your password, under your
   recovery code and under each app's sign-in, of which only a hash is kept. The files and their
   backups are unreadable without one of those. The memory is opened only while one of your
-  requests is served, and no access log is written.
+  requests is served. No access log is written; the service log notes only how far an app got
+  signing in (the step and its status, never a name, an address or a token).
 - What sealing cannot stop is someone who changes the server's code to capture passwords as they
   arrive. Use a server run by someone you trust, as with any service.
 - Lose both the password and the recovery code and the memory cannot be opened again, by you or by
