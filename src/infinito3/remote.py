@@ -431,8 +431,9 @@ def main(argv: Optional[List[str]] = None) -> None:
     else:
         import uvicorn
 
+        # A restart waits at most 5 s for open requests; then the update goes on.
         uvicorn.run(build_app(people, args.url), host=args.bind, port=args.port, log_level="warning",
-                    access_log=False)
+                    access_log=False, timeout_graceful_shutdown=5)
 
 
 if __name__ == "__main__":

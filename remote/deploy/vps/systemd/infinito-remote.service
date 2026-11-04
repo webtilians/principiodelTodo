@@ -19,8 +19,10 @@ RestartSec=5
 Nice=10
 CPUWeight=20
 IOWeight=10
-MemoryHigh=300M
-MemoryMax=400M
+# With its model loaded the service holds about 330 MB. MemoryHigh well above that: past it the kernel
+# throttles every allocation, and with no swap the service hung instead of slowing down.
+MemoryHigh=450M
+MemoryMax=520M
 TasksMax=64
 UMask=0077
 NoNewPrivileges=true
