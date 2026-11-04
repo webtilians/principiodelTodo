@@ -1,0 +1,144 @@
+name: INFINITO F10-S-FIX Original vs BEGIN IMMEDIATE
+
+on:
+  push:
+    branches: [fix/f10s-atomic-exclusive-updates-20261104]
+    paths: [docs/INFINITO_F10S_FIX_LAUNCH.md]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: f10s-fixed-new-seeds-20261104
+  cancel-in-progress: false
+
+jobs:
+  paired:
+    name: Paired authentic MCP replica ${{ matrix.replica }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        replica: [0, 1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/checkout@v4
+        with:
+          repository: webtilians/principiodelTodo
+          ref: 2e563ddb194cb3a0193b77a22cc97575a8baba73
+          path: original-product
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install real MCP package and verify sole product patch
+        run: |
+          test "$(git -C original-product rev-parse HEAD)" = 2e563ddb194cb3a0193b77a22cc97575a8baba73
+          git diff --exit-code d3a376580b5f9e19b79750013b41e3ca9df4e710 -- src/infinito3
+          python -m pip install -e './original-product[mcp]'
+          python -m py_compile observatory/f10s_fix_probe.py observatory/f10s_fix_audit.py
+          python - <<'PY'
+          import subprocess
+          from pathlib import Path
+          old=subprocess.check_output(['git','show','2e563ddb194cb3a0193b77a22cc97575a8baba73:src/infinito3/persistent_memory.py'],text=True)
+          new=Path('src/infinito3/persistent_memory.py').read_text()
+          inserted=(
+            '            # Inter-process atomicity: lock the SQLite writer BEFORE checking\n'
+            '            # which exclusive fact is active. A per-instance Python RLock and\n'
+            '            # a deferred transaction cannot serialize SELECT -> supersede -> INSERT\n'
+            '            # across two independent MCP server processes.\n'
+            '            self._conn.execute("BEGIN IMMEDIATE")\n'
+          )
+          assert new.replace(inserted,'')==old
+          print('ONLY_EXPECTED_IMMEDIATE_PATCH_PASS')
+          PY
+      - name: Original server on new cases, own synthetic DB
+        env:
+          F10S_PACKAGE_SRC: '${{ github.workspace }}/original-product/src'
+          F10S_PRODUCT_SHA: 2e563ddb194cb3a0193b77a22cc97575a8baba73
+          F10S_TREATMENT: baseline
+        run: |
+          mkdir -p outputs/baseline
+          python -m observatory.f10s_fix_probe --replica ${{ matrix.replica }} --out outputs/baseline/${{ matrix.replica }}
+      - name: Immediate-lock server on identical new cases, separate synthetic DB
+        env:
+          F10S_PACKAGE_SRC: '${{ github.workspace }}/src'
+          F10S_PRODUCT_SHA: d3a376580b5f9e19b79750013b41e3ca9df4e710
+          F10S_TREATMENT: fix
+        run: |
+          mkdir -p outputs/fix
+          python -m observatory.f10s_fix_probe --replica ${{ matrix.replica }} --out outputs/fix/${{ matrix.replica }}
+      - name: Verify identical cases and per-arm SHA
+        run: |
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          r=${{ matrix.replica }}
+          seen=[]
+          for arm in ('baseline','fix'):
+              p=Path(f'outputs/{arm}/{r}')
+              m=json.loads((p/'manifest.json').read_text())
+              rows=json.loads((p/'cases.json').read_text())
+              assert m['treatment']==arm and len(rows)==24
+              assert m['case_seed_range']==[32500000+10000*r,32500503+10000*r]
+              assert m['db_only_ephemeral'] and not m['db_user_memory_touched']
+              assert hashlib.sha256((p/'cases.json').read_bytes()).hexdigest()==m['cases_sha256']
+              assert hashlib.sha256((p/'mcp_trace.jsonl.gz').read_bytes()).hexdigest()==m['trace_sha256']
+              seen.append({(x['family'],x['seed']) for x in rows})
+          assert seen[0]==seen[1]
+          print('PAIRED_REAL_MCP_CASE_SHA_PASS',r)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: f10s-fix-paired-${{ matrix.replica }}
+          path: outputs/
+          retention-days: 90
+          if-no-files-found: warn
+
+  independent_audit:
+    needs: paired
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: f10s-fix-paired-*
+          path: raw
+      - name: Independent original-versus-treatment paired audit
+        run: |
+          mkdir -p audited
+          for arm in baseline fix; do
+            for r in 0 1 2 3; do
+              mkdir -p audited/$arm/$r
+              cp raw/f10s-fix-paired-$r/$arm/$r/* audited/$arm/$r/
+            done
+          done
+          python -m observatory.f10s_fix_audit --root audited --out f10s-fix-science.json
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          a=json.loads(Path('f10s-fix-science.json').read_text())
+          assert a['technical']=='F10S_FIX_INDEPENDENT_AUDIT_COMPLETE'
+          lines=['# F10-S-FIX: original vs BEGIN IMMEDIATE',
+            '**'+a['status']+'**','Gates: '+str(a['gate_counts']),
+            '| Family | Original | BEGIN IMMEDIATE |','|---|---:|---:|']
+          for f,v in a['pooled']['baseline'].items():
+              b=a['pooled']['fix'][f]
+              lines.append('| '+f+' | '+str(v['correct'])+'/16 | '+str(b['correct'])+'/16 |')
+          lines.append('Follow-up to prior FAIL; not blind confirmation. Synthetic temporary data only, no production merge.')
+          Path(os.environ['GITHUB_STEP_SUMMARY']).write_text('\n'.join(lines))
+          print('F10S_FIX_RESULT',a['status'],a['gate_counts'],a['pooled'])
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: f10s-fix-independent-science
+          path: f10s-fix-science.json
+          retention-days: 90
+          if-no-files-found: error
