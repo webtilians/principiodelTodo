@@ -29,9 +29,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Install real MCP Python SDK from project's declared extra
+      - name: Install real MCP SDK directly in legacy laboratory branch
         run: |
-          python -m pip install -e '.[mcp]' 'numpy>=1.26,<3'
+          python -m pip install 'mcp>=2,<3' 'numpy>=1.26,<3'
           python -c "from mcp import Client,StdioServerParameters; from mcp.server.mcpserver import MCPServer; print('MCP SDK CLIENT SERVER PRESENT')"
       - name: Preflight code, frozen previous research, no product changes
         run: |
