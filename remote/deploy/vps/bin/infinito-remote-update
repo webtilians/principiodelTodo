@@ -67,6 +67,21 @@ install_app || rollback "pip install"
 runuser -u infinito-remote -- env -C / "$VENV/bin/python" -c 'import infinito3.remote, mcp.server.mcpserver' \
   || rollback "error al importar"
 
+# The kit's own files follow the branch too: this script, the other commands and the service units.
+KIT="$APP/remote/deploy/vps"
+if [ -d "$KIT" ]; then
+  # Copied, then renamed into place, so the running copy of this script is never rewritten under it.
+  for command in "$KIT"/bin/*; do
+    install -m 755 "$command" "/usr/local/sbin/.new-$(basename "$command")"
+    mv -f "/usr/local/sbin/.new-$(basename "$command")" "/usr/local/sbin/$(basename "$command")"
+  done
+  changed=""
+  for unit in "$KIT"/systemd/*; do
+    cmp -s "$unit" "/etc/systemd/system/$(basename "$unit")" || { install -m 644 "$unit" /etc/systemd/system/; changed=1; }
+  done
+  if [ -n "$changed" ]; then systemctl daemon-reload; fi
+fi
+
 systemctl restart infinito-remote
 for _ in $(seq 1 30); do healthy && break; sleep 1; done
 healthy || rollback "no responde en el puerto $PORT"

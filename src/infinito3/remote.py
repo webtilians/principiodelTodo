@@ -1,28 +1,33 @@
-"""INFINITO over HTTP: one memory per person, shared by every agent they use, readable only with their address.
+"""INFINITO over HTTP: one memory per person, shared by every agent they use, readable only by its owner.
 
 ChatGPT's connectors only take MCP servers on the internet, and an agent on another computer can only
 reach a memory there, so this is where one person's memory can serve ChatGPT, Claude Code, Claude
-Desktop and whatever agent comes next. Each person gets a private address,
-https://<host>/u/<token>/mcp: the token is the only key, so whoever has the address has that memory.
+Desktop and whatever agent comes next.
 
-Nobody else can read it, whoever runs the server included. The server keeps only a hash of each token,
-and each memory is sealed on disk with AES-256-GCM under a key derived from the token (HKDF-SHA256 with a
-salt of its own), so the files and their backups are unreadable without the address. A memory is
-opened, in this process only, while one of its owner's requests is served. What this does not stop is
-someone who changes the server's code to capture addresses as requests arrive; for that the person has
-to trust whoever runs the server, as with any service.
+Most people connect with sign-in: every app is given the same public address, https://<host>/mcp, and
+the person signs in once per app with a name and password (remote_accounts.py, OAuth). The older way
+is a private address per person, https://<host>/u/<token>/mcp, whose token is the only key.
+
+Nobody else can read a memory, whoever runs the server included. Each one is sealed on disk with
+AES-256-GCM; for an address the key is derived from its token (HKDF-SHA256 with a salt of its own),
+for an account it is random and kept only wrapped under the password, the recovery code and the apps'
+tokens. The server keeps only hashes of tokens, so the files and their backups are unreadable without
+them. A memory is opened, in this process only, while one of its owner's requests is served. What this
+does not stop is someone who changes the server's code to capture passwords or tokens as they arrive;
+for that the person has to trust whoever runs the server, as with any service.
 
 The memory tools are the same four as the local server (mcp_server.py). There is no vault here: its
 windows open on the screen of the machine that runs the server, and that is not the user's; the
 local server serves it alone (INFINITO_LOCAL_MEMORY=off).
 
-    infinito-remote add ana        # prints Ana's address, once
-    infinito-remote list
-    infinito-remote remove ana     # the address stops working and Ana's memory is deleted
-    infinito-remote copy-local     # copies this computer's memory into yours on the server
-    infinito-remote serve --port 8500
+    infinito-remote serve --port 8500 --url https://memory.example.org   # sign-in needs the public URL
+    infinito-remote list           # accounts and addresses
+    infinito-remote remove ana     # Ana's memory is deleted, and her sign-ins or address stop working
+    infinito-remote add ana        # the older way: prints a private address for Ana, once
+    infinito-remote copy-local     # copies this computer's memory into an address's memory
 
-Data lives in INFINITO_REMOTE_DIR (default ~/.infinito-remote): people.json and people/<name>/memory.sealed.
+Data lives in INFINITO_REMOTE_DIR (default ~/.infinito-remote): accounts.json, grants.db and
+accounts/<name>/memory.sealed for sign-in; people.json and people/<name>/memory.sealed for addresses.
 """
 # No `from __future__ import annotations`: the MCP SDK reads the tools' annotations, and Context is
 # imported inside build_app so the core never needs the SDK.
@@ -138,10 +143,12 @@ def _wipe(path: Path) -> None:
 
 
 class SealedMemories:
-    """Each person's memory as one encrypted file, opened only while one of their requests is served."""
+    """Each person's memory as one encrypted file, opened only while one of their requests is served.
 
-    def __init__(self, people: People):
-        self.people = people
+    owners keeps the folders: People for private addresses, Accounts (remote_accounts.py) for sign-in."""
+
+    def __init__(self, owners):
+        self.owners = owners
         self._locks: Dict[str, threading.Lock] = {}
         self._guard = threading.Lock()
 
@@ -150,9 +157,9 @@ class SealedMemories:
             return self._locks.setdefault(name, threading.Lock())
 
     def _sealed(self, name: str) -> Path:
-        return self.people.memory_folder(name) / "memory.sealed"
+        return self.owners.memory_folder(name) / "memory.sealed"
 
-    def _read_image(self, name: str, key: bytes) -> Optional[bytes]:
+    def read(self, name: str, key: bytes) -> Optional[bytes]:
         from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
         sealed = self._sealed(name)
@@ -161,7 +168,7 @@ class SealedMemories:
             if blob[:4] != SEALED:
                 raise ValueError(f"{sealed} is not a sealed INFINITO memory.")
             return AESGCM(key).decrypt(blob[4:16], blob[16:], name.encode())
-        plain = self.people.memory_folder(name) / "memory.db"
+        plain = self.owners.memory_folder(name) / "memory.db"
         if not plain.exists():
             return None
         # A memory written before sealing: read it once; it is sealed and the plain files are wiped.
@@ -172,10 +179,10 @@ class SealedMemories:
         finally:
             source.close()
 
-    def _write_image(self, name: str, key: bytes, image: bytes) -> None:
+    def write(self, name: str, key: bytes, image: bytes) -> None:
         from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
-        folder = self.people.memory_folder(name)
+        folder = self.owners.memory_folder(name)
         folder.mkdir(parents=True, exist_ok=True)
         nonce = os.urandom(12)
         temporary = folder / "memory.sealed.tmp"
@@ -187,55 +194,95 @@ class SealedMemories:
 
     def use(self, name: str, key: bytes, action: Callable[[AgentMemory], str], *, writes: bool) -> str:
         with self._lock_of(name):
-            image = self._read_image(name, key)
+            image = self.read(name, key)
             memory = AgentMemory(store=SQLiteCognitiveMemoryStore.from_bytes(image, HashEmbeddingProvider(256)))
             try:
                 result = action(memory)
-                plain_left = (self.people.memory_folder(name) / "memory.db").exists()
+                plain_left = (self.owners.memory_folder(name) / "memory.db").exists()
                 if writes or plain_left:
-                    self._write_image(name, key, memory.store.to_bytes())
+                    self.write(name, key, memory.store.to_bytes())
                 return result
             finally:
                 memory.close()
 
 
-class _PersonalAddress:
-    """ASGI middleware: /u/<token>/mcp becomes /mcp for the MCP app, with the person and their key in the scope."""
+class _Router:
+    """ASGI middleware in front of the MCP app. /mcp with a signed-in app's token, and /u/<token>/mcp (a private
+    address), reach the MCP app with the person, their key and their kind of memory in the scope; the OAuth
+    pages go to the sign-in app."""
 
-    def __init__(self, app, people: People):
+    def __init__(self, app, people: People, auth=None):
         self.app = app
         self.people = people
+        self.auth_app, self.auth_paths, self.bearer, self.metadata_url = auth or (None, set(), None, "")
 
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http":
             return await self.app(scope, receive, send)
-        if scope["path"] == "/health":
+        path = scope["path"]
+        if path == "/health":
             return await _plain(send, 200, "ok")
-        match = PERSONAL_PATH.fullmatch(scope["path"])
-        name = self.people.who(match.group(1)) if match else None
-        if not name:
-            return await _plain(send, 404, "Not found")
-        state = dict(scope.get("state") or {}, infinito_person=name,
-                     infinito_key=self.people.key(name, match.group(1)))
+        if path in self.auth_paths:
+            return await self.auth_app(scope, receive, send)
+        if path in ("/mcp", "/mcp/") and self.bearer:
+            header = dict(scope["headers"]).get(b"authorization", b"").decode("latin-1")
+            opened = self.bearer(header[7:].strip()) if header.lower().startswith("bearer ") else None
+            if not opened:
+                # The MCP way to say "sign in": the client finds the OAuth pages from this header.
+                challenge = f'Bearer error="invalid_token", resource_metadata="{self.metadata_url}"'
+                return await _plain(send, 401, "Sign in to your INFINITO memory.",
+                                    [(b"www-authenticate", challenge.encode())])
+            (name, key), memories = opened, "accounts"
+        else:
+            match = PERSONAL_PATH.fullmatch(path)
+            name = self.people.who(match.group(1)) if match else None
+            if not name:
+                return await _plain(send, 404, "Not found")
+            key, memories = self.people.key(name, match.group(1)), "people"
+        state = dict(scope.get("state") or {}, infinito_person=name, infinito_key=key, infinito_memories=memories)
         await self.app(dict(scope, path="/mcp", raw_path=b"/mcp", state=state), receive, send)
 
 
-async def _plain(send, status: int, text: str) -> None:
+async def _plain(send, status: int, text: str, headers: Optional[list] = None) -> None:
     await send({"type": "http.response.start", "status": status,
-                "headers": [(b"content-type", b"text/plain; charset=utf-8")]})
+                "headers": [(b"content-type", b"text/plain; charset=utf-8")] + (headers or [])})
     await send({"type": "http.response.body", "body": text.encode()})
 
 
-def build_app(people: People):
-    """The ASGI app: the four memory tools, each call answered from its caller's own sealed memory."""
+def build_app(people: People, issuer: Optional[str] = None):
+    """The ASGI app: the four memory tools, each call answered from its caller's own sealed memory.
+
+    With issuer (the server's public URL), people can also sign in at issuer/mcp (remote_accounts.py)."""
     from mcp.server.mcpserver import Context, MCPServer
     from mcp.server.transport_security import TransportSecuritySettings
 
-    sealed = SealedMemories(people)
+    sealed = {"people": SealedMemories(people)}
+    auth = None
+    if issuer:
+        from .remote_accounts import Accounts, Grants, build_auth
+
+        accounts = Accounts(people.folder)
+        sealed["accounts"] = SealedMemories(accounts)
+
+        def adopt(name: str, key: bytes, address: str) -> bool:
+            """Someone who used a private address signs up with it: the memory moves and the address ends."""
+            match = PERSONAL_PATH.search(address)
+            person = people.who(match.group(1)) if match else None
+            if not person:
+                return False
+            with sealed["people"]._lock_of(person):
+                image = sealed["people"].read(person, people.key(person, match.group(1)))
+                if image:
+                    sealed["accounts"].write(name, key, image)
+                people.remove(person)
+            return True
+
+        auth = build_auth(accounts, Grants(people.folder), issuer, adopt)
 
     def with_memory(ctx: Context, action: Callable[[AgentMemory], str], writes: bool) -> str:
         state = ctx.request_context.request.scope["state"]
-        return sealed.use(state["infinito_person"], state["infinito_key"], action, writes=writes)
+        return sealed[state["infinito_memories"]].use(state["infinito_person"], state["infinito_key"], action,
+                                                       writes=writes)
 
     server = MCPServer("infinito-memory", instructions=INSTRUCTIONS)
 
@@ -261,7 +308,7 @@ def build_app(people: People):
     # neither 127.0.0.1 nor known in advance. The secret address is what keeps a memory private.
     security = TransportSecuritySettings(enable_dns_rebinding_protection=False)
     app = server.streamable_http_app(stateless_http=True, json_response=True, transport_security=security)
-    return _PersonalAddress(app, people)
+    return _Router(app, people, auth)
 
 
 async def _copy(address: str, statements: List[str]) -> Tuple[List[str], int]:
@@ -302,13 +349,15 @@ def copy_local(address: str, local_db: Optional[str] = None) -> str:
 def main(argv: Optional[List[str]] = None) -> None:
     parser = argparse.ArgumentParser(prog="infinito-remote", description="INFINITO's memory over HTTP, one per person.")
     commands = parser.add_subparsers(dest="command", required=True)
-    commands.add_parser("add", help="give someone a private address").add_argument("name")
-    commands.add_parser("remove", help="revoke an address and delete that memory").add_argument("name")
-    commands.add_parser("list", help="who has an address")
-    commands.add_parser("copy-local", help="copy this computer's memory into yours on the server")
+    commands.add_parser("add", help="give someone a private address (the older way)").add_argument("name")
+    commands.add_parser("remove", help="delete someone's memory and end their sign-ins or address").add_argument("name")
+    commands.add_parser("list", help="who has a memory: accounts and addresses")
+    commands.add_parser("copy-local", help="copy this computer's memory into an address's memory")
     serve = commands.add_parser("serve", help="run the server")
     serve.add_argument("--port", type=int, default=8500)
     serve.add_argument("--bind", default="127.0.0.1")
+    serve.add_argument("--url", default=os.environ.get("INFINITO_REMOTE_URL"),
+                       help="the server's public URL; without it there is no sign-in, only addresses")
     args = parser.parse_args(argv)
     people = People()
 
@@ -318,10 +367,19 @@ def main(argv: Optional[List[str]] = None) -> None:
         print(f"{base}/u/{token}/mcp")
         print("This address is shown only once. Whoever has it can read and change this memory.")
     elif args.command == "remove":
-        print("Removed: the address no longer works and the memory is deleted." if people.remove(args.name)
+        from .remote_accounts import Accounts, Grants
+
+        removed = people.remove(args.name)
+        if Accounts(people.folder).remove(args.name):
+            Grants(people.folder).drop_account(args.name)
+            removed = True
+        print("Removed: the memory is deleted and its sign-ins or address no longer work." if removed
               else f"Nobody called {args.name}.")
     elif args.command == "list":
-        print("\n".join(people.names()) or "Nobody yet.")
+        from .remote_accounts import Accounts
+
+        names = people.names() + [f"{name} (sign-in)" for name in Accounts(people.folder).names()]
+        print("\n".join(names) or "Nobody yet.")
     elif args.command == "copy-local":
         import getpass
 
@@ -331,7 +389,7 @@ def main(argv: Optional[List[str]] = None) -> None:
     else:
         import uvicorn
 
-        uvicorn.run(build_app(people), host=args.bind, port=args.port, log_level="warning",
+        uvicorn.run(build_app(people, args.url), host=args.bind, port=args.port, log_level="warning",
                     access_log=False)
 
 

@@ -1,5 +1,5 @@
 [Unit]
-Description=INFINITO memory over HTTP (MCP) - one private memory per person, for ChatGPT and other remote clients
+Description=INFINITO memory over HTTP (MCP) - one sealed memory per person, for ChatGPT, Claude and other apps
 Wants=network-online.target
 After=network-online.target
 
@@ -8,7 +8,9 @@ User=infinito-remote
 Group=infinito-remote
 WorkingDirectory=/var/lib/infinito-remote
 Environment=INFINITO_REMOTE_DIR=/var/lib/infinito-remote PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
-ExecStart=/opt/infinito-remote-venv/bin/infinito-remote serve --port 8500
+# The public URL lets people sign in (OAuth needs to name itself); setup.sh writes the host.
+# $$ is a literal $ for systemd.
+ExecStart=/bin/sh -c 'exec /opt/infinito-remote-venv/bin/infinito-remote serve --port 8500 --url "https://$$(cat /etc/infinito-remote/host)"'
 Restart=on-failure
 RestartSec=5
 # Shares one CPU with LAIN and the other sites; LAIN keeps priority.

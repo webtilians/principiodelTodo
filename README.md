@@ -161,8 +161,9 @@ agent can get them. Every unlock, addition and reveal is logged, without values,
 the vault: write it down and keep it at home.
 
 **One memory for all your agents.** ChatGPT, Claude on the web or your phone, and agents
-on other computers can share one memory on a server, sealed so that only your private
-address opens it, whoever runs the server included: see [remote/](remote/README.md).
+on other computers can share one memory on a server: each app gets the same address and
+you sign in once. It is sealed so that only your password opens it, whoever runs the
+server included: see [remote/](remote/README.md).
 
 ## How it works
 
