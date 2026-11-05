@@ -43,6 +43,7 @@ def test_secrets_contact_details_questions_and_forget_requests_are_not_stored(me
 def test_a_refused_secret_says_where_it_goes_and_is_never_repeated(memory):
     answer = memory.remember("La clave del wifi es limonero2024")
     assert "secrets never go in memory" in answer and "vault_add" in answer and "password manager" in answer
+    assert "cannot be enabled from here" in answer  # ChatGPT asked to enable a tool that lives on the computer
     assert "limonero2024" not in answer
     assert memory.list_memories() == "No memories yet."
 
