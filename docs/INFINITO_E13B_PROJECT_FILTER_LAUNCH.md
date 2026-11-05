@@ -1,0 +1,5 @@
+# E13-B — diagnóstico de aislamiento del filtro original de proyectos
+
+Durante el primer DEV ejecutable, Actions 42018628212, el guard de proyecto detectó contenido con un proyecto distinto al solicitado y abortó antes de terminar el primer mundo. El código real de INFINITO filtra por coincidencia exacta de metadatos O por substring del nombre de proyecto dentro del contenido; al usar un proyecto sintético TENANT_B_ProyectoNube, una búsqueda filtrada por ProyectoNube puede recuperar recuerdos del otro proyecto. Esto impide considerar satisfecho G0/G3.
+
+Esta marca ejecuta exclusivamente una reproducción mínima de esa propiedad con dos recuerdos sintéticos, sin LLM, sin cuentas, sin datos personales, sin tocar producción, sin cambiar políticas. La rama de E13-B conserva intactos los mundos CONFIRM y LLM sellados. Estado DEV BLOCKED hasta que la limitación de aislamiento se resuelva o se diseñe formalmente una frontera estructurada comprobable; no silenciar la violación ni reescribir el protocolo para conseguir PASS.
