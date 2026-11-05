@@ -284,9 +284,11 @@ def build_app(people: People, issuer: Optional[str] = None):
         threading.Thread(target=ranker.warm, daemon=True).start()
     sealed = {"people": SealedMemories(people, ranker)}
     auth = None
+    grants = None
     if issuer:
         from .remote_accounts import Accounts, Grants, build_auth
 
+        grants = Grants(people.folder)
         accounts = Accounts(people.folder)
         sealed["accounts"] = SealedMemories(accounts, ranker)
 
@@ -303,7 +305,7 @@ def build_app(people: People, issuer: Optional[str] = None):
                 people.remove(person)
             return True
 
-        auth = build_auth(accounts, Grants(people.folder), issuer, adopt)
+        auth = build_auth(accounts, grants, issuer, adopt)
 
     def with_memory(ctx: Context, action: Callable[[AgentMemory], str], writes: bool) -> str:
         state = ctx.request_context.request.scope["state"]
@@ -341,6 +343,34 @@ def build_app(people: People, issuer: Optional[str] = None):
     @memory_tool("forget")
     def forget(memory_ids: List[str], ctx: Context, keep: Optional[List[str]] = None) -> str:
         return with_memory(ctx, lambda memory: memory.forget(memory_ids, keep or []), writes=True)
+
+    if issuer:
+        from . import remote_vault
+
+        def vault_tool(name: str):
+            return server.tool(description=remote_vault.TOOL_DESCRIPTIONS[name],
+                               annotations=ToolAnnotations(**remote_vault.TOOL_HINTS), meta=signed_in)
+
+        def vault_link(ctx: Context, action: str, entry: str) -> str:
+            state = ctx.request_context.request.scope["state"]
+            if state["infinito_memories"] != "accounts":
+                return remote_vault.NEEDS_ACCOUNT
+            return remote_vault.answer_with_link(issuer, action, entry, lambda data: grants.issue(
+                remote_vault.GRANT, client_id="", seconds=remote_vault.LINK_SECONDS, account=state["infinito_person"],
+                key=state["infinito_key"], data=data))
+
+        @vault_tool("vault_add")
+        def vault_add(entry: str, ctx: Context) -> str:
+            return vault_link(ctx, "add", entry)
+
+        @vault_tool("vault_reveal")
+        def vault_reveal(entry: str, ctx: Context) -> str:
+            return vault_link(ctx, "reveal", entry)
+
+        @vault_tool("vault_list")
+        def vault_list(ctx: Context) -> str:
+            state = ctx.request_context.request.scope["state"]
+            return remote_vault.NOTHING_KEPT if state["infinito_memories"] == "accounts" else remote_vault.NEEDS_ACCOUNT
 
     # DNS rebinding protection checks Host and Origin, which behind a proxy and from ChatGPT's servers are
     # neither 127.0.0.1 nor known in advance. The secret address is what keeps a memory private.

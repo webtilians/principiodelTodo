@@ -46,7 +46,9 @@ password signs every app out, so a lost phone stops working too.
   anyone.
 - Forgetting works as in the local version: deleted for good, with the history of each fact. Older backups
   keep it, sealed, until they age out (see Backups).
-- There is no vault here: its windows can only open on your own screen. Keep the local server for it
+- A vault that works from any app is being built: `vault_add` and `vault_reveal` answer with a link to a page on
+  this server, where whatever is secret is typed or shown, and no tool ever returns a value. It keeps nothing yet.
+- There is no working vault here for now: its windows can only open on your own screen. Keep the local server for it
   (below).
 
 ## A memory for work
