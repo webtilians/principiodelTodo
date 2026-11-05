@@ -27,6 +27,7 @@ Run with `infinito-mcp` (pip install "infinito-memory[mcp]") or
 from __future__ import annotations
 
 import os
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional, Sequence
@@ -147,15 +148,20 @@ def _line(record: MemoryRecord) -> str:
 
 
 def _is_about(record: MemoryRecord, project: str) -> bool:
-    """An explicit project scope matches metadata only, never untrusted memory text.
+    """A memory tagged with a project belongs to that project alone, whatever its text names.
 
-    Searches by topic remain available via recall(query) without a project filter.
-    A project tag is not an authentication boundary; the remote service separates
-    owners into distinct encrypted stores before constructing AgentMemory.
+    A memory with no tag (most of a person's memory: "I have worked with Acme since 2024") is found by the
+    project's name as a whole word, or asking "where were we with Acme?" would miss it. Searches by topic remain
+    available via recall(query) without a project filter. A project tag is not an authentication boundary; the
+    remote service separates owners into distinct encrypted stores before constructing AgentMemory.
     """
     wanted = project.strip().casefold()
+    if not wanted:
+        return False
     assigned = str(record.metadata.get("project") or "").strip().casefold()
-    return bool(wanted) and assigned == wanted
+    if assigned:
+        return assigned == wanted
+    return re.search(rf"(?<!\w){re.escape(wanted)}(?!\w)", record.content.casefold()) is not None
 
 
 class AgentMemory:

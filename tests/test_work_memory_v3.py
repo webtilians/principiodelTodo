@@ -59,13 +59,29 @@ def test_one_clients_fact_never_replaces_anothers_or_the_users(memory):
     assert "Vivo en Málaga." in listed and "Cádiz" in listed and "Sevilla" in listed
 
 
-def test_explicit_project_scope_excludes_untagged_mentions(memory):
+def test_a_clients_memories_are_found_even_if_they_were_saved_without_its_tag(memory):
     memory.remember("Trabajo con Acme desde 2024.")
     memory.remember("Acme ganó un premio en octubre.", kind="fact", project="acme")
     memory.remember("Globex cambió de logo.", kind="fact", project="Globex")
     found = memory.recall("qué sabemos", project=" ACME ")
-    assert "premio" in found and "desde 2024" not in found and "Globex" not in found
-    assert "desde 2024" in memory.recall("Trabajo con Acme")  # thematic search remains possible
+    assert "desde 2024" in found and "premio" in found and "Globex" not in found
+    assert "desde 2024" in memory.list_memories(project="acme")
+
+
+def test_another_clients_memory_stays_out_though_it_names_this_client(memory):
+    memory.remember("Acme aprueba la campaña.", kind="decision", project="Acme")
+    memory.remember("Globex compite con Acme en Navidad.", kind="fact", project="Globex")
+    assert "aprueba" in memory.recall("qué sabemos", project="Acme")
+    assert "compite" not in memory.recall("qué sabemos", project="Acme")
+    assert "compite" not in memory.list_memories(project="Acme")
+    assert "compite" in memory.recall("Globex compite con Acme")  # without a client, the search is by topic
+
+
+def test_a_clients_name_is_a_whole_word_in_memories_without_a_tag(memory):
+    memory.remember("Mañana tengo dentista.")
+    memory.remember("Hablé con Ana sobre el logo.")
+    found = memory.recall("qué sabemos", project="Ana")
+    assert "logo" in found and "dentista" not in found
 
 
 def test_project_scope_rejects_overlapping_names_and_foreign_text(memory):
