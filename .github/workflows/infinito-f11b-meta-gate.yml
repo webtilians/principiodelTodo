@@ -1,0 +1,57 @@
+name: INFINITO F11-B — learn option-vs-plan meta-policy, TRAIN-only
+
+on:
+  push:
+    branches: ["experiment/f11b-learn-policy-planner-gate-20261105"]
+    paths:
+      - 'observatory/f11b_meta_gate.py'
+      - 'tests/test_f11b_meta_gate.py'
+      - '.github/workflows/infinito-f11b-meta-gate.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: F11-B privacy, disjoint splits, and learned selection contracts
+        run: python -m unittest tests.test_f11b_meta_gate -v
+      - name: Inherited F11-A v3 public-model contracts
+        run: python -m unittest tests.test_f11a_verify_v3 -v
+
+  training-and-holdout:
+    needs: contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        replica: [0, 1, 2, 3]
+    env:
+      PYTHONHASHSEED: "0"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Neutral base fit, randomized gate learning and untouched TRAIN-heldout
+        run: |
+          python -m observatory.f11b_meta_gate \
+            --replica ${{ matrix.replica }} \
+            --base-worlds 256 --meta-worlds 128 --heldout-worlds 128 \
+            --base-episodes 30 --sequence-episodes 40 \
+            --out f11b_artifacts/r${{ matrix.replica }}
+      - name: Preserve weights, observed feedback and paired per-episode evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: f11b-meta-gate-train-heldout-r${{ matrix.replica }}
+          path: f11b_artifacts/r${{ matrix.replica }}/
+          if-no-files-found: error
+          retention-days: 30
