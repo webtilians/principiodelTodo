@@ -220,6 +220,7 @@ def test_the_front_page_gives_the_address_and_the_steps_for_each_app(server):
     assert "En Claude" in page.text and "En ChatGPT" in page.text and "codex mcp login infinito" in page.text
     assert "plan de pago" in page.text and "@INFINITO" in page.text  # what ChatGPT needs, before someone starts
     assert "datos de contacto" in page.text  # and what the memory leaves out
+    assert "Instrucciones personalizadas" in page.text and "remember_many" in page.text  # no @ in every message
     english = httpx2.get(f"{base}/", headers={"accept-language": "en-GB"}).text
     assert "One memory" in english and "paid plan" in english and "contact details" in english
 
