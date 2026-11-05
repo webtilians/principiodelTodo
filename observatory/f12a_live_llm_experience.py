@@ -154,6 +154,86 @@ class GitHubModels:
         raise ProviderBlocked("Provider unavailable: " + str(last))
 
 
+LOCAL_MODEL = "Qwen/Qwen2.5-0.5B-Instruct"
+
+
+class LocalQwen:
+    """Real open-weight frozen LLM executing on the GitHub Actions CPU runner.
+
+    Imports are lazy so pure unit tests never download a model. All A/B arms
+    share the same model instance and immutable weights within one pilot.
+    """
+    real_model = True
+    provider = "local-transformers"
+
+    def __init__(self, model: str = LOCAL_MODEL):
+        if model != LOCAL_MODEL:
+            raise ProviderBlocked("Only the preregistered local Qwen model is allowed")
+        try:
+            import torch
+            import transformers
+            from transformers import AutoTokenizer, AutoModelForCausalLM
+            from huggingface_hub import model_info
+        except (ImportError, OSError) as exc:
+            raise ProviderBlocked("BLOCKED_LOCAL_MODEL: missing CPU inference dependencies: "
+                                  + type(exc).__name__) from None
+        self.torch = torch
+        self.model = model
+        self.calls = 0
+        self.input_tokens = 0
+        self.output_tokens = 0
+        self.actual_models = {model}
+        self.seconds = 0.0
+        self.torch_version = str(torch.__version__)
+        self.transformers_version = str(transformers.__version__)
+        torch.set_num_threads(2)
+        try:
+            info = model_info(model)
+            self.revision = info.sha
+            self.tokenizer = AutoTokenizer.from_pretrained(model, revision=self.revision)
+            self.generator = AutoModelForCausalLM.from_pretrained(
+                model, revision=self.revision,
+                torch_dtype=torch.float32, low_cpu_mem_usage=False)
+            self.generator.eval()
+        except Exception as exc:
+            # No fake model fallback; never leak repo tokens or private paths.
+            raise ProviderBlocked("BLOCKED_LOCAL_MODEL: load failed: "
+                                  + type(exc).__name__) from None
+
+    def chat(self, system: str, user: str, max_tokens: int = 64) -> str:
+        start = time.monotonic()
+        try:
+            messages = [
+                {"role": "system", "content": system},
+                {"role": "user", "content": user}
+            ]
+            ids = self.tokenizer.apply_chat_template(
+                messages, tokenize=True, add_generation_prompt=True,
+                return_tensors="pt")
+            count_in = int(ids.shape[-1])
+            with self.torch.inference_mode():
+                output = self.generator.generate(
+                    input_ids=ids,
+                    attention_mask=self.torch.ones_like(ids),
+                    max_new_tokens=max_tokens,
+                    do_sample=False,
+                    pad_token_id=self.tokenizer.eos_token_id,
+                    eos_token_id=self.tokenizer.eos_token_id)
+            extra = output[0][count_in:]
+            raw = self.tokenizer.decode(extra, skip_special_tokens=True).strip()
+            if not raw:
+                raise ProviderBlocked("Local LLM generated no text")
+            self.input_tokens += count_in
+            self.output_tokens += len(extra)
+            self.calls += 1
+            self.seconds += time.monotonic() - start
+            return raw
+        except ProviderBlocked:
+            raise
+        except Exception as exc:
+            raise ProviderBlocked("BLOCKED_LOCAL_MODEL: generation failed: "
+                                  + type(exc).__name__) from None
+
 class SimulatedTools:
     """A sandbox with no OS/file/network tools. Hidden root cause is not exposed."""
     def __init__(self, case: Case):
@@ -287,13 +367,16 @@ def synthesize(llm, training: list[dict]) -> tuple[str, dict]:
 def report_usage(llm) -> dict:
     return {
         "real_model": bool(getattr(llm, "real_model", False)),
-        "provider": "GitHub Models" if getattr(llm, "real_model", False) else "TEST_BACKEND_NOT_LIVE",
+        "provider": getattr(llm, "provider", "GitHub Models") if getattr(llm, "real_model", False) else "TEST_BACKEND_NOT_LIVE",
         "model_requested": getattr(llm, "model", "fake"),
         "models_reported": sorted(getattr(llm, "actual_models", [])),
         "calls": getattr(llm, "calls", 0),
         "prompt_tokens": getattr(llm, "input_tokens", 0),
         "completion_tokens": getattr(llm, "output_tokens", 0),
         "provider_seconds": getattr(llm, "seconds", 0.0),
+        "model_revision": getattr(llm, "revision", None),
+        "transformers_version": getattr(llm, "transformers_version", None),
+        "torch_version": getattr(llm, "torch_version", None),
     }
 
 
@@ -367,11 +450,15 @@ def run(llm, out: Path | None = None) -> dict:
 def main() -> int:
     parser = argparse.ArgumentParser(description="F12-A PILOT — live LLM + INFINITO SQLite")
     parser.add_argument("--out", type=Path, required=True)
-    parser.add_argument("--model", default=MODEL)
+    parser.add_argument("--model", default=None)
+    parser.add_argument("--backend", choices=("github", "local"), default="github")
     args = parser.parse_args()
     args.out.mkdir(parents=True, exist_ok=True)
     try:
-        llm = GitHubModels(os.environ.get("GITHUB_TOKEN", ""), model=args.model)
+        if args.backend == "local":
+            llm = LocalQwen(model=args.model or LOCAL_MODEL)
+        else:
+            llm = GitHubModels(os.environ.get("GITHUB_TOKEN", ""), model=args.model or MODEL)
         result = run(llm, args.out)
         print(json.dumps({
             "status": result["status"], "provider": result["provider"],
