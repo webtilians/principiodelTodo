@@ -1,15 +1,11 @@
 name: INFINITO F12-A — LIVE frozen LLM experiences + SQLite memory pilot
 
 on:
-  push:
-    branches: ["experiment/f12a-real-llm-experience-learning-20261105"]
-    paths:
-      - 'observatory/f12a_live_llm_experience.py'
-      - 'tests/test_f12a_live_llm_experience.py'
-      - '.github/workflows/infinito-f12a-real-llm-pilot.yml'
   workflow_dispatch:
 
-# GITHUB_TOKEN is ephemeral. No paid API secrets.
+# GitHub Models provider BLOCKED in runs 42052897453/42053094521.
+# Disabled automatic push retries; still available for manual diagnostics.
+
 permissions:
   contents: read
   models: read
