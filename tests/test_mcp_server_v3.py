@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from src.infinito3.mcp_server import AgentMemory
+from src.infinito3.mcp_server import INSTRUCTIONS, TOOL_DESCRIPTIONS, VAULT_INSTRUCTIONS, AgentMemory
 
 REPO = Path(__file__).resolve().parents[1]
 
@@ -38,6 +38,39 @@ def test_secrets_contact_details_questions_and_forget_requests_are_not_stored(me
     assert "not memories" in memory.remember("Where do I live?")
     assert "asks to forget" in memory.remember("Forget where I live.")
     assert memory.list_memories() == "No memories yet."
+
+
+def test_a_refused_secret_says_where_it_goes_and_is_never_repeated(memory):
+    answer = memory.remember("La clave del wifi es limonero2024")
+    assert "secrets never go in memory" in answer and "vault_add" in answer and "password manager" in answer
+    assert "limonero2024" not in answer
+    assert memory.list_memories() == "No memories yet."
+
+
+@pytest.mark.parametrize("statement", [
+    "La contraseña del router está en la bóveda, en la entrada Router de casa.",
+    "The router password is in the vault under Router de casa.",
+    "The router key is in the vault as Router de casa.",
+    "My bank password is stored in my password manager.",
+])
+def test_where_a_secret_is_kept_can_be_remembered(memory, statement):
+    assert memory.remember(statement).startswith("Remembered")
+
+
+@pytest.mark.parametrize("statement", [
+    "The wifi password is invault2024", "My bank password is in2deep!", "The router key is keepass99",
+    "The router password is in the vault: hunter2",
+])
+def test_a_value_is_still_refused_though_it_names_a_place(memory, statement):
+    assert "secrets never go in memory" in memory.remember(statement)
+    assert memory.list_memories() == "No memories yet."
+
+
+def test_the_instructions_send_secrets_to_the_vault_and_stay_short():
+    assert "refuses them" in INSTRUCTIONS and "vault_add" in INSTRUCTIONS and "password manager" in INSTRUCTIONS
+    assert "use these tools" in VAULT_INSTRUCTIONS
+    assert "vault_add" in TOOL_DESCRIPTIONS["remember"]
+    assert len(INSTRUCTIONS) <= 2048  # every app loads this in every session
 
 
 def test_a_statement_that_only_mentions_deleting_is_stored(memory):

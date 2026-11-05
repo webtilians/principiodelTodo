@@ -33,6 +33,10 @@ _GUARDED = re.compile(r"\b(?:wi-?fi|router|banco|bank|correo|e-?mail|cuenta|acco
                       r"caja fuerte|safe|m[oó]vil|phone|ordenador|computer|port[aá]til|laptop|acceso|login)\b", re.I)
 
 
+# "The router password is in the vault" says where a secret is kept, which a memory may hold; "is" gives no value there.
+_NOT_WHERE_IT_IS_KEPT = r"(?!\s+(?:kept\s+|stored\s+|saved\s+)?in\s+(?:the\s+|my\s+|a\s+)?(?:vault|keepass|password\s+manager)\b)"
+
+
 def _given_secret(found: str, text: str) -> bool:
     """A key or code actually given: it looks like one, or it guards something ("la clave del wifi es ...")."""
     if re.search(r"c[oó]digo postal|postal code|zip code", found, re.I):
@@ -55,8 +59,8 @@ class SensitiveInformationFilter:
         (re.compile(r"\bsk-[A-Za-z0-9_-]{16,}\b"), "api_key"),
         # A password given ("mi contraseña del banco es X", "password: X"), not one mentioned
         # ("a password-protected PDF", "un gestor de contraseñas").
-        (re.compile(r"\b(?:password|passwd|contrase(?:ñ|n)a)\b(?:\s+[\w.-]+){0,4}?\s*(?:\b(?:es|is|was|era)\b|[:=])\s*\S+",
-                    re.I), "password"),
+        (re.compile(r"\b(?:password|passwd|contrase(?:ñ|n)a)\b(?:\s+[\w.-]+){0,4}?\s*(?:\b(?:es|is|was|era)\b"
+                    + _NOT_WHERE_IT_IS_KEPT + r"|[:=])\s*\S+", re.I), "password"),
         (re.compile(r"\b(?:pin)\s*(?:es|:|=)?\s*\d{3,8}\b", re.I), "pin"),
         # Spanish DNI (12345678Z) and NIE (X1234567L), whether or not the control letter is
         # right: a typo in the letter does not make it less of an identity number.
@@ -74,7 +78,8 @@ class SensitiveInformationFilter:
         # value that looks like a secret, or a word for what it guards, confirms it.
         # Within one sentence: "the QR code instead. Is it best..." gives nothing.
         (re.compile(r"\b(?:clave|c[oó]digo|key|code|passcode|passphrase)\b(?:[ \t]+[\w-]+){0,4}?[ \t]*"
-                    r"(?:\b(?:es|is|era|was)\b|[:=])[ \t]*\S+", re.I), "password", _given_secret),
+                    r"(?:\b(?:es|is|era|was)\b" + _NOT_WHERE_IT_IS_KEPT + r"|[:=])[ \t]*\S+", re.I),
+         "password", _given_secret),
     ]
 
     _SENSITIVE_PATTERNS: List[Tuple[Pattern[str], str]] = [
