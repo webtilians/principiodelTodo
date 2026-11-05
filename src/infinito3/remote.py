@@ -381,7 +381,7 @@ def build_app(people: People, issuer: Optional[str] = None):
                 return refused
             person = state["infinito_person"]
             vault = remote_vault.ServerVault(accounts.memory_folder(person), person)
-            return remote_vault.list_answer(vault.names(state["infinito_key"]))
+            return remote_vault.list_answer(vault.listed(state["infinito_key"]))
 
     # DNS rebinding protection checks Host and Origin, which behind a proxy and from ChatGPT's servers are
     # neither 127.0.0.1 nor known in advance. The secret address is what keeps a memory private.

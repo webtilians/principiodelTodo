@@ -163,6 +163,112 @@ def test_keeping_a_name_again_replaces_it_and_says_so_first(server):  # noqa: F8
     assert [e.password for e in db.entries] == ["valor-nuevo-2"]
 
 
+def test_the_person_names_the_entry_and_says_what_it_is_for(server):  # noqa: F811
+    base, people, folder = server
+    (answer,) = invited(base, people, "ruth", [("vault_add", {"entry": "Clave nueva"})])
+    link = link_in(answer)
+    page = httpx2.get(link, headers=SPANISH)
+    assert 'name="name"' in page.text and 'value="Clave nueva"' in page.text and 'name="note"' in page.text
+    assert "No pongas aquí ninguna clave" in page.text
+    saved = send(base, link, name="  Panel de  Hetzner ", note="Cuenta de pagos", master=MASTER, repeat=MASTER,
+                 username="root", value=VALUE)
+    assert saved.status_code == 200 and "Panel de Hetzner" in saved.text
+
+    (listed, reveal), _, _ = app_session(base, [("vault_list", {}), ("vault_reveal", {"entry": "panel de hetzner"})],
+                                         name="ruth")
+    assert "- Panel de Hetzner: Cuenta de pagos" in listed and "Clave nueva" not in listed and VALUE not in listed
+    db = pykeepass.PyKeePass(str(folder / "accounts" / "ruth" / "vault.kdbx"), password=MASTER)
+    assert [(e.title, e.notes, e.username, e.password) for e in db.entries] == [
+        ("Panel de Hetzner", "Cuenta de pagos", "root", VALUE)]
+    assert "Cuenta de pagos".encode() not in (folder / "accounts" / "ruth" / "vault-names.sealed").read_bytes()
+    shown = send(base, link_in(reveal), master=MASTER).text
+    assert VALUE in shown and "Cuenta de pagos" in shown
+
+
+def test_a_note_or_a_name_holding_the_secret_is_refused_and_not_sent_back(server):  # noqa: F811
+    base, people, folder = server
+    (answer,) = invited(base, people, "alba", [("vault_add", {"entry": "Wifi"})])
+    link = link_in(answer)
+    common = {"master": MASTER, "repeat": MASTER, "value": VALUE}
+    for field, text in (("note", f"la clave es {VALUE}"), ("note", "La clave del wifi es limonero2024"),
+                        ("note", "escribe a ana@acme.example"), ("note", "x" * 201),
+                        ("name", f"Wifi {VALUE}"), ("name", "La clave del wifi es limonero2024"), ("name", "   ")):
+        page = send(base, link, **common, **{field: text})
+        assert page.status_code == 400 and ("La nota" in page.text or "Elige un nombre" in page.text), text
+        assert VALUE not in page.text and "limonero2024" not in page.text and "ana@acme" not in page.text
+    assert not (folder / "accounts" / "alba" / "vault.kdbx").exists()
+
+
+def test_renaming_onto_another_entry_is_refused_instead_of_replacing_it(server):  # noqa: F811
+    base, people, folder = server
+    keep(base, people, "cris", entry="Banco", value="valor-del-banco-1")
+    (answer,), _, _ = app_session(base, [("vault_add", {"entry": "Wifi"})], name="cris")
+    link = link_in(answer)
+    taken = send(base, link, name="BANCO", master=MASTER, value="valor-del-wifi-2")
+    assert taken.status_code == 400 and "otra entrada con ese nombre" in taken.text
+    assert send(base, link, name="Wifi de casa", master=MASTER, value="valor-del-wifi-2").status_code == 200
+    db = pykeepass.PyKeePass(str(folder / "accounts" / "cris" / "vault.kdbx"), password=MASTER)
+    assert {e.title: e.password for e in db.entries} == {"Banco": "valor-del-banco-1", "Wifi de casa": "valor-del-wifi-2"}
+
+
+def test_a_note_can_be_added_later_without_typing_the_secret_again(server):  # noqa: F811
+    base, people, folder = server
+    keep(base, people, "tere", entry="Wifi")
+    (answer,), _, _ = app_session(base, [("vault_add", {"entry": "Wifi"})], name="tere")
+    link = link_in(answer)
+    page = httpx2.get(link, headers=SPANISH)
+    assert "se conservan los que tiene" in page.text and 'name="repeat"' not in page.text
+    assert send(base, link, name="Wifi", note="El de casa", master=MASTER).status_code == 200
+    (listed,), _, _ = app_session(base, [("vault_list", {})], name="tere")
+    assert "- Wifi: El de casa" in listed
+    db = pykeepass.PyKeePass(str(folder / "accounts" / "tere" / "vault.kdbx"), password=MASTER)
+    assert [(e.username, e.password, e.notes) for e in db.entries] == [("admin", VALUE, "El de casa")]
+
+
+def test_a_new_name_with_no_secret_is_refused(server):  # noqa: F811
+    base, people, _ = server
+    keep(base, people, "pau", entry="Wifi")
+    (answer,), _, _ = app_session(base, [("vault_add", {"entry": "Wifi"})], name="pau")
+    page = send(base, link_in(answer), name="Otra", master=MASTER)
+    assert page.status_code == 400 and "Escribe la clave" in page.text
+
+
+def test_notes_written_elsewhere_never_reach_the_agent(server):  # noqa: F811
+    base, people, folder = server
+    keep(base, people, "kim", entry="Wifi")
+    path = folder / "accounts" / "kim" / "vault.kdbx"
+    db = pykeepass.PyKeePass(str(path), password=MASTER)  # as if it had been edited in KeePassXC
+    db.add_entry(db.root_group, "Banco", "yo", "valor-banco", notes="codigos de rescate 1234")
+    db.save()
+    (answer,), _, _ = app_session(base, [("vault_add", {"entry": "Correo"})], name="kim")
+    assert send(base, link_in(answer), master=MASTER, value="valor-correo").status_code == 200
+    (listed,), _, _ = app_session(base, [("vault_list", {})], name="kim")
+    assert "- Banco" in listed and "rescate" not in listed
+
+
+def test_a_list_written_before_notes_existed_still_reads(server):  # noqa: F811
+    import json
+
+    from src.infinito3.remote_accounts import _seal
+    from src.infinito3.remote_vault import ServerVault, list_answer
+
+    _, _, folder = server
+    key = b"k" * 32
+    vault = ServerVault(folder / "viejo", "viejo")
+    vault.folder.mkdir()
+    vault.names_path.write_bytes(_seal(key, json.dumps(["Wifi"]).encode(), "vault-names:viejo"))
+    assert vault.listed(key) == [{"name": "Wifi", "note": ""}]
+    assert "- Wifi" in list_answer(vault.listed(key))
+
+
+def test_the_agent_is_told_not_to_invent_a_name(server):  # noqa: F811
+    base, _, _ = server
+    _, _, app = app_session(base, [], mode="signup", name="desc")
+    tools = {t.name: t.description for t in app.tools}
+    assert "ask the user first" in tools["vault_add"] and "do not invent a name" in tools["vault_add"]
+    assert "vault_list first" in tools["vault_reveal"] and "notes" in tools["vault_list"]
+
+
 def test_asking_to_see_what_is_not_there_says_so_without_asking_for_the_master_password(server):  # noqa: F811
     base, people, _ = server
     keep(base, people, "marc")
