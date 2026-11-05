@@ -400,17 +400,20 @@ def main(argv: Optional[List[str]] = None) -> None:
     commands.add_parser("login", help="sign this computer in to an INFINITO server").add_argument("server")
     commands.add_parser("logout", help="delete this computer's session")
     commands.add_parser("context", help="hook for Claude Code and Codex: the memories related to a message")
+    commands.add_parser("checkpoint", help="hook for Claude Code: after work, the agent saves where it stands")
     serve = commands.add_parser("serve", help="run the server")
     serve.add_argument("--port", type=int, default=8500)
     serve.add_argument("--bind", default="127.0.0.1")
     serve.add_argument("--url", default=os.environ.get("INFINITO_REMOTE_URL"),
                        help="the server's public URL; without it there is no sign-in, only addresses")
     args = parser.parse_args(argv)
-    if args.command in ("login", "logout", "context"):
+    if args.command in ("login", "logout", "context", "checkpoint"):
         from . import remote_client
 
         if args.command == "context":
             return remote_client.context()
+        if args.command == "checkpoint":
+            return remote_client.checkpoint()
         return print(remote_client.login(args.server) if args.command == "login" else remote_client.logout())
     if args.command == "verify-backup":
         from . import remote_backup

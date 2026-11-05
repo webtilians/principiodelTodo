@@ -656,12 +656,17 @@ _HOME = {
             "código de recuperación.",
             "Ya está, también en la app de escritorio y en el móvil.",
         ],
+        "chatgpt_note": "Se hace en la web, no en la app del móvil, y necesitas un plan de pago. OpenAI cambia a menudo "
+                        "lo que permite cada plan: si ChatGPT lee tu memoria pero no guarda, conéctala también en "
+                        "Claude. En una cuenta de empresa, el conector lo crea el administrador.",
         "chatgpt_steps": [
             "En <b>chatgpt.com</b>: Configuración → Aplicaciones y conectores → Configuración avanzada → activa el "
-            "<b>modo desarrollador</b>.",
+            "<b>modo desarrollador</b>. Si ves <b>Plugins</b>, ve ahí: <b>+</b> → Añadir servidor MCP personalizado, "
+            "sin modo desarrollador.",
             "Crea un conector: nombre <b>INFINITO</b>, la dirección de arriba y autenticación <b>OAuth</b>.",
             "Entra con tu usuario y tu contraseña de INFINITO (o crea tu memoria si es la primera vez).",
-            "En cada chat, pulsa <b>+</b> → modo desarrollador y activa INFINITO.",
+            "En cada chat, pulsa <b>+</b> → modo desarrollador y activa INFINITO. Con Plugins, escribe "
+            "<b>@INFINITO</b> en el mensaje.",
         ],
         "try": "Pruébalo",
         "try_text": "Dile a una «recuerda que mi color favorito es el verde» y pregúntale a la otra «¿qué sabes de mí?».",
@@ -673,6 +678,8 @@ _HOME = {
             "Semanas después, en cualquiera de tus IAs: «¿por dónde íbamos con Acme?» o «¿qué tengo pendiente con "
             "Acme?». Te lo dirá separando lo decidido de lo que solo se propuso, y de dónde sale cada cosa.",
             "Lo de cada cliente queda aparte, y nadie más puede leerlo: ni quien administra este servidor.",
+            "No guarda contraseñas ni datos de contacto, como correos: la frase que los lleva se queda fuera y el "
+            "resto se guarda.",
         ],
         "menus": "Los nombres de los menús cambian a veces; los pasos son los mismos.",
     },
@@ -694,11 +701,16 @@ _HOME = {
             "recovery code.",
             "That's it, in the desktop app and on your phone too.",
         ],
+        "chatgpt_note": "This is done on the web, not in the phone app, and you need a paid plan. OpenAI often changes "
+                        "what each plan allows: if ChatGPT reads your memory but does not save, connect Claude as "
+                        "well. On a company account, the admin creates the connector.",
         "chatgpt_steps": [
-            "On <b>chatgpt.com</b>: Settings → Apps & Connectors → Advanced settings → turn on <b>Developer mode</b>.",
+            "On <b>chatgpt.com</b>: Settings → Apps & Connectors → Advanced settings → turn on <b>Developer mode</b>. "
+            "If you see <b>Plugins</b>, go there instead: <b>+</b> → Add custom MCP server, with no Developer mode.",
             "Create a connector: name <b>INFINITO</b>, the address above and authentication <b>OAuth</b>.",
             "Sign in with your INFINITO username and password (or create your memory if it is your first time).",
-            "In each chat, click <b>+</b> → Developer mode and turn INFINITO on.",
+            "In each chat, click <b>+</b> → Developer mode and turn INFINITO on. With Plugins, type <b>@INFINITO</b> "
+            "in your message.",
         ],
         "try": "Try it",
         "try_text": "Tell one “remember that my favourite colour is green” and ask the other “what do you know about me?”.",
@@ -710,6 +722,8 @@ _HOME = {
             "Weeks later, in any of your AIs: “where were we with Acme?” or “what's pending with Acme?”. It answers "
             "keeping what was decided apart from what was only proposed, and says where each thing came from.",
             "Each client's memories stay apart, and nobody else can read them: not even whoever runs this server.",
+            "It does not keep passwords or contact details such as emails: the sentence with one is left out and the "
+            "rest is saved.",
         ],
         "menus": "Menu names change now and then; the steps stay the same.",
     },
@@ -740,7 +754,8 @@ def _home_page(lang: str, address: str):
     body =(f'<p class="lead">{t["lead"]}</p><label for="address">{t["address"]}</label>'
             f'<div class="address"><input id="address" type="text" readonly value="{e(address)}">'
             f'<button type="button" id="copy">{t["copy"]}</button></div>'
-            f'<h2>{t["claude"]}</h2>{steps("claude_steps")}<h2>{t["chatgpt"]}</h2>{steps("chatgpt_steps")}'
+            f'<h2>{t["claude"]}</h2>{steps("claude_steps")}'
+            f'<h2>{t["chatgpt"]}</h2><p class="note">{t["chatgpt_note"]}</p>{steps("chatgpt_steps")}'
             f'<h2>{t["codex"]}</h2>{steps("codex_steps")}'
             f'<h2>{t["try"]}</h2><p>{t["try_text"]}</p><p class="note">{t["forget"]}</p>'
             f'<h2>{t["work"]}</h2>{steps("work_steps")}'

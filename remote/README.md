@@ -15,8 +15,11 @@ that app is connected. Each other app is one more sign-in. To tell someone, send
 
 - **Claude** (desktop, web, phone and Claude Code in the app): Settings → Connectors → **Add custom
   connector**, name `INFINITO`, URL `https://<host>/mcp`, then **Connect**.
-- **ChatGPT** (Plus or Pro): Settings → Apps & Connectors → Advanced settings, turn on **Developer
-  mode**; create a connector with that URL and authentication **OAuth**.
+- **ChatGPT** (a paid plan, on the web): Settings → Apps & Connectors → Advanced settings, turn on
+  **Developer mode**; create a connector with that URL and authentication **OAuth**. Where **Plugins**
+  appears, it is **+** → Add custom MCP server instead, with no Developer mode. OpenAI's help lists writing
+  for Business and Enterprise/Edu and read/fetch for Pro, and this changes often: if ChatGPT reads the
+  memory but does not save, connect Claude as well.
 - **Codex** (app and terminal): `codex mcp add infinito --url https://<host>/mcp`, then
   `codex mcp login infinito` to sign in.
 - **Claude Code in a terminal**: `claude mcp add --transport http --scope user infinito https://<host>/mcp`,
@@ -76,7 +79,19 @@ hook before each message that brings the related memories in by themselves.
   `{"hooks": {"UserPromptSubmit": [{"hooks": [{"type": "command", "command": "infinito-remote", "args": ["context"], "timeout": 10}]}]}}`.
   The session is kept in `~/.infinito/remote-session.json`; `infinito-remote logout` deletes it. Without
   a session, or when the server does not answer within a few seconds, the hook adds nothing and the
-  message goes on.
+  message goes on. A session's first message also brings what was left pending.
+
+## Where the work stands
+
+An agent remembers facts about you and rarely notes where the work stopped, so "where were we?" finds nothing.
+In Claude Code, a Stop hook takes care of it. In `~/.claude/settings.json`:
+`{"hooks": {"Stop": [{"hooks": [{"type": "command", "command": "infinito-remote", "args": ["checkpoint"], "timeout": 5}]}]}}`.
+
+When the agent stops, the hook looks at the session's own transcript, on your computer, and sends nothing
+anywhere. If files were edited since the last write to the memory, and at least 30 minutes have passed since that
+write, or a commit or push was made, it asks the agent to save what is left as `pending` and to close what is done.
+It asks once each time and never keeps a session from stopping. The agent writes the words, because only it knows
+what is left. ChatGPT has no such hook: there, ask it to save.
 
 ## Keep the vault on your computer
 
