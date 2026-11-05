@@ -135,25 +135,77 @@ class TemporalPlanner:
             return None
         return min(action for action, score in scores.items() if score == best)
 
+    def _plan(self, obs):
+        """Receding-horizon breadth-first model rollout for <=12 public steps.
+
+        Learned action->public-effect links are the ONLY action semantics.
+        A latent pending effect is approximated by a 1–2 step belief; on the
+        next REAL observation we discard the guess and replan. No world oracle.
+        """
+        from collections import deque
+        mode, goal, power, route, stock, pending_count = obs
+        target = self._prototype(obs)
+        terminal = self.terminals.get(mode, {})
+        waits = self.waits.get(mode, {})
+        wait = max(sorted(waits), key=lambda a: waits[a]) if waits else None
+        if target is None or not terminal:
+            return None
+        deliver = max(sorted(terminal), key=lambda a: terminal[a])
+        if pending_count:
+            return wait
+        if all(obs[pos] == expected for pos, expected in zip(RESOURCE_FEATURES, target)):
+            return deliver
+
+        # Schema-informed transition surrogate inferred from visible deltas.
+        effects = []
+        for pos in RESOURCE_FEATURES:
+            action = self._effect_action(obs, pos)
+            if action:
+                effects.append((action, pos))
+        if not effects or wait is None:
+            return None
+        effects = sorted(set(effects))
+        # State includes resource bits, pending feature and countdown, and the
+        # FIRST action of its own learned-model program (not a stored policy).
+        start = (power, route, stock, -1, 0)
+        frontier = deque([(start, 0, None)])
+        seen = {start}
+        while frontier:
+            state, depth, first = frontier.popleft()
+            p, r, st, pend_feature, due = state
+            if (p, r, st) == target:
+                return first if first is not None else deliver
+            if depth >= HORIZON - 1:
+                continue
+            if due:
+                # A hidden in-flight effect is tracked as an uncertain belief.
+                actions = [(wait, -1)]
+            else:
+                actions = effects
+            for action, feature in actions:
+                np, nr, ns, pf, countdown = p, r, st, pend_feature, due
+                if countdown:
+                    countdown -= 1
+                    if countdown == 0:
+                        if pf == 2:
+                            np = 1
+                        elif pf == 4:
+                            ns = 1
+                        elif pf == 3:
+                            nr = 1 - nr
+                        pf = -1
+                elif feature >= 0:
+                    pf, countdown = feature, 2
+                state_after = (np, nr, ns, pf, countdown)
+                if state_after not in seen:
+                    seen.add(state_after)
+                    frontier.append((state_after, depth + 1, first or action))
+        return None
+
     def choose(self, obs, rng):
         self.calls += 1
-        if obs[-1] > 0:
-            waits = self.waits.get(obs[0], {})
-            if waits:
-                return max(sorted(waits), key=lambda a: waits[a])
-        target = self._prototype(obs)
-        if target is None:
-            return rng.choice(ACTIONS)
-        for field, desired in zip(RESOURCE_FEATURES, target):
-            if obs[field] == desired:
-                continue
-            action = self._effect_action(obs, field)
-            if action is not None:
-                return action
-        terminal = self.terminals.get(obs[0], {})
-        if terminal:
-            return max(sorted(terminal), key=lambda a: terminal[a])
-        return rng.choice(ACTIONS)
+        planned = self._plan(tuple(obs))
+        return planned if planned is not None else rng.choice(ACTIONS)
 
     def snapshot(self):
         return {"events": self.events, "attributions": self.attributions,
