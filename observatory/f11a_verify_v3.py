@@ -173,7 +173,7 @@ class TemporalPlanner:
         while frontier:
             state, depth, first = frontier.popleft()
             p, r, st, pend_feature, due = state
-            if (p, r, st) == target:
+            if (p, st, r) == target:
                 return first if first is not None else deliver
             if depth >= HORIZON - 1:
                 continue
