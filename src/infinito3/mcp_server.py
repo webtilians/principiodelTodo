@@ -147,8 +147,15 @@ def _line(record: MemoryRecord) -> str:
 
 
 def _is_about(record: MemoryRecord, project: str) -> bool:
+    """An explicit project scope matches metadata only, never untrusted memory text.
+
+    Searches by topic remain available via recall(query) without a project filter.
+    A project tag is not an authentication boundary; the remote service separates
+    owners into distinct encrypted stores before constructing AgentMemory.
+    """
     wanted = project.strip().casefold()
-    return (str(record.metadata.get("project", "")).casefold() == wanted) or wanted in record.content.casefold()
+    assigned = str(record.metadata.get("project") or "").strip().casefold()
+    return bool(wanted) and assigned == wanted
 
 
 class AgentMemory:
