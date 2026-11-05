@@ -95,6 +95,9 @@ class TemporalPlanner:
 
     def observe(self, steps, episode_number=0):
         weight = 1 + min(episode_number, 29) / 10.0
+        # Reconstruct an *estimated* FIFO from observed pending counts and
+        # observable scheduling feedback. No access to simulator.pending.
+        queued = []
         for i, row in enumerate(steps):
             before, after = row["before"], row["after"]
             mode = before[0]
@@ -103,23 +106,33 @@ class TemporalPlanner:
                 self.prototypes[(mode, before[1])][tuple(before[j] for j in RESOURCE_FEATURES)] += weight
             if before[-1] > 0 and after[-1] < before[-1] and row["reward"] >= -0.06:
                 self.waits[mode][row["action"]] += weight
-            diffs = [pos for pos in RESOURCE_FEATURES if before[pos] != after[pos]]
+
+            # Scheduled actions have an externally observed preparation cost.
+            # It is not a label from hidden World.roles() or the evaluator.
+            scheduled = abs(row["reward"] + 0.025) < 1e-7
+            if scheduled:
+                queued.append((i, row["action"]))
+            finished = max(0, int(before[-1]) + int(scheduled) - int(after[-1]))
+            changed = [pos for pos in RESOURCE_FEATURES if before[pos] != after[pos]]
             if row["done"]:
-                diffs = []  # terminal consumes resources; not a delayed gain
-            for pos in diffs:
-                for lag in LATENT_EFFECT_LAGS:
-                    j = i - lag
-                    if j < 0:
-                        continue
-                    earlier = steps[j]
-                    # Delayed action likely produced an observable queue rise.
-                    q_before, q_after = earlier["before"][-1], earlier["after"][-1]
-                    visible_enqueue = q_after > q_before
-                    if not visible_enqueue:
-                        continue
-                    action = earlier["action"]
-                    self.effects[(mode, action)][pos] += weight / lag
+                changed = []
+            for n in range(finished):
+                if not queued:
+                    break
+                source_i, source_action = queued.pop(0)
+                lag = i - source_i
+                if lag not in LATENT_EFFECT_LAGS:
+                    continue
+                # If the effect was already satisfied, no visible change:
+                # record an unknown completion but do not invent a role.
+                if n < len(changed):
+                    pos = changed[n]
+                    self.effects[(mode, source_action)][pos] += weight
                     self.attributions += 1
+            # The public pending counter is authoritative. On ambiguity, drop
+            # unmatched unobserved work rather than invent a privileged state.
+            if len(queued) > after[-1]:
+                queued = queued[-int(after[-1]):] if after[-1] else []
             self.events += 1
 
     def _prototype(self, obs):
