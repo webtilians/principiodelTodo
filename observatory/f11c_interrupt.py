@@ -103,7 +103,7 @@ class LearnedInterrupt:
         self.trajectories += 1
 
     def snapshot(self):
-        return {"weights": self.w, "baseline": self.baseline,
+        return {"weights": list(self.w), "baseline": self.baseline,
                 "updates": self.updates, "trajectories": self.trajectories,
                 "algorithm": "REINFORCE_observed_episodic_return_only"}
 
