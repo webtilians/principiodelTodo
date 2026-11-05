@@ -105,6 +105,7 @@ def test_the_value_is_shown_only_on_the_page_once_and_the_page_leaves_by_itself(
     assert VALUE not in answer
     opened = httpx2.get(link, headers=SPANISH)
     assert opened.status_code == 200 and VALUE not in opened.text and 'name="value"' not in opened.text
+    assert "autofocus" not in opened.text  # it would scroll past the warning to check the address
 
     shown = send(base, link, master=MASTER)
     assert shown.status_code == 200 and VALUE in shown.text and "admin" in shown.text

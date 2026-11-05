@@ -99,7 +99,8 @@ hook before each message that brings the related memories in by themselves.
   `{"hooks": {"UserPromptSubmit": [{"hooks": [{"type": "command", "command": "infinito-remote", "args": ["context"], "timeout": 10}]}]}}`.
   The session is kept in `~/.infinito/remote-session.json`; `infinito-remote logout` deletes it. Without
   a session, or when the server does not answer within a few seconds, the hook adds nothing and the
-  message goes on. A session's first message also brings what was left pending.
+  message goes on. A session's first message also brings what was left pending. Past 9,000 characters (Claude Code
+  keeps only a preview over 10,000) the longest memories are shortened, and recall brings them whole.
 
 ## Where the work stands
 
