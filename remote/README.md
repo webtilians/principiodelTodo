@@ -51,7 +51,9 @@ password signs every app out, so a lost phone stops working too.
 
 ChatGPT or a phone cannot open a window on your computer, so on the server `vault_add` and `vault_reveal` answer
 with a link to a page here. The master password and the values are typed and shown on that page: no tool can
-receive a value or returns one, so they never reach the agent, its model or the chat. The agent sees names only.
+receive a value or returns one, so they never reach the agent, its model or the chat. The agent sees only each entry's name and a note on what it
+is for, which you can correct on the page; a note it shows is one typed there, never the Notes of an entry made
+elsewhere.
 
 - **It is a standard KeePass file** (`accounts/<name>/vault.kdbx`): a copy opens with KeePassXC or KeePassDX.
 - **It is by invitation.** On the server: `infinito-remote-person vault-allow <name>` (`vault-deny` stops it). This
