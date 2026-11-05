@@ -1,0 +1,56 @@
+name: INFINITO F11-A v3 — neutral TRAIN fit and disjoint TRAIN heldout
+
+on:
+  push:
+    branches: ["experiment/f11a-verify-a3-v3-20261105"]
+    paths:
+      - 'observatory/f11a_verify_v3.py'
+      - 'tests/test_f11a_verify_v3.py'
+      - '.github/workflows/infinito-f11a-verify-v3.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Independence and no-oracle contracts
+        run: python -m unittest tests.test_f11a_verify_v3 -v
+      - name: Retain previous F11-A v2 technical contracts
+        run: python -m unittest tests.test_f11a_train_v2 -v
+
+  verify:
+    needs: contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        replica: [0, 1, 2, 3]
+    env:
+      PYTHONHASHSEED: "0"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Fit on 384 TRAIN worlds and test on 128 disjoint TRAIN worlds
+        run: |
+          python -m observatory.f11a_verify_v3 \
+            --replica ${{ matrix.replica }} \
+            --fit-worlds 384 --holdout-worlds 128 --episodes 30 \
+            --out f11a_verify_v3_artifacts/r${{ matrix.replica }}
+      - name: Preserve neutral training, frozen checkpoint and heldout per-world outcomes
+        uses: actions/upload-artifact@v4
+        with:
+          name: f11a-v3-train-heldout-r${{ matrix.replica }}
+          path: f11a_verify_v3_artifacts/r${{ matrix.replica }}/
+          if-no-files-found: error
+          retention-days: 30

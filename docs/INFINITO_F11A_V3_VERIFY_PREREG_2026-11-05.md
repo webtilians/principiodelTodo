@@ -1,0 +1,24 @@
+# F11-A v3 — control reforzado y verificación prospectiva de transferencia (5 noviembre 2026)
+
+**Enmienda registrada antes del código v3 y antes de abrir cualquier muestra v3.** Se mantiene intacto el prerregistro científico de F11-A en docs/INFINITO_F11A_PREREG_2026-11-05.md, especialmente los gates G0–G5 y las reservas de CONFIRM. Este trabajo parte de la rama de F11-A v2 (PR #88), NO del producto de memoria.
+
+## Hallazgo previo que motiva la intervención
+
+TRAIN v2 (run 42034978959, todos los mundos de evaluación vistos durante TRAIN) produjo A3 91,11% contra A1 80,66% y A2 6,15% en fase nueva. Es **solo un diagnóstico**: A2 tiene horizonte corto y carece de atribución de retrasos, A1 prima experiencias recientes, 20% del comportamiento recolector depende de A3, y se evalúan mundos conocidos. No hay PASS científico.
+
+## Diseño cerrado antes de ejecutar v3
+
+1. **Colector neutro**: reemplazar la recolección dirigida por A3 por la misma exploración aleatoria predeterminada para TODOS los brazos y fases. Almacenar literalmente la misma secuencia de observación/acción/recompensa para los tres aprendizajes; ningún brazo puede escribir ejemplos extras. Las acciones elegidas por A3 durante las evaluaciones solo modifican su memoria de opciones cuando el protocolo permite aprendizaje online; *nunca* reentrenan los otros brazos de forma desigual.
+2. **TRAIN dividido sin contaminar DEV**: mundos TRAIN 61_100_000 + 10_000*r + índices 0..383 para ajustar; índices 384..511 para comprobación de mundos nuevos dentro de la propia partición TRAIN. Ninguno de los 128 mundos de control se incorpora al aprendizaje inicial. Se usará DEV únicamente cuando terminen verificaciones de integridad, costes y ausencia de fugas en TRAIN; CONFIRM 61_300_000+ y familias compuestas 61_400_000+ permanecen sellados.
+3. **A1 mejorado**: recuperar episodios originales (sin Q-table persistente), mantener candidatos de antigüedad distribuida y selección por éxito, similitud de observación y vigencia inferida de la experiencia. Registrar K y número de pasos consultados. Implementar la condición alternativa que prefiere episodio más reciente y medir ambos a presupuesto K igual como sensibilidad, sin seleccionar según resultados de DEV.
+4. **A2 mejorado**: aprender efectos de acciones a partir de CAMBIOS PÚBLICOS en observaciones en ventanas temporales 1–3, sin consumir `world.roles`, `Simulator.pending`, semilla, fase de reglas ni verdad del evaluador. Planificar al menos 12 pasos con una representación de creencia sobre efectos pendientes y condiciones de éxito aprendidas de trayectorias reales; si algún atajo de reglas es codificado manualmente, etiquetarlo como *control guiado por el esquema*, no como política aprendida. A3 y su ablación comparten EXACTAMENTE el mismo A2 para fallback.
+5. **A3**: conserva opciones de experiencias exitosas; la selección/penalización de opciones debe depender solo de éxito/fracaso propio. Registrar reutilizaciones, contradicciones, abortos, bytes y llamadas. Comparar A3 con A3_sin_opciones y con A1 y A2 reforzados. Añadir una heurística privilegiada A4 solo como límite descriptivo.
+6. **Transferencia**: mundos heldout de TRAIN nunca usados para construir episodios, bajo fase original y cambiada; extraer curvas de 20 episodios por mundo tras una ruptura observable pero no anunciada al actor, sin cambiar la física después de ver resultados. Reportar transferencia de instancias nuevas de la misma familia (NO composición ni nuevos tipos de herramientas). Si se abre DEV, las 128 semillas preregistradas por réplica se usan solo para selección, no PASS.
+7. **Fidelidad y costes**: registrar bytes serializados de cada memoria, llamadas de modelo/recuperación/planificación, tiempo, número de episodios, decisiones y trazas íntegras. Si no se demuestra que A3 <=1,25x A2 en coste total equivalente, bloquear DEV/CONFIRM. Auditar actor sin acceso a método privado o datos ocultos. Un efecto de memoria real en A1 nunca debe sustituirse por una política Q agregada.
+8. **Ceguera**: preregistrar esta enmienda ANTES de implementar y ejecutar TRAIN v3. Si se ajustan hiperparámetros tras ver TRAIN, documentar cada cambio. No tocar ni reusar las semillas CONFIRM para tuning, y no declarar PASS a partir de TRAIN/DEV.
+
+## Decisión de progreso
+
+Un pipeline que no logra los contratos de igualdad de evidencia, costes o ausencia de acceso privilegiado es **inconcluso**: no consume DEV. Si A3 pierde frente a controles más competentes en TRAIN heldout, reportarlo sin cambiar gates; solo se podrá proponer un estudio posterior separado. Un éxito en TRAIN heldout permitiría abrir DEV con el protocolo previamente congelado, pero todavía no justificaría CONFIRM. La eventual prueba composicional G2 exige una familia composicional independiente y auditoría por mundo; **no inferirla de nuevas semillas del mismo generador**.
+
+**Este texto NO contiene resultados v3.**
