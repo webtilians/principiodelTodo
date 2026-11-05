@@ -23,7 +23,7 @@ MAX_EPISODES = 30
 HORIZON = 12
 PROBES_PER_WORLD = 2
 CHANGE_AT = 15
-PLAN_DEPTH = 4
+PLAN_DEPTH = 5
 RECALL_K = 8
 ROLES = ("charge", "gather", "route", "deliver")
 
@@ -175,7 +175,12 @@ class Episodic:
             return rng.choice(ACTIONS)
         # Retrieve up to K recent instances. Compare complete episodes rather
         # than averaging actions; prefer successful and shorter solutions.
-        candidates = matches[-RECALL_K:]
+        recent = list(matches[-RECALL_K:])
+        # Reserve an equal number of retrieval slots for positive examples,
+        # without constructing or caching a policy/value table.
+        positive = [item for item in reversed(matches)
+                    if self.episodes[item[0]][1]][:RECALL_K]
+        candidates = list(dict.fromkeys(recent + positive))
         best = min(candidates, key=lambda item: (
             not self.episodes[item[0]][1],
             len(self.episodes[item[0]][0]) - item[1],
@@ -280,6 +285,7 @@ class OptionController:
     def __init__(self, options: Options, effects: Effects, *, enabled: bool = True):
         self.options, self.effects, self.enabled = options, effects, enabled
         self.trace = None
+        self.selected_trace = None
         self.cursor = 0
         self.reused = 0
         self.aborted = False
@@ -289,13 +295,14 @@ class OptionController:
             return self.effects.choose(obs, rng)
         if self.trace is None and self.cursor == 0:
             self.trace = self.options.start(tuple(obs))
+            self.selected_trace = self.trace
         if self.trace is not None:
             if self.cursor < len(self.trace) and self.trace[self.cursor][0] == tuple(obs):
                 action = self.trace[self.cursor][1]
                 self.cursor += 1
                 self.reused += 1
                 return action
-            self.aborted = True
+            self.aborted = self.cursor < len(self.trace)
             self.trace = None
         return self.effects.choose(obs, rng)
 
@@ -338,8 +345,7 @@ def train(replica: int, worlds: int = MAX_WORLDS, episodes: int = MAX_EPISODES,
     file = None
     if out:
         out.mkdir(parents=True, exist_ok=True)
-        file = gzip.open(out / "train_events.jsonl.gz", "wt", encoding="utf-8", mtime=0) if False else gzip.open(
-            out / "train_events.jsonl.gz", "wt", encoding="utf-8")
+        file = gzip.open(out / "train_events.jsonl.gz", "wt", encoding="utf-8")
     try:
         for i in range(worlds):
             world = World.generate(train_seed(replica, i))
@@ -350,7 +356,7 @@ def train(replica: int, worlds: int = MAX_WORLDS, episodes: int = MAX_EPISODES,
                 chosen = controller.choose if controlled else react
                 steps, resolved = episode(world, chosen, world.seed * 100 + j, phase)
                 if controlled:
-                    options.feedback(controller.trace, success(steps))
+                    options.feedback(controller.selected_trace, success(steps))
                     training["policy_collector_episodes"] += 1
                 record = {"split": "TRAIN", "world_seed": world.seed, "episode": j,
                           "phase_for_audit_only": phase, "source": "options" if controlled else "random",
