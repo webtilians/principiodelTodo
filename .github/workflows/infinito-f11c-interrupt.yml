@@ -1,0 +1,57 @@
+name: INFINITO F11-C — Learned mid-episode interruption (TRAIN-only)
+
+on:
+  push:
+    branches: ["experiment/f11c-learn-intraepisode-interruption-20261105"]
+    paths:
+      - 'observatory/f11c_interrupt.py'
+      - 'tests/test_f11c_interrupt.py'
+      - '.github/workflows/infinito-f11c-interrupt.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: F11-C contracts (no hidden state; heldout disjoint)
+        run: python -m unittest tests.test_f11c_interrupt -v
+      - name: Preserve F11-A v3 contracts
+        run: python -m unittest tests.test_f11a_verify_v3 -v
+
+  training:
+    needs: contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        replica: [0, 1, 2, 3]
+    env:
+      PYTHONHASHSEED: "0"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Learn intra-episode abort on TRAIN and verify on disjoint TRAIN worlds
+        run: |
+          python -m observatory.f11c_interrupt \
+            --replica ${{ matrix.replica }} \
+            --base-worlds 256 --gate-worlds 128 --heldout-worlds 128 \
+            --base-episodes 30 --gate-episodes 30 \
+            --out f11c_artifacts/r${{ matrix.replica }}
+      - name: Preserve per-world paired episode data and frozen models
+        uses: actions/upload-artifact@v4
+        with:
+          name: f11c-train-heldout-r${{ matrix.replica }}
+          path: f11c_artifacts/r${{ matrix.replica }}/
+          if-no-files-found: error
+          retention-days: 30
