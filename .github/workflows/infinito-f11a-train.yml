@@ -1,0 +1,54 @@
+name: INFINITO F11-A — TRAIN only (four replicas)
+
+on:
+  push:
+    branches: ["experiment/f11a-train-20261105"]
+    paths:
+      - 'observatory/f11a_train.py'
+      - 'tests/test_f11a_train.py'
+      - '.github/workflows/infinito-f11a-train.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: TRAIN-only technical contracts
+        run: python -m unittest tests.test_f11a_train -v
+
+  train:
+    needs: contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        replica: [0, 1, 2, 3]
+    env:
+      PYTHONHASHSEED: "0"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Shared-experience TRAIN, never DEV or CONFIRM
+        run: |
+          python -m observatory.f11a_train \
+            --replica ${{ matrix.replica }} \
+            --worlds 512 --episodes 30 --probes 2 \
+            --out f11a_train_artifacts/replica-${{ matrix.replica }}
+      - name: Upload raw synthetic training experiences and model snapshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: f11a-train-replica-${{ matrix.replica }}
+          path: f11a_train_artifacts/replica-${{ matrix.replica }}/
+          if-no-files-found: error
+          retention-days: 14
