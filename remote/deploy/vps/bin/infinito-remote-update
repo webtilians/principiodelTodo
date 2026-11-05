@@ -39,7 +39,7 @@ fi
 
 healthy() { curl -fs --max-time 3 -o /dev/null "http://127.0.0.1:$PORT/health"; }
 install_app() { "$VENV/bin/pip" install -q --disable-pip-version-check --force-reinstall --no-deps "$APP" \
-  && "$VENV/bin/pip" install -q --disable-pip-version-check "$APP[mcp,semantic]"; }
+  && "$VENV/bin/pip" install -q --disable-pip-version-check "$APP[mcp,semantic,vault]"; }
 previous=$(git -C "$APP" rev-parse -q --verify HEAD 2>/dev/null || true)
 new=""
 rollback() {

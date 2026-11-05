@@ -181,6 +181,19 @@ class Accounts:
             self._write(accounts)
         return key
 
+    def vault_allowed(self, name: str) -> bool:
+        return bool(self._read().get(name, {}).get("vault"))
+
+    def allow_vault(self, name: str, allowed: bool = True) -> bool:
+        """The server's owner lets an account use the vault on the server (remote_vault.py), or stops it."""
+        with self._lock:
+            accounts = self._read()
+            if name not in accounts:
+                return False
+            accounts[name]["vault"] = allowed
+            self._write(accounts)
+        return True
+
     def remove(self, name: str) -> bool:
         with self._lock:
             accounts = self._read()
@@ -450,19 +463,11 @@ def build_auth(accounts: Accounts, grants: Grants, issuer: str,
     async def home(request: Request):
         return _home_page(_texts(request)["lang"], f"{issuer}/mcp")
 
-    async def vault_page(request: Request):
-        from . import remote_vault
+    from . import remote_vault
 
-        t = _texts(request)
-        found = grants.find(remote_vault.GRANT, request.query_params.get("r", ""))
-        if found is None:
-            return _page(t, t["expired_title"], f"<p>{t['vault_expired']}</p>", status=400)
-        return _page(t, t["vault_title"], remote_vault.page_body(t, found["data"]["action"], found["data"]["entry"]))
-
-    app = Starlette(routes=routes + resource_routes + [Route("/login", sign_in_page, methods=["GET"]),
-                                                       Route("/login", sign_in, methods=["POST"]),
-                                                       Route("/vault", vault_page, methods=["GET"]),
-                                                       Route("/", home, methods=["GET"])])
+    app = Starlette(routes=routes + resource_routes + remote_vault.routes(accounts, grants, one_at_a_time)
+                    + [Route("/login", sign_in_page, methods=["GET"]), Route("/login", sign_in, methods=["POST"]),
+                       Route("/", home, methods=["GET"])])
 
     def bearer(token: str) -> Optional[Tuple[str, bytes]]:
         found = grants.find("access", token)
@@ -512,12 +517,6 @@ _TEXT = {
         "moved": "Tu memoria anterior ya está en esta cuenta, y la dirección privada ha dejado de funcionar.",
         "not_moved": "Esa dirección privada no funciona, así que tu memoria empieza vacía.",
         "continue": "Ya lo he guardado, continuar",
-        "vault_title": "Tu bóveda",
-        "vault_add": "Tu IA te pide guardar <b>{entry}</b>.",
-        "vault_reveal": "Tu IA te pide mostrar <b>{entry}</b>.",
-        "vault_soon": "La bóveda todavía está en construcción y no guarda nada. No escribas ninguna clave en ningún "
-                      "sitio; puedes cerrar esta página.",
-        "vault_expired": "Este enlace ha caducado. Pídele a tu IA uno nuevo.",
     },
     "en": {
         "lang": "en", "brand": "INFINITO · your memory",
@@ -550,12 +549,6 @@ _TEXT = {
         "moved": "Your earlier memory is now in this account, and the private address no longer works.",
         "not_moved": "That private address does not work, so your memory starts empty.",
         "continue": "I have kept it, continue",
-        "vault_title": "Your vault",
-        "vault_add": "Your AI asks you to keep <b>{entry}</b>.",
-        "vault_reveal": "Your AI asks you to show <b>{entry}</b>.",
-        "vault_soon": "The vault is still being built and keeps nothing. Do not type a secret anywhere; you can close "
-                      "this page.",
-        "vault_expired": "This link has expired. Ask your AI for a new one.",
     },
 }
 

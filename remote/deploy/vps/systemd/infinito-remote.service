@@ -25,6 +25,8 @@ MemoryHigh=300M
 MemoryMax=400M
 TasksMax=64
 UMask=0077
+# A master password is in this process's memory while a vault page is answered: no core dumps of it.
+LimitCORE=0
 NoNewPrivileges=true
 PrivateTmp=true
 PrivateDevices=true
