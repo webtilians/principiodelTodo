@@ -660,13 +660,14 @@ _HOME = {
                         "lo que permite cada plan: si ChatGPT lee tu memoria pero no guarda, conéctala también en "
                         "Claude. En una cuenta de empresa, el conector lo crea el administrador.",
         "chatgpt_steps": [
-            "En <b>chatgpt.com</b>: Configuración → Aplicaciones y conectores → Configuración avanzada → activa el "
-            "<b>modo desarrollador</b>. Si ves <b>Plugins</b>, ve ahí: <b>+</b> → Añadir servidor MCP personalizado, "
-            "sin modo desarrollador.",
-            "Crea un conector: nombre <b>INFINITO</b>, la dirección de arriba y autenticación <b>OAuth</b>.",
+            "En <b>chatgpt.com/plugins</b>: <b>Añadir</b> → <b>Añadir servidor MCP personalizado</b>. Si no aparece, "
+            "activa antes el modo desarrollador en Ajustes → Aplicaciones y conectores → Configuración avanzada.",
+            "Nombre <b>INFINITO</b>, la dirección de arriba como URL del servidor y autenticación <b>OAuth</b>. Marca "
+            "«Lo entiendo y quiero continuar» y pulsa <b>Crear como complemento</b>.",
             "Entra con tu usuario y tu contraseña de INFINITO (o crea tu memoria si es la primera vez).",
-            "En cada chat, pulsa <b>+</b> → modo desarrollador y activa INFINITO. Con Plugins, escribe "
-            "<b>@INFINITO</b> en el mensaje.",
+            "En cada mensaje que necesite tu memoria, escribe <b>@INFINITO</b> y elígelo de la lista.",
+            "Para que no pregunte antes de cada cambio: Ajustes → Complementos → INFINITO → Permisos → "
+            "<b>Permitir todo</b>.",
         ],
         "try": "Pruébalo",
         "try_text": "Dile a una «recuerda que mi color favorito es el verde» y pregúntale a la otra «¿qué sabes de mí?».",
@@ -705,12 +706,13 @@ _HOME = {
                         "what each plan allows: if ChatGPT reads your memory but does not save, connect Claude as "
                         "well. On a company account, the admin creates the connector.",
         "chatgpt_steps": [
-            "On <b>chatgpt.com</b>: Settings → Apps & Connectors → Advanced settings → turn on <b>Developer mode</b>. "
-            "If you see <b>Plugins</b>, go there instead: <b>+</b> → Add custom MCP server, with no Developer mode.",
-            "Create a connector: name <b>INFINITO</b>, the address above and authentication <b>OAuth</b>.",
+            "On <b>chatgpt.com/plugins</b>: <b>Add</b> → <b>Add custom MCP server</b>. If it is not there, first turn "
+            "on Developer mode in Settings → Apps & Connectors → Advanced settings.",
+            "Name it <b>INFINITO</b>, with the address above as the server URL and authentication <b>OAuth</b>. Tick "
+            "“I understand and want to continue” and click <b>Create as a plugin</b>.",
             "Sign in with your INFINITO username and password (or create your memory if it is your first time).",
-            "In each chat, click <b>+</b> → Developer mode and turn INFINITO on. With Plugins, type <b>@INFINITO</b> "
-            "in your message.",
+            "In each message that needs your memory, type <b>@INFINITO</b> and pick it from the list.",
+            "So it does not ask before each change: Settings → Plugins → INFINITO → Permissions → <b>Allow all</b>.",
         ],
         "try": "Try it",
         "try_text": "Tell one “remember that my favourite colour is green” and ask the other “what do you know about me?”.",
