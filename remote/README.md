@@ -15,11 +15,12 @@ that app is connected. Each other app is one more sign-in. To tell someone, send
 
 - **Claude** (desktop, web, phone and Claude Code in the app): Settings → Connectors → **Add custom
   connector**, name `INFINITO`, URL `https://<host>/mcp`, then **Connect**.
-- **ChatGPT** (a paid plan, on the web): Settings → Apps & Connectors → Advanced settings, turn on
-  **Developer mode**; create a connector with that URL and authentication **OAuth**. Where **Plugins**
-  appears, it is **+** → Add custom MCP server instead, with no Developer mode. OpenAI's help lists writing
-  for Business and Enterprise/Edu and read/fetch for Pro, and this changes often: if ChatGPT reads the
-  memory but does not save, connect Claude as well.
+- **ChatGPT** (a paid plan, on the web): on `chatgpt.com/plugins`, **Add** → Add custom MCP server, with that
+  URL and authentication **OAuth**, then **Create as a plugin**. Where that is missing, turn on **Developer
+  mode** first in Settings → Apps & Connectors → Advanced settings. Type `@INFINITO` in each message that needs
+  the memory. A connector made before a server update keeps its old tools until **Refresh tools** in its
+  settings. OpenAI's help lists writing for Business and Enterprise/Edu and read/fetch for Pro, and this changes
+  often: if ChatGPT reads the memory but does not save, connect Claude as well.
 - **Codex** (app and terminal): `codex mcp add infinito --url https://<host>/mcp`, then
   `codex mcp login infinito` to sign in.
 - **Claude Code in a terminal**: `claude mcp add --transport http --scope user infinito https://<host>/mcp`,
