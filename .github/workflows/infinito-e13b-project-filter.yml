@@ -1,0 +1,49 @@
+name: INFINITO E13-B — original project-filter isolation probe
+
+on:
+  push:
+    branches:
+      - experiment/e13b-sets-temporal-relations-20261105
+    paths:
+      - docs/INFINITO_E13B_PROJECT_FILTER_LAUNCH.md
+
+permissions:
+  contents: read
+
+jobs:
+  sandbox_project_filter:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Synthetic project separation on authentic AgentMemory API, no production
+        run: |
+          python -m scripts.probe_e13b_project_filter | tee e13b-project-filter-diagnostic.txt
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          line=Path('e13b-project-filter-diagnostic.txt').read_text()
+          result=json.loads(line.split('E13B_PROJECT_FILTER_DIAGNOSTIC ',1)[1])
+          assert result['no_user_data']
+          if result['strict_project_isolation']:
+              print('E13B_PRODUCT_PROJECT_FILTER_ISOLATED')
+          else:
+              print('E13B_PRODUCT_PROJECT_FILTER_CROSS_PROJECT_MATCH_CONFIRMED')
+          summary=[
+              '# E13-B DEV: existing AgentMemory project filter diagnostic',
+              '**Original product project filtering is strict:** '+str(result['strict_project_isolation']),
+              'Projects returned: '+str(result['projects_in_project_filtered_result']),
+              'Foreign synthetic record in filtered recall: '+str(result['direct_product_returned_foreign_record']),
+              'This is a diagnostic of existing filtering semantics, NOT a fix and NOT confirmation of E13-B.',
+              'E13-B G0/G3 cannot be declared PASS if the original product returns another project as scoped evidence.'
+          ]
+          Path(os.environ['GITHUB_STEP_SUMMARY']).write_text('\n'.join(summary))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: e13b-sandbox-project-filter-diagnostic
+          path: e13b-project-filter-diagnostic.txt
+          retention-days: 90

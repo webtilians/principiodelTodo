@@ -1,0 +1,81 @@
+name: INFINITO E13-B — DEV four architectures, tenant and graph tests
+
+on:
+  push:
+    branches:
+      - experiment/e13b-sets-temporal-relations-20261105
+    paths:
+      - docs/INFINITO_E13B_DEV_LAUNCH.md
+
+permissions:
+  contents: read
+
+jobs:
+  dev:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install reproducible E13-A semantic model dependencies
+        run: python -m pip install -r observatory/requirements_e13a.txt
+      - name: Run E13-A original contracts and E13-B new contracts
+        run: |
+          python -m pytest -q tests/test_e13a.py tests/test_e13b.py
+      - name: Export actual shared semantic model
+        run: |
+          python -m src.infinito3.semantic save /tmp/infinito-e13b-model
+      - name: Record semantic model hashes and version
+        run: |
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          x=Path('/tmp/infinito-e13b-model')
+          assert x.is_dir()
+          hashes={p.name:hashlib.sha256(p.read_bytes()).hexdigest()
+                  for p in x.iterdir() if p.is_file()}
+          assert hashes
+          Path('e13b-model-shas.json').write_text(json.dumps(hashes,indent=2))
+          print('MODEL_E13B_SHA',hashes)
+          PY
+      - name: Generate first DEVELOPMENT-only partition (8 worlds) and preliminary report
+        run: |
+          python -m observatory.e13b \
+            --partition DEV \
+            --model /tmp/infinito-e13b-model \
+            --output e13b-dev
+      - name: Independent evidence-only audit from original public artifacts
+        run: |
+          python scripts/audit_e13b.py e13b-dev | tee e13b-dev-audit.json
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          s=json.loads(Path('e13b-dev/summary.json').read_text())['summary']
+          lines=[
+            '# E13-B DEV (NOT a confirmation)',
+            '**DEV only — all policies and gates fixed in preregistration.**',
+            '| Architecture | Primary correct / 160 | Relation correct / 32 | Current / 32 | Mean bytes |',
+            '|---|---:|---:|---:|---:|',
+          ]
+          for arm,m in s['systems'].items():
+              lines.append(
+                  f"| {arm} | {m['correct']}/{m['total']} | "
+                  f"{m['by_family']['relation']['correct']}/32 | "
+                  f"{m['by_family']['current']['correct']}/32 | "
+                  f"{m['mean_storage_bytes']:.0f} |")
+          lines.append('G0..G4 DEV: '+str(s['gates']))
+          Path(os.environ['GITHUB_STEP_SUMMARY']).write_text('\n'.join(lines))
+          print('E13B_DEV_FINAL',s['gates'])
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e13b-dev-first-8-worlds
+          path: |
+            e13b-dev/
+            e13b-dev-audit.json
+            e13b-model-shas.json
+          if-no-files-found: warn
+          retention-days: 90
