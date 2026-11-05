@@ -4,7 +4,8 @@
     infinito-remote verify-backup <file>          # is this copy whole?
     infinito-remote restore <file>                # puts a copy back, with the service stopped
 
-A copy holds what is already sealed on the server's disk: each memory.sealed, and the files that hold each
+A copy holds what is already sealed on the server's disk: each memory.sealed, each vault (a KeePass file
+locked under its master password, with the sealed list of its names), and the files that hold each
 person's key wrapped under their password or address (accounts.json, people.json). Without the password
 or the address a copy opens nothing, so it can be kept anywhere. What can be read in one is the usernames
 and how large each memory is. A plain memory left from before sealing is never copied, and neither are
@@ -31,7 +32,10 @@ SEALED = b"INF1"  # how a sealed memory starts (remote.py)
 MANIFEST = "MANIFEST.json"
 NAME = re.compile(r"infinito-\d{8}-\d{6}\.tar\.gz")
 KEY_FILES = ("accounts.json", "people.json")
-MEMBER = re.compile(r"(accounts\.json|people\.json|(accounts|people)/[a-z0-9][a-z0-9-]*/memory\.sealed)")
+KDBX_MAGIC = b"\x03\xd9\xa2\x9a"  # how a vault starts: a KeePass file, locked under its master password
+PERSON_FILES = ("memory.sealed", "vault.kdbx", "vault-names.sealed")
+MEMBER = re.compile(r"(accounts\.json|people\.json|(accounts|people)/[a-z0-9][a-z0-9-]*/"
+                    r"(memory\.sealed|vault\.kdbx|vault-names\.sealed))")
 
 
 def _checksum(data: bytes) -> str:
@@ -40,10 +44,11 @@ def _checksum(data: bytes) -> str:
 
 def _files_to_copy(data_dir: Path) -> Dict[str, bytes]:
     files = {name: (data_dir / name).read_bytes() for name in KEY_FILES if (data_dir / name).exists()}
-    for path in sorted(data_dir.glob("*/*/memory.sealed")):
-        relative = path.relative_to(data_dir).as_posix()
-        if MEMBER.fullmatch(relative):
-            files[relative] = path.read_bytes()
+    for kept in PERSON_FILES:
+        for path in sorted(data_dir.glob(f"*/*/{kept}")):
+            relative = path.relative_to(data_dir).as_posix()
+            if MEMBER.fullmatch(relative):
+                files[relative] = path.read_bytes()
     return files
 
 
@@ -95,6 +100,8 @@ def _read(path: Path) -> Dict[str, bytes]:
             raise ValueError(f"{name} is damaged")
         if name.endswith("memory.sealed") and not data.startswith(SEALED):
             raise ValueError(f"{name} is not sealed")
+        if name.endswith("vault.kdbx") and not data.startswith(KDBX_MAGIC):
+            raise ValueError(f"{name} is not a KeePass file")
     return files
 
 

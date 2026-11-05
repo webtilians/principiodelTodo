@@ -16,9 +16,9 @@ them. A memory is opened, in this process only, while one of its owner's request
 does not stop is someone who changes the server's code to capture passwords or tokens as they arrive;
 for that the person has to trust whoever runs the server, as with any service.
 
-The memory tools are the same four as the local server (mcp_server.py). There is no vault here: its
-windows open on the screen of the machine that runs the server, and that is not the user's; the
-local server serves it alone (INFINITO_LOCAL_MEMORY=off).
+The memory tools are the same as the local server's (mcp_server.py). The local vault's windows would open on
+the screen of the machine that runs the server, which is not the user's, so a computer's vault stays on its
+local server (INFINITO_LOCAL_MEMORY=off). The vault here works through a page instead (remote_vault.py).
 
     infinito-remote serve --port 8500 --url https://memory.example.org   # sign-in needs the public URL
     infinito-remote list           # accounts and addresses
@@ -351,10 +351,16 @@ def build_app(people: People, issuer: Optional[str] = None):
             return server.tool(description=remote_vault.TOOL_DESCRIPTIONS[name],
                                annotations=ToolAnnotations(**remote_vault.TOOL_HINTS), meta=signed_in)
 
-        def vault_link(ctx: Context, action: str, entry: str) -> str:
-            state = ctx.request_context.request.scope["state"]
+        def refused_vault(state: dict) -> Optional[str]:
             if state["infinito_memories"] != "accounts":
                 return remote_vault.NEEDS_ACCOUNT
+            return None if accounts.vault_allowed(state["infinito_person"]) else remote_vault.NOT_INVITED
+
+        def vault_link(ctx: Context, action: str, entry: str) -> str:
+            state = ctx.request_context.request.scope["state"]
+            refused = refused_vault(state)
+            if refused:
+                return refused
             return remote_vault.answer_with_link(issuer, action, entry, lambda data: grants.issue(
                 remote_vault.GRANT, client_id="", seconds=remote_vault.LINK_SECONDS, account=state["infinito_person"],
                 key=state["infinito_key"], data=data))
@@ -370,7 +376,12 @@ def build_app(people: People, issuer: Optional[str] = None):
         @vault_tool("vault_list")
         def vault_list(ctx: Context) -> str:
             state = ctx.request_context.request.scope["state"]
-            return remote_vault.NOTHING_KEPT if state["infinito_memories"] == "accounts" else remote_vault.NEEDS_ACCOUNT
+            refused = refused_vault(state)
+            if refused:
+                return refused
+            person = state["infinito_person"]
+            vault = remote_vault.ServerVault(accounts.memory_folder(person), person)
+            return remote_vault.list_answer(vault.names(state["infinito_key"]))
 
     # DNS rebinding protection checks Host and Origin, which behind a proxy and from ChatGPT's servers are
     # neither 127.0.0.1 nor known in advance. The secret address is what keeps a memory private.
@@ -420,6 +431,8 @@ def main(argv: Optional[List[str]] = None) -> None:
     commands.add_parser("add", help="give someone a private address (the older way)").add_argument("name")
     commands.add_parser("remove", help="delete someone's memory and end their sign-ins or address").add_argument("name")
     commands.add_parser("list", help="who has a memory: accounts and addresses")
+    commands.add_parser("vault-allow", help="let an account use the vault on this server").add_argument("name")
+    commands.add_parser("vault-deny", help="stop an account from using the vault on this server").add_argument("name")
     commands.add_parser("copy-local", help="copy this computer's memory into an address's memory")
     backup = commands.add_parser("backup", help="write one more copy of the sealed memories into a folder")
     backup.add_argument("folder")
@@ -465,6 +478,13 @@ def main(argv: Optional[List[str]] = None) -> None:
             removed = True
         print("Removed: the memory is deleted and its sign-ins or address no longer work." if removed
               else f"Nobody called {args.name}.")
+    elif args.command in ("vault-allow", "vault-deny"):
+        from .remote_accounts import Accounts
+
+        allowed = args.command == "vault-allow"
+        done = Accounts(people.folder).allow_vault(args.name, allowed)
+        print((f"{args.name} can now use the vault." if allowed else f"{args.name} can no longer use the vault.")
+              if done else f"No account called {args.name}.")
     elif args.command == "list":
         from .remote_accounts import Accounts
 

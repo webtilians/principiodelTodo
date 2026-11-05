@@ -46,10 +46,25 @@ password signs every app out, so a lost phone stops working too.
   anyone.
 - Forgetting works as in the local version: deleted for good, with the history of each fact. Older backups
   keep it, sealed, until they age out (see Backups).
-- A vault that works from any app is being built: `vault_add` and `vault_reveal` answer with a link to a page on
-  this server, where whatever is secret is typed or shown, and no tool ever returns a value. It keeps nothing yet.
-- There is no working vault here for now: its windows can only open on your own screen. Keep the local server for it
-  (below).
+
+## A vault from any app
+
+ChatGPT or a phone cannot open a window on your computer, so on the server `vault_add` and `vault_reveal` answer
+with a link to a page here. The master password and the values are typed and shown on that page: no tool can
+receive a value or returns one, so they never reach the agent, its model or the chat. The agent sees names only.
+
+- **It is a standard KeePass file** (`accounts/<name>/vault.kdbx`): a copy opens with KeePassXC or KeePassDX.
+- **It is by invitation.** On the server: `infinito-remote-person vault-allow <name>` (`vault-deny` stops it). This
+  server's owner keeps other people's locked secrets, which should be a choice.
+- **Choose a master password you will not lose:** at least 14 characters, not your INFINITO password. There is no
+  recovery code: without it, nobody can open the vault.
+- **What it cannot stop:** the master password reaches the server to open the file, like your INFINITO password does,
+  so someone who changes the server's code can capture it. A copy alone gives only a locked file, whose strength is
+  your master password's. Check the address before typing: a link in a chat can be forged. Old copies keep the secrets
+  they had, under the master password of that day, until they age out (see Backups).
+- **Until the server has its own domain and copies off it, keep nothing critical there.**
+
+Keep the local server (below) if you want your secrets on your own computer only.
 
 ## A memory for work
 
@@ -118,9 +133,9 @@ memory into an address's memory.
 
 ## Backups
 
-A copy holds only what is already sealed: each memory, and each person's key locked under their password or
-address. Without those a copy opens nothing, so it can be kept anywhere; the usernames and the size of each
-memory are all that can be read in one. A person who loses their password and recovery code can't be saved
+A copy holds only what is already sealed: each memory, each vault locked under its master password, and each
+person's key locked under their password or address. Without those a copy opens nothing, so it can be kept anywhere;
+the usernames and the size of each memory and vault are all that can be read in one. A person who loses their password and recovery code can't be saved
 by a backup either: the copy is as locked as the original.
 
 **Forgetting and copies.** `forget` deletes a memory for good from the live memory at once, but it stays,

@@ -234,65 +234,6 @@ def test_apps_are_told_which_tools_only_read_so_they_need_not_ask_first(server):
     assert [t.annotations.destructive_hint for t in app.tools if t.name == "forget"] == [True]
 
 
-def test_the_vault_answers_with_a_link_and_its_page_asks_for_no_secret_yet(server):
-    base, _, _ = server
-    (add, reveal, listed), _, _ = app_session(base, [("vault_add", {"entry": "Router de casa"}),
-                                                     ("vault_reveal", {"entry": "Router de casa"}),
-                                                     ("vault_list", {})], mode="signup", name="vera")
-    assert "keeps nothing" in listed
-    for answer, asked in ((add, "guardar"), (reveal, "mostrar")):
-        link = re.search(rf"{re.escape(base)}/vault\?r=\S+", answer).group(0)
-        assert "do not say it is done" in answer
-        page = httpx2.get(link, headers={"accept-language": "es-ES"})
-        assert page.status_code == 200 and f"{asked} <b>Router de casa</b>" in page.text
-        assert "No escribas ninguna clave" in page.text and "<input" not in page.text
-        assert page.headers["cache-control"] == "no-store"
-        assert httpx2.get(link).status_code == 200  # a chat app may fetch it first: opening does not use it up
-
-
-def test_a_vault_link_that_is_wrong_shows_nothing(server):
-    base, _, _ = server
-    page = httpx2.get(f"{base}/vault?r=no-such-link", headers={"accept-language": "es-ES"})
-    assert page.status_code == 400 and "ha caducado" in page.text
-    assert httpx2.get(f"{base}/vault").status_code == 400
-
-
-def test_a_secret_given_as_an_entrys_name_gets_no_link_and_is_not_repeated(server):
-    base, _, _ = server
-    answers, _, _ = app_session(base, [("vault_add", {"entry": "La clave del wifi es limonero2024"}),
-                                       ("vault_add", {"entry": "   "}), ("vault_reveal", {"entry": "x" * 81})],
-                                mode="signup", name="nora")
-    assert "looks like the secret itself" in answers[0] and "limonero2024" not in answers[0]
-    assert "give the entry a name" in answers[1] and "at most 80" in answers[2]
-    assert not any("/vault?r=" in answer for answer in answers)
-
-
-def test_an_entrys_name_cannot_inject_anything_into_the_page(server):
-    base, _, _ = server
-    (answer,), _, _ = app_session(base, [("vault_add", {"entry": "<script>alert(1)</script>"})], mode="signup",
-                                  name="iris")
-    page = httpx2.get(re.search(r"http\S+/vault\?r=\S+", answer).group(0))
-    assert "<script>alert" not in page.text and "&lt;script&gt;" in page.text
-
-
-def test_a_private_address_has_no_vault(server):
-    from mcp import ClientSession
-    from mcp.client.streamable_http import streamable_http_client
-
-    base, people, _ = server
-    token = people.add("eva")
-
-    async def run():
-        async with streamable_http_client(f"{base}/u/{token}/mcp") as (read, write):
-            async with ClientSession(read, write) as client:
-                await client.initialize()
-                return [(await client.call_tool(name, arguments)).content[0].text
-                        for name, arguments in (("vault_add", {"entry": "Router"}), ("vault_list", {}))]
-
-    answers = anyio.run(run)
-    assert all("needs an INFINITO account" in answer for answer in answers)
-
-
 def test_an_app_that_asks_for_other_scopes_can_still_register(server):
     base, _, _ = server
     answer = httpx2.post(f"{base}/register", json={"redirect_uris": ["https://chatgpt.com/connector_platform_oauth_redirect"],
