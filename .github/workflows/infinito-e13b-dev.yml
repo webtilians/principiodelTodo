@@ -42,7 +42,7 @@ jobs:
           PY
       - name: Generate first DEVELOPMENT-only partition (8 worlds) and preliminary report
         run: |
-          python observatory/e13b.py \
+          python -m observatory.e13b \
             --partition DEV \
             --model /tmp/infinito-e13b-model \
             --output e13b-dev
