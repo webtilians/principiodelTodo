@@ -1,0 +1,58 @@
+name: INFINITO F12-B — Frozen stronger LLM competence preflight
+
+on:
+  push:
+    branches: ["experiment/f12b-frozen-llm-competence-preflight-20261105"]
+    paths:
+      - 'observatory/f12b_llm_competence.py'
+      - 'tests/test_f12b_llm_competence.py'
+      - '.github/workflows/infinito-f12b-frozen-llm-competence.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: F12-B synthetic tools, no oracle and no fake-data contracts
+        run: python -m unittest tests.test_f12b_llm_competence -v
+
+  competent-llm-preflight:
+    needs: contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      PYTHONHASHSEED: "0"
+      TOKENIZERS_PARALLELISM: "false"
+      HF_HUB_DISABLE_TELEMETRY: "1"
+      OMP_NUM_THREADS: "2"
+      MKL_NUM_THREADS: "2"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install pinned CPU PyTorch and inference libraries
+        run: |
+          python -m pip install --disable-pip-version-check --index-url https://download.pytorch.org/whl/cpu torch==2.5.1
+          python -m pip install --disable-pip-version-check transformers==4.49.0 huggingface_hub==0.29.3 safetensors==0.5.3
+      - name: Preflight frozen real Qwen 1.5B without any memory
+        run: |
+          python -m observatory.f12b_llm_competence \
+            --model Qwen/Qwen2.5-1.5B-Instruct \
+            --out f12b_preflight_artifacts
+      - name: Upload all per-task observed traces and gate decisions
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: f12b-frozen-1p5b-competence-preflight
+          path: f12b_preflight_artifacts/
+          if-no-files-found: warn
+          retention-days: 30
