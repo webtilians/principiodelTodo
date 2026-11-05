@@ -99,7 +99,9 @@ class GitHubModels:
         headers = {
             "Authorization": "Bearer " + self.token,
             "Content-Type": "application/json",
-            "Accept": "application/vnd.github+json",
+            "Accept": "application/json",
+            "User-Agent": "INFINITO-F12A-Research/1.0",
+            "X-GitHub-Api-Version": "2022-11-28",
         }
         last = None
         for attempt in range(6):
@@ -108,7 +110,20 @@ class GitHubModels:
                 req = urllib.request.Request(ENDPOINT, data=body,
                                              headers=headers, method="POST")
                 with urllib.request.urlopen(req, timeout=60) as response:
-                    obj = json.load(response)
+                    content_type = response.headers.get("Content-Type", "unknown")
+                    http_status = response.status
+                    raw_bytes = response.read(2_000_000)
+                try:
+                    obj = json.loads(raw_bytes)
+                except (ValueError, UnicodeDecodeError) as exc:
+                    # Never log raw provider bodies, which might include sensitive data.
+                    signature = hashlib.sha256(raw_bytes).hexdigest()[:12]
+                    raise ProviderBlocked(
+                        "Provider returned non-JSON: http=%s content_type=%s bytes=%s sha256_prefix=%s"
+                        % (http_status, content_type[:100], len(raw_bytes), signature)
+                    ) from None
+                if not isinstance(obj, dict):
+                    raise ProviderBlocked("Provider returned JSON other than an object")
                 seconds = time.monotonic() - start
                 choices = obj.get("choices") or []
                 content = choices[0].get("message", {}).get("content", "") if choices else ""
