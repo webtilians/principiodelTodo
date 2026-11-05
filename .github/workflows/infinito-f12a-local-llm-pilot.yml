@@ -1,0 +1,59 @@
+name: INFINITO F12-A — frozen LOCAL Qwen LLM / real agent experiences
+
+on:
+  push:
+    branches: ["experiment/f12a-real-llm-experience-learning-20261105"]
+    paths:
+      - 'observatory/f12a_live_llm_experience.py'
+      - 'tests/test_f12a_live_llm_experience.py'
+      - '.github/workflows/infinito-f12a-local-llm-pilot.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: No fake-model scientific evidence; memory and tool sandbox tests
+        run: python -m unittest tests.test_f12a_live_llm_experience -v
+
+  local-llm-pilot:
+    needs: contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    env:
+      PYTHONHASHSEED: '0'
+      TOKENIZERS_PARALLELISM: 'false'
+      HF_HUB_DISABLE_TELEMETRY: '1'
+      OMP_NUM_THREADS: '2'
+      MKL_NUM_THREADS: '2'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install CPU-only PyTorch + frozen-model inference dependencies
+        run: |
+          python -m pip install --disable-pip-version-check --index-url https://download.pytorch.org/whl/cpu torch==2.5.1
+          python -m pip install --disable-pip-version-check transformers==4.49.0 huggingface_hub==0.29.3 safetensors==0.5.3
+      - name: Run genuine frozen Qwen2.5-0.5B-Instruct on CPU; no provider API secret
+        run: |
+          python -m observatory.f12a_live_llm_experience \
+            --backend local \
+            --model Qwen/Qwen2.5-0.5B-Instruct \
+            --out f12a_local_pilot_artifacts
+      - name: Upload source experiences, learned strategy, model revision and evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: f12a-genuine-local-qwen-llm-pilot
+          path: f12a_local_pilot_artifacts/
+          if-no-files-found: warn
+          retention-days: 30
