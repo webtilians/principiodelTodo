@@ -93,6 +93,9 @@ class SimpleFactExtractor:
         (re.compile(r"\bme encanta\s+([^,.!?]+)", re.I), "likes", False),
         (re.compile(r"\bprefiero\s+([^,.!?]+)", re.I), "prefers", False),
     )
+    # A person has one of these at a time, so their values are the history of one fact. "Likes" and "prefers" are
+    # not: "me gusta el café" and "me gusta correr" are two facts that happen to share a predicate.
+    EXCLUSIVE_PREDICATES = frozenset(predicate for _, predicate, exclusive in _PATTERNS if exclusive)
 
     # A value ends where the next clause starts: "Ana y vivo en Madrid" gives
     # the name "Ana", while "Castilla y León" stays whole.
@@ -475,7 +478,7 @@ class SQLiteCognitiveMemoryStore:
                     "SELECT id FROM memories WHERE supersedes_id = ? OR id = ?",
                     (memory_id, row["supersedes_id"] or ""),
                 ).fetchall()
-                if row["fact_subject"] and row["fact_predicate"]:
+                if row["fact_subject"] and row["fact_predicate"] in SimpleFactExtractor.EXCLUSIVE_PREDICATES:
                     related += self._conn.execute(
                         "SELECT id FROM memories WHERE fact_subject = ? AND fact_predicate = ?",
                         (row["fact_subject"], row["fact_predicate"]),
