@@ -252,16 +252,15 @@ def list_answer(items: List[Dict[str, str]]) -> str:
     return "Entries in the vault (names and notes only; values are never shown to you):\n" + "\n".join(lines)
 
 
-def _field(name: str, label: str, kind: str, *, required: bool = True, focus: bool = False, value: str = "") -> str:
+def _field(name: str, label: str, kind: str, *, required: bool = True, value: str = "") -> str:
     return (f'<label for="{name}">{label}</label><input id="{name}" name="{name}" type="{kind}" autocomplete="off" '
-            f'spellcheck="false" value="{html.escape(value)}"{" required" if required else ""}'
-            f'{" autofocus" if focus else ""}>')
+            f'spellcheck="false" value="{html.escape(value)}"{" required" if required else ""}>')
 
 
 def form_body(t: dict, token: str, action: str, entry: str, *, creating: bool, replaces: bool, name: Optional[str] = None,
               note: str = "", error: str = "") -> str:
     e = html.escape
-    master = _field("master", t["master"], "password", focus=True)
+    master = _field("master", t["master"], "password")  # no autofocus: it would scroll past the address to check
     notes = [f'<p class="note">{t["check"]}</p>']
     if action == "add":
         notes.append(f'<p class="note">{t["testing"]}</p>')

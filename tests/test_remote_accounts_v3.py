@@ -342,7 +342,29 @@ def test_a_sessions_first_message_also_brings_what_was_left_pending(server, tmp_
     assert "Nena" in later and remote_client.PENDING_HEADER not in later
 
 
-EDIT = ("Edit", {"file_path": r"C:\repo\src\app.py"})
+def test_the_hook_never_outgrows_what_claude_code_accepts(monkeypatch):
+    """Over 10,000 characters Claude Code keeps a 2 KB preview, so long memories must not cost all the others."""
+    import io
+
+    from src.infinito3 import remote_client
+
+    short = '[abc] (2026-11-05, fact) "Mi perra se llama Nena."'
+    long_ones = [f'[id{i}] (2026-11-0{i}, pending) "Memoria larga {i}: ' + "detalle " * 300 + '"' for i in range(1, 9)]
+    monkeypatch.setattr(remote_client, "recall", lambda *_, **__: "\n".join(["20 memories:", short, *long_ones]))
+    out = io.StringIO()
+    remote_client.context(io.BytesIO(b'{"prompt": "hola"}'), out)
+    told = json.loads(out.getvalue())["hookSpecificOutput"]["additionalContext"]
+
+    assert len(told) <= remote_client.HOOK_CHARS
+    assert short in told  # a short memory is never what pays for the long ones
+    assert all(f'[id{i}] (2026-11-0{i}, pending) "Memoria larga {i}' in told for i in range(1, 9))
+    assert told.count(remote_client.LINE_CUT) == 9 and told.endswith(remote_client.LINES_CUT)  # 8 lines and the notice
+
+    small = "\n".join(["2 memories:", short])
+    assert remote_client._fit(small) == small  # what fits stays as it is
+
+
+EDIT =("Edit", {"file_path": r"C:\repo\src\app.py"})
 SAVE = ("mcp__abc__remember_many", {"items": []})
 PUSH = ("Bash", {"command": "git -C repo push origin feat/x"})
 
