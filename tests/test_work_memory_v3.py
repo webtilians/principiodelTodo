@@ -63,8 +63,47 @@ def test_a_clients_memories_are_found_even_if_they_were_saved_without_its_tag(me
     memory.remember("Trabajo con Acme desde 2024.")
     memory.remember("Acme ganó un premio en octubre.", kind="fact", project="acme")
     memory.remember("Globex cambió de logo.", kind="fact", project="Globex")
-    found = memory.recall("qué sabemos", project="ACME")
+    found = memory.recall("qué sabemos", project=" ACME ")
     assert "desde 2024" in found and "premio" in found and "Globex" not in found
+    assert "desde 2024" in memory.list_memories(project="acme")
+
+
+def test_another_clients_memory_stays_out_though_it_names_this_client(memory):
+    memory.remember("Acme aprueba la campaña.", kind="decision", project="Acme")
+    memory.remember("Globex compite con Acme en Navidad.", kind="fact", project="Globex")
+    assert "aprueba" in memory.recall("qué sabemos", project="Acme")
+    assert "compite" not in memory.recall("qué sabemos", project="Acme")
+    assert "compite" not in memory.list_memories(project="Acme")
+    assert "compite" in memory.recall("Globex compite con Acme")  # without a client, the search is by topic
+
+
+def test_a_clients_name_is_a_whole_word_in_memories_without_a_tag(memory):
+    memory.remember("Mañana tengo dentista.")
+    memory.remember("Hablé con Ana sobre el logo.")
+    found = memory.recall("qué sabemos", project="Ana")
+    assert "logo" in found and "dentista" not in found
+
+
+def test_project_scope_rejects_overlapping_names_and_foreign_text(memory):
+    memory.remember("ProyectoNube: Entidad lima estado cobre.", kind="fact", project="ProyectoNube")
+    memory.remember("TENANT_B_ProyectoNube: Entidad lima estado violeta.",
+                    kind="fact", project="TENANT_B_ProyectoNube")
+    memory.remember("Menciono ProyectoNube de pasada.", kind="fact", project="OtraCuenta")
+    requested = memory.recall("estado entidad lima", project="ProyectoNube")
+    assert "cobre" in requested
+    assert "violeta" not in requested
+    assert "de pasada" not in requested
+    requested_list = memory.list_memories(project="proyectonube")
+    assert "cobre" in requested_list and "violeta" not in requested_list
+    foreign = memory.recall("estado entidad lima", project="TENANT_B_ProyectoNube")
+    assert "violeta" in foreign and "cobre" not in foreign
+
+
+def test_blank_project_does_not_match_projectless_memories(memory):
+    memory.remember("Recuerdo personal sin etiqueta.")
+    memory.remember("ProyectoNube tiene un objetivo.", kind="fact", project="ProyectoNube")
+    assert memory.recall("recuerdo", project="   ") == "No memories about that."
+    assert memory.list_memories(project="   ") == "No memories about that."
 
 
 def test_recall_narrows_to_what_is_pending_with_one_client(memory):
