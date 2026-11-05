@@ -11,6 +11,7 @@ import sqlite3
 from src.infinito3.engine import CognitiveEngine
 from src.infinito3.forgetting import ForgetRequestDetector, LLMForgetPlanner
 from src.infinito3.llm_adapter import RecordingLLMAdapter
+from src.infinito3.mcp_server import AgentMemory
 from src.infinito3.memory import is_question
 from src.infinito3.persistent_memory import SQLiteCognitiveMemoryStore
 
@@ -146,6 +147,36 @@ def test_forgetting_a_fact_deletes_its_history(tmp_path):
 
     assert decision.forgotten_count == 2
     assert _contents(store) == ["Mi color favorito es el azul."]
+
+
+def test_forgetting_one_preference_or_taste_leaves_the_others(tmp_path):
+    memory = AgentMemory(str(tmp_path / "memory.db"))
+    for statement in ("Prefiero desarrollar algo con impacto real.", "Prefiero las explicaciones breves.",
+                      "Me gusta la decoración moderna.", "Me gusta imaginar el mensaje final.",
+                      "Me encanta aprender de quien sabe más."):
+        memory.remember(statement)
+
+    def id_of(text):
+        return next(line[1:37] for line in memory.list_memories().splitlines() if text in line)
+
+    assert memory.forget([id_of("explicaciones breves")]).startswith("Deleted 1 memories")
+    assert memory.forget([id_of("decoración moderna")]).startswith("Deleted 1 memories")
+    listed = memory.list_memories()
+    assert "explicaciones breves" not in listed and "decoración" not in listed
+    assert "impacto real" in listed and "mensaje final" in listed and "quien sabe más" in listed
+    memory.close()
+
+
+def test_forgetting_a_fact_with_one_value_at_a_time_still_takes_every_value(tmp_path):
+    memory = AgentMemory(str(tmp_path / "memory.db"))
+    memory.remember("Vivo en Madrid.")
+    memory.remember("Vivo en Valencia.")
+    memory.remember("Prefiero el café solo.")
+    current = next(line[1:37] for line in memory.list_memories().splitlines() if "Valencia" in line)
+    assert memory.forget([current]).startswith("Deleted 2 memories")
+    assert "Madrid" not in memory.list_memories() and "café" in memory.list_memories()
+    assert b"Madrid" not in (tmp_path / "memory.db").read_bytes()
+    memory.close()
 
 
 def test_deleted_rows_are_overwritten_and_only_counted_in_the_log(tmp_path):
