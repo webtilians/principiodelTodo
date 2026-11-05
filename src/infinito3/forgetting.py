@@ -69,13 +69,34 @@ _STOP_KEEPING_EN = re.compile(
     r"(?:stored|kept|saved|remembered|on\s+record|in\s+your\s+memory)",
     re.I,
 )
+# Spanish. "Olvida" or "elimina" is also the third person ("INFINITO elimina duplicados", "mi madre olvida las
+# cosas") and an infinitive only names an action ("decidimos eliminar el logo"), so these forms count only when
+# said to the assistant. A false alarm costs a lot: the statement is refused, and the engine purges what it resembles.
+_ES_LEAD_IN = (
+    r"(?:por\s+favor|porfa|porfi|oye|mira|vale|ok(?:ay)?|venga|bueno|mejor|y|pero|sí|perdona"
+    r"|por\s+cierto|lo\s+siento)[,\s]+"
+)
+# Opening a sentence, perhaps after a courtesy or a name ("Hilo, olvida..."). A colon does not open one here: agents
+# write notes like "E13-A: elimina duplicados".
+_ES_OPENING = rf"(?:^|[.!?;…¡]\s*)(?:{_ES_LEAD_IN}){{0,3}}(?:\w+,\s+)?(?:{_ES_LEAD_IN}){{0,3}}"
+_ES_IMPERATIVE = r"(?:olvida|borra|elimina|quita|suprime)\b"
+_ES_INFINITIVE = r"(?:olvidar|borrar|eliminar|quitar)(?:l[oa]s?)?\b"
+# Further on in a sentence, what follows has to name something of the user's: not "y elimina duplicados".
+_ES_NAMED = r"(?:eso|esto|aquello|todo|lo\s+(?:de|del|que|sobre)|mis?)\b"
 _FORGET_ES = re.compile(
-    r"\b(?:olvida|olvídate|olvidate|olvides|olvidar|olvídalo|olvidalo|borra|bórralo|borralo|borrar|borres"
-    r"|elimina|elimínalo|eliminalo|eliminar|elimines|quita|quítalo|quitalo|suprime)\b"
-    r"|\bdeja\s+de\s+(?:recordar|guardar|tener\s+en\s+cuenta)\b"
+    # Forms only ever said to "you", anywhere in the message.
+    r"\b(?:olv[ií]da(?:te|l[oa]s?)|b[oó]rral[oa]s?|elim[ií]nal[oa]s?|qu[ií]tal[oa]s?|olvides|borres|elimines)\b"
     r"|\bno\s+(?:quiero\s+que\s+)?(?:guardes|recuerdes|conserves|almacenes|apuntes|registres|tengas\s+guardad)"
     r"|\bya\s+no\s+(?:lo\s+|la\s+|los\s+|las\s+)?(?:guardes|recuerdes|conserves)\b"
-    r"|\b(?:sácalo|sacalo|sácala|sacala)\s+de\s+tu\s+memoria\b",
+    r"|\b(?:sácalo|sacalo|sácala|sacala)\s+de\s+tu\s+memoria\b"
+    # The imperative.
+    rf"|{_ES_OPENING}(?:{_ES_IMPERATIVE}|deja\s+de\s+(?:recordar|guardar|tener\s+en\s+cuenta)\b)"
+    rf"|\b(?:as[ií]\s+que|por\s+favor)\s+{_ES_IMPERATIVE}"
+    rf"|(?:,|\by|\be|\bpero|\bentonces|\bpues|\bahora|\btambi[eé]n)\s+{_ES_IMPERATIVE}\s+{_ES_NAMED}"
+    # The infinitive after "puedes", or after "quiero" when it names something of the user's.
+    r"|\b(?:puedes|podr[ií]as|pod[eé]is|podr[ií]ais|debes|deber[ií]as|tienes\s+que|ten[eé]is\s+que"
+    rf"|haz(?:me)?\s+el\s+favor\s+de)\s+(?:(?:me|nos|ya|tambi[eé]n)\s+)*{_ES_INFINITIVE}"
+    rf"|(?<!\bno\s)\b(?:quiero|quisiera|querr[ií]a|necesito|me\s+gustar[ií]a|hay\s+que)\s+{_ES_INFINITIVE}\s+{_ES_NAMED}",
     re.I,
 )
 # Reminders and the user's own forgetfulness are not requests to forget.

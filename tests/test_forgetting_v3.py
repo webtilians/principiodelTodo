@@ -53,6 +53,74 @@ def test_requests_to_forget_are_recognized_and_reminders_are_not():
         assert not detector.is_request(text), text
 
 
+def test_spanish_requests_to_forget_are_recognized_however_they_are_said():
+    detector = ForgetRequestDetector()
+    for text in (
+        "olvida mi edad",
+        "Hilo, olvida lo que te dije de mi perro.",
+        "Oye, borra eso.",
+        "Por favor borra mi dirección.",
+        "Borra la dirección que te di.",
+        "Elimina mi número de teléfono.",
+        "¡Borra eso!",
+        "Bórralo.",
+        "Quítalo de tu memoria.",
+        "Mejor olvida eso.",
+        "Me mudé a Madrid. Olvida la dirección antigua.",
+        "Me mudé, así que olvida la dirección antigua.",
+        "Ya no trabajo allí, borra eso.",
+        "Me llamo Ana y olvida mi edad.",
+        "¿Puedes borrar lo de mi perro?",
+        "¿Me puedes eliminar la dirección?",
+        "Podrías olvidar eso, por favor.",
+        "¿Puedes borrarlo?",
+        "Quiero que olvides mi edad.",
+        "Necesito que borres mi dirección.",
+        "Quiero borrar mi dirección.",
+        "Hay que borrar lo de mi perro.",
+        "Deja de guardar mis datos.",
+        "No recuerdes esto.",
+        "Ya no lo guardes.",
+        "Sácalo de tu memoria.",
+    ):
+        assert detector.is_request(text), text
+
+
+def test_spanish_statements_that_use_the_same_verbs_are_not_requests():
+    detector = ForgetRequestDetector()
+    for text in (
+        "Prueba técnica de escritura hecha por Hilo; se puede borrar.",
+        "Decidimos eliminar duplicados sin tocar los originales.",
+        "E13-A: elimina duplicados y mejora las etiquetas.",
+        "E13-A agrupa recuerdos relacionados y elimina duplicados.",
+        "INFINITO agrupa recuerdos, elimina duplicados y mejora etiquetas.",
+        "INFINITO borra los recuerdos por completo cuando se lo piden.",
+        "Mi madre es mayor y olvida las cosas.",
+        "Mi abuela, que es mayor, olvida las cosas.",
+        "Mi abuela deja de recordar las cosas.",
+        "El trabajo me quita mucho tiempo.",
+        "Hay que comprobar que no reaparezcan recuerdos olvidados.",
+        "Voy a eliminar mi cuenta de Facebook.",
+        "No quiero olvidar el cumpleaños de mi madre.",
+        "Quiero eliminar duplicados en EcoDispatch.",
+        "Para borrar la caché uso Ctrl+Mayús+Supr.",
+        "Preferí no borrar nada.",
+        "Antes de borrar mis fotos hago una copia.",
+        "¿Borra INFINITO los duplicados?",
+    ):
+        assert not detector.is_request(text), text
+
+
+def test_a_spanish_statement_with_a_forgetting_verb_deletes_nothing(tmp_path):
+    engine, store = _engine(tmp_path)
+    engine.process("Tengo una cuenta de Facebook.")
+
+    decision = engine.process("Voy a eliminar mi cuenta de Facebook.")
+
+    assert not decision.forget_request and decision.forgotten_count == 0
+    assert "Tengo una cuenta de Facebook." in _contents(store)
+
+
 def test_a_forget_request_deletes_the_memory_and_is_not_stored(tmp_path):
     engine, store = _engine(tmp_path)
     engine.process("I bank with Banco Arce for my salary.")
