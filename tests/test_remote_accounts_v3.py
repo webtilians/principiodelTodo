@@ -218,7 +218,10 @@ def test_the_front_page_gives_the_address_and_the_steps_for_each_app(server):
     assert page.status_code == 200
     assert f'value="{base}/mcp"' in page.text
     assert "En Claude" in page.text and "En ChatGPT" in page.text and "codex mcp login infinito" in page.text
-    assert "One memory" in httpx2.get(f"{base}/", headers={"accept-language": "en-GB"}).text
+    assert "plan de pago" in page.text and "@INFINITO" in page.text  # what ChatGPT needs, before someone starts
+    assert "datos de contacto" in page.text  # and what the memory leaves out
+    english = httpx2.get(f"{base}/", headers={"accept-language": "en-GB"}).text
+    assert "One memory" in english and "paid plan" in english and "contact details" in english
 
 
 def test_apps_are_told_which_tools_only_read_so_they_need_not_ask_first(server):
@@ -252,13 +255,9 @@ def test_every_tool_says_it_needs_sign_in_and_nothing_answers_without_it(server)
         assert answer.status_code == 401, method  # clients learn they must sign in from this answer
 
 
-def test_this_computer_signs_in_once_and_every_message_brings_the_memory(server, tmp_path, monkeypatch):
-    import io
-
+def sign_this_computer_in(base, tmp_path, monkeypatch):
     from src.infinito3 import remote_client
 
-    base, _, _ = server
-    app_session(base, [("remember", {"statement": "Mi perra se llama Nena."})], mode="signup")
     monkeypatch.setenv("INFINITO_REMOTE_SESSION", str(tmp_path / "session.json"))
 
     def person_signs_in(page):  # what the person does in the browser the command opens
@@ -270,6 +269,16 @@ def test_this_computer_signs_in_once_and_every_message_brings_the_memory(server,
             browser.get(back.headers["location"])  # the browser returns to the command's local page
 
     assert "is signed in" in remote_client.login(f"{base}/mcp", open_page=person_signs_in, wait_seconds=20)
+
+
+def test_this_computer_signs_in_once_and_every_message_brings_the_memory(server, tmp_path, monkeypatch):
+    import io
+
+    from src.infinito3 import remote_client
+
+    base, _, _ = server
+    app_session(base, [("remember", {"statement": "Mi perra se llama Nena."})], mode="signup")
+    sign_this_computer_in(base, tmp_path, monkeypatch)
 
     def hook(prompt):
         out = io.StringIO()
@@ -301,6 +310,108 @@ def test_the_hook_never_stops_a_message(tmp_path, monkeypatch):
     out = io.StringIO()
     remote_client.context(io.StringIO('{"prompt": "hola"}'), out)  # nothing listens there
     assert out.getvalue() == ""
+
+
+def test_a_sessions_first_message_also_brings_what_was_left_pending(server, tmp_path, monkeypatch):
+    import io
+
+    from src.infinito3 import remote_client
+
+    base, _, _ = server
+    app_session(base, [("remember", {"statement": "Mi perra se llama Nena."}),
+                       ("remember", {"statement": "Abrir el PR de la rama nueva.", "kind": "pending", "project": "Acme"})],
+                mode="signup")
+    sign_this_computer_in(base, tmp_path, monkeypatch)
+    transcript = tmp_path / "session.jsonl"
+
+    def hook():
+        out = io.StringIO()
+        event = json.dumps({"prompt": "¿Cómo se llama mi perra?", "transcript_path": str(transcript),
+                            "hook_event_name": "UserPromptSubmit"}, ensure_ascii=False)
+        remote_client.context(io.BytesIO(event.encode("utf-8")), out)
+        return json.loads(out.getvalue())["hookSpecificOutput"]["additionalContext"]
+
+    first = hook()  # the transcript is not even written yet
+    assert "Nena" in first and remote_client.PENDING_HEADER in first
+    assert "Abrir el PR" in first.split(remote_client.PENDING_HEADER)[1]
+    transcript.write_text('{"type":"user"}\n', encoding="utf-8")
+    assert remote_client.PENDING_HEADER in hook()  # the agent has not answered yet
+    transcript.write_text('{"type":"user"}\n{"type":"assistant"}\n', encoding="utf-8")
+    later = hook()
+    assert "Nena" in later and remote_client.PENDING_HEADER not in later
+
+
+EDIT = ("Edit", {"file_path": r"C:\repo\src\app.py"})
+SAVE = ("mcp__abc__remember_many", {"items": []})
+PUSH = ("Bash", {"command": "git -C repo push origin feat/x"})
+
+
+def write_transcript(path, uses):
+    """A session's transcript, from what its agent did: (minutes ago, tool, input)."""
+    rows = ['{"type":"user","message":{"content":"hola"}}']
+    for minutes, name, given in uses:
+        stamp = time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime(time.time() - minutes * 60))
+        rows.append(json.dumps({"type": "assistant", "timestamp": stamp, "message": {"content": [
+            {"type": "text", "text": "ok"}, {"type": "tool_use", "name": name, "input": given}]}}))
+    path.write_text("\n".join(rows) + "\n", encoding="utf-8")
+
+
+def stopping(path, **event):
+    import io
+
+    from src.infinito3 import remote_client
+
+    out = io.StringIO()
+    remote_client.checkpoint(io.BytesIO(json.dumps({"transcript_path": str(path), **event}).encode()), out)
+    return json.loads(out.getvalue()) if out.getvalue() else None
+
+
+@pytest.mark.parametrize("uses, asks", [
+    ([(1, "Read", {"file_path": "x"})], False),  # it only looked
+    ([(1, *EDIT)], True),  # work, and nothing saved in this session
+    ([(2, *EDIT), (1, *SAVE)], False),  # already saved
+    ([(5, *SAVE), (1, *EDIT)], False),  # saved a moment ago: not after every small edit
+    ([(31, *SAVE), (1, *EDIT)], True),  # saved long ago
+    ([(5, *SAVE), (1, *PUSH)], True),  # shipping always asks: a session often ends there
+    ([(1, "PowerShell", {"command": 'git commit -m "x"'})], True),
+    ([(1, "Bash", {"command": "git log --oneline; echo push"})], False),  # looking at git is not shipping
+    ([(1, "Write", {"file_path": r"C:\Users\x\.claude\projects\p\memory\a.md"}),
+      (1, "Edit", {"file_path": r"C:\Users\x\AppData\Local\Temp\a.py"})], False),  # its notes and scratch files
+])
+def test_a_session_is_asked_to_save_where_it_stands_after_work_only(tmp_path, uses, asks):
+    from src.infinito3 import remote_client
+
+    transcript = tmp_path / "session.jsonl"
+    write_transcript(transcript, uses)
+    answer = stopping(transcript)
+    assert answer == ({"decision": "block", "reason": remote_client.SAVE_REASON} if asks else None)
+
+
+def test_a_session_is_asked_only_once_and_never_kept_from_stopping(tmp_path):
+    import io
+
+    from src.infinito3 import remote_client
+
+    transcript = tmp_path / "session.jsonl"
+    write_transcript(transcript, [(1, *EDIT)])
+    assert stopping(transcript) is not None
+    assert stopping(transcript, stop_hook_active=True) is None  # it was asked: this stop goes through
+    assert stopping(tmp_path / "missing.jsonl") is None
+    out = io.StringIO()
+    remote_client.checkpoint(io.BytesIO(b"not json"), out)
+    assert out.getvalue() == ""
+
+
+def test_the_save_check_reads_only_the_end_of_a_long_transcript(tmp_path, monkeypatch):
+    from src.infinito3 import remote_client
+
+    transcript = tmp_path / "session.jsonl"
+    write_transcript(transcript, [(90, *SAVE), (1, *EDIT)])
+    size = transcript.stat().st_size
+    last_row = transcript.read_text(encoding="utf-8").splitlines()[-1]
+    monkeypatch.setattr(remote_client, "TRANSCRIPT_TAIL", len(last_row) + 40)  # cuts the row before it in two
+    assert size > remote_client.TRANSCRIPT_TAIL
+    assert stopping(transcript) is not None  # the cut row is skipped; the edit at the end is found
 
 
 def test_an_app_saves_a_whole_meeting_and_asks_about_one_client(server):
