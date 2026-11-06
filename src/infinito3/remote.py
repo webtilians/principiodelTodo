@@ -273,7 +273,7 @@ def build_app(people: People, issuer: Optional[str] = None):
     """The ASGI app: the four memory tools, each call answered from its caller's own sealed memory.
 
     With issuer (the server's public URL), people can also sign in at issuer/mcp (remote_accounts.py)."""
-    from mcp.server.mcpserver import Context, MCPServer
+    from mcp.server.mcpserver import Context, Image, MCPServer
     from mcp.server.transport_security import TransportSecuritySettings
     from mcp.types import ToolAnnotations
 
@@ -360,6 +360,24 @@ def build_app(people: People, issuer: Optional[str] = None):
             return remote_memory.answer_with_link(issuer, memory_ids or [], known, lambda data: grants.issue(
                 remote_memory.LINK, client_id="", seconds=remote_memory.LINK_SECONDS, account=state["infinito_person"],
                 data=data))
+
+        from . import remote_photos
+
+        def invited_to_photos(ctx: Context) -> bool:
+            state = ctx.request_context.request.scope["state"]
+            return state["infinito_memories"] == "accounts" and accounts.vault_allowed(state["infinito_person"])
+
+        @server.tool(description=remote_photos.PROBE_DESCRIPTION, annotations=ToolAnnotations(**remote_photos.PROBE_HINTS),
+                     meta={**signed_in, "openai/fileParams": ["photo"]})
+        def photo_probe(photo: remote_photos.PhotoFile, ctx: Context) -> str:
+            return remote_photos.inspect_file(photo) if invited_to_photos(ctx) else remote_photos.NOT_INVITED
+
+        @server.tool(description=remote_photos.SAMPLE_DESCRIPTION, annotations=ToolAnnotations(**remote_photos.HINTS),
+                     meta=signed_in, structured_output=False)
+        def photo_sample(ctx: Context):
+            if not invited_to_photos(ctx):
+                return remote_photos.NOT_INVITED
+            return [remote_photos.SAMPLE_TEXT, Image(data=remote_photos.sample_png(), format="png")]
 
         def vault_tool(name: str):
             return server.tool(description=remote_vault.TOOL_DESCRIPTIONS[name],

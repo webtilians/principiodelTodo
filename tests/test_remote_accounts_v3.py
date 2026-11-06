@@ -105,7 +105,8 @@ def app_session(base, steps, *, mode="signin", name="ana", password=PASSWORD, ex
                 async with ClientSession(read, write) as client:
                     await client.initialize()
                     storage.tools = (await client.list_tools()).tools
-                    return [(await client.call_tool(tool, arguments)).content[0].text for tool, arguments in steps]
+                    storage.results = [await client.call_tool(tool, arguments) for tool, arguments in steps]
+                    return [result.content[0].text for result in storage.results]
 
     return anyio.run(run), seen.get("recovery"), storage
 
@@ -232,7 +233,9 @@ def test_apps_are_told_which_tools_only_read_so_they_need_not_ask_first(server):
     assert reads == {"recall": True, "list_memories": True, "remember": False, "remember_many": False,
                      "forget": False, "vault_add": True, "vault_reveal": True, "vault_list": True,
                      # These two only answer with a link: nothing changes until the person acts on the page.
-                     "memory_page": True, "vault_delete": True}
+                     "memory_page": True, "vault_delete": True,
+                     # The trial of pictures keeps nothing.
+                     "photo_probe": True, "photo_sample": True}
     assert [t.annotations.destructive_hint for t in app.tools if t.name == "forget"] == [True]
 
 
@@ -249,7 +252,7 @@ def test_every_tool_says_it_needs_sign_in_and_nothing_answers_without_it(server)
     base, _, _ = server
     _, _, app = app_session(base, [], mode="signup", name="lola")
     for tool in app.tools:
-        assert tool.meta == {"securitySchemes": [{"type": "oauth2", "scopes": ["memory"]}]}, tool.name
+        assert tool.meta["securitySchemes"] == [{"type": "oauth2", "scopes": ["memory"]}], tool.name
     hello = {"jsonrpc": "2.0", "id": 1, "method": "initialize",
              "params": {"protocolVersion": "2025-06-18", "capabilities": {}, "clientInfo": {"name": "x", "version": "1"}}}
     for method in ("initialize", "tools/list"):
