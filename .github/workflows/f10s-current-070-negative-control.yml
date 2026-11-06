@@ -33,6 +33,9 @@ jobs:
           PY
       - name: Test whether baseline fails specifically on duplicated active exclusive values
         run: |
+          # The unpatched baseline is EXPECTED to fail; do not let bash -e
+          # abort before we classify the precise observed failure.
+          set +e
           set -u
           reproduced=0
           for attempt in 1 2 3 4; do
