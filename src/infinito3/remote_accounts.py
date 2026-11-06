@@ -472,11 +472,11 @@ def build_auth(accounts: Accounts, grants: Grants, issuer: str,
                     + [Route("/login", sign_in_page, methods=["GET"]), Route("/login", sign_in, methods=["POST"]),
                        Route("/", home, methods=["GET"])])
 
-    def bearer(token: str) -> Optional[Tuple[str, bytes]]:
+    def bearer(token: str) -> Optional[Tuple[str, bytes, Optional[str]]]:
         found = grants.find("access", token)
         if not found or not accounts.exists(found["account"]):
             return None
-        return found["account"], found["key"]
+        return found["account"], found["key"], _app_name(grants.client(found["client_id"]))
 
     paths = {route.path for route in app.routes}
     metadata_url = f"{issuer}/.well-known/oauth-protected-resource/mcp"
@@ -484,6 +484,16 @@ def build_auth(accounts: Accounts, grants: Grants, issuer: str,
 
 
 # The sign-in page: plain HTML, no scripts, nothing loaded from elsewhere.
+
+def _app_name(info: Optional[str]) -> Optional[str]:
+    """The name an app registered with, as it appears next to what it saves. It is the app's own word for itself, the
+    same the sign-in page shows, so it stays short and on one line."""
+    try:
+        name = str(json.loads(info).get("client_name") or "") if info else ""
+    except (ValueError, AttributeError):
+        return None
+    return "".join(c for c in name if c.isprintable()).strip()[:60] or None
+
 
 _HEADERS = {"Cache-Control": "no-store", "X-Frame-Options": "DENY", "Referrer-Policy": "no-referrer",
             "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'"}
@@ -709,9 +719,11 @@ _HOME = {
             "Guardará los hechos, las decisiones, los acuerdos y lo pendiente, cada uno con su fecha y su fuente.",
             "Semanas después, en cualquiera de tus IAs: «¿por dónde íbamos con Acme?» o «¿qué tengo pendiente con "
             "Acme?». Te lo dirá separando lo decidido de lo que solo se propuso, y de dónde sale cada cosa.",
+            "«¿Cómo va todo?» te da cada cliente con su última actividad y lo que sigue abierto, y avisa de los que "
+            "llevan una semana parados. Cada recuerdo dice además qué IA lo guardó.",
             "Lo de cada cliente queda aparte, y nadie más puede leerlo: ni quien administra este servidor.",
-            "No guarda contraseñas ni datos de contacto, como correos: la frase que los lleva se queda fuera y el "
-            "resto se guarda.",
+            "Guarda correos y teléfonos. No guarda contraseñas, claves ni números de tarjeta o DNI: esa frase se "
+            "queda fuera, el resto se guarda y lo secreto va a tu bóveda.",
         ],
         "menus": "Los nombres de los menús cambian a veces; los pasos son los mismos.",
     },
@@ -766,9 +778,11 @@ _HOME = {
             "keeps the facts, decisions, agreements and pending items, each with its date and source.",
             "Weeks later, in any of your AIs: “where were we with Acme?” or “what's pending with Acme?”. It answers "
             "keeping what was decided apart from what was only proposed, and says where each thing came from.",
+            "“How is it all going?” gives you each client with their last activity and what is still open, and flags "
+            "those quiet for a week. Each memory also says which AI saved it.",
             "Each client's memories stay apart, and nobody else can read them: not even whoever runs this server.",
-            "It does not keep passwords or contact details such as emails: the sentence with one is left out and the "
-            "rest is saved.",
+            "It keeps emails and phone numbers. It does not keep passwords, keys, or card or ID numbers: that sentence "
+            "is left out, the rest is saved, and the secret goes to your vault.",
         ],
         "menus": "Menu names change now and then; the steps stay the same.",
     },

@@ -31,10 +31,9 @@ def test_remember_and_recall_keep_the_users_words_dated(memory):
     assert "oldest first" in recalled
 
 
-def test_secrets_contact_details_questions_and_forget_requests_are_not_stored(memory):
+def test_secrets_questions_and_forget_requests_are_not_stored(memory):
     assert "a password" in memory.remember("My bank password is hunter2")
     assert "an identity document number" in memory.remember("Mi DNI es 12345678Z")
-    assert "an email address" in memory.remember("My email is ana@example.com")
     assert "not memories" in memory.remember("Where do I live?")
     assert "asks to forget" in memory.remember("Forget where I live.")
     assert memory.list_memories() == "No memories yet."
@@ -127,7 +126,7 @@ def test_the_server_works_over_mcp_stdio(tmp_path):
                 return tools, forgot, recalled
 
     tools, forgot, recalled = anyio.run(session)
-    memory_tools = ["forget", "list_memories", "recall", "remember", "remember_many"]
+    memory_tools = ["forget", "list_memories", "overview", "recall", "remember", "remember_many"]
     try:
         import pykeepass  # noqa: F401
         vault_tools = ["vault_add", "vault_list", "vault_lock", "vault_reveal", "vault_status", "vault_unlock"]

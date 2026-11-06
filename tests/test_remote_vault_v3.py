@@ -192,11 +192,11 @@ def test_a_note_or_a_name_holding_the_secret_is_refused_and_not_sent_back(server
     link = link_in(answer)
     common = {"master": MASTER, "repeat": MASTER, "value": VALUE}
     for field, text in (("note", f"la clave es {VALUE}"), ("note", "La clave del wifi es limonero2024"),
-                        ("note", "escribe a ana@acme.example"), ("note", "x" * 201),
+                        ("note", "x" * 201),
                         ("name", f"Wifi {VALUE}"), ("name", "La clave del wifi es limonero2024"), ("name", "   ")):
         page = send(base, link, **common, **{field: text})
         assert page.status_code == 400 and ("La nota" in page.text or "Elige un nombre" in page.text), text
-        assert VALUE not in page.text and "limonero2024" not in page.text and "ana@acme" not in page.text
+        assert VALUE not in page.text and "limonero2024" not in page.text
     assert not (folder / "accounts" / "alba" / "vault.kdbx").exists()
 
 
