@@ -44,3 +44,6 @@ Repository = "https://github.com/webtilians/principiodelTodo"
 [tool.setuptools]
 package-dir = { "" = "src" }
 packages = ["infinito3"]
+
+[tool.setuptools.package-data]
+infinito3 = ["assets/*"]

@@ -226,6 +226,23 @@ def test_the_front_page_gives_the_address_and_the_steps_for_each_app(server):
     assert "One memory" in english and "paid plan" in english and "keeps emails and phone numbers" in english
 
 
+def test_the_front_page_makes_you_want_it_and_says_nothing_it_cannot_back(server):
+    base, _, _ = server
+    for lang, slogan, grok_step, gemini_step in (
+            ("es", "Esto es solo el principio de tu agente definitivo", "grok.com/connectors", "gemini mcp add"),
+            ("en", "This is only the beginning of your ultimate agent", "grok.com/connectors", "gemini mcp add")):
+        page = httpx2.get(f"{base}/", headers={"accept-language": lang})
+        assert slogan in page.text and grok_step in page.text and gemini_step in page.text and "/mcp auth infinito" in page.text
+        for app in ("Claude", "ChatGPT", "Grok", "Gemini", "Codex"):
+            assert f'<div class="app">{app}' in page.text
+        assert "45" in page.text and "A-MEM" in page.text and "arxiv.org/abs/2610.18052" in page.text
+        assert page.text.count("<script") == 1 and "img-src 'self'" in page.headers["content-security-policy"]
+        assert '/memory/brain.webp' in page.text and 'class="beta"' in page.text  # Gemini until it is proven end to end
+        text = page.text.lower()
+        for false in ("extremo a extremo", "end-to-end", "end to end", "ni quien administra", "whoever runs this server"):
+            assert false not in text, false
+
+
 def test_apps_are_told_which_tools_only_read_so_they_need_not_ask_first(server):
     base, _, _ = server
     _, _, app = app_session(base, [], mode="signup", name="pepa")

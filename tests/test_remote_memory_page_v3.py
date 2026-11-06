@@ -18,7 +18,9 @@ def browser():
 
 
 def enter(client, base, name, *, password=PASSWORD, link=""):
-    return client.post(f"{base}/memory", data={"action": "signin", "name": name, "password": password, "r": link})
+    """Sign in and, with no link to confirm, open the list of memories."""
+    answer = client.post(f"{base}/memory", data={"action": "signin", "name": name, "password": password, "r": link})
+    return client.get(f"{base}/memory", params={"view": "memories"}) if 'class="dash"' in answer.text and not link else answer
 
 
 def csrf_of(page):
@@ -212,7 +214,7 @@ def test_search_ignores_accents_filters_by_client_and_kind_and_shows_text_as_tex
         assert "Bosque cerramos" in shown(project="Bosque") and "camión" not in shown(project="Bosque")
         assert "camión" in shown(kind="pending") and "Bosque cerramos" not in shown(kind="pending")
         assert "No hay nada" in shown(q="nadie dijo esto")
-        assert "Bosque" in shown(project="Bosque", kind="decision") and "<option" in shown()
+        assert "Bosque" in shown(project="Bosque", kind="decision") and "<option" in shown(view="memories")
 
 
 def test_deleting_all_of_a_filter_takes_only_that_and_still_asks(server):  # noqa: F811
@@ -343,13 +345,197 @@ def test_the_front_page_leads_to_it_in_both_languages(server):  # noqa: F811
 
 def test_the_page_speaks_both_languages_with_the_same_texts(server):  # noqa: F811
     from src.infinito3.remote_memory import TEXT
+    from src.infinito3.remote_portal import TEXT as PORTAL
     from src.infinito3.remote_vault import TEXT as VAULT
 
     assert TEXT["es"].keys() == TEXT["en"].keys() and VAULT["es"].keys() == VAULT["en"].keys()
+    assert PORTAL["es"].keys() == PORTAL["en"].keys()
     assert TEXT["es"]["kinds"].keys() == TEXT["en"]["kinds"].keys()
     base, _, _ = server
     memory_of(base, "fran", ["My dentist is called Marta."])
     with httpx2.Client(headers={"accept-language": "en"}, follow_redirects=True) as client:
         assert "Type your password" in client.get(f"{base}/memory").text
-        page = client.post(f"{base}/memory", data={"action": "signin", "name": "fran", "password": PASSWORD, "r": ""})
-        assert "Your memory" in page.text and "1 memory" in page.text and "Marta" in page.text
+        page = enter(client, base, "fran")
+        assert "<h1>Memories</h1>" in page.text and "1 memory" in page.text and "Marta" in page.text
+
+
+def kinds_of(base, name):
+    """An account with memories of several kinds, for two clients."""
+    steps = [("remember", {"statement": "Acme aprueba el presupuesto.", "kind": "decision", "project": "Acme"}),
+             ("remember", {"statement": "Acme cambia de logo.", "kind": "decision", "project": "Acme"}),
+             ("remember", {"statement": "Globex decide el color.", "kind": "decision", "project": "Globex"}),
+             ("remember", {"statement": "Reclamar a Marta los textos.", "kind": "pending", "project": "Acme"}),
+             ("remember", {"statement": "Mi dentista se llama Marta."})]
+    answers, _, _ = app_session(base, steps, mode="signup", name=name)
+    assert all(answer.startswith("Remembered") for answer in answers), answers
+
+
+def home_of(client, base, name):
+    client.post(f"{base}/memory", data={"action": "signin", "name": name, "password": PASSWORD, "r": ""})
+    return client.get(f"{base}/memory")
+
+
+def neuron(page, kind):
+    return re.search(rf'<a class="neuron"[^>]*kind={kind}".*?</a>', page.text, re.S).group(0)
+
+
+def test_signing_in_lands_on_the_vault_home_with_the_design_and_real_numbers(server):  # noqa: F811
+    base, _, _ = server
+    kinds_of(base, "aina")
+    with browser() as client:
+        page = home_of(client, base, "aina")
+    assert 'class="dash"' in page.text and "<script" not in page.text and "<h1>Bóveda</h1>" in page.text
+    for word in ("Inicio", "Recuerdos", "Proyectos", "Búsqueda", "Ajustes", "Memorias recientes", "Claves protegidas",
+                 "Actividad", "Nodos de memoria", "Buscar en tu memoria"):
+        assert word in page.text, word
+    assert "<b>5</b><span>Recuerdos</span>" in page.text  # the memories
+    assert "<b>7</b><span>Nodos de memoria</span>" in page.text  # and the two clients
+    assert "Memoria sellada" in page.text and "La bóveda es por invitación" in page.text  # this account has no vault
+    assert "Mi dentista" in page.text or "Reclamar a Marta" in page.text
+    assert "img-src 'self'" in page.headers["content-security-policy"]
+
+
+def test_it_never_promises_more_than_it_does(server):  # noqa: F811
+    base, _, _ = server
+    kinds_of(base, "ona")
+    with browser() as client:
+        page = home_of(client, base, "ona")
+    assert "extremo a extremo" not in page.text and "256-bit" in page.text and "en reposo" in page.text
+
+
+def test_each_kind_is_a_bubble_of_the_brain_that_leads_to_its_memories(server):  # noqa: F811
+    base, _, _ = server
+    kinds_of(base, "bruna")
+    with browser() as client:
+        page = home_of(client, base, "bruna")
+        assert page.text.count('<a class="neuron"') == 8
+        assert 'aria-label="Decisión: 3"' in neuron(page, "decision") and "Decisión · 3" in neuron(page, "decision")
+        assert 'aria-label="Sobre ti: 1"' in neuron(page, "none") and 'aria-label="Propuesta: 0"' in neuron(page, "proposal")
+        chosen = client.get(f"{base}/memory", params={"kind": "pending"})
+        assert "Reclamar a Marta" in chosen.text and "presupuesto" not in chosen.text
+
+
+def test_the_bubbles_are_on_the_picture(server):  # noqa: F811
+    from src.infinito3.remote_portal import NEURON_SPOTS
+
+    assert len(NEURON_SPOTS) == 8
+    for x, y, radius in NEURON_SPOTS.values():
+        assert radius < x < 725 - radius and radius < y < 455 - radius
+
+
+def test_the_brain_picture_needs_no_sign_in_and_says_nothing_of_anyone(server):  # noqa: F811
+    base, _, _ = server
+    picture = httpx2.get(f"{base}/memory/brain.webp")
+    assert picture.status_code == 200 and picture.headers["content-type"] == "image/webp"
+    assert picture.content[:4] == b"RIFF" and picture.content[8:12] == b"WEBP"
+    assert "set-cookie" not in picture.headers and "public" in picture.headers["cache-control"]
+
+
+def test_the_memories_saved_with_no_kind_can_be_chosen(server):  # noqa: F811
+    base, _, _ = server
+    kinds_of(base, "delia")
+    with browser() as client:
+        enter(client, base, "delia")
+        chosen = client.get(f"{base}/memory", params={"kind": "none"})
+        assert "Mi dentista" in chosen.text and "presupuesto" not in chosen.text and "Reclamar" not in chosen.text
+        assert '<option value="none" selected>Sobre ti</option>' in chosen.text
+
+
+def test_the_top_search_finds_and_the_bell_leads_to_what_is_pending(server):  # noqa: F811
+    base, _, _ = server
+    kinds_of(base, "elsa")
+    with browser() as client:
+        page = home_of(client, base, "elsa")
+        assert 'aria-label="Lo pendiente: 1"' in page.text and 'class="dot"' in page.text
+        found = client.get(f"{base}/memory", params={"q": "presupuesto"})
+        assert "Acme aprueba" in found.text and "Mi dentista" not in found.text and 'value="presupuesto"' in found.text
+
+
+def test_a_search_cannot_break_out_of_the_page(server):  # noqa: F811
+    base, _, _ = server
+    kinds_of(base, "flora")
+    with browser() as client:
+        enter(client, base, "flora")
+        for params in ({"project": '"><script>alert(1)</script>'}, {"q": '"><script>alert(1)</script>'}):
+            assert "<script>" not in client.get(f"{base}/memory", params=params).text
+
+
+def test_what_a_memory_says_cannot_run_on_the_home(server):  # noqa: F811
+    base, _, _ = server
+    statement = "Mi gato se llama <script>alert(1)</script> Tom."
+    answers, _, _ = app_session(base, [("remember", {"statement": statement, "kind": "fact", "project": "<b>Acme</b>"})],
+                                mode="signup", name="tina")
+    assert answers[0].startswith("Remembered"), answers
+    with browser() as client:
+        page = home_of(client, base, "tina")
+    assert "<script>" not in page.text and "<b>Acme</b>" not in page.text and "&lt;script&gt;" in page.text
+
+
+def test_deleting_what_a_kind_shows_takes_only_that_kind(server):  # noqa: F811
+    base, _, _ = server
+    kinds_of(base, "gala")
+    with browser() as client:
+        enter(client, base, "gala")
+        chosen = client.get(f"{base}/memory", params={"kind": "none"})
+        confirm = client.post(f"{base}/memory", data={"action": "review_found", "csrf": csrf_of(chosen), "kind": "none",
+                                                      "q": "", "project": ""})
+        assert "Mi dentista" in confirm.text and "presupuesto" not in confirm.text
+
+
+def test_with_nothing_kept_the_home_says_so(server):  # noqa: F811
+    base, _, _ = server
+    app_session(base, [], mode="signup", name="hada")
+    with browser() as client:
+        page = home_of(client, base, "hada")
+    assert page.text.count('<a class="neuron"') == 8 and "Lo que le cuentes a tus IAs" in page.text
+    assert "<b>0</b><span>Recuerdos</span>" in page.text
+
+
+def test_nothing_of_the_portal_appears_before_signing_in(server):  # noqa: F811
+    base, _, _ = server
+    kinds_of(base, "iris")
+    for params in ({}, {"kind": "decision"}, {"view": "projects"}, {"view": "settings"}, {"view": "vault"}):
+        page = httpx2.get(f"{base}/memory", params=params, headers=SPANISH)
+        assert 'class="neuron' not in page.text and 'class="side"' not in page.text and "presupuesto" not in page.text
+        assert 'type="password"' in page.text
+
+
+def test_the_projects_page_shows_each_client_and_what_is_still_open(server):  # noqa: F811
+    base, _, _ = server
+    kinds_of(base, "kira")
+    with browser() as client:
+        enter(client, base, "kira")
+        page = client.get(f"{base}/memory", params={"view": "projects"})
+    assert "Acme" in page.text and "Globex" in page.text and "Reclamar a Marta" in page.text
+    assert 'href="/memory?project=Acme"' in page.text and "2 decisión" in page.text
+
+
+def test_with_no_clients_the_projects_page_says_so(server):  # noqa: F811
+    base, _, _ = server
+    memory_of(base, "lila", ["Mi dentista se llama Marta."])
+    with browser() as client:
+        enter(client, base, "lila")
+        assert "Ningún recuerdo tiene cliente" in client.get(f"{base}/memory", params={"view": "projects"}).text
+
+
+def test_the_settings_page_says_whose_account_it_is_and_nothing_false(server):  # noqa: F811
+    base, _, _ = server
+    kinds_of(base, "mara")
+    with browser() as client:
+        enter(client, base, "mara")
+        page = client.get(f"{base}/memory", params={"view": "settings"})
+    assert "mara" in page.text and "AES-256-GCM" in page.text and "extremo a extremo" not in page.text
+
+
+def test_the_menu_marks_where_you_are_and_it_all_speaks_english_too(server):  # noqa: F811
+    base, _, _ = server
+    kinds_of(base, "jana")
+    with httpx2.Client(headers={"accept-language": "en"}, follow_redirects=True) as client:
+        page = home_of(client, base, "jana")
+        assert "<h1>Vault</h1>" in page.text and "Recent memories" in page.text and "Memory sealed" in page.text
+        assert 'aria-label="About you: 1"' in neuron(page, "none")
+        assert re.search(r'<a href="/memory" class=on aria-current=page>', page.text)
+        listing = client.get(f"{base}/memory", params={"view": "memories"})
+        assert re.search(r'<a href="/memory\?view=memories" class=on aria-current=page>', listing.text)
+        assert client.post(f"{base}/memory", data={"action": "signout", "csrf": csrf_of(page)}).status_code == 200
+        assert 'class="side"' not in client.get(f"{base}/memory").text

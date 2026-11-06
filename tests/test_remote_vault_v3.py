@@ -392,6 +392,8 @@ def test_the_memory_page_lists_names_only_and_leads_to_the_vault_page(server):  
     with httpx2.Client(headers=SPANISH, follow_redirects=True) as client:
         page = client.post(f"{base}/memory", data={"action": "signin", "name": "olga", "password": PASSWORD, "r": ""})
         assert "Router de casa" in page.text and VALUE not in page.text
+        assert "Bóveda activa" in page.text and 'href="/memory?view=vault"' in page.text  # the home leads to all of them
+        assert "Router de casa" in client.get(f"{base}/memory", params={"view": "vault"}).text
         csrf = re.search(r'name="csrf" value="([^"]+)"', page.text).group(1)
         asked = client.post(f"{base}/memory", data={"action": "vault", "csrf": csrf, "entry": "Router de casa",
                                                     "what": "delete"})
