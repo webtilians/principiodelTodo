@@ -1,0 +1,72 @@
+name: F10-S validate latest moving master 2671e8 with exact SQLite patch
+
+on:
+  push:
+    branches: [fix/f10s-current-070-revalidation-20261106]
+    paths:
+      - .github/workflows/f10s-latest-master-overlay.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  latest-master-overlay:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Overlay only F10S patch and its tests onto latest actual master commit
+        run: |
+          git worktree add --detach latest-master-overlay 2671e889f619e115e77db2e2b7ec906b9a4cfd78
+          cp src/infinito3/persistent_memory.py latest-master-overlay/src/infinito3/persistent_memory.py
+          cp tests/test_f10s_exclusive_multi_mcp.py latest-master-overlay/tests/
+          cp tests/test_f10s_current_integration.py latest-master-overlay/tests/
+          cd latest-master-overlay
+          test -f tests/test_remote_photos_v3.py
+          python - <<'PY'
+          import subprocess
+          from pathlib import Path
+          before = subprocess.check_output(['git', 'show', '2671e889f619e115e77db2e2b7ec906b9a4cfd78:src/infinito3/persistent_memory.py'], text=True)
+          actual = Path('src/infinito3/persistent_memory.py').read_text()
+          old = '        with self._lock, self._conn:\n            now = self._tick()\n            record.updated_at = now\n'
+          new = ('        with self._lock, self._conn:\n'
+                 '            # Serialize the read/supersede/insert decision across independent\n'
+                 '            # SQLite writer processes, not just threads sharing this instance.\n'
+                 '            self._conn.execute("BEGIN IMMEDIATE")\n'
+                 '            now = self._tick()\n'
+                 '            record.updated_at = now\n')
+          assert before.count(old)==1
+          assert actual == before.replace(old,new)
+          print('LATEST MASTER 2671e8 PATCH INTEGRITY PASS, all remote-photo changes preserved')
+          PY
+      - name: Install complete current product and MCP SDK
+        run: python -m pip install -e "./latest-master-overlay[mcp,dev,semantic,vault]" httpx2 uvicorn
+      - name: Run latest product regressions including new remote photos
+        run: |
+          set -o pipefail
+          cd latest-master-overlay
+          python -m pytest tests/test_*v3.py -q -rs 2>&1 | tee ../f10s-latest-product-${{ matrix.python }}.log
+      - name: Run real multiprocess MCP and transactional forgetting tests on latest master
+        run: |
+          set -o pipefail
+          cd latest-master-overlay
+          python -m pytest tests/test_f10s_exclusive_multi_mcp.py tests/test_f10s_current_integration.py -v -rs 2>&1 | tee ../f10s-latest-concurrency-${{ matrix.python }}.log
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: f10s-latest-master-product-and-mcp-${{ matrix.python }}
+          path: |
+            f10s-latest-product-${{ matrix.python }}.log
+            f10s-latest-concurrency-${{ matrix.python }}.log
+          if-no-files-found: warn
+          retention-days: 30
