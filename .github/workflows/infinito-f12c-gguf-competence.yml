@@ -43,7 +43,7 @@ jobs:
         run: |
           python -m pip install --disable-pip-version-check --only-binary llama-cpp-python \
             --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu \
-            llama-cpp-python==0.3.16 huggingface_hub==0.29.3
+            llama-cpp-python==0.3.36 huggingface_hub==0.29.3
       - name: Run six NEW incidents with frozen Qwen 3B Q5_K_M and no memory
         run: |
           python -m observatory.f12c_gguf_competence --out f12c_competence_artifacts
