@@ -216,7 +216,13 @@ def play(case: Case, llm, context: str, budget: int):
     trace = []
     for i in range(budget):
         prompt = prompt_for(case, trace, context)
+        previous_prompt_tokens = getattr(llm, "prompt_tokens", 0)
+        previous_completion_tokens = getattr(llm, "completion_tokens", 0)
+        previous_inference_seconds = getattr(llm, "inference_seconds", 0.)
         raw = llm.chat(SYSTEM, prompt)
+        token_delta = getattr(llm, "prompt_tokens", 0) - previous_prompt_tokens
+        completion_delta = getattr(llm, "completion_tokens", 0) - previous_completion_tokens
+        seconds_delta = getattr(llm, "inference_seconds", 0.) - previous_inference_seconds
         action = parse_action(raw)
         feedback, reward, done = tools.execute(action)
         trace.append({
@@ -224,6 +230,9 @@ def play(case: Case, llm, context: str, budget: int):
             "observed_feedback": feedback, "observed_reward": reward,
             "done": done, "prompt_sha256": hashlib.sha256(prompt.encode()).hexdigest(),
             "context_chars": len(context),
+            "prompt_tokens": token_delta,
+            "completion_tokens": completion_delta,
+            "inference_seconds": seconds_delta,
         })
         if done:
             break
@@ -241,20 +250,23 @@ def new_store():
 
 
 def record_episode(store, case, observed_result):
-    """All content is observed from the agent's ACTUAL executed episode."""
-    content = json.dumps({
-        "source": case.id,
-        "public_profile": case.marker,
-        "public_revision": case.revision,
-        "service": case.service,
-        "goal": case.goal,
-        "observed_events": [
-            {"action": row["action"], "tool_feedback": row["observed_feedback"],
-             "observed_reward": row["observed_reward"], "done": row["done"]}
-            for row in observed_result["trace"]
-        ],
-        "verified_success": observed_result["success"],
-    }, ensure_ascii=False, separators=(",", ":"))
+    """Concise faithful record, all statements from publicly observed actions.
+
+    The complete unabridged trace stays separately in the artifact. Compact
+    records prevent A1's fair fixed context budget from truncating an old/new
+    revision before the model can compare them.
+    """
+    observed_events = [
+        "%s => %s (reward %.2f; done %s)" %
+        (row["action"], row["observed_feedback"], row["observed_reward"],
+         str(row["done"]).lower())
+        for row in observed_result["trace"]]
+    content = (
+        "Observed incident source %s; public profile %s; public revision %s; "
+        "service %s. Actual tool results: %s. Verified recovery: %s." %
+        (case.id, case.marker, case.revision, case.service,
+         " | ".join(observed_events),
+         str(observed_result["success"]).lower()))
     return store.add(MemoryRecord(
         content=content, kind=MemoryKind.EPISODIC, importance=.9,
         metadata={
@@ -411,6 +423,9 @@ def run(llm, out: Path | None = None):
                     "episodes": len(rows),
                     "steps": sum(x["calls"] for x in rows),
                     "valid": sum(x["valid_actions"] for x in rows),
+                    "prompt_tokens": sum(y["prompt_tokens"] for x in rows for y in x["trace"]),
+                    "completion_tokens": sum(y["completion_tokens"] for x in rows for y in x["trace"]),
+                    "inference_seconds": sum(y["inference_seconds"] for x in rows for y in x["trace"]),
                     "old_revision_wins": sum(x["success"] for x in rows
                                              if x["public_revision"] == "R1"),
                     "new_revision_wins": sum(x["success"] for x in rows
@@ -436,6 +451,12 @@ def run(llm, out: Path | None = None):
                 scores["2"]["A1"]["old_revision_wins"] and
                 scores["2"]["A2"]["new_revision_wins"] >=
                 scores["2"]["A1"]["new_revision_wins"]),
+            "P3_strategy_incremental_token_efficiency": (
+                evidence["minimum_evidence_met"] and
+                scores["2"]["A2"]["wins"] >= scores["2"]["A1"]["wins"] and
+                scores["2"]["A2"]["prompt_tokens"] <=
+                    .85 * scores["2"]["A1"]["prompt_tokens"] and
+                scores["2"]["A1"]["prompt_tokens"] > 0),
             "P4_revision_strata_reported": (
                 all(scores[str(budget)][arm]["episodes"] == 6
                     for budget in EVAL_BUDGETS for arm in ARMS)),
