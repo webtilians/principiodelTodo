@@ -60,3 +60,19 @@ Otros workflows de CI de producto de esa rama (**Repository integration checks, 
 **RECOMENDACIÓN: GO a revisión del PR #110 y eventual integración del pequeño parche SQLite local si el mantenedor aprueba explícitamente la fusión y se comprueba despliegue de un único worker HTTPS o se resuelve separadamente la coordinación multiworker.** No equivale a autorización de despliegue inmediato ni a corrección de toda posible condición de carrera en el servidor remoto. Mantener #110 **DRAFT**, preservar #78 y exigir backup verificable previo al release.
 
 La incorporación de un modelo de estrategia autónoma F10/F12 es totalmente distinta y sigue **NO-GO**; no se ha tocado.
+
+## 6. Revalidación sobre el nuevo master que llegó durante las pruebas
+
+Durante esta auditoría se fusionó el PR #109 de pruebas de fotos. El nuevo `master` quedó en **`2671e889f619e115e77db2e2b7ec906b9a4cfd78`**, con cambios en `remote.py`, `remote_photos.py` y tests, mientras `persistent_memory.py` seguía sin el fix.
+
+Para no confundir este cambio de base con una mejora validada, añadimos una tercera ejecución independiente de CI: **[GitHub Actions #42241258007](https://github.com/webtilians/principiodelTodo/actions/runs/42241258007)**. Su workflow `.github/workflows/f10s-latest-master-overlay.yml` no rebasa ni fusiona el PR: crea un worktree EXACTO desde commit `2671e889`, copia **solo** el parche SQLite mínimo y los dos tests F10-S, y coteja que el resultado del archivo de producto es matemáticamente equivalente a `before.replace(anchor, patch)`. Verifica además la presencia de `tests/test_remote_photos_v3.py` y ejecuta TODA la suite nueva de este commit.
+
+Resultados finales en ese nuevo `master`:
+- **Python 3.11:** **298 tests de producto PASS, 1 SKIP** (modelo `INFINITO_EMBEDDINGS` ausente), más **3/3 pruebas multiproceso PASS**, test comparativo de diff PASS. Job SUCCESS.
+- **Python 3.12:** **298 tests de producto PASS, 1 SKIP** (misma prueba), más **3/3 pruebas multiproceso PASS**, diff PASS. Job SUCCESS.
+- **596 ejecuciones de tests del producto PASS + 6 ejecuciones del bloque F10-S PASS; 2 SKIP**, una por intérprete del mismo módulo semántico opcional.
+- Están incluidos los nuevos contratos de las herramientas de foto y los cambios recientes del servidor HTTP de #109. Ninguna línea nueva del producto fue necesaria.
+
+Esta segunda batería sustituye como evidencia de actualidad al primer baseline `129e7018`, que permanece documentado por trazabilidad causal. **Estado final para el `master` más reciente: PASS funcional y de concurrencia SQLite**, con la excepción explícita de la prueba semántica no ejecutada y **SIN cobertura de escritura HTTPS multiworker**.
+
+**No se ha desplegado ni fusionado el PR #110 ni se ha tocado la memoria de un usuario.**
