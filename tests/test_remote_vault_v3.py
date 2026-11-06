@@ -5,7 +5,7 @@ import tarfile
 import pytest
 
 from src.infinito3.remote_accounts import Accounts
-from tests.test_remote_accounts_v3 import app_session, server  # noqa: F401  # server is a fixture
+from tests.test_remote_accounts_v3 import PASSWORD, app_session, server  # noqa: F401  # server is a fixture
 
 pykeepass = pytest.importorskip("pykeepass")
 httpx2 = pytest.importorskip("httpx2")
@@ -72,7 +72,7 @@ def test_no_tool_has_a_way_to_receive_a_value(server):  # noqa: F811
     base, _, _ = server
     _, _, app = app_session(base, [], mode="signup", name="tool")
     fields = {t.name: set(t.input_schema["properties"]) for t in app.tools if t.name.startswith("vault_")}
-    assert fields == {"vault_add": {"entry"}, "vault_reveal": {"entry"}, "vault_list": set()}
+    assert fields == {"vault_add": {"entry"}, "vault_reveal": {"entry"}, "vault_delete": {"entry"}, "vault_list": set()}
 
 
 def test_a_value_kept_on_the_page_never_reaches_the_agent_and_opens_with_keepass(server, capfd):  # noqa: F811
@@ -349,3 +349,65 @@ def test_a_copy_with_something_else_as_a_vault_is_refused(tmp_path):
     (data / "accounts" / "ana" / "vault.kdbx").write_bytes(b"esto no es KeePass")
     with pytest.raises(ValueError, match="not a KeePass file"):
         remote_backup.backup(data, tmp_path / "copias")
+
+
+def test_an_entry_is_deleted_only_on_the_page_with_the_master_password(server):  # noqa: F811
+    base, people, folder = server
+    keep(base, people, "hugo")
+    (other,), _, _ = app_session(base, [("vault_add", {"entry": "Panel"})], name="hugo")
+    send(base, link_in(other), master=MASTER, value="otro-valor-distinto-55")
+    (answer,), _, _ = app_session(base, [("vault_delete", {"entry": "router de casa"})], name="hugo")
+    link = link_in(answer)
+    assert "Nothing changes until" in answer and VALUE not in answer
+    opened = httpx2.get(link, headers=SPANISH)
+    assert opened.status_code == 200 and "para siempre" in opened.text and 'name="value"' not in opened.text
+
+    vault = folder / "accounts" / "hugo" / "vault.kdbx"
+    wrong = send(base, link, master="esta clave maestra no es")
+    assert wrong.status_code == 400 and "no abre tu bóveda" in wrong.text
+    assert "- Router de casa" in app_session(base, [("vault_list", {})], name="hugo")[0][0]
+
+    done = send(base, link, master=MASTER)
+    assert done.status_code == 200 and "ya no está en tu bóveda" in done.text and VALUE not in done.text
+    assert "caducado" in httpx2.get(link, headers=SPANISH).text  # a link works once
+    (listed,), _, _ = app_session(base, [("vault_list", {})], name="hugo")
+    assert "Router" not in listed and "- Panel" in listed
+    db = pykeepass.PyKeePass(str(vault), password=MASTER)  # still a standard file, without that entry
+    assert db.find_entries(title="Router de casa", first=True) is None
+    assert db.find_entries(title="Panel", first=True).password == "otro-valor-distinto-55"
+
+
+def test_deleting_what_is_not_there_says_so_and_an_account_without_invitation_gets_no_link(server):  # noqa: F811
+    base, people, _ = server
+    keep(base, people, "lola")
+    (answer,), _, _ = app_session(base, [("vault_delete", {"entry": "No existe"})], name="lola")
+    assert "No está en tu bóveda" in httpx2.get(link_in(answer), headers=SPANISH).text
+    (refused,), _, _ = app_session(base, [("vault_delete", {"entry": "Router"})], mode="signup", name="mina")
+    assert "by invitation" in refused and "/vault?r=" not in refused
+
+
+def test_the_memory_page_lists_names_only_and_leads_to_the_vault_page(server):  # noqa: F811
+    base, people, _ = server
+    keep(base, people, "olga")
+    with httpx2.Client(headers=SPANISH, follow_redirects=True) as client:
+        page = client.post(f"{base}/memory", data={"action": "signin", "name": "olga", "password": PASSWORD, "r": ""})
+        assert "Router de casa" in page.text and VALUE not in page.text
+        csrf = re.search(r'name="csrf" value="([^"]+)"', page.text).group(1)
+        asked = client.post(f"{base}/memory", data={"action": "vault", "csrf": csrf, "entry": "Router de casa",
+                                                    "what": "delete"})
+        assert str(asked.url).startswith(f"{base}/vault?r=") and "para siempre" in asked.text and VALUE not in asked.text
+        assert "Te lo pide tu IA" not in asked.text  # the person asked for this one themselves
+        token = str(asked.url).split("r=")[1]
+        gone = client.post(f"{base}/vault", data={"r": token, "master": MASTER}).text
+        assert "ya no está" in gone and 'href="/memory"' in gone
+        assert "Router de casa" not in client.get(f"{base}/memory").text
+        made_up = client.post(f"{base}/memory", data={"action": "vault", "csrf": csrf, "entry": "Otra", "what": "reveal"})
+        assert "/vault" not in str(made_up.url)
+
+
+def test_an_account_without_invitation_sees_no_vault_on_the_memory_page(server):  # noqa: F811
+    base, _, _ = server
+    app_session(base, [], mode="signup", name="paula")
+    with httpx2.Client(headers=SPANISH, follow_redirects=True) as client:
+        page = client.post(f"{base}/memory", data={"action": "signin", "name": "paula", "password": PASSWORD, "r": ""})
+        assert page.status_code == 200 and "Tu bóveda" not in page.text
