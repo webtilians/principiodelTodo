@@ -17,12 +17,13 @@ import hmac
 import html
 import secrets
 import unicodedata
+from datetime import datetime, timezone
 from typing import Dict, List, Optional, Sequence
 from urllib.parse import urlencode
 
-from . import remote_vault
-from .mcp_server import BY_THE_USER, KINDS, AgentMemory, _day
-from .remote_accounts import _HEADERS, NAME, _page, _texts
+from . import remote_portal, remote_vault
+from .mcp_server import BY_THE_USER, KINDS, OPEN_KINDS, OVERVIEW_OPEN_ITEMS, STALE_DAYS, AgentMemory, _day
+from .remote_accounts import _HEADERS, NAME, _STYLE as _BASE_STYLE, _page, _texts
 from .types import MemoryRecord
 
 SESSION = "memory-session"
@@ -32,6 +33,9 @@ LINK_SECONDS = 600
 PAGE_SIZE = 50
 MAX_IDS = 500
 COOKIE = "infinito_memory"
+# Memories saved without saying what they are: mostly what someone told an app about themselves.
+NO_KIND = "none"
+NEURONS = KINDS + (NO_KIND,)
 
 TOOL_DESCRIPTION = ("A link to the page where the user sees their memory and searches, corrects or deletes it "
                     "themselves. Give it memory_ids to have them confirm deleting those: use it when your app blocks "
@@ -60,7 +64,12 @@ TEXT = {
         "search": "Buscar", "search_hint": "Palabras que contenga",
         "all_projects": "Todos los clientes", "all_kinds": "Todos los tipos", "clear": "Quitar filtros",
         "kinds": {"fact": "Hecho", "decision": "Decisión", "agreement": "Acuerdo", "pending": "Pendiente",
-                  "proposal": "Propuesta", "assumption": "Suposición", "to_verify": "Por verificar"},
+                  "proposal": "Propuesta", "assumption": "Suposición", "to_verify": "Por verificar", "none": "Sobre ti"},
+        "kind_about": {"fact": "lo que es así", "decision": "lo que se decidió", "agreement": "lo acordado con alguien",
+                       "pending": "lo que falta por hacer", "proposal": "ideas sin decidir",
+                       "assumption": "lo que se da por supuesto", "to_verify": "lo que hay que comprobar",
+                       "none": "lo que les has contado a tus IAs"},
+        "menu": "Menú",
         "source": "fuente", "by": "guardado por", "by_you": "corregido por ti", "correct": "Corregir",
         "delete_marked": "Borrar los marcados", "delete_found": "Borrar los {n} de este filtro",
         "newer": "Más recientes", "older": "Más antiguos", "sign_out": "Cerrar sesión",
@@ -105,7 +114,12 @@ TEXT = {
         "search": "Search", "search_hint": "Words it contains",
         "all_projects": "All clients", "all_kinds": "All kinds", "clear": "Clear filters",
         "kinds": {"fact": "Fact", "decision": "Decision", "agreement": "Agreement", "pending": "Pending",
-                  "proposal": "Proposal", "assumption": "Assumption", "to_verify": "To verify"},
+                  "proposal": "Proposal", "assumption": "Assumption", "to_verify": "To verify", "none": "About you"},
+        "kind_about": {"fact": "what is so", "decision": "what was decided", "agreement": "what was agreed with someone",
+                       "pending": "what is still to do", "proposal": "ideas not decided yet",
+                       "assumption": "what is taken for granted", "to_verify": "what needs checking",
+                       "none": "what you told your AIs"},
+        "menu": "Menu",
         "source": "source", "by": "saved by", "by_you": "corrected by you", "correct": "Correct",
         "delete_marked": "Delete the marked ones", "delete_found": "Delete the {n} in this filter",
         "newer": "Newer", "older": "Older", "sign_out": "Sign out",
@@ -144,7 +158,7 @@ h2 { font-size: 1.1rem; margin: 1.8rem 0 .3rem; }
 @media (max-width: 34rem) { .filters { grid-template-columns: 1fr; } .card { padding: 1.1rem; } }
 .filters input[type=search], .filters select, textarea { width: 100%; padding: .55rem .7rem; font: inherit; color: inherit;
   background: transparent; border: 1px solid var(--line); border-radius: 9px; }
-.filters select option { color: #1d2433; }
+.filters select option { color: var(--ink); background: #101634; }
 textarea { min-height: 7rem; resize: vertical; }
 .filters button { margin: 0; }
 .row { display: flex; align-items: center; justify-content: space-between; gap: .75rem; flex-wrap: wrap; }
@@ -156,9 +170,8 @@ textarea { min-height: 7rem; resize: vertical; }
 button.quiet { width: auto; margin: 0; padding: .4rem .8rem; font-weight: 500; color: var(--accent);
   background: transparent; border: 1px solid var(--line); }
 button.bad, button.bad-quiet { width: auto; margin: 0; padding: .55rem 1rem; }
-button.bad { color: #fff; background: var(--bad); }
+button.bad { color: #240a08; background: var(--bad); }
 button.bad-quiet { font-weight: 500; color: var(--bad); background: transparent; border: 1px solid var(--line); }
-@media (prefers-color-scheme: dark) { button.bad { color: #10131a; } }
 .actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1rem; align-items: center; }
 .ok { font-weight: 600; margin: 0 0 1rem; }
 """
@@ -203,13 +216,80 @@ def _matches(record: MemoryRecord, words: Sequence[str]) -> bool:
     return all(word in where for word in words)
 
 
+def _kind_of(record: MemoryRecord) -> str:
+    kind = record.metadata.get("kind")
+    return kind if kind in KINDS else NO_KIND
+
+
 def _found(memory: AgentMemory, query: str, project: str, kind: str) -> dict:
-    """Newest first, since what someone comes to fix is usually what was just said."""
+    """Newest first, since what someone comes to fix is usually what was just said. The neurons count what the search
+    and the client leave, before choosing a kind, so choosing one does not empty the others."""
     records = memory._active()
     projects = sorted({str(r.metadata["project"]) for r in records if r.metadata.get("project")}, key=str.casefold)
-    shown = memory._active(project or None, kind if kind in KINDS else None)
     words = _plain(query).split()
-    return {"records": [r for r in reversed(shown) if _matches(r, words)], "total": len(records), "projects": projects}
+    matching = [r for r in reversed(memory._active(project or None)) if _matches(r, words)]
+    kinds: Dict[str, int] = {}
+    for record in matching:
+        kinds[_kind_of(record)] = kinds.get(_kind_of(record), 0) + 1
+    shown = [r for r in matching if _kind_of(r) == kind] if kind in NEURONS else matching
+    return {"records": shown, "total": len(records), "projects": projects, "kinds": kinds}
+
+
+def _when(record: MemoryRecord) -> datetime:
+    """When it was said, always with a time zone; an imported email keeps its own date."""
+    said = record.metadata.get("said_at")
+    try:
+        moment = datetime.fromisoformat(str(said)) if said else record.created_at
+    except ValueError:
+        moment = record.created_at
+    return moment if moment.tzinfo else moment.replace(tzinfo=timezone.utc)
+
+
+def _ago(t: dict, moment: datetime, now: datetime) -> str:
+    hours = int((now - moment).total_seconds() // 3600)
+    if hours < 1:
+        return t["now"]
+    if hours < 24:
+        return t["hours_ago"].format(n=hours)
+    return t["yesterday"] if hours < 48 else t["days_ago"].format(n=hours // 24)
+
+
+def _home(t: dict, memory: AgentMemory, now: Optional[datetime] = None) -> dict:
+    """What the vault home shows, all of it from this person's memory."""
+    now = now or datetime.now(timezone.utc)
+    records = memory._active()
+    counts: Dict[str, int] = {}
+    for record in records:
+        counts[_kind_of(record)] = counts.get(_kind_of(record), 0) + 1
+    recent = []
+    for record in sorted(records, key=_when, reverse=True)[:3]:
+        author = str(record.metadata.get("author") or "")
+        recent.append({"id": record.id, "text": record.content, "kind": _kind_of(record),
+                       "label": t["kinds"][_kind_of(record)], "ago": _ago(t, _when(record), now),
+                       "chip": str(record.metadata.get("project") or ("" if author == BY_THE_USER else author))})
+    projects = {str(r.metadata["project"]).strip().casefold() for r in records if str(r.metadata.get("project") or "").strip()}
+    return {"total": len(records), "counts": counts, "recent": recent, "projects": len(projects)}
+
+
+def _projects(memory: AgentMemory, now: Optional[datetime] = None) -> List[dict]:
+    """Each client with its last activity, its counts and what is still open, most recently active first."""
+    now = now or datetime.now(timezone.utc)
+    groups: Dict[str, List[MemoryRecord]] = {}
+    for record in memory._active():
+        name = str(record.metadata.get("project") or "").strip()
+        if name:
+            groups.setdefault(name.casefold(), []).append(record)
+    found = []
+    for records in sorted(groups.values(), key=lambda rs: max(_when(r) for r in rs), reverse=True):
+        last = max(_when(record) for record in records)
+        kinds: Dict[str, int] = {}
+        for record in records:
+            kinds[_kind_of(record)] = kinds.get(_kind_of(record), 0) + 1
+        quiet = max((now - last).days, 0)
+        still_open = [r.content for r in records if r.metadata.get("kind") in OPEN_KINDS][-OVERVIEW_OPEN_ITEMS:]
+        found.append({"name": str(records[-1].metadata["project"]), "last": _day(max(records, key=_when)), "quiet": quiet,
+                      "stale": quiet >= STALE_DAYS, "kinds": kinds, "open": still_open})
+    return found
 
 
 def _chosen(memory: AgentMemory, memory_ids: Sequence[str]) -> List[MemoryRecord]:
@@ -278,8 +358,8 @@ def sign_in_body(t: dict, token: str, *, name: str = "", error: str = "") -> str
             + f'<button type="submit">{t["go_in"]}</button></form>')
 
 
-def list_body(t: dict, found: dict, csrf: str, *, query: str, project: str, kind: str, page: int,
-              vault: Optional[List[Dict[str, str]]] = None, message: str = "", error: str = "") -> str:
+def list_body(t: dict, found: dict, csrf: str, *, query: str, project: str, kind: str, page: int, message: str = "",
+              error: str = "") -> str:
     e = html.escape
     records, total = found["records"], found["total"]
     filtering = bool(query or project or kind)
@@ -296,7 +376,7 @@ def list_body(t: dict, found: dict, csrf: str, *, query: str, project: str, kind
                f'<select name="project" aria-label="{t["all_projects"]}">{option("", t["all_projects"], project)}'
                + "".join(option(p, p, project) for p in found["projects"])
                + f'</select><select name="kind" aria-label="{t["all_kinds"]}">{option("", t["all_kinds"], kind)}'
-               + "".join(option(k, t["kinds"][k], kind) for k in KINDS)
+               + "".join(option(k, t["kinds"][k], kind) for k in NEURONS)
                + f'</select><button class="wide" type="submit">{t["search"]}</button></form>')
 
     def link_to(number: int, label: str) -> str:
@@ -319,14 +399,11 @@ def list_body(t: dict, found: dict, csrf: str, *, query: str, project: str, kind
     else:
         listing = f'<p>{t["nothing_found"] if filtering else t["empty"]}</p>'
     clear = f' · <a href="/memory">{t["clear"]}</a>' if filtering else ""
-    head = (f'<div class="row"><p class="note" style="margin:0">{count}{clear}</p>'
-            f'<form method="post" action="/memory">{_hidden(action="signout", csrf=csrf)}'
-            f'<button class="quiet" type="submit">{t["sign_out"]}</button></form></div>')
+    head = f'<p class="note" style="margin:0">{count}{clear}</p>'
     notice = ((f'<p class="ok" role="status">{e(message)}</p>' if message else "")
               + (f'<p class="error" role="alert">{e(error)}</p>' if error else ""))
     return (f'{notice}{filters}{head}{listing}'
-            + (f'<p class="actions">{" · ".join(moves)}</p>' if moves else "")
-            + (vault_body(t, vault, csrf) if vault else ""))
+            + (f'<p class="actions">{" · ".join(moves)}</p>' if moves else ""))
 
 
 def vault_body(t: dict, items: List[Dict[str, str]], csrf: str) -> str:
@@ -340,7 +417,7 @@ def vault_body(t: dict, items: List[Dict[str, str]], csrf: str) -> str:
                     f'<button class="quiet" type="submit" name="what" value="reveal">{t["vault_show"]}</button>'
                     f'<button class="bad-quiet" type="submit" name="what" value="delete">{t["vault_delete"]}</button>'
                     f'</form></div>')
-    return f'<h2>{t["vault"]}</h2><p class="note">{t["vault_note"]}</p>{"".join(rows)}'
+    return f'<p class="note">{t["vault_note"]}</p>{"".join(rows)}'
 
 
 def confirm_body(t: dict, records: List[MemoryRecord], csrf: str, token: str) -> str:
@@ -370,19 +447,42 @@ def set_session_cookie(response, token: str, *, secure: bool) -> None:
 def routes(accounts, grants, memories, limiter, secure: bool) -> list:
     """The page; memories opens each person's sealed memory, and limiter keeps one heavy password check at a time."""
     import anyio
-    from starlette.responses import RedirectResponse
+    from starlette.responses import HTMLResponse, RedirectResponse, Response
     from starlette.routing import Route
+
+    # Only here: the sign-in page's form has to be able to send the browser on to the app that asked.
+    policy = f"{_HEADERS['Content-Security-Policy']}; img-src 'self'; form-action 'self'; base-uri 'none'"
 
     def texts(request) -> dict:
         base = _texts(request)
-        return {**base, **TEXT[base["lang"]]}
+        return {**base, **TEXT[base["lang"]], **remote_portal.TEXT[base["lang"]]}
 
     def view(t: dict, title: str, body: str, status: int = 200):
         response = _page(t, title, body, status, style=_STYLE)
-        # Only here: the sign-in page's form has to be able to send the browser on to the app that asked.
-        response.headers["Content-Security-Policy"] = f'{_HEADERS["Content-Security-Policy"]}; form-action \'self\'; ' \
-                                                      "base-uri 'none'"
+        response.headers["Content-Security-Policy"] = policy
         return response
+
+    async def shown(t: dict, session: dict, title: str, body: str, status: int = 200, *, active: str = "memories",
+                    query: str = "", whole: bool = False):
+        """A page of the portal, for someone signed in. whole is for a page that lays itself out, as the home does."""
+        pending = await use(session, lambda memory: len(memory._active(kind="pending")), writes=False)
+        inner = body if whole else (f'<div class="page"><h1>{html.escape(title)}</h1><div class="sheet">{body}</div></div>')
+        page_html = remote_portal.shell(t, active, session["account"], session["data"]["csrf"], inner, _hidden,
+                                        pending=pending, query=query)
+        response = HTMLResponse(
+            f'<!doctype html><html lang="{t["lang"]}"><head><meta charset="utf-8"><meta name="viewport" '
+            f'content="width=device-width, initial-scale=1"><title>{html.escape(title)} · INFINITO</title>'
+            f'<style>{_BASE_STYLE}{_STYLE}{remote_portal.STYLE}</style></head><body class="app">{page_html}</body></html>',
+            status_code=status, headers=_HEADERS)
+        response.headers["Content-Security-Policy"] = policy
+        return response
+
+    async def brain_image(request):
+        """The only picture: nothing of anyone's in it, so it needs no sign-in and can be kept by the browser."""
+        if not remote_portal.BRAIN_FILE.exists():
+            return Response(status_code=404)
+        return Response(remote_portal.BRAIN_FILE.read_bytes(), media_type="image/webp",
+                        headers={"Cache-Control": "public, max-age=86400", "X-Content-Type-Options": "nosniff"})
 
     def signed_in(request) -> Optional[dict]:
         token = request.cookies.get(COOKIE, "")
@@ -406,23 +506,40 @@ def routes(accounts, grants, memories, limiter, secure: bool) -> list:
 
     async def listing(t: dict, session: dict, params, **notices):
         query, project = str(params.get("q", ""))[:200], str(params.get("project", ""))[:200]
-        kind = str(params.get("kind", "")) if str(params.get("kind", "")) in KINDS else ""
+        kind = str(params.get("kind", "")) if str(params.get("kind", "")) in NEURONS else ""
         try:
             page_number = int(str(params.get("p", "1")))
         except ValueError:
             page_number = 1
         found = await use(session, lambda memory: _found(memory, query, project, kind), writes=False)
         body = list_body(t, found, session["data"]["csrf"], query=query, project=project, kind=kind, page=page_number,
-                         vault=vault_items(session), **notices)
-        return view(t, t["title"], body)
+                         **notices)
+        searching = str(params.get("view", "")) == "search"
+        return await shown(t, session, t["nav_search"] if searching else t["nav_memories"], body,
+                           active="search" if searching else "memories", query=query)
+
+    async def home(t: dict, session: dict):
+        data = await use(session, lambda memory: _home(t, memory), writes=False)
+        data["vault"] = vault_items(session)
+        body = remote_portal.dashboard(t, data, session["data"]["csrf"], _hidden)
+        return await shown(t, session, t["nav_vault"], body, active="vault", whole=True)
+
+    async def projects(t: dict, session: dict):
+        found = await use(session, _projects, writes=False)
+        return await shown(t, session, t["projects_title"], remote_portal.projects_body(t, found), active="projects")
+
+    async def keys(t: dict, session: dict):
+        items = vault_items(session)
+        body = vault_body(t, items, session["data"]["csrf"]) if items else f'<p>{t["no_keys_yet" if items is not None else "no_keys"]}</p>'
+        return await shown(t, session, t["keys"], body, active="vault")
 
     async def confirming(t: dict, session: dict, memory_ids: Sequence[str], token: str = ""):
         records = await use(session, lambda memory: _chosen(memory, memory_ids), writes=False)
         if not records:
             if token:
                 grants.drop(token)
-            return view(t, t["gone_title"], f'<p>{t["gone"]}</p><p><a href="/memory">{t["back"]}</a></p>')
-        return view(t, t["confirm_title"], confirm_body(t, records, session["data"]["csrf"], token))
+            return await shown(t, session, t["gone_title"], f'<p>{t["gone"]}</p><p><a href="/memory">{t["back"]}</a></p>')
+        return await shown(t, session, t["confirm_title"], confirm_body(t, records, session["data"]["csrf"], token))
 
     async def page(request):
         t, params = texts(request), request.query_params
@@ -441,9 +558,19 @@ def routes(accounts, grants, memories, limiter, secure: bool) -> list:
             wanted = params["edit"]
             found = await use(session, lambda memory: _chosen(memory, [wanted]), writes=False)
             if not found:
-                return view(t, t["missing_title"], f'<p><a href="/memory">{t["back"]}</a></p>', status=404)
-            return view(t, t["correct_title"], correct_body(t, found[0], session["data"]["csrf"]))
-        return await listing(t, session, params)
+                return await shown(t, session, t["missing_title"], f'<p><a href="/memory">{t["back"]}</a></p>', status=404)
+            return await shown(t, session, t["correct_title"], correct_body(t, found[0], session["data"]["csrf"]))
+        wanted = params.get("view", "")
+        if wanted == "projects":
+            return await projects(t, session)
+        if wanted == "vault":
+            return await keys(t, session)
+        if wanted == "settings":
+            return await shown(t, session, t["settings_title"], remote_portal.settings_body(t, session["account"]),
+                               active="settings")
+        if wanted in ("memories", "search") or any(name in params for name in ("q", "project", "kind", "p")):
+            return await listing(t, session, params)
+        return await home(t, session)
 
     async def sign_in(t: dict, form):
         token, password = str(form.get("r", "")), str(form.get("password", ""))
@@ -471,7 +598,8 @@ def routes(accounts, grants, memories, limiter, secure: bool) -> list:
         if session is None:
             return sign_in_page(t, str(form.get("r", "")), error=t["session_over"], status=401)
         if not hmac.compare_digest(str(form.get("csrf", "")), session["data"]["csrf"]):
-            return view(t, t["title"], f'<p>{t["bad_form"]}</p><p><a href="/memory">{t["back"]}</a></p>', status=403)
+            return await shown(t, session, t["title"], f'<p>{t["bad_form"]}</p><p><a href="/memory">{t["back"]}</a></p>',
+                               status=403)
         if action == "signout":
             grants.drop(session["token"])
             response = RedirectResponse("/memory", status_code=303, headers=_HEADERS)
@@ -497,19 +625,19 @@ def routes(accounts, grants, memories, limiter, secure: bool) -> list:
             if link is not None and link["account"] == session["account"]:
                 grants.drop(token)  # used up only now: chat apps may fetch a link first
             chat = f'<p class="note">{t["back_chat"]}</p>' if link is not None else ""
-            return view(t, t["deleted_title"], f'<p>{_counted(t, "deleted", deleted)}</p>{chat}'
-                                               f'<p><a href="/memory">{t["back"]}</a></p>')
+            return await shown(t, session, t["deleted_title"], f'<p>{_counted(t, "deleted", deleted)}</p>{chat}'
+                                                               f'<p><a href="/memory">{t["back"]}</a></p>')
         if action == "correct":
             memory_id, text = str(form.get("id", "")), str(form.get("text", "")).strip()
             try:
                 done = await use(session, lambda memory: _correct(memory, memory_id, text), writes=True)
             except KeyError:
-                return view(t, t["missing_title"], f'<p><a href="/memory">{t["back"]}</a></p>', status=404)
+                return await shown(t, session, t["missing_title"], f'<p><a href="/memory">{t["back"]}</a></p>', status=404)
             except _Refused:
                 found = await use(session, lambda memory: _chosen(memory, [memory_id]), writes=False)
                 # What was typed may hold a secret: the form goes back with the memory as it was.
                 body = correct_body(t, found[0], session["data"]["csrf"], t["refused"])
-                return view(t, t["correct_title"], body, status=400)
+                return await shown(t, session, t["correct_title"], body, status=400)
             return await listing(t, session, {}, message=t[done])
         if action == "vault":
             entry, what = str(form.get("entry", "")), str(form.get("what", ""))
@@ -520,6 +648,7 @@ def routes(accounts, grants, memories, limiter, secure: bool) -> list:
                                 account=session["account"], key=session["key"],
                                 data={"action": what, "entry": entry, "own": True})
             return RedirectResponse(f"/vault?{urlencode({'r': link})}", status_code=303, headers=_HEADERS)
-        return view(t, t["title"], f'<p>{t["bad_form"]}</p><p><a href="/memory">{t["back"]}</a></p>', status=400)
+        return await shown(t, session, t["title"], f'<p>{t["bad_form"]}</p><p><a href="/memory">{t["back"]}</a></p>', status=400)
 
-    return [Route("/memory", page, methods=["GET"]), Route("/memory", answer, methods=["POST"])]
+    return [Route("/memory", page, methods=["GET"]), Route("/memory", answer, methods=["POST"]),
+            Route(remote_portal.BRAIN_PATH, brain_image, methods=["GET"])]

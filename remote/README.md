@@ -98,7 +98,8 @@ it is. An agent can give each memory:
 
 `remember_many` saves everything a meeting or a document established in one call, so apps that ask before
 each write ask once. `recall` and `list_memories` take `project` and `kind`, which answer "where were we with
-Acme?" and "what's pending?". `overview` shows every client with their last activity, their counts and what is
+Acme?" and "what's pending?". On your memory page each kind is a neuron in a brain: it grows with how many memories
+it holds, lights up under the pointer and, pressed, shows them. `overview` shows every client with their last activity, their counts and what is
 still open, and flags those quiet for a week: it takes no model, so every app sees the same.
 
 Each memory also says which app saved it. The server takes that from the app's sign-in, not from anything the model
