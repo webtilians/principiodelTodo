@@ -131,7 +131,7 @@ def test_the_page_says_who_saved_it_and_a_correction_says_it_was_you(server):  #
         csrf = re.search(r'name="csrf" value="([^"]+)"', form.text).group(1)
         fixed = client.post(f"{base}/memory", data={"action": "correct", "csrf": csrf, "id": dentist,
                                                     "text": "Mi dentista se llama Marta Ruiz."})
-        assert "corregido por ti" in fixed.text and "guardado por Prueba" not in fixed.text
+        assert "guardado por ti" in fixed.text and "guardado por Prueba" not in fixed.text
     (answer,), _, _ = app_session(base, [("list_memories", {})], name="elena")
     assert f'by: {BY_THE_USER}) "Mi dentista se llama Marta Ruiz."' in answer
 

@@ -9,7 +9,8 @@ locked under its master password, with the sealed list of its names), and the fi
 person's key wrapped under their password or address (accounts.json, people.json). Without the password
 or the address a copy opens nothing, so it can be kept anywhere. What can be read in one is the usernames
 and how large each memory is. A plain memory left from before sealing is never copied, and neither are
-the apps' sign-ins (grants.db): after a restore each app simply signs in again.
+the apps' sign-ins (grants.db): after a restore each app simply signs in again. Photos are not copied yet: a restore
+brings back the memory that names one, with its words, and not the picture.
 
 A forgotten memory stays, sealed, in the copies made before it was forgotten until they age out, so
 restoring an old copy brings it back: keep few, and say how long (remote/README.md).

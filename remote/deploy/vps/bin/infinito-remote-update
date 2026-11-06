@@ -23,6 +23,29 @@ force=""; [ "${1:-}" = "--force" ] && force=1
 if [ -n "${REMOTE_BRANCH:-}" ]; then echo "$REMOTE_BRANCH" > "$CONF/branch"; force=1; fi
 branch=$(cat "$CONF/branch" 2>/dev/null || echo master)
 
+# The site's file follows the branch too. Before the check for new commits, so that the first run of this script
+# applies it without waiting for the next one. A file Caddy refuses is taken back, and the site stays as it was.
+follow_site() {
+  local wanted="$APP/remote/deploy/vps/infinito-remote.caddy" site=/etc/caddy/sites.d/infinito-remote.caddy host new
+  host=$(cat "$CONF/host" 2>/dev/null || true)
+  [ -n "$host" ] && [ -f "$wanted" ] && [ -f "$site" ] || return 0
+  new=$(mktemp)
+  sed "s/__HOST__/$host/" "$wanted" > "$new"
+  if ! cmp -s "$new" "$site"; then
+    cp -p "$site" "$site.before"
+    cat "$new" > "$site"
+    if caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null 2>&1; then
+      systemctl reload caddy && echo "Caddy sigue la nueva configuración del sitio." || true
+    else
+      cat "$site.before" > "$site"
+      echo "Caddy no acepta la nueva configuración del sitio: sigue la anterior." >&2
+    fi
+    rm -f "$site.before"
+  fi
+  rm -f "$new"
+}
+follow_site
+
 remote=$(git ls-remote "$REPO" "refs/heads/$branch" | cut -f1)
 if [ -z "$remote" ] && [ "$branch" != master ]; then
   echo "La rama $branch ya no existe en GitHub: a partir de ahora se sigue master."

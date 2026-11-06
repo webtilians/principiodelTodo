@@ -239,12 +239,14 @@ class SQLiteCognitiveMemoryStore:
         except Exception:
             return None
 
-    def add(self, record: MemoryRecord) -> MemoryRecord:
+    def add(self, record: MemoryRecord, *, alone: bool = False) -> MemoryRecord:
+        """alone: a memory of its own, such as a photo with the same words as another. It is never merged with
+        another one, and it replaces none."""
         normalized = _normalize_text(record.content)
         if not normalized:
             return record
 
-        fact = self.fact_extractor.extract(record.content, record.kind)
+        fact = None if alone else self.fact_extractor.extract(record.content, record.kind)
         if fact:
             record.fact_subject = fact.subject
             record.fact_predicate = fact.predicate
@@ -255,7 +257,7 @@ class SQLiteCognitiveMemoryStore:
         with self._lock, self._conn:
             now = self._tick()
             record.updated_at = now
-            exact = self._conn.execute(
+            exact = None if alone else self._conn.execute(
                 "SELECT * FROM memories WHERE normalized_content = ? AND status = ? LIMIT 1",
                 (normalized, MemoryStatus.ACTIVE.value),
             ).fetchone()

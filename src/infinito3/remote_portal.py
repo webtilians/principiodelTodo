@@ -11,6 +11,7 @@ from urllib.parse import urlencode
 
 BRAIN_FILE = Path(__file__).parent / "assets" / "brain.webp"
 BRAIN_PATH = "/memory/brain.webp"
+PHOTO_PATH = "/memory/photo"
 
 TEXT = {
     "es": {
@@ -89,6 +90,7 @@ _ICONS = {
     "bulb": '<path d="M12 3a6.5 6.5 0 0 0-4 11.6c.8.7 1 1.4 1 2.4h6c0-1 .2-1.7 1-2.4A6.5 6.5 0 0 0 12 3Z"/><path d="M9.5 20.5h5"/>',
     "user": '<circle cx="12" cy="8.5" r="4"/><path d="M4.5 20.5c.8-4.2 3.8-6.5 7.5-6.5s6.7 2.3 7.5 6.5"/>',
     "out": '<path d="M14 4h5v16h-5"/><path d="M4 12h11"/><path d="m8.5 7.5-4.5 4.5 4.5 4.5"/>',
+    "image": '<rect x="3" y="4.5" width="18" height="15" rx="2.5"/><circle cx="8.5" cy="9.5" r="1.7"/><path d="m3.5 17.5 5-4.5 3.5 3 3.5-3.5 5 5"/>',
 }
 
 STYLE = """
@@ -204,6 +206,15 @@ a.item:hover { border-color: rgba(130, 190, 255, .6); background: rgba(24, 42, 8
   background: radial-gradient(circle at 30% 20%, color-mix(in srgb, var(--c) 42%, transparent), transparent 70%),
     linear-gradient(135deg, #1b2c58, #0d1834); border-radius: .55rem; }
 .tile .ic { width: 1.6rem; height: 1.6rem; }
+.tile img, .thumb img { display: block; width: 100%; height: 100%; object-fit: cover; border-radius: .55rem; }
+.thumb { flex: none; display: block; width: 6rem; height: 4.5rem; background: #0d1834; border-radius: .55rem; }
+.large { margin: 0 0 1rem; }
+.large img { display: block; max-width: 100%; max-height: 70vh; width: auto; height: auto; margin: 0 auto; border-radius: .8rem; }
+.add { margin: 0 0 1.2rem; padding: .7rem 1rem; border: 1px solid var(--line); border-radius: .85rem; }
+.add summary { display: flex; align-items: center; gap: .6rem; color: var(--accent); font-weight: 600; cursor: pointer; }
+.add summary .ic { width: 1.3rem; height: 1.3rem; }
+.add form { margin-top: .6rem; }
+.add input[type=file] { width: 100%; padding: .55rem 0; color: inherit; background: transparent; border: 0; }
 .what { min-width: 0; flex: 1; }
 .what strong { display: block; overflow: hidden; font-size: 1.04rem; font-weight: 600; line-height: 1.35rem; color: #fff;
   text-overflow: ellipsis; white-space: nowrap; }
@@ -267,6 +278,11 @@ a.item:hover { border-color: rgba(130, 190, 255, .6); background: rgba(24, 42, 8
 @media (hover: none) { .neuron .ring { stroke-opacity: .55; } }
 @media (prefers-reduced-motion: reduce) { .neuron *, .nav a, .item { transition: none; } }
 """
+
+
+def photo_image(photo_id: str, alt: str = "") -> str:
+    return (f'<img src="{PHOTO_PATH}?{urlencode({"id": photo_id})}" alt="{html.escape(alt)}" loading="lazy" '
+            'decoding="async">')
 
 
 def icon(name: str) -> str:
@@ -339,8 +355,9 @@ def dashboard(t: dict, data: dict, csrf: str, hidden_fields) -> str:
     ribbon = '<div class="ribbon" aria-hidden="true">' + "<i>·</i>".join(f"<span>{word}</span>" for word in t["ribbon"]) + "</div>"
 
     recent = "".join(
-        f'<a class="item" style="--c:{KIND_COLOURS[m["kind"]]}" href="/memory?{urlencode({"edit": m["id"]})}">'
-        f'<span class="tile">{icon(KIND_ICONS[m["kind"]])}</span><span class="what"><strong>{e(m["text"])}</strong>'
+        f'<a class="item" style="--c:{KIND_COLOURS[m["kind"]]}" href="/memory?{urlencode({"photo" if m["photo"] else "edit": m["id"]})}">'
+        f'<span class="tile">{photo_image(m["photo"]) if m["photo"] else icon(KIND_ICONS[m["kind"]])}</span>'
+        f'<span class="what"><strong>{e(m["text"])}</strong>'
         f'<small>{e(m["label"])} · {e(m["ago"])}</small></span>'
         + (f'<span class="chip">{icon("network")}{e(m["chip"])}</span>' if m["chip"] else "") + "</a>"
         for m in data["recent"]) or f'<p class="empty-note">{t["no_memories"]}</p>'
