@@ -119,7 +119,8 @@ def test_exclusive_updates_idempotence_forget_and_restart(tmp_path):
         matches = re.findall(r"\[([0-9a-f-]{36})\].*Mi color favorito es esmeralda", memories)
         assert len(matches) == 1, memories
         forgotten = one.forget(matches)
-        assert "Deleted 1 memories" in forgotten
+        # Forget includes the superseded historical value by design.
+        assert "Deleted 2 memories" in forgotten
         assert active_favorite_colors(path) == []
         assert "esmeralda" not in two.list_memories()
         # SQLite must not resurrect old superseded values on a new process.
