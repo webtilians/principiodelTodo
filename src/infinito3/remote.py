@@ -19,7 +19,8 @@ for that the person has to trust whoever runs the server, as with any service.
 The memory tools are the same as the local server's (mcp_server.py). The local vault's windows would open on
 the screen of the machine that runs the server, which is not the user's, so a computer's vault stays on its
 local server (INFINITO_LOCAL_MEMORY=off). The vault here works through a page instead (remote_vault.py), and with
-sign-in a person has a page for their memory too (remote_memory.py), where apps that refuse forget can send them.
+sign-in a person has a page for their memory too (remote_memory.py), where apps that refuse forget can send them,
+and photos, sealed the same way (remote_photos.py).
 
     infinito-remote serve --port 8500 --url https://memory.example.org   # sign-in needs the public URL
     infinito-remote list           # accounts and addresses
@@ -30,7 +31,7 @@ sign-in a person has a page for their memory too (remote_memory.py), where apps 
     infinito-remote restore <file>   # puts a copy back, with the service stopped
 
 Data lives in INFINITO_REMOTE_DIR (default ~/.infinito-remote): accounts.json, grants.db and
-accounts/<name>/memory.sealed for sign-in; people.json and people/<name>/memory.sealed for addresses.
+accounts/<name>/memory.sealed, with its photos/, for sign-in; people.json and people/<name>/memory.sealed for addresses.
 """
 # No `from __future__ import annotations`: the MCP SDK reads the tools' annotations, and Context is
 # imported inside build_app so the core never needs the SDK.
@@ -49,7 +50,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple
 
-from .mcp_server import INSTRUCTIONS, TOOL_DESCRIPTIONS, TOOL_HINTS, AgentMemory, MemoryItem
+from . import remote_photos
+from .mcp_server import INSTRUCTIONS, TOOL_DESCRIPTIONS, TOOL_HINTS, AgentMemory, MemoryItem, _line
 from .persistent_memory import HashEmbeddingProvider, SQLiteCognitiveMemoryStore
 
 DEFAULT_DIR = Path.home() / ".infinito-remote"
@@ -205,9 +207,20 @@ class SealedMemories:
                 plain_left = (self.owners.memory_folder(name) / "memory.db").exists()
                 if writes or plain_left:
                     self.write(name, key, memory.store.to_bytes())
+                    self._sweep(name, memory)
                 return result
             finally:
                 memory.close()
+
+    def _sweep(self, name: str, memory: AgentMemory) -> None:
+        """A photo leaves with the last memory that names it, however that memory went or was never kept. After the
+        memory is written, so that a crash can leave a photo nobody names, never a memory whose photo is gone."""
+        photos = remote_photos.stored(self.owners.memory_folder(name))
+        if photos:
+            named = {record.metadata.get("photo") for record in memory.store.all()}
+            for path in photos:
+                if path.stem not in named:
+                    _wipe(path)
 
 
 class _Router:
@@ -372,23 +385,40 @@ def build_app(people: People, issuer: Optional[str] = None):
                 remote_memory.LINK, client_id="", seconds=remote_memory.LINK_SECONDS, account=state["infinito_person"],
                 data=data))
 
-        from . import remote_photos
-
-        def invited_to_photos(ctx: Context) -> bool:
-            state = ctx.request_context.request.scope["state"]
-            return state["infinito_memories"] == "accounts" and accounts.vault_allowed(state["infinito_person"])
-
-        @server.tool(description=remote_photos.PROBE_DESCRIPTION, annotations=ToolAnnotations(**remote_photos.PROBE_HINTS),
+        @server.tool(description=remote_photos.SAVE_DESCRIPTION, annotations=ToolAnnotations(**remote_photos.SAVE_HINTS),
                      meta={**signed_in, "openai/fileParams": ["photo"]})
-        def photo_probe(photo: remote_photos.PhotoFile, ctx: Context) -> str:
-            return remote_photos.inspect_file(photo) if invited_to_photos(ctx) else remote_photos.NOT_INVITED
-
-        @server.tool(description=remote_photos.SAMPLE_DESCRIPTION, annotations=ToolAnnotations(**remote_photos.HINTS),
-                     meta=signed_in, structured_output=False)
-        def photo_sample(ctx: Context):
-            if not invited_to_photos(ctx):
+        def photo_save(photo: remote_photos.PhotoFile, description: str, ctx: Context, kind: Optional[str] = None,
+                       source: Optional[str] = None, project: Optional[str] = None, date: Optional[str] = None) -> str:
+            state = ctx.request_context.request.scope["state"]
+            if state["infinito_memories"] != "accounts":
+                return remote_photos.NEEDS_ACCOUNT
+            if not accounts.vault_allowed(state["infinito_person"]):
                 return remote_photos.NOT_INVITED
-            return [remote_photos.SAMPLE_TEXT, Image(data=remote_photos.sample_png(), format="png")]
+            folder = accounts.memory_folder(state["infinito_person"])
+
+            def keep(data: bytes) -> str:
+                return with_memory(ctx, lambda memory: remote_photos.keep(
+                    folder, state["infinito_key"], memory, data, description, kind=kind, source=source, project=project,
+                    date=date, author=app_of(ctx)), writes=True)
+
+            return remote_photos.save_from_app(photo, folder, keep)
+
+        @server.tool(description=remote_photos.SHOW_DESCRIPTION, annotations=ToolAnnotations(**remote_photos.SHOW_HINTS),
+                     meta=signed_in, structured_output=False)
+        def photo_show(memory_id: str, ctx: Context):
+            state = ctx.request_context.request.scope["state"]
+            if state["infinito_memories"] != "accounts":
+                return remote_photos.NEEDS_ACCOUNT
+            record = with_memory(ctx, lambda memory: next((r for r in memory._active() if r.id == memory_id), None),
+                                 writes=False)
+            data = record and remote_photos.load(accounts.memory_folder(state["infinito_person"]), state["infinito_key"],
+                                                 record.metadata.get("photo"))
+            if not data:
+                return remote_photos.NO_PHOTO
+            about = {"line": _line(record), "page": f"{issuer}/memory?photo={record.id}"}
+            if len(data) > remote_photos.MAX_SHOWN:
+                return remote_photos.TOO_BIG_TO_SHOW.format(**about)
+            return [remote_photos.SHOWN.format(**about), Image(data=data, format=remote_photos.format_of(data[:16]))]
 
         def vault_tool(name: str):
             return server.tool(description=remote_vault.TOOL_DESCRIPTIONS[name],

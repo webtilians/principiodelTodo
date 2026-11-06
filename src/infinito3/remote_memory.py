@@ -10,7 +10,8 @@ quarter of an hour the same way an app's sign-in keeps it: wrapped under a token
 hash, in a cookie that scripts cannot read and other sites cannot send. There are no scripts on the page.
 
 Whatever a person types to correct a memory goes through the same checks as what an agent sends (remember), so a
-secret cannot reach the memory this way either, and what was typed is not sent back.
+secret cannot reach the memory this way either, and what was typed is not sent back. The same goes for the words of a
+photo, which the person adds here and which is kept sealed (remote_photos.py).
 """
 import functools
 import hmac
@@ -21,7 +22,7 @@ from datetime import datetime, timezone
 from typing import Dict, List, Optional, Sequence
 from urllib.parse import urlencode
 
-from . import remote_portal, remote_vault
+from . import remote_photos, remote_portal, remote_vault
 from .mcp_server import BY_THE_USER, KINDS, OPEN_KINDS, OVERVIEW_OPEN_ITEMS, STALE_DAYS, AgentMemory, _day
 from .remote_accounts import _HEADERS, NAME, _STYLE as _BASE_STYLE, _page, _texts
 from .types import MemoryRecord
@@ -70,7 +71,7 @@ TEXT = {
                        "assumption": "lo que se da por supuesto", "to_verify": "lo que hay que comprobar",
                        "none": "lo que les has contado a tus IAs"},
         "menu": "Menú",
-        "source": "fuente", "by": "guardado por", "by_you": "corregido por ti", "correct": "Corregir",
+        "source": "fuente", "by": "guardado por", "by_you": "guardado por ti", "correct": "Corregir",
         "delete_marked": "Borrar los marcados", "delete_found": "Borrar los {n} de este filtro",
         "newer": "Más recientes", "older": "Más antiguos", "sign_out": "Cerrar sesión",
         "none_marked": "No has marcado ninguno.",
@@ -98,6 +99,17 @@ TEXT = {
         "bad_form": "Esta página se ha quedado antigua. Vuelve a abrir tu memoria.",
         "vault": "Tu bóveda", "vault_note": "Solo los nombres: para ver o borrar una clave te pedirá la clave maestra.",
         "vault_show": "Ver", "vault_delete": "Borrar",
+        "photo_add": "Añadir una foto", "photo_file": "La foto o el pantallazo", "photo_about": "Qué es",
+        "photo_about_hint": "Por ejemplo: el cartel del refugio en el viaje a la cordillera",
+        "photo_project": "Cliente o proyecto (si quieres)",
+        "photo_note": "JPG, PNG, WebP o GIF, hasta 20 MB. Se guarda cifrada, y tus IAs la encuentran por lo que escribas aquí.",
+        "photo_go": "Guardar la foto", "photo_saved": "Foto guardada.", "photo_title": "Tu foto",
+        "photo_empty": "No has elegido ninguna foto.", "photo_too_big": "Esa foto pasa de 20 MB y no se ha guardado.",
+        "photo_heic": "Las fotos HEIC aún no se pueden guardar. Pásala a JPG o haz un pantallazo de ella.",
+        "photo_unknown": "Ese archivo no es una imagen JPG, PNG, WebP o GIF, y no se ha guardado.",
+        "photo_full": "Tu espacio para fotos está lleno. Borra alguna antes de añadir otra.",
+        "photo_refused": "No se ha guardado: lo que has escrito parece una clave o es una pregunta, y eso no va en la "
+                         "memoria.",
     },
     "en": {
         "title": "Your memory",
@@ -120,7 +132,7 @@ TEXT = {
                        "assumption": "what is taken for granted", "to_verify": "what needs checking",
                        "none": "what you told your AIs"},
         "menu": "Menu",
-        "source": "source", "by": "saved by", "by_you": "corrected by you", "correct": "Correct",
+        "source": "source", "by": "saved by", "by_you": "saved by you", "correct": "Correct",
         "delete_marked": "Delete the marked ones", "delete_found": "Delete the {n} in this filter",
         "newer": "Newer", "older": "Older", "sign_out": "Sign out",
         "none_marked": "You marked none.",
@@ -147,6 +159,17 @@ TEXT = {
         "bad_form": "This page has gone stale. Open your memory again.",
         "vault": "Your vault", "vault_note": "Names only: seeing or deleting a secret asks for the master password.",
         "vault_show": "Show", "vault_delete": "Delete",
+        "photo_add": "Add a photo", "photo_file": "The photo or screenshot", "photo_about": "What it is",
+        "photo_about_hint": "For example: the sign at the refuge on the trip to the mountains",
+        "photo_project": "Client or project (if you like)",
+        "photo_note": "JPG, PNG, WebP or GIF, up to 20 MB. It is kept encrypted, and your AIs find it by what you write here.",
+        "photo_go": "Save the photo", "photo_saved": "Photo saved.", "photo_title": "Your photo",
+        "photo_empty": "You chose no photo.", "photo_too_big": "That photo is over 20 MB and was not saved.",
+        "photo_heic": "HEIC photos cannot be kept yet. Turn it into a JPG or take a screenshot of it.",
+        "photo_unknown": "That file is not a JPG, PNG, WebP or GIF picture, and was not saved.",
+        "photo_full": "Your space for photos is full. Delete some before adding another.",
+        "photo_refused": "Not saved: what you wrote looks like a secret, or it is a question, and those do not go in the "
+                         "memory.",
     },
 }
 
@@ -266,6 +289,7 @@ def _home(t: dict, memory: AgentMemory, now: Optional[datetime] = None) -> dict:
         author = str(record.metadata.get("author") or "")
         recent.append({"id": record.id, "text": record.content, "kind": _kind_of(record),
                        "label": t["kinds"][_kind_of(record)], "ago": _ago(t, _when(record), now),
+                       "photo": record.metadata.get("photo"),
                        "chip": str(record.metadata.get("project") or ("" if author == BY_THE_USER else author))})
     projects = {str(r.metadata["project"]).strip().casefold() for r in records if str(r.metadata.get("project") or "").strip()}
     return {"total": len(records), "counts": counts, "recent": recent, "projects": len(projects)}
@@ -307,7 +331,7 @@ def _correct(memory: AgentMemory, memory_id: str, text: str) -> str:
     record = next((r for r in memory._active() if r.id == memory_id), None)
     if record is None:
         raise KeyError(memory_id)
-    about = {name: record.metadata.get(name) for name in ("kind", "source", "project")}
+    about = {name: record.metadata.get(name) for name in ("kind", "source", "project", "photo")}
     if text == record.content:
         return "unchanged"
     memory.store.purge([memory_id])
@@ -336,8 +360,11 @@ def _meta(t: dict, record: MemoryRecord) -> str:
 def _item(t: dict, record: MemoryRecord, *, checked: bool = False, correct: bool = True) -> str:
     e = html.escape
     fix = f' · <a href="/memory?edit={e(record.id)}">{t["correct"]}</a>' if correct else ""
+    photo = record.metadata.get("photo")
+    thumb = (f'<a class="thumb" href="/memory?{urlencode({"photo": record.id})}">{remote_portal.photo_image(photo)}</a>'
+             if photo else "")
     return (f'<div class="memo"><input type="checkbox" name="id" value="{e(record.id)}" id="m-{e(record.id)}"'
-            f'{" checked" if checked else ""}><div><label for="m-{e(record.id)}">{e(record.content)}</label>'
+            f'{" checked" if checked else ""}>{thumb}<div><label for="m-{e(record.id)}">{e(record.content)}</label>'
             f'<p class="meta">{_meta(t, record)}{fix}</p></div></div>')
 
 
@@ -358,8 +385,26 @@ def sign_in_body(t: dict, token: str, *, name: str = "", error: str = "") -> str
             + f'<button type="submit">{t["go_in"]}</button></form>')
 
 
+def photo_form(t: dict, csrf: str) -> str:
+    return (f'<details class="add"><summary>{remote_portal.icon("image")}{t["photo_add"]}</summary>'
+            f'<form method="post" action="/memory" enctype="multipart/form-data">{_hidden(csrf=csrf)}'
+            f'<label for="photo">{t["photo_file"]}</label><input id="photo" name="photo" type="file" required '
+            f'accept="{",".join(remote_photos.TYPES.values())}">'
+            f'<label for="about">{t["photo_about"]}</label><input id="about" name="about" type="text" required '
+            f'maxlength="2000" placeholder="{t["photo_about_hint"]}">'
+            f'<label for="client">{t["photo_project"]}</label><input id="client" name="project" type="text" maxlength="200">'
+            f'<p class="hint">{t["photo_note"]}</p><button type="submit">{t["photo_go"]}</button></form></details>')
+
+
+def photo_body(t: dict, record: MemoryRecord) -> str:
+    return (f'<figure class="large">{remote_portal.photo_image(record.metadata["photo"], record.content)}</figure>'
+            f'<p>{html.escape(record.content)}</p><p class="meta">{_meta(t, record)} · '
+            f'<a href="/memory?edit={html.escape(record.id)}">{t["correct"]}</a></p>'
+            f'<p class="actions"><a href="/memory?view=memories">{t["back"]}</a></p>')
+
+
 def list_body(t: dict, found: dict, csrf: str, *, query: str, project: str, kind: str, page: int, message: str = "",
-              error: str = "") -> str:
+              error: str = "", can_add_photo: bool = False) -> str:
     e = html.escape
     records, total = found["records"], found["total"]
     filtering = bool(query or project or kind)
@@ -402,7 +447,8 @@ def list_body(t: dict, found: dict, csrf: str, *, query: str, project: str, kind
     head = f'<p class="note" style="margin:0">{count}{clear}</p>'
     notice = ((f'<p class="ok" role="status">{e(message)}</p>' if message else "")
               + (f'<p class="error" role="alert">{e(error)}</p>' if error else ""))
-    return (f'{notice}{filters}{head}{listing}'
+    add = photo_form(t, csrf) if can_add_photo and not filtering else ""
+    return (f'{notice}{add}{filters}{head}{listing}'
             + (f'<p class="actions">{" · ".join(moves)}</p>' if moves else ""))
 
 
@@ -447,8 +493,14 @@ def set_session_cookie(response, token: str, *, secure: bool) -> None:
 def routes(accounts, grants, memories, limiter, secure: bool) -> list:
     """The page; memories opens each person's sealed memory, and limiter keeps one heavy password check at a time."""
     import anyio
+    from starlette.datastructures import UploadFile
+    from starlette.formparsers import MultiPartParser
+    from starlette.requests import ClientDisconnect
     from starlette.responses import HTMLResponse, RedirectResponse, Response
     from starlette.routing import Route
+
+    # A photo waits in memory until it is sealed: past this the parser would put it in a plain temporary file.
+    MultiPartParser.spool_max_size = remote_photos.MAX_FORM
 
     # Only here: the sign-in page's form has to be able to send the browser on to the app that asked.
     policy = f"{_HEADERS['Content-Security-Policy']}; img-src 'self'; form-action 'self'; base-uri 'none'"
@@ -484,6 +536,18 @@ def routes(accounts, grants, memories, limiter, secure: bool) -> list:
         return Response(remote_portal.BRAIN_FILE.read_bytes(), media_type="image/webp",
                         headers={"Cache-Control": "public, max-age=86400", "X-Content-Type-Options": "nosniff"})
 
+    async def photo_file(request):
+        """A person's own picture, to whoever holds their session and no one else: the key to open it is in the session."""
+        session = signed_in(request)
+        if session is None:
+            return Response(status_code=401, headers=_HEADERS)
+        data = await anyio.to_thread.run_sync(remote_photos.load, accounts.memory_folder(session["account"]), session["key"],
+                                              request.query_params.get("id", ""))
+        if data is None:
+            return Response(status_code=404, headers=_HEADERS)
+        return Response(data, media_type=remote_photos.TYPES[remote_photos.format_of(data[:16])],
+                        headers={**_HEADERS, "X-Content-Type-Options": "nosniff"})
+
     def signed_in(request) -> Optional[dict]:
         token = request.cookies.get(COOKIE, "")
         found = grants.find(SESSION, token)
@@ -512,8 +576,10 @@ def routes(accounts, grants, memories, limiter, secure: bool) -> list:
         except ValueError:
             page_number = 1
         found = await use(session, lambda memory: _found(memory, query, project, kind), writes=False)
+        if str(params.get("added", "")):
+            notices.setdefault("message", t["photo_saved"])
         body = list_body(t, found, session["data"]["csrf"], query=query, project=project, kind=kind, page=page_number,
-                         **notices)
+                         can_add_photo=accounts.vault_allowed(session["account"]), **notices)
         searching = str(params.get("view", "")) == "search"
         return await shown(t, session, t["nav_search"] if searching else t["nav_memories"], body,
                            active="search" if searching else "memories", query=query)
@@ -560,6 +626,12 @@ def routes(accounts, grants, memories, limiter, secure: bool) -> list:
             if not found:
                 return await shown(t, session, t["missing_title"], f'<p><a href="/memory">{t["back"]}</a></p>', status=404)
             return await shown(t, session, t["correct_title"], correct_body(t, found[0], session["data"]["csrf"]))
+        if params.get("photo"):
+            wanted = params["photo"]
+            found = await use(session, lambda memory: _chosen(memory, [wanted]), writes=False)
+            if not found or not found[0].metadata.get("photo"):
+                return await shown(t, session, t["missing_title"], f'<p><a href="/memory">{t["back"]}</a></p>', status=404)
+            return await shown(t, session, t["photo_title"], photo_body(t, found[0]))
         wanted = params.get("view", "")
         if wanted == "projects":
             return await projects(t, session)
@@ -589,8 +661,43 @@ def routes(accounts, grants, memories, limiter, secure: bool) -> list:
         set_session_cookie(response, session, secure=secure)
         return response
 
+    async def add_photo(t: dict, request):
+        """The one form with a file, and anyone can send one: nothing of it is read before knowing who sends it."""
+        session = signed_in(request)
+        if session is None:
+            return sign_in_page(t, error=t["session_over"], status=401)
+        length = request.headers.get("content-length", "")
+        if not length.isdigit() or int(length) > remote_photos.MAX_FORM:
+            try:
+                async for _ in request.stream():  # dropped to the end: a browser still sending may not show the answer
+                    pass
+            except ClientDisconnect:
+                pass
+            return await listing(t, session, {}, error=t["photo_too_big"])
+        async with request.form(max_files=1, max_fields=8) as form:
+            if not hmac.compare_digest(str(form.get("csrf", "")), session["data"]["csrf"]):
+                return await shown(t, session, t["title"], f'<p>{t["bad_form"]}</p><p><a href="/memory">{t["back"]}</a></p>',
+                                   status=403)
+            if not accounts.vault_allowed(session["account"]):
+                return await listing(t, session, {}, error=t["bad_form"])
+            upload = form.get("photo")
+            data = await upload.read() if isinstance(upload, UploadFile) else b""
+            about, project = str(form.get("about", "")), str(form.get("project", "")).strip()[:200]
+        folder = accounts.memory_folder(session["account"])
+        refused = remote_photos.refusal(folder, data)
+        if refused:
+            return await listing(t, session, {}, error=t[f"photo_{refused}"])
+        saved = await use(session, lambda memory: remote_photos.keep(folder, session["key"], memory, data, about,
+                                                                     project=project or None, author=BY_THE_USER), writes=True)
+        if not saved.startswith("Remembered"):  # what was typed may hold a secret, so it does not come back
+            return await listing(t, session, {}, error=t["photo_refused"])
+        return RedirectResponse("/memory?view=memories&added=1", status_code=303, headers=_HEADERS)
+
     async def answer(request):
-        t, form = texts(request), await request.form()
+        t = texts(request)
+        if request.headers.get("content-type", "").lower().startswith("multipart/"):
+            return await add_photo(t, request)
+        form = await request.form()
         action = str(form.get("action", ""))
         if action == "signin":
             return await sign_in(t, form)
@@ -651,4 +758,5 @@ def routes(accounts, grants, memories, limiter, secure: bool) -> list:
         return await shown(t, session, t["title"], f'<p>{t["bad_form"]}</p><p><a href="/memory">{t["back"]}</a></p>', status=400)
 
     return [Route("/memory", page, methods=["GET"]), Route("/memory", answer, methods=["POST"]),
-            Route(remote_portal.BRAIN_PATH, brain_image, methods=["GET"])]
+            Route(remote_portal.BRAIN_PATH, brain_image, methods=["GET"]),
+            Route(remote_portal.PHOTO_PATH, photo_file, methods=["GET"])]

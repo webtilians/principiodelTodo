@@ -1,7 +1,24 @@
 # Written by setup.sh into /etc/caddy/sites.d/. Caddy gets and renews the HTTPS certificate.
 # No access log on purpose: each person's secret address is in the request path.
 __HOST__ {
-	request_body {
+	# A memory is a few words; the one bigger thing anyone sends is a photo on the memory page, whose own limit is in
+	# remote_photos.py and which that page refuses in words. Past this size a person sees only an empty error.
+	@photo {
+		method POST
+		path /memory
+		header Content-Type multipart/form-data*
+	}
+	request_body @photo {
+		max_size 64MB
+	}
+	@rest {
+		not {
+			method POST
+			path /memory
+			header Content-Type multipart/form-data*
+		}
+	}
+	request_body @rest {
 		max_size 256KB
 	}
 	header {

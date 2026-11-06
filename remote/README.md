@@ -63,6 +63,23 @@ with no AI in between. There are no scripts on the page.
   keeps the memory's kind, source, client and date.
 - With the vault enabled it also lists the entries' names, with links to see or delete each under the master password.
 
+## Photos in the memory
+
+A photo or a screenshot is one more memory: the words say what it is, so any app finds it, and the picture is kept
+sealed beside the memory, under the same key. By invitation for now, like the vault (`infinito-remote-person vault-allow`).
+
+- **In.** On the memory page, where the person chooses a file. Or from an app, with `photo_save`: ChatGPT passes the
+  picture attached to the chat, and any app can pass the address of a public https picture. The server only fetches from
+  the public internet and checks each redirect first. JPEG, PNG, WebP or GIF, up to 20 MB each and 500 MB per person.
+- **Out.** On the memory page, in the list and in full size, only with the person's session: the key is in it. Or in an
+  app, with `photo_show`, which answers with the picture up to 3.5 MB and with a link to the page past that.
+- **Gone.** A photo leaves with the last memory that names it, whichever way that memory goes. If the words are refused,
+  a secret for example, the picture is not kept either.
+- **What is checked.** The words go through the same checks as `remember`. What the picture shows is not read, and it
+  is kept as it came, with whatever its file says of where it was taken: a screenshot of a password is one more photo
+  any connected app can ask to see. Secrets belong in the vault.
+- **Not in the backups yet.** After a restore a memory keeps its words, and its picture is missing.
+
 ## A vault from any app
 
 ChatGPT or a phone cannot open a window on your computer, so on the server `vault_add`, `vault_reveal` and
