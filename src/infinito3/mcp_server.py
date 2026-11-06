@@ -1,7 +1,7 @@
 """INFINITO as long-term memory for AI agents, over MCP (Model Context Protocol).
 
-Claude Code, Claude Desktop, Cursor and other MCP clients get four tools:
-remember, recall, list_memories and forget. The memory is a local SQLite file
+Claude Code, Claude Desktop, Cursor and other MCP clients get five tools:
+remember, remember_many, recall, list_memories and forget. The memory is a local SQLite file
 (~/.infinito/memory.db, or the path in INFINITO_MEMORY_DB) with local
 embeddings: nothing is sent anywhere by the server itself.
 

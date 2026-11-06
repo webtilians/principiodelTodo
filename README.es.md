@@ -120,8 +120,8 @@ print(assistant.turn("Mañana tengo reunión con el equipo a las 10").response.t
 INFINITO también funciona como servidor MCP: Claude Code, Claude Desktop, Cursor y otros
 clientes MCP tienen así una memoria a largo plazo sobre ti y tu trabajo que se mantiene
 correcta y privada: rechaza secretos, no guarda preguntas, deja que gane el dato más
-reciente y olvida de verdad cuando se lo pides. Cuatro herramientas: `remember`,
-`recall`, `list_memories` y `forget`. La memoria es un archivo SQLite local
+reciente y olvida de verdad cuando se lo pides. Cinco herramientas: `remember`,
+`remember_many`, `recall`, `list_memories` y `forget`. La memoria es un archivo SQLite local
 (`~/.infinito/memory.db`, o `INFINITO_MEMORY_DB`); el servidor no envía nada a ningún
 sitio.
 
@@ -163,6 +163,12 @@ segundos. La contraseña maestra y los valores nunca pasan por el agente, su mod
 el chat, así que nadie que engañe al agente puede sacarlos. Cada apertura, alta y
 consulta queda registrada, sin valores, en `~/.infinito/vault-log.jsonl`. Si olvidas
 la contraseña maestra, nadie puede recuperar la bóveda: apúntala y guárdala en casa.
+
+**Una memoria para todos tus agentes.** ChatGPT, Claude en la web o en el móvil y los
+agentes de otros ordenadores pueden compartir una sola memoria en un servidor: cada
+aplicación usa la misma dirección y entras una vez. Está sellada para que solo tu
+contraseña la abra, también frente a quien lleve el servidor: mira
+[remote/](remote/README.md).
 
 ## Cómo funciona
 
