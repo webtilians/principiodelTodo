@@ -2,8 +2,8 @@
 
 An agent on your computer can use a memory file on your computer; ChatGPT, Claude on the web or on
 your phone, and an agent on another machine cannot. This is INFINITO's memory as a server on the
-internet, `src/infinito3/remote.py`: the same four tools as the local server (remember, recall,
-list_memories, forget), with one memory per person that all of that person's apps share. What you
+internet, `src/infinito3/remote.py`: the same memory tools as the local server (remember, remember_many,
+recall, list_memories, forget), with one memory per person that all of that person's apps share. What you
 tell ChatGPT, Claude remembers, and the other way round.
 
 ## Connect an app

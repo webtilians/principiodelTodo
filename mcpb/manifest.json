@@ -2,9 +2,9 @@
   "manifest_version": "0.4",
   "name": "infinito-memory",
   "display_name": "INFINITO Memory",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Long-term memory that stays correct and private: it never keeps secrets, lets newer facts win, and forgets for real when you ask.",
-  "long_description": "INFINITO gives Claude a memory about you and your work that lasts across conversations and stays on your computer. It refuses passwords, keys and identity or card numbers, does not keep questions, dates every memory so a newer fact wins, and when you ask it to forget something it deletes it for good. On Bemula-Lite, a public benchmark of forgetting on request, it scored 45.9 against 26.3 for the best published memory system. Use the same memory folder in Claude Desktop, Claude Code or any other MCP app and they share one memory.",
+  "long_description": "INFINITO gives Claude a memory about you and your work that lasts across conversations and stays on your computer. It refuses passwords, keys and identity or card numbers, does not keep questions, dates every memory so a newer fact wins, and when you ask it to forget something it deletes it for good. On Bemula-Lite, a public benchmark of forgetting on request, INFINITO 0.5 scored 45.9 against 26.3 for the best published memory system. Use the same memory folder in Claude Desktop, Claude Code or any other MCP app and they share one memory.",
   "author": {
     "name": "webtilians",
     "url": "https://github.com/webtilians"
