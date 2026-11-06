@@ -28,6 +28,12 @@ TEXT = {
                    "¡La presentación de esta semana! Enhorabuena, sabía que te tenía de los nervios.")],
         "scene_end": "Tres IAs distintas. Y ni una sola vez has tenido que explicárselo.",
         "fresh_title": "Lo que acaba de llegar",
+        "photos_title": "Tus fotos también se recuerdan", "photos_mark": "Por invitación",
+        "photos": "El cartel de aquel refugio, un pantallazo, la factura que no quieres perder. Adjúntala en ChatGPT y dile que "
+                  'la guarde, o súbela a <a href="/memory">tu portal</a>. Queda sellada como todo lo demás, cualquiera de tus IAs '
+                  "la encuentra por lo que contaste de ella, y cuando la olvidas se va con su recuerdo.",
+        "photos_say": "Guarda esta foto en INFINITO: el atardecer en la cordillera.",
+        "photos_hear": "Guardada. Cifrada y en tu memoria.",
         "fresh": [("Grok y Gemini, dentro", "Grok ya lee y guarda en tu misma memoria. Gemini llega por su línea de comandos, y "
                                             "tus recuerdos ya no dependen de qué IA abras hoy."),
                   ("«¿Cómo va todo?»", "Pregúntaselo a cualquiera: cada cliente con su última actividad, lo que sigue abierto "
@@ -144,6 +150,12 @@ TEXT = {
                    "This week's presentation! Congratulations, I knew it had you on edge.")],
         "scene_end": "Three different AIs. And not once did you have to explain.",
         "fresh_title": "Just arrived",
+        "photos_title": "Your photos are remembered too", "photos_mark": "By invitation",
+        "photos": "The sign at that refuge, a screenshot, the invoice you don't want to lose. Attach it in ChatGPT and tell it to "
+                  'save it, or upload it to <a href="/memory">your portal</a>. It is sealed like everything else, any of your AIs '
+                  "finds it by what you said about it, and when you forget it, it goes with its memory.",
+        "photos_say": "Save this photo in INFINITO: the sunset in the mountains.",
+        "photos_hear": "Saved. Encrypted and in your memory.",
         "fresh": [("Grok and Gemini, on board", "Grok now reads and saves in your same memory. Gemini arrives through its command "
                                                 "line, and your memories no longer depend on which AI you open today."),
                   ("“How is it all going?”", "Ask any of them: each client with their last activity, what is still open and who "
@@ -244,6 +256,12 @@ TEXT = {
 # Published scores on Bemula-Lite: see the run linked on the page.
 SCORES = (("INFINITO", 45.9, True), ("A-MEM", 26.3, False), ("LangMem", 20.1, False), ("Mem0", 5.7, False))
 APPS = (("Claude", ""), ("ChatGPT", ""), ("Grok", "new"), ("Gemini", "beta"), ("Codex", ""))
+# An example picture, drawn here: no one's real photo ever reaches this page.
+_PHOTO = ('<svg viewBox="0 0 320 215" aria-hidden="true"><defs><linearGradient id="dusk" x1="0" x2="0" y1="0" y2="1">'
+          '<stop offset="0" stop-color="#1d3b6e"/><stop offset=".6" stop-color="#e88b54"/><stop offset="1" stop-color="#f7c98b"/>'
+          '</linearGradient></defs><rect width="320" height="215" fill="url(#dusk)"/><circle cx="232" cy="95" r="18" fill="#fff3d6"/>'
+          '<path fill="#2b2f4e" d="M0 175 60 82l45 58 55-80 65 90 45-45 50 65v45H0Z"/><path fill="#f4f6ff" d="m160 60-12.500 18 10-3 7.500 7.500 8.750-3Z"/>'
+          '<rect y="190" width="320" height="25" fill="#14172e"/></svg>')
 
 STYLE = """
 html { scroll-behavior: smooth; }
@@ -321,6 +339,14 @@ h2 { margin: 0 0 .7rem; font-size: clamp(1.9rem, 3.4vw, 2.85rem); font-weight: 8
 .card2:hover { transform: translateY(-4px); border-color: rgba(103, 232, 249, .6); box-shadow: 0 0 2rem rgba(103, 232, 249, .18); }
 .card2 h3 { margin: 0 0 .45rem; font-size: 1.16rem; color: #fff; }
 .card2 p { margin: 0; color: #cdd8f4; line-height: 1.5; }
+.card2.wide { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 24rem); gap: 1.8rem; align-items: center; padding: 1.7rem;
+  border-color: rgba(103, 232, 249, .5); box-shadow: 0 0 2.4rem rgba(103, 232, 249, .14); }
+.card2.wide h3 { display: flex; flex-wrap: wrap; align-items: center; gap: .7rem; margin-bottom: .6rem; font-size: 1.6rem; }
+.card2.wide h3 i { padding: .05rem .55rem; font-size: .7rem; font-style: normal; font-weight: 800; letter-spacing: .05em; color: #071022; text-transform: uppercase;
+  background: #5ef2c3; border-radius: 99rem; box-shadow: 0 0 .8rem rgba(94, 242, 195, .8); }
+.card2.wide p { font-size: 1.08rem; }
+.keep { display: flex; flex-direction: column; gap: .6rem; }
+.keep svg { display: block; width: 100%; height: auto; border-radius: .9rem; box-shadow: 0 .6rem 2rem rgba(0, 0, 0, .45); }
 .scores { max-width: 46rem; margin: 2rem auto 1rem; display: flex; flex-direction: column; gap: .7rem; }
 .score { display: grid; grid-template-columns: 6.2rem minmax(0, 1fr); align-items: center; gap: .9rem; color: var(--soft); font-weight: 600; }
 .track { display: block; }
@@ -367,7 +393,7 @@ footer { padding: 2rem 0 3rem; text-align: center; font-size: .9rem; color: var(
 @media (max-width: 54rem) {
   body.land { font-size: 16px; }
   .brain { margin-bottom: -5rem; }
-  .scene, .cards { grid-template-columns: minmax(0, 1fr); }
+  .scene, .cards, .card2.wide { grid-template-columns: minmax(0, 1fr); }
   section { padding: 2.6rem 0; }
   .address { flex-direction: column; }
   .address button { width: 100%; }
@@ -399,6 +425,8 @@ def home_page(lang: str, address: str, base_style: str, headers: dict):
     apps = "".join(f'<div class="app">{name}{badge(mark)}</div>' for name, mark in APPS)
     days = "".join(f'<article class="day rise"><header><span>{e(when)}</span><b>{e(app)}</b></header><div class="say">{e(said)}</div>'
                    f'<div class="hear">{e(heard)}</div></article>' for when, app, said, heard in t["scene"])
+    photos = (f'<article class="card2 wide rise"><div><h3>{t["photos_title"]}<i>{t["photos_mark"]}</i></h3><p>{t["photos"]}</p></div>'
+              f'<div class="keep">{_PHOTO}<div class="say">{t["photos_say"]}</div><div class="hear">{t["photos_hear"]}</div></div></article>')
     fresh = "".join(f'<article class="card2 rise"><h3>{title}</h3><p>{text}</p></article>' for title, text in t["fresh"])
     yours = "".join(f'<article class="card2 rise"><h3>{title}</h3><p>{text}</p></article>' for title, text in t["yours"])
     top = SCORES[0][1]
@@ -419,7 +447,7 @@ def home_page(lang: str, address: str, base_style: str, headers: dict):
         f'<section><div class="wrap"><h2>{t["apps_title"]}</h2><div class="apps">{apps}</div><p class="apps-more">{t["apps_more"]}</p></div></section>'
         f'<section id="feel"><div class="wrap"><h2>{t["scene_title"]}</h2><span class="tag">{t["scene_tag"]}</span>'
         f'<div class="scene">{days}</div><p class="scene-end">{t["scene_end"]}</p></div></section>'
-        f'<section><div class="wrap"><h2>{t["fresh_title"]}</h2><div class="cards">{fresh}</div></div></section>'
+        f'<section><div class="wrap"><h2>{t["fresh_title"]}</h2><div class="cards">{photos}{fresh}</div></div></section>'
         f'<section><div class="wrap"><h2>{t["yours_title"]}</h2><div class="cards">{yours}</div></div></section>'
         f'<section><div class="wrap"><h2>{t["proof_title"]}</h2><p class="sub">{t["proof_lead"]}</p><div class="scores rise">{scores}</div>'
         f'<p class="fine">{t["proof_note"]}</p><div class="figures">{figures}</div></div></section>'

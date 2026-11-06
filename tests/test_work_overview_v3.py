@@ -231,5 +231,7 @@ def test_the_front_page_tells_what_changed_in_both_languages(server):  # noqa: F
     base, _, _ = server
     spanish = httpx2.get(f"{base}/", headers=SPANISH).text
     assert "Guarda correos y teléfonos" in spanish and "¿Cómo va todo?" in spanish and "qué IA lo guardó" in spanish
+    assert "Tus fotos también se recuerdan" in spanish and "Por invitación" in spanish
     english = httpx2.get(f"{base}/", headers={"accept-language": "en"}).text
     assert "keeps emails and phone numbers" in english and "which AI saved it" in english
+    assert "Your photos are remembered too" in english and "By invitation" in english
