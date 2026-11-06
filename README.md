@@ -40,7 +40,8 @@ INFINITO addresses all three, and measures whether it actually helps.
 - **Safety before memory.** Passwords, API keys, private keys, PINs, identity
   document numbers (Spanish DNI and NIE, US SSN), IBANs and card numbers are blocked
   before any component sees them and are never sent to the LLM. Emails and phone
-  numbers can be used in the current turn but are not persisted by default.
+  numbers can be used in the current turn but the library does not persist them by
+  default; as an agent's memory, which belongs to one person, they are kept.
 - **Remembers what you say, not what a keyword list expects.** Every safe
   statement is stored; questions and acknowledgements are not. Recognized facts
   (name, city, age, preferences) are also structured, so a new value supersedes

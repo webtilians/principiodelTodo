@@ -21,7 +21,7 @@ from typing import Dict, List, Optional, Sequence
 from urllib.parse import urlencode
 
 from . import remote_vault
-from .mcp_server import KINDS, AgentMemory, _day
+from .mcp_server import BY_THE_USER, KINDS, AgentMemory, _day
 from .remote_accounts import _HEADERS, NAME, _page, _texts
 from .types import MemoryRecord
 
@@ -60,8 +60,8 @@ TEXT = {
         "search": "Buscar", "search_hint": "Palabras que contenga",
         "all_projects": "Todos los clientes", "all_kinds": "Todos los tipos", "clear": "Quitar filtros",
         "kinds": {"fact": "Hecho", "decision": "Decisión", "agreement": "Acuerdo", "pending": "Pendiente",
-                  "proposal": "Propuesta"},
-        "source": "fuente", "correct": "Corregir",
+                  "proposal": "Propuesta", "assumption": "Suposición", "to_verify": "Por verificar"},
+        "source": "fuente", "by": "guardado por", "by_you": "corregido por ti", "correct": "Corregir",
         "delete_marked": "Borrar los marcados", "delete_found": "Borrar los {n} de este filtro",
         "newer": "Más recientes", "older": "Más antiguos", "sign_out": "Cerrar sesión",
         "none_marked": "No has marcado ninguno.",
@@ -82,8 +82,8 @@ TEXT = {
         "correct_note": "La versión anterior se borra, y tus IAs verán solo esta.",
         "text": "Qué debe recordar", "go_correct": "Guardar la corrección",
         "unchanged": "No has cambiado nada.",
-        "refused": "No se ha guardado, y el recuerdo sigue como estaba: parece una clave o un dato de contacto, o es "
-                   "una pregunta, y eso no va en la memoria.",
+        "refused": "No se ha guardado, y el recuerdo sigue como estaba: parece una clave o es una pregunta, y eso no "
+                   "va en la memoria.",
         "corrected": "Corregido.",
         "missing_title": "Ese recuerdo ya no está",
         "bad_form": "Esta página se ha quedado antigua. Vuelve a abrir tu memoria.",
@@ -105,8 +105,8 @@ TEXT = {
         "search": "Search", "search_hint": "Words it contains",
         "all_projects": "All clients", "all_kinds": "All kinds", "clear": "Clear filters",
         "kinds": {"fact": "Fact", "decision": "Decision", "agreement": "Agreement", "pending": "Pending",
-                  "proposal": "Proposal"},
-        "source": "source", "correct": "Correct",
+                  "proposal": "Proposal", "assumption": "Assumption", "to_verify": "To verify"},
+        "source": "source", "by": "saved by", "by_you": "corrected by you", "correct": "Correct",
         "delete_marked": "Delete the marked ones", "delete_found": "Delete the {n} in this filter",
         "newer": "Newer", "older": "Older", "sign_out": "Sign out",
         "none_marked": "You marked none.",
@@ -126,8 +126,8 @@ TEXT = {
         "correct_note": "The earlier version is deleted, and your AIs will see only this one.",
         "text": "What it should remember", "go_correct": "Save the correction",
         "unchanged": "You changed nothing.",
-        "refused": "Not saved, and the memory stays as it was: it looks like a secret or a contact detail, or it is a "
-                   "question, and those do not go in the memory.",
+        "refused": "Not saved, and the memory stays as it was: it looks like a secret, or it is a question, and those "
+                   "do not go in the memory.",
         "corrected": "Corrected.",
         "missing_title": "That memory is gone",
         "bad_form": "This page has gone stale. Open your memory again.",
@@ -198,7 +198,8 @@ def _plain(text: str) -> str:
 
 def _matches(record: MemoryRecord, words: Sequence[str]) -> bool:
     where = _plain(" ".join(str(part) for part in (record.content, record.metadata.get("project") or "",
-                                                   record.metadata.get("source") or "")))
+                                                   record.metadata.get("source") or "",
+                                                   record.metadata.get("author") or "")))
     return all(word in where for word in words)
 
 
@@ -231,8 +232,8 @@ def _correct(memory: AgentMemory, memory_id: str, text: str) -> str:
         return "unchanged"
     memory.store.purge([memory_id])
     said = record.metadata.get("said_at")
-    answer = memory.remember(text, **about, date=str(said) if said else None) if any(about.values()) \
-        else memory.remember(text)
+    answer = memory.remember(text, **about, date=str(said) if said else None, author=BY_THE_USER) \
+        if any(about.values()) else memory.remember(text, author=BY_THE_USER)
     if not answer.startswith("Remembered"):
         raise _Refused()
     return "corrected"
@@ -246,6 +247,9 @@ def _meta(t: dict, record: MemoryRecord) -> str:
         about.append(e(str(record.metadata["project"])))
     if record.metadata.get("source"):
         about.append(f'{t["source"]}: {e(str(record.metadata["source"]))}')
+    author = record.metadata.get("author")
+    if author:
+        about.append(t["by_you"] if author == BY_THE_USER else f'{t["by"]} {e(str(author))}')
     return " · ".join(about)
 
 

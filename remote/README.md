@@ -89,7 +89,8 @@ Keep the local server (below) if you want your secrets on your own computer only
 For someone who works with several clients, a memory also says what it is, where it came from and whose
 it is. An agent can give each memory:
 
-- `kind`: `fact`, `decision`, `agreement`, `pending` or `proposal`, so a proposal is never read as a decision;
+- `kind`: `fact`, `decision`, `agreement`, `pending`, `proposal`, `assumption` or `to_verify`, so a proposal is
+  never read as a decision;
 - `source`: where it came from, such as "email from Ana" or "meeting with Marta";
 - `project`: the client or project. The same sentence about two clients stays two memories, and one client's
   facts never replace another's;
@@ -97,7 +98,15 @@ it is. An agent can give each memory:
 
 `remember_many` saves everything a meeting or a document established in one call, so apps that ask before
 each write ask once. `recall` and `list_memories` take `project` and `kind`, which answer "where were we with
-Acme?" and "what's pending?". Secrets and contact details are refused here too.
+Acme?" and "what's pending?". `overview` shows every client with their last activity, their counts and what is
+still open, and flags those quiet for a week: it takes no model, so every app sees the same.
+
+Each memory also says which app saved it. The server takes that from the app's sign-in, not from anything the model
+sends, so a model cannot claim another app wrote something. It is the name the app registered with, the same one the
+sign-in page shows you. On your memory page, what you correct says it was you.
+
+Emails and phone numbers are kept: this memory is yours, and who to write to is part of what it is for. Secrets are
+refused here too.
 
 INFINITO is the memory, not the assistant: it does not read your email, send reminders or move files. Whatever
 does (ChatGPT, n8n, another agent) can share this memory instead of each keeping its own.

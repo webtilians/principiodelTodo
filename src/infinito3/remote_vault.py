@@ -95,7 +95,7 @@ TEXT = {
         "no_value": "Escribe la clave que quieres guardar.",
         "bad_value": "Esa clave es demasiado larga o tiene caracteres que no se pueden guardar.",
         "bad_entry": "Elige un nombre de hasta {n} caracteres que diga para qué es y no contenga la clave.",
-        "bad_note": "La nota es demasiado larga o contiene una clave o un dato de contacto: tu IA la leerá.",
+        "bad_note": "La nota es demasiado larga o contiene una clave: tu IA la leerá.",
         "name_taken": "Ya tienes otra entrada con ese nombre. Elige otro para no sustituirla.",
         "vault_expired": "Este enlace ha caducado o ya se ha usado. Pídele a tu IA uno nuevo.",
         "missing_title": "No está en tu bóveda",
@@ -134,7 +134,7 @@ TEXT = {
         "no_value": "Type the secret to keep.",
         "bad_value": "That secret is too long or has characters that cannot be kept.",
         "bad_entry": "Choose a name of up to {n} characters that says what it is for and does not hold the secret.",
-        "bad_note": "The note is too long or holds a secret or a contact detail: your AI reads it.",
+        "bad_note": "The note is too long or holds a secret: your AI reads it.",
         "name_taken": "You already have another entry with that name. Choose another so it is not replaced.",
         "vault_expired": "This link has expired or was already used. Ask your AI for a new one.",
         "missing_title": "Not in your vault",
@@ -249,7 +249,7 @@ class ServerVault:
 
 
 def _looks_secret(text: str) -> bool:
-    return SensitiveInformationFilter().inspect(text).level in (SafetyLevel.FORBIDDEN, SafetyLevel.SENSITIVE)
+    return SensitiveInformationFilter().inspect(text).level == SafetyLevel.FORBIDDEN
 
 
 def refused_name(entry: str) -> Optional[str]:

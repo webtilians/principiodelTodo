@@ -220,10 +220,10 @@ def test_the_front_page_gives_the_address_and_the_steps_for_each_app(server):
     assert f'value="{base}/mcp"' in page.text
     assert "En Claude" in page.text and "En ChatGPT" in page.text and "codex mcp login infinito" in page.text
     assert "plan de pago" in page.text and "@INFINITO" in page.text  # what ChatGPT needs, before someone starts
-    assert "datos de contacto" in page.text  # and what the memory leaves out
+    assert "Guarda correos y teléfonos" in page.text  # and what the memory leaves out
     assert "Instrucciones personalizadas" in page.text and "remember_many" in page.text  # no @ in every message
     english = httpx2.get(f"{base}/", headers={"accept-language": "en-GB"}).text
-    assert "One memory" in english and "paid plan" in english and "contact details" in english
+    assert "One memory" in english and "paid plan" in english and "keeps emails and phone numbers" in english
 
 
 def test_apps_are_told_which_tools_only_read_so_they_need_not_ask_first(server):
@@ -234,6 +234,7 @@ def test_apps_are_told_which_tools_only_read_so_they_need_not_ask_first(server):
                      "forget": False, "vault_add": True, "vault_reveal": True, "vault_list": True,
                      # These two only answer with a link: nothing changes until the person acts on the page.
                      "memory_page": True, "vault_delete": True,
+                     "overview": True,
                      # The trial of pictures keeps nothing.
                      "photo_probe": True, "photo_sample": True}
     assert [t.annotations.destructive_hint for t in app.tools if t.name == "forget"] == [True]
@@ -457,7 +458,7 @@ def test_an_app_saves_a_whole_meeting_and_asks_about_one_client(server):
     ]
     [saved, _, where, pending, other], _, app = app_session(base, steps, mode="signup", name="marta")
     assert saved == "Remembered 3 of 3."
-    assert "(2026-10-26, decision, Acme, source: reunión con Marta)" in where and "Globex" not in where
+    assert "(2026-10-26, decision, Acme, source: reunión con Marta, by: Prueba)" in where and "Globex" not in where
     assert "fotógrafo" in pending and "presupuesto" not in pending
     assert "contrato" in other and "Acme" not in other
     schema = next(tool for tool in app.tools if tool.name == "remember_many").input_schema

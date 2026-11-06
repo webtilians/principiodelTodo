@@ -82,8 +82,14 @@ class CognitiveEngine:
         recent_turns: Optional[Sequence[ConversationTurn]] = None,
         build_context: bool = True,
         said_at: Optional[datetime] = None,
+        keep_contact_details: bool = False,
+        metadata: Optional[dict] = None,
     ) -> CognitiveDecision:
-        """Handle one user message. ``said_at`` is when the user said it, if not now."""
+        """Handle one user message. ``said_at`` is when the user said it, if not now.
+
+        ``keep_contact_details`` stores emails and phone numbers as they were said, for a memory that belongs to one
+        person (mcp_server.py); ``metadata`` goes with what gets stored.
+        """
         safety = self.safety_filter.inspect(text)
 
         # Secrets are blocked before any cognitive subsystem receives them.
@@ -96,7 +102,8 @@ class CognitiveEngine:
                 context_packet=None,
             )
 
-        query = safety.redacted_text if safety.redacted_text else text
+        keep_contact = keep_contact_details and safety.level == SafetyLevel.SENSITIVE
+        query = text if keep_contact else (safety.redacted_text if safety.redacted_text else text)
 
         # A forget request is never stored: it usually repeats what it names.
         if self.forget_detector.is_request(query):
@@ -112,7 +119,7 @@ class CognitiveEngine:
 
         # Conservative v3 policy: sensitive PII can be used in the current
         # interaction but is never written to long-term memory by default.
-        allow_persistence = safety.level == SafetyLevel.SAFE
+        allow_persistence = safety.level == SafetyLevel.SAFE or keep_contact
 
         # Goals are available to the context builder immediately, while the
         # current message still has not been persisted as long-term memory.
@@ -127,7 +134,7 @@ class CognitiveEngine:
                 max_tokens=context_budget_tokens,
             )
 
-        stored_ids = self._store(query, said_at) if allow_persistence else []
+        stored_ids = self._store(query, said_at, metadata) if allow_persistence else []
 
         return CognitiveDecision(
             input_text=text,
@@ -159,7 +166,7 @@ class CognitiveEngine:
         return self.context_builder.build(text, memory_candidates=candidates,
                                           recent_turns=recent_turns, max_tokens=context_budget_tokens)
 
-    def _store(self, text: str, said_at: Optional[datetime] = None) -> List[str]:
+    def _store(self, text: str, said_at: Optional[datetime] = None, extra: Optional[dict] = None) -> List[str]:
         """Store the message if it states something; a message that only asks is skipped.
 
         Real messages mix both ("I manage mild asthma. Should I bring the
@@ -177,7 +184,7 @@ class CognitiveEngine:
                     gate = declarative
         if not gate.should_store:
             return []
-        metadata = {"gate_reasons": gate.reasons}
+        metadata = {"gate_reasons": gate.reasons, **(extra or {})}
         if said_at is not None:
             metadata["said_at"] = said_at.isoformat()
         record = MemoryRecord(content=text, kind=gate.kind, importance=gate.importance, metadata=metadata)

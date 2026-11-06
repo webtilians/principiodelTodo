@@ -249,7 +249,7 @@ class _Router:
                 challenge = f'Bearer error="invalid_token", resource_metadata="{self.metadata_url}"'
                 return await _plain(send, 401, "Sign in to your INFINITO memory.",
                                     [(b"www-authenticate", challenge.encode())])
-            (name, key), memories = opened, "accounts"
+            (name, key, app), memories = opened, "accounts"
         else:
             match = PERSONAL_PATH.fullmatch(path)
             name = self.people.who(match.group(1)) if match else None
@@ -258,8 +258,9 @@ class _Router:
                 shown = "/u/…/mcp" if match else path[:80]
                 print(f"sign-in: {scope['method']} {shown} 404 (no such address)", flush=True)
                 return await _plain(send, 404, "Not found")
-            key, memories = self.people.key(name, match.group(1)), "people"
-        state = dict(scope.get("state") or {}, infinito_person=name, infinito_key=key, infinito_memories=memories)
+            key, memories, app = self.people.key(name, match.group(1)), "people", None
+        state = dict(scope.get("state") or {}, infinito_person=name, infinito_key=key, infinito_memories=memories,
+                     infinito_app=app)
         await self.app(dict(scope, path="/mcp", raw_path=b"/mcp", state=state), receive, send)
 
 
@@ -324,15 +325,21 @@ def build_app(people: People, issuer: Optional[str] = None):
         return server.tool(description=TOOL_DESCRIPTIONS[name], annotations=ToolAnnotations(**TOOL_HINTS[name]),
                            meta=signed_in)
 
+    def app_of(ctx: Context) -> Optional[str]:
+        """Which app this request signed in as: the server's word for it, never a tool argument."""
+        return ctx.request_context.request.scope["state"]["infinito_app"]
+
     @memory_tool("remember")
     def remember(statement: str, ctx: Context, kind: Optional[str] = None, source: Optional[str] = None,
                  project: Optional[str] = None, date: Optional[str] = None) -> str:
-        return with_memory(ctx, lambda memory: memory.remember(statement, kind, source, project, date), writes=True)
+        return with_memory(ctx, lambda memory: memory.remember(statement, kind, source, project, date, app_of(ctx)),
+                           writes=True)
 
     @memory_tool("remember_many")
     def remember_many(items: List[MemoryItem], ctx: Context, source: Optional[str] = None,
                       project: Optional[str] = None, date: Optional[str] = None) -> str:
-        return with_memory(ctx, lambda memory: memory.remember_many(items, source, project, date), writes=True)
+        return with_memory(ctx, lambda memory: memory.remember_many(items, source, project, date, app_of(ctx)),
+                           writes=True)
 
     @memory_tool("recall")
     def recall(query: str, ctx: Context, limit: Optional[int] = None, project: Optional[str] = None,
@@ -343,9 +350,13 @@ def build_app(people: People, issuer: Optional[str] = None):
     def list_memories(ctx: Context, project: Optional[str] = None, kind: Optional[str] = None) -> str:
         return with_memory(ctx, lambda memory: memory.list_memories(project, kind), writes=False)
 
+    @memory_tool("overview")
+    def overview(ctx: Context, stale_days: Optional[int] = None) -> str:
+        return with_memory(ctx, lambda memory: memory.overview(stale_days), writes=False)
+
     @memory_tool("forget")
     def forget(memory_ids: List[str], ctx: Context, keep: Optional[List[str]] = None) -> str:
-        return with_memory(ctx, lambda memory: memory.forget(memory_ids, keep or []), writes=True)
+        return with_memory(ctx, lambda memory: memory.forget(memory_ids, keep or [], app_of(ctx)), writes=True)
 
     if issuer:
         from . import remote_vault

@@ -30,10 +30,9 @@ def test_something_pending_is_kept_though_it_reads_like_a_request(memory):
     assert "Reclamar a Marta" in memory.recall("textos", kind="pending")
 
 
-def test_a_question_secrets_and_contact_details_are_refused_for_work_too(memory):
+def test_a_question_and_secrets_are_refused_for_work_too(memory):
     assert "not memories" in memory.remember("¿Qué falta en Acme?", kind="pending", project="Acme")
     assert "a password" in memory.remember("La contraseña de Acme es hunter2secret", kind="fact", project="Acme")
-    assert "an email address" in memory.remember("Ana escribe desde ana@acme.example", kind="fact", project="Acme")
     assert memory.list_memories() == "No memories yet."
 
 

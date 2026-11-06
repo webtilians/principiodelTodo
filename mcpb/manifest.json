@@ -34,6 +34,7 @@
     {"name": "remember_many", "description": "Store everything a meeting, email or document established in one call."},
     {"name": "recall", "description": "What INFINITO remembers about a topic, oldest first, with dates."},
     {"name": "list_memories", "description": "Every stored memory with its id and date."},
+    {"name": "overview", "description": "Every client or project at a glance: last activity and what is still open."},
     {"name": "forget", "description": "Delete memories for good, keeping what you did not ask to forget."},
     {"name": "vault_unlock", "description": "Open your vault: you type the master password in a window on your screen."},
     {"name": "vault_add", "description": "Keep a new secret: you type it in a window on your screen."},
