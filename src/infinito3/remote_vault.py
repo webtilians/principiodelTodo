@@ -48,6 +48,9 @@ TOOL_DESCRIPTIONS = {
                  "and can correct the name and add a note, so the value never passes through you or the chat.",
     "vault_reveal": "Show the user a secret from their vault, by entry name: call vault_list first to find it. It "
                     "answers with a link: give it to the user, who sees the value on that page. You never receive it.",
+    "vault_delete": "Delete an entry from the user's vault for good, by entry name: call vault_list first to find it. "
+                    "It answers with a link: give it to the user, who confirms on that page with their master password. "
+                    "Nothing is deleted until they do.",
     "vault_list": "The names of the entries in the user's vault, and the notes on what each is for. Values are never "
                   "shown to you.",
 }
@@ -63,7 +66,14 @@ TEXT = {
         "vault_title": "Tu bóveda",
         "ask_add": "Guardar una clave en tu bóveda.",
         "ask_reveal": "Mostrar <b>{entry}</b>.",
+        "ask_delete": "Borrar <b>{entry}</b> de tu bóveda para siempre.",
+        "delete_copies": "Las copias de seguridad la conservan, bajo la clave maestra que tenías, hasta caducar.",
+        "deleted_title": "Borrada",
+        "deleted": "<b>{entry}</b> ya no está en tu bóveda.",
+        "go_delete": "Borrar para siempre",
         "check": "Te lo pide tu IA. Antes de escribir nada, comprueba que esta dirección es la de tu INFINITO.",
+        "check_own": "Antes de escribir nada, comprueba que esta dirección es la de tu INFINITO.",
+        "back_memory": "Volver a tu memoria",
         "testing": "En pruebas: no guardes todavía claves críticas, como las del banco.",
         "replaces": "Ya tienes una entrada con este nombre: se sustituirá.",
         "keep_value": "Si no escribes una clave ni un usuario, se conservan los que tiene.",
@@ -95,7 +105,14 @@ TEXT = {
         "vault_title": "Your vault",
         "ask_add": "Keep a secret in your vault.",
         "ask_reveal": "Show <b>{entry}</b>.",
+        "ask_delete": "Delete <b>{entry}</b> from your vault for good.",
+        "delete_copies": "Backups keep it, under the master password you had, until they age out.",
+        "deleted_title": "Deleted",
+        "deleted": "<b>{entry}</b> is no longer in your vault.",
+        "go_delete": "Delete for good",
         "check": "Your AI asks for this. Before you type anything, check that this address is your INFINITO's.",
+        "check_own": "Before you type anything, check that this address is your INFINITO's.",
+        "back_memory": "Back to your memory",
         "testing": "In testing: do not keep critical secrets yet, such as your bank's.",
         "replaces": "You already have an entry with this name: it will be replaced.",
         "keep_value": "If you type no secret or username, the ones it has are kept.",
@@ -195,13 +212,29 @@ class ServerVault:
                 found.password = value
         self._write_atomically(self.path, db.save)
         self.path.with_name(FILE + ".new").unlink(missing_ok=True)
-        # Only notes typed on the page: the Notes of an entry made elsewhere may hold anything.
         notes = {item["name"].casefold(): item["note"] for item in self.listed(key)}
         notes[entry.casefold()] = note
+        self._write_names(db, key, notes)
+        return True
+
+    def _write_names(self, db, key: bytes, notes: Dict[str, str]) -> None:
+        """The list the agent reads, from the file itself. Only notes typed on the page: the Notes of an entry made
+        elsewhere may hold anything."""
         items = sorted(({"name": e.title, "note": notes.get(e.title.casefold(), "")} for e in db.entries if e.title),
                        key=lambda item: item["name"].casefold())
         sealed = _seal(key, json.dumps(items, ensure_ascii=False).encode(), f"vault-names:{self.account}")
         self._write_atomically(self.names_path, lambda name: Path(name).write_bytes(sealed))
+
+    def delete(self, master: str, key: bytes, entry: str) -> Optional[bool]:
+        """Delete an entry for good, with its history, from the file and from the list; None for a wrong password."""
+        db = self._open(master)
+        if db is None:
+            return None
+        found = self._find(db, entry)
+        if found is not None:
+            db.delete_entry(found)
+            self._write_atomically(self.path, db.save)
+        self._write_names(db, key, {item["name"].casefold(): item["note"] for item in self.listed(key)})
         return True
 
     def reveal(self, master: str, entry: str) -> Optional[Tuple[str, Optional[str], str]]:
@@ -258,10 +291,10 @@ def _field(name: str, label: str, kind: str, *, required: bool = True, value: st
 
 
 def form_body(t: dict, token: str, action: str, entry: str, *, creating: bool, replaces: bool, name: Optional[str] = None,
-              note: str = "", error: str = "") -> str:
+              note: str = "", error: str = "", own: bool = False) -> str:
     e = html.escape
     master = _field("master", t["master"], "password")  # no autofocus: it would scroll past the address to check
-    notes = [f'<p class="note">{t["check"]}</p>']
+    notes = [f'<p class="note">{t["check_own" if own else "check"]}</p>']
     if action == "add":
         notes.append(f'<p class="note">{t["testing"]}</p>')
         fields = [_field("name", t["entry_name"], "text", value=entry if name is None else name),
@@ -277,7 +310,9 @@ def form_body(t: dict, token: str, action: str, entry: str, *, creating: bool, r
         asked = t["ask_add"]
     else:
         fields = [master]
-        asked = t["ask_reveal"].format(entry=e(entry))
+        asked = t["ask_" + action].format(entry=e(entry))
+        if action == "delete":
+            notes.append(f'<p class="note">{t["delete_copies"]}</p>')
     return (f'<p>{asked}</p>{"".join(notes)}<form method="post" action="/vault">'
             f'<input type="hidden" name="r" value="{e(token)}">{"".join(fields)}'
             + (f'<p class="error" role="alert">{e(error)}</p>' if error else "")
@@ -321,10 +356,10 @@ def routes(accounts, grants, limiter) -> list:
         action, entry = found["data"]["action"], found["data"]["entry"]
         vault = ServerVault(accounts.memory_folder(found["account"]), found["account"])
         known = {item["name"].casefold(): item["note"] for item in vault.listed(found["key"])}
-        if action == "reveal" and entry.casefold() not in known:
+        if action != "add" and entry.casefold() not in known:
             return missing(t, entry)
         body = form_body(t, token, action, entry, creating=not vault.exists(), replaces=entry.casefold() in known,
-                         note=known.get(entry.casefold(), ""))
+                         note=known.get(entry.casefold(), ""), own=found["data"].get("own", False))
         return _page(t, t["vault_title"], body)
 
     async def answer(request):
@@ -343,7 +378,7 @@ def routes(accounts, grants, limiter) -> list:
 
         def again(message: str):
             body = form_body(t, token, action, entry, creating=creating, replaces=entry.casefold() in known, name=name,
-                             note=note, error=message)
+                             note=note, error=message, own=found["data"].get("own", False))
             return _page(t, t["vault_title"], body, status=400)
 
         tries = f"vault:{account}"  # after a few wrong master passwords, this account waits
@@ -368,6 +403,8 @@ def routes(accounts, grants, limiter) -> list:
             if creating and master != str(form.get("repeat", "")):
                 return again(t["differ_master"])
             work = functools.partial(vault.add, master, found["key"], name, username, value, note)
+        elif action == "delete":
+            work = functools.partial(vault.delete, master, found["key"], entry)
         else:
             work = functools.partial(vault.reveal, master, entry)
         try:
@@ -381,6 +418,9 @@ def routes(accounts, grants, limiter) -> list:
         grants.drop(token)
         if action == "add":
             return _page(t, t["saved_title"], f'<p>{t["saved"].format(entry=html.escape(name))}</p>')
+        if action == "delete":
+            back = f'<p><a href="/memory">{t["back_memory"]}</a></p>' if found["data"].get("own") else ""
+            return _page(t, t["deleted_title"], f'<p>{t["deleted"].format(entry=html.escape(entry))}</p>{back}')
         username, shown, about = done
         if shown is None:
             return missing(t, entry)

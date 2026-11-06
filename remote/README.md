@@ -47,10 +47,26 @@ password signs every app out, so a lost phone stops working too.
 - Forgetting works as in the local version: deleted for good, with the history of each fact. Older backups
   keep it, sealed, until they age out (see Backups).
 
+## Your memory on a page
+
+`https://<host>/memory` shows a person what is kept about them, and lets them search it, correct it and delete from it
+with no AI in between. There are no scripts on the page.
+
+- **For what an app refuses.** ChatGPT does not run `forget`. The tool `memory_page` answers with a link instead, and
+  the person confirms there which memories go; they can unmark any. It changes nothing by itself.
+- **A link opens nothing by itself,** because chat apps may fetch one first: it holds only which memories to confirm,
+  never a key. The page always asks for the password.
+- **While it is open,** for at most 15 minutes, the key is kept the way an app's sign-in keeps it: wrapped under a token
+  of which only a hash is stored, in a cookie scripts cannot read and other sites cannot send.
+- **A correction goes through the same checks as an agent's `remember`,** so a secret cannot enter the memory this way,
+  what was typed is not sent back, and if it is refused the memory stays as it was. It replaces the earlier version and
+  keeps the memory's kind, source, client and date.
+- With the vault enabled it also lists the entries' names, with links to see or delete each under the master password.
+
 ## A vault from any app
 
-ChatGPT or a phone cannot open a window on your computer, so on the server `vault_add` and `vault_reveal` answer
-with a link to a page here. The master password and the values are typed and shown on that page: no tool can
+ChatGPT or a phone cannot open a window on your computer, so on the server `vault_add`, `vault_reveal` and
+`vault_delete` answer with a link to a page here. The master password and the values are typed and shown on that page: no tool can
 receive a value or returns one, so they never reach the agent, its model or the chat. The agent sees only each entry's name and a note on what it
 is for, which you can correct on the page; a note it shows is one typed there, never the Notes of an entry made
 elsewhere.

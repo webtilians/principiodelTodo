@@ -18,7 +18,8 @@ for that the person has to trust whoever runs the server, as with any service.
 
 The memory tools are the same as the local server's (mcp_server.py). The local vault's windows would open on
 the screen of the machine that runs the server, which is not the user's, so a computer's vault stays on its
-local server (INFINITO_LOCAL_MEMORY=off). The vault here works through a page instead (remote_vault.py).
+local server (INFINITO_LOCAL_MEMORY=off). The vault here works through a page instead (remote_vault.py), and with
+sign-in a person has a page for their memory too (remote_memory.py), where apps that refuse forget can send them.
 
     infinito-remote serve --port 8500 --url https://memory.example.org   # sign-in needs the public URL
     infinito-remote list           # accounts and addresses
@@ -305,14 +306,16 @@ def build_app(people: People, issuer: Optional[str] = None):
                 people.remove(person)
             return True
 
-        auth = build_auth(accounts, grants, issuer, adopt)
+        auth = build_auth(accounts, grants, issuer, adopt, memories=sealed["accounts"])
 
     def with_memory(ctx: Context, action: Callable[[AgentMemory], str], writes: bool) -> str:
         state = ctx.request_context.request.scope["state"]
         return sealed[state["infinito_memories"]].use(state["infinito_person"], state["infinito_key"], action,
                                                        writes=writes)
 
-    server = MCPServer("infinito-memory", instructions=INSTRUCTIONS)
+    from . import remote_memory
+
+    server = MCPServer("infinito-memory", instructions=INSTRUCTIONS + (remote_memory.INSTRUCTIONS if issuer else ""))
     # OpenAI's apps (ChatGPT, Codex) also read, per tool, that it needs the person signed in with OAuth.
     # Every tool does: without a token the server answers 401, as the MCP specification asks.
     signed_in = {"securitySchemes": [{"type": "oauth2", "scopes": ["memory"]}]} if issuer else None
@@ -347,6 +350,17 @@ def build_app(people: People, issuer: Optional[str] = None):
     if issuer:
         from . import remote_vault
 
+        @server.tool(description=remote_memory.TOOL_DESCRIPTION, annotations=ToolAnnotations(**remote_memory.TOOL_HINTS),
+                     meta=signed_in)
+        def memory_page(ctx: Context, memory_ids: Optional[List[str]] = None) -> str:
+            state = ctx.request_context.request.scope["state"]
+            if state["infinito_memories"] != "accounts":
+                return remote_memory.NEEDS_ACCOUNT
+            known = with_memory(ctx, lambda memory: [record.id for record in memory._active()], writes=False)
+            return remote_memory.answer_with_link(issuer, memory_ids or [], known, lambda data: grants.issue(
+                remote_memory.LINK, client_id="", seconds=remote_memory.LINK_SECONDS, account=state["infinito_person"],
+                data=data))
+
         def vault_tool(name: str):
             return server.tool(description=remote_vault.TOOL_DESCRIPTIONS[name],
                                annotations=ToolAnnotations(**remote_vault.TOOL_HINTS), meta=signed_in)
@@ -372,6 +386,10 @@ def build_app(people: People, issuer: Optional[str] = None):
         @vault_tool("vault_reveal")
         def vault_reveal(entry: str, ctx: Context) -> str:
             return vault_link(ctx, "reveal", entry)
+
+        @vault_tool("vault_delete")
+        def vault_delete(entry: str, ctx: Context) -> str:
+            return vault_link(ctx, "delete", entry)
 
         @vault_tool("vault_list")
         def vault_list(ctx: Context) -> str:
