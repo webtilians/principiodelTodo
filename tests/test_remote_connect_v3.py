@@ -49,6 +49,7 @@ def test_http_allowed_only_for_local_development():
 
 
 def test_page_is_localized_has_all_six_clients_and_no_inline_tokens():
+    pytest.importorskip("starlette")
     for lang, title in (("es", "Conecta tus IAs"), ("en", "Connect your AIs")):
         page = connect_page(lang, "https://memory.example.org")
         content = page.body.decode("utf-8")
