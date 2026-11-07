@@ -252,6 +252,9 @@ def test_apps_are_told_which_tools_only_read_so_they_need_not_ask_first(server):
                      # These two only answer with a link: nothing changes until the person acts on the page.
                      "memory_page": True, "vault_delete": True,
                      "overview": True, "briefing": True,
+                     # The work queue: only listing it reads; proposing, taking and handing in change it.
+                     "task_list": True, "task_propose": False, "task_take": False, "task_done": False,
+                     "task_return": False,
                      "photo_save": False, "photo_show": True}
     assert [t.annotations.destructive_hint for t in app.tools if t.name == "forget"] == [True]
 

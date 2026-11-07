@@ -194,6 +194,33 @@ class Accounts:
             self._write(accounts)
         return True
 
+    def app_levels(self, name: str) -> Dict[str, str]:
+        """What the person lets each of their apps do (remote_apps.py), by the app's client id."""
+        return dict(self._read().get(name, {}).get("apps", {}))
+
+    def app_level(self, name: str, client_id: str) -> str:
+        from .remote_apps import DEFAULT
+
+        return self.app_levels(name).get(client_id, DEFAULT)
+
+    def set_app_level(self, name: str, client_id: str, level: Optional[str]) -> bool:
+        """The person's choice for one app; None forgets it, and the app is back where a new one starts."""
+        from .remote_apps import LEVELS
+
+        if level is not None and level not in LEVELS:
+            raise ValueError(level)
+        with self._lock:
+            accounts = self._read()
+            if name not in accounts:
+                return False
+            apps = accounts[name].setdefault("apps", {})
+            if level is None:
+                apps.pop(client_id, None)
+            else:
+                apps[client_id] = level
+            self._write(accounts)
+        return True
+
     def remove(self, name: str) -> bool:
         with self._lock:
             accounts = self._read()
@@ -260,6 +287,31 @@ class Grants:
     def drop_account(self, account: str) -> None:
         with self._lock, self._db:
             self._db.execute("DELETE FROM grants WHERE account = ?", (account,))
+
+    def apps_of(self, account: str) -> List[dict]:
+        """The apps that hold a live sign-in to this memory, first connected first: their client id, the name they
+        registered with, the host they sign in from and the day they first connected."""
+        with self._lock:
+            rows = self._db.execute(
+                "SELECT g.client_id, c.info, c.since FROM grants g JOIN clients c ON c.id = g.client_id "
+                "WHERE g.account = ? AND g.kind IN ('access', 'refresh') AND g.expires > ? "
+                "GROUP BY g.client_id ORDER BY c.since", (account, time.time())).fetchall()
+        apps = []
+        for client_id, info, since in rows:
+            try:
+                uris = json.loads(info).get("redirect_uris") or [""]
+            except (ValueError, AttributeError):
+                uris = [""]
+            host = re.sub(r"^[a-z]+://([^/:]+).*$", r"\1", str(uris[0]))
+            apps.append({"client_id": client_id, "name": _app_name(info) or host or "?", "host": host,
+                         "since": datetime.fromtimestamp(since, timezone.utc).date().isoformat()})
+        return apps
+
+    def drop_client(self, account: str, client_id: str) -> None:
+        """Signs one app out of one memory: its tokens stop working, and it has to sign in again."""
+        with self._lock, self._db:
+            self._db.execute("DELETE FROM grants WHERE account = ? AND client_id = ? AND kind IN ('access', 'refresh')",
+                             (account, client_id))
 
 
 def build_auth(accounts: Accounts, grants: Grants, issuer: str,
@@ -472,11 +524,12 @@ def build_auth(accounts: Accounts, grants: Grants, issuer: str,
                     + [Route("/login", sign_in_page, methods=["GET"]), Route("/login", sign_in, methods=["POST"]),
                        Route("/", home, methods=["GET"])])
 
-    def bearer(token: str) -> Optional[Tuple[str, bytes, Optional[str]]]:
+    def bearer(token: str) -> Optional[Tuple[str, bytes, Optional[str], str]]:
+        """Whose memory a token opens: the account, its key, the app's name and the app's client id."""
         found = grants.find("access", token)
         if not found or not accounts.exists(found["account"]):
             return None
-        return found["account"], found["key"], _app_name(grants.client(found["client_id"]))
+        return found["account"], found["key"], _app_name(grants.client(found["client_id"])), found["client_id"]
 
     paths = {route.path for route in app.routes}
     metadata_url = f"{issuer}/.well-known/oauth-protected-resource/mcp"
