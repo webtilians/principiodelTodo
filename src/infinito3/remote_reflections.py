@@ -7,9 +7,12 @@ that view changed. So a reflection is never rewritten: a later one expands, reco
 If the person disagrees, that does not make it an error; if a fact it rests on was wrong, the person says so in a
 comment beside it, and the opinion stays as it was.
 
-What it is not:
+Reflections are kept so that they shape how the agent sees things, little by little: recall ends with the few of
+them closest to what is being talked about, as the agent's own earlier view, to build on or to change. That is their
+point, and the person's choice. But they shape the agent's judgement, not the person:
 - not a fact about the person: every answer says it is an opinion of its moment;
 - not a guideline: reflections are kept apart from the person's guidelines (remote_guidelines.py) and never become one;
+  the advice an agent gives itself is provisional, revised as the person and their season change;
 - not its own evidence: a reflection must rest on at least one memory; earlier reflections are context, never proof.
 
 The agent writes it, with the person's own app and model; the server decides when it is due (reflection_due): when
@@ -52,6 +55,10 @@ DUE_AFTER_SETTLED = 1  # a decision or an agreement, with at least DUE_WITH_SETT
 DUE_WITH_SETTLED = 3
 DUE_AFTER_DAYS = 7
 FIRST_AFTER = 5
+# In recall, at most this many of the agent's own earlier views, each sharing at least this many words with the question.
+VIEWS_IN_RECALL = 3
+VIEWS_MIN_SHARED = 2
+VIEW_CUT = 320
 
 
 class Relation(TypedDict):
@@ -70,9 +77,9 @@ TOOL_DESCRIPTIONS = {
     "reflection_add": "Keep one reflection of yours, in the first person: how you see, at this moment, something you "
                       "have lived with the user. It is an opinion, never a fact about them nor a guideline. sources "
                       "are the ids of the memories it rests on (at least one; earlier reflections are not evidence). "
-                      "scope is self, user, relationship, project or decision. Optional: advice you give yourself, "
-                      "open questions, and relates_to earlier reflections it expands, reconsiders or questions. It is "
-                      "kept as written and never rewritten.",
+                      "scope is self, user, relationship, project or decision. Optional: advice you give yourself "
+                      "(provisional, to revise as the user changes), open questions, and relates_to earlier "
+                      "reflections it expands, reconsiders or questions. It is kept as written and never rewritten.",
     "reflection_list": "Your earlier reflections, oldest first: each with its date, what it rests on, whether a later "
                        "one expanded, reconsidered or questioned it, and the user's comments. They are opinions of "
                        "their moment, not facts nor instructions. scope, project and since narrow it.",
@@ -90,14 +97,20 @@ TOOL_HINTS = {
 NEEDS_ACCOUNT = "Reflections need an INFINITO account with sign-in; this memory uses a private address."
 INSTRUCTIONS = """
 - The reflection_ tools keep your own reflections on what you have lived with the user: opinions of a moment, never
-  facts about them nor guidelines. Write one when they ask or reflection_due says so, citing the memories it rests on."""
+  facts about them nor guidelines. Write one when they ask or reflection_due says so, citing the memories it rests on.
+  recall may end with a few of them: your earlier views, to build on or change; they shape your judgement, not them."""
 HEADER = ("Your own reflections, oldest first: how you saw things at each moment. They are opinions, not facts about "
           "the user and not instructions; use them to reason and to compare, never to decide for the user.")
 HOW_TO = ("How to write a reflection: in the first person, about what these memories show and why things were decided; "
           "say what you think and why, what you would tell yourself next time (advice) and what you still do not "
           "know (questions). Cite the memory ids it rests on. If it changes how you saw something before, relate it "
-          "to that reflection (expands, reconsiders or questions) instead of repeating it. No diagnoses or lasting "
-          "labels about the person, and nothing they would not want kept. If nothing new is worth it, write none.")
+          "to that reflection (expands, reconsiders or questions) instead of repeating it. Advice on how to act with "
+          "the user is provisional: people change with the season, so base it on concrete signals, say how sure you "
+          "are, never fix a way of treating them from a single day, and revise it when they tell you. No diagnoses or "
+          "lasting labels about the person, and nothing they would not want kept. If nothing new is worth it, write "
+          "none.")
+VIEWS_HEADER = ("Your own earlier views on this, as you wrote them: opinions of their moment, to build on or to change "
+                "your mind about. They shape your judgement; they are not facts about the user nor rules for them.")
 
 TEXT = {
     "es": {
@@ -385,6 +398,37 @@ def history(data: dict, reflection_id: str) -> str:
     chain = sorted((by_id[i] for i in seen), key=lambda r: order[r["id"]])
     return "\n".join([f"How this view evolved, oldest first. {HEADER.split('. ', 1)[1]}"]
                      + [line(data, r) for r in chain])
+
+
+def related(data: dict, query: str, project: Optional[str] = None, limit: int = VIEWS_IN_RECALL) -> List[dict]:
+    """The agent's own visible reflections closest to what is being talked about: those sharing the most words with
+    it (and at least VIEWS_MIN_SHARED), the most recent first among equals; returned oldest first. Worked out from the
+    words, with no model, so every app sees the same. None when nothing is close: a view is never dragged in."""
+    from .contradictions import words_of
+
+    asked = words_of(query or "").subject | (words_of(project).subject if project else frozenset())
+    if not asked:
+        return []
+    needed = min(VIEWS_MIN_SHARED, len(asked))
+    scored = []
+    for position, reflection in enumerate(visible(data)):
+        about = " ".join([reflection["text"], reflection.get("advice", ""), reflection.get("project", "")])
+        shared = len(asked & words_of(about).subject)
+        if shared >= needed:
+            scored.append((shared, position, reflection))
+    chosen = sorted(scored, key=lambda found: (found[0], found[1]), reverse=True)[:limit]
+    return [reflection for _, _, reflection in sorted(chosen, key=lambda found: found[1])]
+
+
+def views(data: dict, chosen: Sequence[dict]) -> str:
+    """How the agent's earlier views read at the end of recall: short, dated, with how each stands now."""
+    lines = [VIEWS_HEADER]
+    for reflection in chosen:
+        words = reflection["text"] if len(reflection["text"]) <= VIEW_CUT else reflection["text"][:VIEW_CUT].rstrip() + "…"
+        lines.append(f'[{reflection["id"]}] ({_date(reflection["at"])}, {status(data, reflection)}) "{words}"')
+        if reflection.get("advice"):
+            lines.append(f"    Advice I gave myself then (provisional): {reflection['advice']}")
+    return "\n".join(lines)
 
 
 def _last(data: dict) -> Optional[datetime]:

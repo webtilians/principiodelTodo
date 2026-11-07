@@ -147,6 +147,31 @@ def test_what_to_reflect_on_is_whats_new_and_the_earlier_reflections(folder):
     assert told.rstrip().endswith(reflections.HOW_TO) and "relate to them rather than repeat them" in told
 
 
+def test_recall_brings_the_few_views_closest_to_the_question_and_none_when_nothing_is_close(folder):
+    for n, text in enumerate(["Creo que aparcar F11 fue prudente.", "Pienso que la portada de INFINITO convence.",
+                              "Creo que F11 merecía otra réplica antes de aparcarlo.", "Hoy fue un buen día."]):
+        change(folder, lambda data: reflections.add(data, "Claude", text, ["m1"], "decision", KNOWN))
+    data = reflections.read(folder, KEY, "ana")
+    chosen = reflections.related(data, "¿Por qué aparcamos F11 aquella semana?")
+    assert [r["text"] for r in chosen] == ["Creo que aparcar F11 fue prudente.",
+                                           "Creo que F11 merecía otra réplica antes de aparcarlo."]  # oldest first
+    assert reflections.related(data, "¿Qué tiempo hará mañana en Málaga?") == []
+    change(folder, lambda data: reflections.hide(data, chosen[0]["id"], True))
+    assert [r["text"] for r in reflections.related(reflections.read(folder, KEY, "ana"), "aparcar F11")] == [
+        "Creo que F11 merecía otra réplica antes de aparcarlo."]  # what the person hid stays out
+
+
+def test_views_read_as_the_agents_own_and_advice_as_provisional(folder):
+    one = change(folder, first)
+    data = reflections.read(folder, KEY, "ana")
+    told = reflections.views(data, [data["reflections"][0]])
+    assert told.startswith(reflections.VIEWS_HEADER) and f"[{one['id']}] (" in told
+    assert "not facts about the user nor rules for them" in told
+    assert "Advice I gave myself then (provisional): Antes de cerrar un experimento" in told
+    assert "provisional" in reflections.HOW_TO and "never fix a way of treating them from a single day" in reflections.HOW_TO
+    assert "shape your judgement, not them" in reflections.INSTRUCTIONS
+
+
 def test_reading_reflections_needs_only_read_and_writing_one_needs_add():
     for tool in ("reflection_due", "reflection_context", "reflection_list", "reflection_history"):
         assert remote_apps.allowed("read", tool)
@@ -182,7 +207,10 @@ def test_a_reflection_is_written_in_one_app_read_in_another_reconsidered_and_sho
     assert "Decidimos aparcar F11" in context and reflections.HOW_TO in context
     assert added.startswith("Kept as your reflection ") and "not a guideline" in added
     first_id = re.search(r"reflection ([0-9a-f]{8})", added).group(1)
-    assert "quizá demasiado" not in recalled  # an opinion is not a memory, nor a guideline
+    # It comes back as the agent's own earlier view, after the memories: never as a memory, nor as a guideline.
+    memories_part, views_part = recalled.split(reflections.VIEWS_HEADER)
+    assert "quizá demasiado" in views_part and "quizá demasiado" not in memories_part
+    assert "Advice I gave myself then (provisional): Proponer una réplica barata" in views_part
     assert "The user's own guidelines" not in recalled
 
     steps = [("reflection_list", {}),
