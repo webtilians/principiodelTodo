@@ -25,7 +25,7 @@ async def check() -> None:
         async with ClientSession(read, write) as client:
             await client.initialize()
             tools = sorted(t.name for t in (await client.list_tools()).tools)
-            assert tools == ["forget", "list_memories", "overview", "recall", "remember", "remember_many", "vault_add",
+            assert tools == ["briefing", "forget", "list_memories", "overview", "recall", "remember", "remember_many", "vault_add",
                              "vault_list", "vault_lock", "vault_reveal", "vault_status", "vault_unlock"], tools
             status = (await client.call_tool("vault_status", {})).content[0].text
             assert status.startswith("No vault yet"), status

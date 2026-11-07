@@ -235,3 +235,17 @@ def test_the_front_page_tells_what_changed_in_both_languages(server):  # noqa: F
     english = httpx2.get(f"{base}/", headers={"accept-language": "en"}).text
     assert "keeps emails and phone numbers" in english and "which AI saved it" in english
     assert "Your photos are remembered too" in english and "By invitation" in english
+
+
+# The briefing, from the server
+
+def test_a_briefing_over_the_server_says_which_app_saved_what(server):  # noqa: F811
+    base, _, _ = server
+    steps = [("remember", {"statement": "La entrega del logo es el 15 de noviembre.", "kind": "agreement",
+                           "project": "Acme"}),
+             ("remember", {"statement": "La entrega del logo pasa al 20 de noviembre.", "kind": "fact",
+                           "project": "Acme"}),
+             ("briefing", {"moment": "morning"})]
+    answers, _, _ = app_session(base, steps, mode="signup", name="nuria")
+    assert "It may disagree with an earlier memory" in answers[1]
+    assert "Saved by Prueba 2." in answers[2] and "New memories that may disagree with earlier ones: 1." in answers[2]

@@ -251,7 +251,7 @@ def test_apps_are_told_which_tools_only_read_so_they_need_not_ask_first(server):
                      "forget": False, "vault_add": True, "vault_reveal": True, "vault_list": True,
                      # These two only answer with a link: nothing changes until the person acts on the page.
                      "memory_page": True, "vault_delete": True,
-                     "overview": True,
+                     "overview": True, "briefing": True,
                      "photo_save": False, "photo_show": True}
     assert [t.annotations.destructive_hint for t in app.tools if t.name == "forget"] == [True]
 

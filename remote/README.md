@@ -3,7 +3,7 @@
 An agent on your computer can use a memory file on your computer; ChatGPT, Claude on the web or on
 your phone, and an agent on another machine cannot. This is INFINITO's memory as a server on the
 internet, `src/infinito3/remote.py`: the same memory tools as the local server (remember, remember_many,
-recall, list_memories, forget), with one memory per person that all of that person's apps share. What you
+recall, list_memories, overview, briefing, forget), with one memory per person that all of that person's apps share. What you
 tell ChatGPT, Claude remembers, and the other way round.
 
 ## Connect an app
@@ -122,6 +122,27 @@ still open, and flags those quiet for a week: it takes no model, so every app se
 Each memory also says which app saved it. The server takes that from the app's sign-in, not from anything the model
 sends, so a model cannot claim another app wrote something. It is the name the app registered with, the same one the
 sign-in page shows you. On your memory page, what you correct says it was you.
+
+When a new memory may disagree with one already kept (a delivery moved from the 15th to the 20th, a budget of
+3,000 that is now 2,500, a "yes" that became a "no"), `remember` names the earlier one and why. INFINITO does not
+choose: if you said it as a change, the new one is current; if it came from an email, a meeting or another app, the
+agent shows you both, with their dates and sources, and you say which is right. Nothing is rewritten. It works from
+the words alone (`src/infinito3/contradictions.py`), with no model, so every app sees the same.
+
+`briefing` gathers a working day or week from the memory, with how to present it:
+
+- `morning`: what is new since the last working day and which app saved it, what is still open and how long it has
+  been, what a later memory may already have closed, proposals waiting for a decision, memories that may disagree
+  and clients quiet for a week. The agent sorts what is open into what it can do, what it can prepare and what only
+  you can do, with at most three priorities and three questions;
+- `end_of_day`: what was closed, what is late or at risk and what it would leave ready for tomorrow;
+- `week_plan` (Monday): every client with its last activity and open items, what to bring forward or put off;
+- `week_review` (Friday): the week's decisions and agreements, and at most three changes it proposes to how it
+  works for you. It changes nothing itself.
+
+Every briefing says to do nothing you have not approved. In ChatGPT, a scheduled task can run it each morning:
+"Each working day at 8:00: call briefing from INFINITO with moment morning and present it as it says. Do nothing
+until I approve it."
 
 Emails and phone numbers are kept: this memory is yours, and who to write to is part of what it is for. Secrets are
 refused here too.
