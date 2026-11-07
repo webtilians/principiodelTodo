@@ -150,6 +150,20 @@ refused here too.
 INFINITO is the memory, not the assistant: it does not read your email, send reminders or move files. Whatever
 does (ChatGPT, n8n, another agent) can share this memory instead of each keeping its own.
 
+## Your guidelines for all your AIs
+
+What you would otherwise set up in each app ("answer me in Spanish", "sign as Hilo when you use my memory", "look at
+my memory before answering about my work") you write once, on your memory page under **Guidelines**: one per line,
+in a single box. They come first in what every app reads (`recall`, `list_memories`, `overview`, `briefing`) and in
+the hook that brings the memory to each message, under their own heading, as your instructions; the memories below
+them stay data.
+
+When you tell an AI "from now on…", it can propose the guideline with `guideline_propose`, and it waits on the page
+until you accept it with a click. Only you change the list, signed in with your password: otherwise a web page or an
+email an agent reads could plant an instruction that every other AI would follow. The page also offers, one click
+each, what your memory already holds that reads like a guideline. At most 20, sealed with your memory's key, in the
+backups, and secrets are refused.
+
 ## What each app may do
 
 On your memory page, **Apps** lists the AIs you have connected, where each signs in from and since when, and lets
@@ -231,7 +245,7 @@ memory into an address's memory.
 
 ## Backups
 
-A copy holds only what is already sealed: each memory and its work queue, each vault locked under its master
+A copy holds only what is already sealed: each memory with its guidelines and work queue, each vault locked under its master
 password, and each person's key locked under their password or address. What each app may do is in the copy too;
 after a restore every app signs in again and starts with Everything. Without those a copy opens nothing, so it can be kept anywhere;
 the usernames and the size of each memory and vault are all that can be read in one. A person who loses their password and recovery code can't be saved

@@ -304,20 +304,23 @@ _LOGO = ('<svg viewBox="0 0 120 60" aria-hidden="true"><defs><linearGradient id=
 
 
 def shell(t: dict, active: str, account: str, csrf: str, body: str, hidden_fields, *, pending: int = 0, query: str = "",
-          to_approve: int = 0) -> str:
+          to_approve: int = 0, proposed: int = 0) -> str:
     """Everything around a signed-in page. It takes the signing-out form's fields from its caller. to_approve is how
-    many tasks wait for the person, shown next to Tasks."""
+    many tasks wait for the person, shown next to Tasks, and proposed how many guidelines, next to Guidelines."""
     e = html.escape
     items = (("home", "/", "nav_home", "home"), ("vault", "/memory", "nav_vault", "lock"),
              ("memories", "/memory?view=memories", "nav_memories", "layers"),
              ("projects", "/memory?view=projects", "nav_projects", "folder"),
              ("tasks", "/memory?view=tasks", "nav_tasks", "check"),
+             ("guidelines", "/memory?view=guidelines", "nav_guidelines", "bulb"),
              ("search", "/memory?view=search", "nav_search", "search"),
              ("apps", "/memory?view=apps", "nav_apps", "network"),
              ("settings", "/memory?view=settings", "nav_settings", "gear"))
 
+    waiting = {"tasks": to_approve, "guidelines": proposed}
+
     def label(key: str, name: str) -> str:
-        return f'{t[name]} <b class="badge">{to_approve}</b>' if key == "tasks" and to_approve else t[name]
+        return f'{t[name]} <b class="badge">{waiting[key]}</b>' if waiting.get(key) else t[name]
 
     nav = "".join(f'<a href="{href}"{" class=on aria-current=page" if key == active else ""}>{icon(name)}{label(key, text)}</a>'
                   for key, href, text, name in items)

@@ -30,11 +30,11 @@ and photos, sealed the same way (remote_photos.py).
     infinito-remote backup <folder>  # one more copy of the sealed memories (remote_backup.py)
     infinito-remote restore <file>   # puts a copy back, with the service stopped
 
-With sign-in, the person also chooses what each app may do (remote_apps.py), and their AIs share a work queue that
-only the person approves (remote_tasks.py).
+With sign-in, the person also writes guidelines that every app reads first (remote_guidelines.py), chooses what each
+app may do (remote_apps.py), and their AIs share a work queue that only the person approves (remote_tasks.py).
 
 Data lives in INFINITO_REMOTE_DIR (default ~/.infinito-remote): accounts.json, grants.db and
-accounts/<name>/memory.sealed, with its photos/ and tasks.sealed, for sign-in; people.json and
+accounts/<name>/memory.sealed, with its photos/, tasks.sealed and guidelines.sealed, for sign-in; people.json and
 people/<name>/memory.sealed for addresses.
 """
 # No `from __future__ import annotations`: the MCP SDK reads the tools' annotations, and Context is
@@ -54,7 +54,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple
 
-from . import remote_apps, remote_photos, remote_tasks
+from . import remote_apps, remote_guidelines, remote_photos, remote_tasks
 from .mcp_server import INSTRUCTIONS, TOOL_DESCRIPTIONS, TOOL_HINTS, AgentMemory, MemoryItem, _line
 from .persistent_memory import HashEmbeddingProvider, SQLiteCognitiveMemoryStore
 
@@ -334,6 +334,16 @@ def build_app(people: People, issuer: Optional[str] = None):
         level = accounts.app_level(state["infinito_person"], state.get("infinito_client") or "")
         return remote_apps.refusal(level, tool, issuer)
 
+    def with_guidelines(ctx: Context, answer: str) -> str:
+        """The person's own guidelines first (remote_guidelines.py), above what a reading tool answers."""
+        state = ctx.request_context.request.scope["state"]
+        if state["infinito_memories"] != "accounts" or answer.startswith("Not allowed"):
+            return answer
+        person = state["infinito_person"]
+        found = remote_guidelines.read(accounts.memory_folder(person), state["infinito_key"], person)
+        written = remote_guidelines.block(found, issuer)
+        return f"{written}\n\n{answer}" if written else answer
+
     def with_memory(ctx: Context, tool: str, action: Callable[[AgentMemory], str], writes: bool) -> str:
         refusal = refused(ctx, tool)
         if refusal:
@@ -345,7 +355,7 @@ def build_app(people: People, issuer: Optional[str] = None):
     from . import remote_memory
 
     server = MCPServer("infinito-memory", instructions=INSTRUCTIONS + (
-        remote_memory.INSTRUCTIONS + remote_tasks.INSTRUCTIONS if issuer else ""))
+        remote_memory.INSTRUCTIONS + remote_guidelines.INSTRUCTIONS + remote_tasks.INSTRUCTIONS if issuer else ""))
     # OpenAI's apps (ChatGPT, Codex) also read, per tool, that it needs the person signed in with OAuth.
     # Every tool does: without a token the server answers 401, as the MCP specification asks.
     signed_in = {"securitySchemes": [{"type": "oauth2", "scopes": ["memory"]}]} if issuer else None
@@ -373,15 +383,18 @@ def build_app(people: People, issuer: Optional[str] = None):
     @memory_tool("recall")
     def recall(query: str, ctx: Context, limit: Optional[int] = None, project: Optional[str] = None,
                kind: Optional[str] = None) -> str:
-        return with_memory(ctx, "recall", lambda memory: memory.recall(query, limit, project, kind), writes=False)
+        return with_guidelines(ctx, with_memory(ctx, "recall", lambda memory: memory.recall(query, limit, project, kind),
+                                                writes=False))
 
     @memory_tool("list_memories")
     def list_memories(ctx: Context, project: Optional[str] = None, kind: Optional[str] = None) -> str:
-        return with_memory(ctx, "list_memories", lambda memory: memory.list_memories(project, kind), writes=False)
+        return with_guidelines(ctx, with_memory(ctx, "list_memories", lambda memory: memory.list_memories(project, kind),
+                                                writes=False))
 
     @memory_tool("overview")
     def overview(ctx: Context, stale_days: Optional[int] = None) -> str:
-        return with_memory(ctx, "overview", lambda memory: memory.overview(stale_days), writes=False)
+        return with_guidelines(ctx, with_memory(ctx, "overview", lambda memory: memory.overview(stale_days),
+                                                writes=False))
 
     @memory_tool("briefing")
     def briefing(ctx: Context, moment: Optional[str] = None, project: Optional[str] = None,
@@ -394,7 +407,7 @@ def build_app(people: People, issuer: Optional[str] = None):
                                   state["infinito_person"])
         if project:
             tasks = [task for task in tasks if (task.get("project") or "").casefold() == project.strip().casefold()]
-        return f"{answer}\n{remote_tasks.summary(tasks, issuer)}" if tasks else answer
+        return with_guidelines(ctx, f"{answer}\n{remote_tasks.summary(tasks, issuer)}" if tasks else answer)
 
     @memory_tool("forget")
     def forget(memory_ids: List[str], ctx: Context, keep: Optional[List[str]] = None) -> str:
@@ -500,6 +513,28 @@ def build_app(people: People, issuer: Optional[str] = None):
             person = state["infinito_person"]
             vault = remote_vault.ServerVault(accounts.memory_folder(person), person)
             return remote_vault.list_answer(vault.listed(state["infinito_key"]))
+
+        @server.tool(description=remote_guidelines.TOOL_DESCRIPTION,
+                     annotations=ToolAnnotations(**remote_guidelines.TOOL_HINTS), meta=signed_in)
+        def guideline_propose(guideline: str, ctx: Context) -> str:
+            state = ctx.request_context.request.scope["state"]
+            if state["infinito_memories"] != "accounts":
+                return remote_guidelines.NEEDS_ACCOUNT
+            refusal = refused(ctx, "guideline_propose")
+            if refusal:
+                return refusal
+            person = state["infinito_person"]
+            page = f"{issuer}/memory?view=guidelines"
+            try:
+                said = remote_guidelines.change(accounts.memory_folder(person), state["infinito_key"], person,
+                                                lambda data: remote_guidelines.propose(data, app_of(ctx), guideline))
+            except remote_guidelines.Refused as refused_call:
+                return str(refused_call)
+            return {"already": "It is already one of the user's guidelines: nothing to do.",
+                    "waiting": f"It is already proposed and waits for the user to accept it at {page}.",
+                    "proposed": f"Proposed. It becomes a guideline for all the user's AIs once they accept it with a "
+                                f"click at {page}: tell them it waits there. Until then, follow it in this conversation "
+                                "only."}[said]
 
         def task_tool(name: str):
             return server.tool(description=remote_tasks.TOOL_DESCRIPTIONS[name],

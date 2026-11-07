@@ -255,6 +255,8 @@ def test_apps_are_told_which_tools_only_read_so_they_need_not_ask_first(server):
                      # The work queue: only listing it reads; proposing, taking and handing in change it.
                      "task_list": True, "task_propose": False, "task_take": False, "task_done": False,
                      "task_return": False,
+                     # It only proposes: the person accepts it on their page.
+                     "guideline_propose": False,
                      "photo_save": False, "photo_show": True}
     assert [t.annotations.destructive_hint for t in app.tools if t.name == "forget"] == [True]
 

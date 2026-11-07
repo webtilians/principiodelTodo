@@ -22,7 +22,7 @@ from datetime import datetime, timezone
 from typing import Dict, List, Optional, Sequence
 from urllib.parse import urlencode
 
-from . import remote_apps, remote_photos, remote_portal, remote_tasks, remote_vault
+from . import remote_apps, remote_guidelines, remote_photos, remote_portal, remote_tasks, remote_vault
 from .mcp_server import BY_THE_USER, KINDS, OPEN_KINDS, OVERVIEW_OPEN_ITEMS, STALE_DAYS, AgentMemory, _day
 from .remote_accounts import _HEADERS, NAME, _STYLE as _BASE_STYLE, _page, _texts
 from .types import MemoryRecord
@@ -508,7 +508,7 @@ def routes(accounts, grants, memories, limiter, secure: bool) -> list:
     def texts(request) -> dict:
         base = _texts(request)
         return {**base, **TEXT[base["lang"]], **remote_portal.TEXT[base["lang"]], **remote_apps.TEXT[base["lang"]],
-                **remote_tasks.TEXT[base["lang"]]}
+                **remote_tasks.TEXT[base["lang"]], **remote_guidelines.TEXT[base["lang"]]}
 
     def view(t: dict, title: str, body: str, status: int = 200):
         response = _page(t, title, body, status, style=_STYLE)
@@ -520,9 +520,10 @@ def routes(accounts, grants, memories, limiter, secure: bool) -> list:
         """A page of the portal, for someone signed in. whole is for a page that lays itself out, as the home does."""
         pending = await use(session, lambda memory: len(memory._active(kind="pending")), writes=False)
         to_approve = sum(task["state"] in remote_tasks.WAITING for task in await queue(session))
+        proposed = len((await guidelines_of(session))["proposed"])
         inner = body if whole else (f'<div class="page"><h1>{html.escape(title)}</h1><div class="sheet">{body}</div></div>')
         page_html = remote_portal.shell(t, active, session["account"], session["data"]["csrf"], inner, _hidden,
-                                        pending=pending, query=query, to_approve=to_approve)
+                                        pending=pending, query=query, to_approve=to_approve, proposed=proposed)
         response = HTMLResponse(
             f'<!doctype html><html lang="{t["lang"]}"><head><meta charset="utf-8"><meta name="viewport" '
             f'content="width=device-width, initial-scale=1"><title>{html.escape(title)} · INFINITO</title>'
@@ -573,6 +574,47 @@ def routes(accounts, grants, memories, limiter, secure: bool) -> list:
         apps = [app["name"] for app in grants.apps_of(session["account"])]
         body = remote_tasks.tasks_body(t, tasks, apps, session["data"]["csrf"], _hidden, **notices)
         return await shown(t, session, t["tasks_title"], body, active="tasks")
+
+    async def guidelines_of(session: dict, action=None):
+        """The person's guidelines (remote_guidelines.py): read, or changed by action, sealed with their memory's key."""
+        where = (accounts.memory_folder(session["account"]), session["key"], session["account"])
+        if action is None:
+            return await anyio.to_thread.run_sync(lambda: remote_guidelines.read(*where))
+        return await anyio.to_thread.run_sync(lambda: remote_guidelines.change(*where, action))
+
+    async def guidelines_page(t: dict, session: dict, *, message: str = "", error: str = "", status: int = 200):
+        data = await guidelines_of(session)
+        suggested = await use(session, lambda memory: remote_guidelines.suggestions(memory._active(), data), writes=False)
+        body = remote_guidelines.guidelines_body(t, data, suggested, session["data"]["csrf"], _hidden, message=message,
+                                                 error=error)
+        return await shown(t, session, t["guidelines_title"], body, status, active="guidelines")
+
+    async def on_guidelines(t: dict, session: dict, form, action: str):
+        """Only here, signed in with their password, does a person change what all their AIs follow."""
+        wanted = str(form.get("id", ""))
+        if action == "guideline_from_memory":
+            found = await use(session, lambda memory: _chosen(memory, [wanted]), writes=False)
+            if not found:
+                return await guidelines_page(t, session, error=t["guidelines_gone"])
+            words = found[0].content
+            step, said = (lambda data: remote_guidelines.add(data, words)), "guidelines_accepted"
+        else:
+            text = str(form.get("text", ""))
+            step, said = {
+                "guidelines_save": (lambda data: remote_guidelines.replace(data, text), "guidelines_saved"),
+                "guideline_accept": (lambda data: remote_guidelines.accept(data, wanted), "guidelines_accepted"),
+                "guideline_discard": (lambda data: remote_guidelines.discard(data, wanted), "guidelines_discarded"),
+            }[action]
+        try:
+            await guidelines_of(session, step)
+        except remote_guidelines.Refused as refused:
+            reason = str(refused)
+            error = {"too_many": t["guidelines_too_many"].format(n=remote_guidelines.MAX_ITEMS),
+                     "too_long": t["guidelines_too_long"].format(n=remote_guidelines.MAX_CHARS),
+                     "secret": t["guidelines_refused"]}.get(reason, t["guidelines_gone"])
+            # What was typed may hold a secret: the page goes back with the guidelines as they were.
+            return await guidelines_page(t, session, error=error, status=400)
+        return await guidelines_page(t, session, message=t[said])
 
     async def apps_page(t: dict, session: dict, message: str = ""):
         body = remote_apps.apps_body(t, grants.apps_of(session["account"]), accounts.app_levels(session["account"]),
@@ -687,6 +729,8 @@ def routes(accounts, grants, memories, limiter, secure: bool) -> list:
             return await tasks_page(t, session)
         if wanted == "apps":
             return await apps_page(t, session)
+        if wanted == "guidelines":
+            return await guidelines_page(t, session)
         if wanted == "settings":
             return await shown(t, session, t["settings_title"], remote_portal.settings_body(t, session["account"]),
                                active="settings")
@@ -798,6 +842,8 @@ def routes(accounts, grants, memories, limiter, secure: bool) -> list:
             return await listing(t, session, {}, message=t[done])
         if action in ("task_approve", "task_discard", "task_cancel", "task_close", "task_reopen"):
             return await on_tasks(t, session, form, action)
+        if action in ("guidelines_save", "guideline_accept", "guideline_discard", "guideline_from_memory"):
+            return await on_guidelines(t, session, form, action)
         if action == "app_level":
             client_id, level = str(form.get("client", "")), str(form.get("level", ""))
             if client_id not in {app["client_id"] for app in grants.apps_of(session["account"])}:

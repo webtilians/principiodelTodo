@@ -239,6 +239,17 @@ def _fit(text: str, room: int = HOOK_CHARS) -> str:
     return "\n".join(fitted + [LINES_CUT])
 
 
+def _guidelines(answer: Optional[str]) -> Tuple[Optional[str], Optional[str]]:
+    """The person's guidelines, which the server puts first in a recall, apart from the memories: they come under
+    their own heading, as the person's instructions, while memories stay data."""
+    from .remote_guidelines import HEADER
+
+    if not answer or not answer.startswith(HEADER):
+        return None, answer
+    guidelines, _, rest = answer.partition("\n\n")
+    return guidelines, rest or None
+
+
 def context(stdin=None, stdout=None) -> None:
     """The hook: the message in on stdin (JSON from Claude Code or Codex), related memories out. Never fails."""
     stdin, stdout = stdin or sys.stdin.buffer, stdout or sys.stdout
@@ -249,8 +260,11 @@ def context(stdin=None, stdout=None) -> None:
         pending = _pending(event) if prompt else None
     except Exception:  # noqa: BLE001  # a memory that cannot be read must not stop the person's message
         return
-    parts = [f"{header}\n{text}" for header, text in ((CONTEXT_HEADER, found), (PENDING_HEADER, pending))
-             if text and not text.startswith("No memories")]
+    guidelines, found = _guidelines(found)
+    _, pending = _guidelines(pending)
+    parts = ([guidelines] if guidelines else []) + [
+        f"{header}\n{text}" for header, text in ((CONTEXT_HEADER, found), (PENDING_HEADER, pending))
+        if text and not text.startswith("No memories")]
     if parts:
         json.dump({"hookSpecificOutput": {"hookEventName": event.get("hook_event_name") or "UserPromptSubmit",
                                           "additionalContext": _fit("\n\n".join(parts))}}, stdout)
