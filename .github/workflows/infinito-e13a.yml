@@ -1,0 +1,27 @@
+name: E13-A research evidence
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - 'observatory/e13a.py'
+      - 'scripts/audit_e13a.py'
+      - 'tests/test_e13a.py'
+      - 'observatory_results/e13a/**'
+      - 'docs/INFINITO_E13A*'
+      - '.github/workflows/infinito-e13a.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  contracts-and-artifacts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install pytest
+      - run: python -m pytest tests/test_e13a.py -q
+      - run: python scripts/audit_e13a.py observatory_results/e13a/holdout --disjoint observatory_results/e13a/dev-frozen
+      - run: python scripts/audit_e13a.py observatory_results/e13a/replay --compare observatory_results/e13a/holdout

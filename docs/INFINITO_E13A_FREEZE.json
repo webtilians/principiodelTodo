@@ -1,0 +1,21 @@
+{
+  "files": {
+    "observatory/e13a.py": "1c0b833a4ce9de9f1390f64426cef6d19e8930b1cd658639cc4e654156ba5371",
+    "tests/test_e13a.py": "dc886e7e8ba7721da4624647ab3e94ba1b0bf6d1269a36b7b2142b87646be7f0",
+    "scripts/audit_e13a.py": "61fb5afabdf1d8c89ea28b2d418a7dce8bd26c39feafb669758c268c2a360b20",
+    "docs/INFINITO_E13A_PREREG_2026-11-05.md": "494fd98e3f26e9ecc8dd7c2fb0611cb4136e620e81cfff5d838c5d9ddbd10c64",
+    "observatory/requirements_e13a.txt": "24cc16300beb85b88a07f4ef87c4aeb2eb80c92959852ab1ad3d8353e5e77654"
+  },
+  "model_files": {
+    "README.md": "5158bd51a9c275c7fa3556807a2867d4fac4854df64b97920b33cb9bb1127228",
+    "config.json": "565c58b67cb3c0e6b6e4dd1f2ad2279c98050b685bef45a38e89f58b096e6370",
+    "model.safetensors": "58dd57ff68b5aaab302899dacf9cf3b8ef2f2197cc27434b41ea4e1fb55837aa",
+    "modules.json": "0858e4a5e4c99ece0f93eae7660195497a2667a7cfca3dc3223b68df19097056",
+    "pieces.txt": "2de3a1bad39682fa112152ab59220e5664aa84635f3042ff88e2822c11ce1729",
+    "scores.f32": "410b4b075db676daf78770bd175eecc6a2a9797ab4325a3b953f3d672a51b4bc",
+    "tokenizer.json": "8039816812dd3afddbd55b027f53b1cb7b7231d1f51d2bc409320400f40e8cb7"
+  },
+  "selection": "Fixed preregistered policy; no tuning. DEV complete, HOLDOUT unopened.",
+  "dev": "observatory_results/e13a/dev-frozen",
+  "holdout": "HOLDOUT replicas 0..3 worlds 0..7"
+}
