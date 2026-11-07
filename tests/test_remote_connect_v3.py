@@ -23,6 +23,7 @@ def test_cursor_one_click_is_the_official_base64_json_format():
     assert args["name"] == ["infinito"]
     assert json.loads(base64.b64decode(args["config"][0])) == {"url": "https://memory.example.org/mcp"}
     assert "password" not in info["cursor"] and "token" not in info["cursor"]
+    assert info["claude"] == "https://claude.ai/customize/connectors"
 
 
 def test_public_config_is_the_same_url_across_all_clients():
