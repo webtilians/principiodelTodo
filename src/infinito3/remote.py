@@ -382,9 +382,14 @@ def build_app(people: People, issuer: Optional[str] = None):
 
     @memory_tool("recall")
     def recall(query: str, ctx: Context, limit: Optional[int] = None, project: Optional[str] = None,
-               kind: Optional[str] = None) -> str:
-        return with_guidelines(ctx, with_memory(ctx, "recall", lambda memory: memory.recall(query, limit, project, kind),
-                                                writes=False))
+               kind: Optional[str] = None, max_chars: Optional[int] = None) -> str:
+        """max_chars is for a hook that brings the memory to each message (Claude Code and Codex cut longer text):
+        the longest lines are cut first, so every memory stays in view."""
+        from .remote_client import fit
+
+        answer = with_guidelines(ctx, with_memory(ctx, "recall", lambda memory: memory.recall(query, limit, project, kind),
+                                                  writes=False))
+        return fit(answer, max(int(max_chars), 1000)) if max_chars else answer
 
     @memory_tool("list_memories")
     def list_memories(ctx: Context, project: Optional[str] = None, kind: Optional[str] = None) -> str:

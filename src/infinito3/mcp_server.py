@@ -511,7 +511,10 @@ class AgentMemory:
             if hidden:
                 lines.append(hidden)
 
-        new = sorted((r for r in memories if r.created_at >= start), key=lambda r: r.created_at)
+        # The order things were saved in: two saved within the clock's tick share a time, and the store's own order
+        # still tells which came first.
+        saved = {record.id: number for number, record in enumerate(self.store.all())}
+        new = sorted((r for r in memories if r.created_at >= start), key=lambda r: saved[r.id])
         apps: Dict[str, int] = {}
         for record in new:
             app = str(record.metadata.get("author") or "")
@@ -552,7 +555,7 @@ class AgentMemory:
 
         pairs, seen = [], set()
         for record in new:
-            earlier = [r for r in memories if r.created_at <= record.created_at and r.id != record.id]
+            earlier = [r for r in memories if saved[r.id] < saved[record.id]]
             for other, why in self._may_disagree(record, earlier, words=words):
                 if frozenset((record.id, other.id)) not in seen:
                     seen.add(frozenset((record.id, other.id)))

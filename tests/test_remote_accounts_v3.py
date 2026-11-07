@@ -388,7 +388,7 @@ def test_the_hook_never_outgrows_what_claude_code_accepts(monkeypatch):
     assert told.count(remote_client.LINE_CUT) == 9 and told.endswith(remote_client.LINES_CUT)  # 8 lines and the notice
 
     small = "\n".join(["2 memories:", short])
-    assert remote_client._fit(small) == small  # what fits stays as it is
+    assert remote_client.fit(small) == small  # what fits stays as it is
 
 
 EDIT =("Edit", {"file_path": r"C:\repo\src\app.py"})
