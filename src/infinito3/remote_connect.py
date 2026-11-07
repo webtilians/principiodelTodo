@@ -126,7 +126,7 @@ def connect_page(lang: str, server: str):
     def section(key, title, body):
         return '<section class="panel" id="' + key + '"><h3>' + e(title) + '</h3>' + body + "</section>"
 
-    endpoint = '<input aria-label="' + e(t["address"]) + '" readonly value="' + e(info["endpoint"]) + '">'
+    endpoint = '<input id="mcp" aria-label="' + e(t["address"]) + '" readonly value="' + e(info["endpoint"]) + '">'
     chatgpt = section("chatgpt", "ChatGPT",
                       '<p>' + e(t["chatgpt"]) + '</p><a class="action secondary" href="' +
                       e(info["chatgpt"]) + '" rel="noopener noreferrer">' + e(t["open"]) + '</a>')
@@ -155,7 +155,7 @@ def connect_page(lang: str, server: str):
             '</h1><p class="lead">' + e(t["intro"]) + '</p><h2>' + e(t["choose"]) +
             '</h2><nav aria-label="' + e(t["choose"]) + '">' + nav +
             '</nav><h2>' + e(t["setup"]) + '</h2><label for="mcp">' + e(t["address"]) +
-            '</label><div id="mcp">' + endpoint + '</div><p class="muted">' + e(t["automatic"]) + '</p>' +
+            '</label><div>' + endpoint + '</div><p class="muted">' + e(t["automatic"]) + '</p>' +
             cursor + chatgpt + claude + codex + code + generic +
             '<h2>' + e(t["test"]) + '</h2><p>' + e(t["test_body"]) +
             '</p><div class="notice">' + e(t["safety"]) + '</div><p class="muted">' +
