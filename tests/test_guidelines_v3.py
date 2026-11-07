@@ -178,7 +178,10 @@ def test_every_app_is_told_how_to_use_a_memory_in_under_two_kilobytes():
     for rule in ("again when the topic changes", "never invent memories, results or dates",
                  "do not make the user repeat it", "Never present a proposal as a decision",
                  "if sources differ, show both", "never restore it from old summaries",
-                 "unless a tool confirmed it", "only the user's own guidelines, first in recall"):
+                 "unless a tool confirmed it", "only the user's own guidelines, first in recall",
+                 # The memory is the agent's own, and it speaks from it without narrating its tools.
+                 "INFINITO is your long-term memory", "Speak from it as your own memory",
+                 "without narrating tools or lookups unless one failed", "Earlier work is yours even if another app did it"):
         assert rule in INSTRUCTIONS, rule
 
 
