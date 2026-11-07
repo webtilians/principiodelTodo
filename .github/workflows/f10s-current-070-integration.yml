@@ -1,0 +1,86 @@
+name: F10-S 0.7.0 integration revalidation - no deploy
+
+on:
+  push:
+    branches: [fix/f10s-current-070-revalidation-20261106]
+    paths:
+      - src/infinito3/persistent_memory.py
+      - tests/test_f10s_exclusive_multi_mcp.py
+      - tests/test_f10s_current_integration.py
+      - .github/workflows/f10s-current-070-integration.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  atomic-stdio-mcp:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install genuine MCP SDK, cryptography, and product dev dependencies
+        run: python -m pip install -e ".[mcp,dev,semantic,vault]" httpx2 uvicorn
+      - name: Confirm product source is the one-operation BEGIN IMMEDIATE patch
+        run: |
+          python - <<'PY'
+          import subprocess
+          before = subprocess.check_output([
+              'git', 'show', '129e70189a060136b3942f8dc251575f8a0b6299:src/infinito3/persistent_memory.py'
+          ], text=True)
+          after = open('src/infinito3/persistent_memory.py', encoding='utf-8').read()
+          old = '        with self._lock, self._conn:\n            now = self._tick()\n            record.updated_at = now\n'
+          new = ('        with self._lock, self._conn:\n'
+                 '            # Serialize the read/supersede/insert decision across independent\n'
+                 '            # SQLite writer processes, not just threads sharing this instance.\n'
+                 '            self._conn.execute("BEGIN IMMEDIATE")\n'
+                 '            now = self._tick()\n'
+                 '            record.updated_at = now\n')
+          assert before.count(old) == 1, 'The frozen master baseline changed unexpectedly'
+          assert after == before.replace(old, new), 'Unexpected product changes beyond atomicity'
+          print('PRODUCT DIFF VERIFIED: only BEGIN IMMEDIATE and its explanatory comment')
+          PY
+      - name: Run original two-process regression and new four-process MCP stress
+        run: |
+          set -o pipefail
+          python -m pytest tests/test_f10s_exclusive_multi_mcp.py tests/test_f10s_current_integration.py -v -rs 2>&1 | tee f10s-mcp-concurrency.log
+      - name: Upload concurrency and diff audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: f10s-current-070-concurrency
+          path: f10s-mcp-concurrency.log
+          if-no-files-found: warn
+          retention-days: 30
+
+  product-regressions:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install product MCP, encrypted remote, vault, ranker and pytest
+        run: python -m pip install -e ".[mcp,dev,semantic,vault]" httpx2 uvicorn
+      - name: Run ALL current v3 product test modules
+        run: |
+          set -o pipefail
+          python -m pytest tests/test_*v3.py -q -rs 2>&1 | tee f10s-product-regressions.log
+      - name: Upload product regression log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: f10s-current-070-product-regressions-${{ matrix.python }}
+          path: f10s-product-regressions.log
+          if-no-files-found: warn
+          retention-days: 30
