@@ -22,7 +22,8 @@ from datetime import datetime, timezone
 from typing import Dict, List, Optional, Sequence
 from urllib.parse import urlencode
 
-from . import remote_apps, remote_guidelines, remote_photos, remote_portal, remote_tasks, remote_vault
+from . import (remote_apps, remote_guidelines, remote_photos, remote_portal, remote_reflections, remote_tasks,
+               remote_vault)
 from .mcp_server import BY_THE_USER, KINDS, OPEN_KINDS, OVERVIEW_OPEN_ITEMS, STALE_DAYS, AgentMemory, _day
 from .remote_accounts import _HEADERS, NAME, _STYLE as _BASE_STYLE, _page, _texts
 from .types import MemoryRecord
@@ -53,10 +54,11 @@ NEEDS_ACCOUNT = "The memory page needs an INFINITO account with sign-in; this me
 def server_instructions() -> str:
     """What every app is told when it connects to a server with sign-in: how to use a memory, the same for everyone. The
     memory page shows it word for word, next to the person's own guidelines."""
-    from . import remote_guidelines, remote_tasks
+    from . import remote_guidelines, remote_reflections, remote_tasks
     from .mcp_server import INSTRUCTIONS as GENERAL
 
-    return GENERAL + INSTRUCTIONS + remote_guidelines.INSTRUCTIONS + remote_tasks.INSTRUCTIONS
+    return (GENERAL + INSTRUCTIONS + remote_guidelines.INSTRUCTIONS + remote_tasks.INSTRUCTIONS
+            + remote_reflections.INSTRUCTIONS)
 
 TEXT = {
     "es": {
@@ -520,7 +522,8 @@ def routes(accounts, grants, memories, limiter, secure: bool, issuer: str = "") 
     def texts(request) -> dict:
         base = _texts(request)
         return {**base, **TEXT[base["lang"]], **remote_portal.TEXT[base["lang"]], **remote_apps.TEXT[base["lang"]],
-                **remote_tasks.TEXT[base["lang"]], **remote_guidelines.TEXT[base["lang"]]}
+                **remote_tasks.TEXT[base["lang"]], **remote_guidelines.TEXT[base["lang"]],
+                **remote_reflections.TEXT[base["lang"]]}
 
     def view(t: dict, title: str, body: str, status: int = 200):
         response = _page(t, title, body, status, style=_STYLE)
@@ -627,6 +630,41 @@ def routes(accounts, grants, memories, limiter, secure: bool, issuer: str = "") 
             # What was typed may hold a secret: the page goes back with the guidelines as they were.
             return await guidelines_page(t, session, error=error, status=400)
         return await guidelines_page(t, session, message=t[said])
+
+    async def reflections_of(session: dict, action=None):
+        """The agent's own reflections (remote_reflections.py), sealed with the memory's key."""
+        where = (accounts.memory_folder(session["account"]), session["key"], session["account"])
+        if action is None:
+            return await anyio.to_thread.run_sync(lambda: remote_reflections.read(*where))
+        return await anyio.to_thread.run_sync(lambda: remote_reflections.change(*where, action))
+
+    async def reflections_page(t: dict, session: dict, *, message: str = "", error: str = "", status: int = 200):
+        data = await reflections_of(session)
+        cited = {source for reflection in data["reflections"] for source in reflection["sources"]}
+        words = await use(session, lambda memory: {r.id: r.content for r in memory._active() if r.id in cited},
+                          writes=False)
+        body = remote_reflections.reflections_body(t, data, words, session["data"]["csrf"], _hidden, message=message,
+                                                   error=error)
+        return await shown(t, session, t["reflections_title"], body, status, active="reflections")
+
+    async def on_reflections(t: dict, session: dict, form, action: str):
+        """What the person does with the agent's reflections: comment, hide, delete, or ask for a new one."""
+        wanted, text = str(form.get("id", "")), str(form.get("text", ""))
+        steps = {
+            "reflection_request": (lambda data: remote_reflections.request(data), "reflections_requested"),
+            "reflection_comment": (lambda data: remote_reflections.comment(data, wanted, text), "reflections_commented"),
+            "reflection_hide": (lambda data: remote_reflections.hide(data, wanted, True), "reflections_hidden_done"),
+            "reflection_show": (lambda data: remote_reflections.hide(data, wanted, False), "reflections_shown_done"),
+            "reflection_delete": (lambda data: remote_reflections.delete(data, wanted), "reflections_deleted"),
+        }
+        step, said = steps[action]
+        try:
+            await reflections_of(session, step)
+        except remote_reflections.Refused as refused:
+            # What was typed may hold a secret: it is not sent back.
+            error = t["reflections_refused"] if "secret" in str(refused) else t["reflections_gone"]
+            return await reflections_page(t, session, error=error, status=400)
+        return await reflections_page(t, session, message=t[said])
 
     async def apps_page(t: dict, session: dict, message: str = ""):
         body = remote_apps.apps_body(t, grants.apps_of(session["account"]), accounts.app_levels(session["account"]),
@@ -743,6 +781,8 @@ def routes(accounts, grants, memories, limiter, secure: bool, issuer: str = "") 
             return await apps_page(t, session)
         if wanted == "guidelines":
             return await guidelines_page(t, session)
+        if wanted == "reflections":
+            return await reflections_page(t, session)
         if wanted == "settings":
             return await shown(t, session, t["settings_title"], remote_portal.settings_body(t, session["account"]),
                                active="settings")
@@ -833,6 +873,8 @@ def routes(accounts, grants, memories, limiter, secure: bool, issuer: str = "") 
             if not memory_ids:
                 return await listing(t, session, {}, error=t["none_marked"])
             deleted = await use(session, lambda memory: _delete(memory, memory_ids), writes=True)
+            if deleted:  # what was built on a forgotten memory goes with it
+                await reflections_of(session, lambda data: remote_reflections.drop_citing(data, memory_ids))
             token = str(form.get("r", ""))
             link = grants.find(LINK, token) if token else None
             if link is not None and link["account"] == session["account"]:
@@ -854,6 +896,9 @@ def routes(accounts, grants, memories, limiter, secure: bool, issuer: str = "") 
             return await listing(t, session, {}, message=t[done])
         if action in ("task_approve", "task_discard", "task_cancel", "task_close", "task_reopen"):
             return await on_tasks(t, session, form, action)
+        if action in ("reflection_request", "reflection_comment", "reflection_hide", "reflection_show",
+                      "reflection_delete"):
+            return await on_reflections(t, session, form, action)
         if action in ("guidelines_save", "guideline_accept", "guideline_discard", "guideline_from_memory"):
             return await on_guidelines(t, session, form, action)
         if action == "app_level":

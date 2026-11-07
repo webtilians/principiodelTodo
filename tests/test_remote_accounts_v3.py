@@ -257,6 +257,9 @@ def test_apps_are_told_which_tools_only_read_so_they_need_not_ask_first(server):
                      "task_return": False,
                      # It only proposes: the person accepts it on their page.
                      "guideline_propose": False,
+                     # Reflections: only keeping one writes.
+                     "reflection_due": True, "reflection_context": True, "reflection_list": True,
+                     "reflection_history": True, "reflection_add": False,
                      "photo_save": False, "photo_show": True}
     assert [t.annotations.destructive_hint for t in app.tools if t.name == "forget"] == [True]
 

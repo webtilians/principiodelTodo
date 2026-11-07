@@ -17,9 +17,10 @@ from typing import Dict, Optional
 LEVELS = ("all", "add", "read")
 DEFAULT = "all"
 
-READS = frozenset({"recall", "list_memories", "overview", "briefing", "photo_show", "task_list"})
+READS = frozenset({"recall", "list_memories", "overview", "briefing", "photo_show", "task_list", "reflection_due",
+                   "reflection_context", "reflection_list", "reflection_history"})
 ADDS = READS | {"remember", "remember_many", "photo_save", "task_propose", "task_take", "task_done", "task_return",
-                "guideline_propose"}
+                "guideline_propose", "reflection_add"}
 
 _WHAT = {"read": "only read", "add": "read and add, but not forget or use the vault"}
 

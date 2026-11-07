@@ -313,6 +313,7 @@ def shell(t: dict, active: str, account: str, csrf: str, body: str, hidden_field
              ("projects", "/memory?view=projects", "nav_projects", "folder"),
              ("tasks", "/memory?view=tasks", "nav_tasks", "check"),
              ("guidelines", "/memory?view=guidelines", "nav_guidelines", "bulb"),
+             ("reflections", "/memory?view=reflections", "nav_reflections", "pulse"),
              ("search", "/memory?view=search", "nav_search", "search"),
              ("apps", "/memory?view=apps", "nav_apps", "network"),
              ("settings", "/memory?view=settings", "nav_settings", "gear"))

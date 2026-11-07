@@ -54,7 +54,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple
 
-from . import remote_apps, remote_guidelines, remote_photos, remote_tasks
+from . import remote_apps, remote_guidelines, remote_photos, remote_reflections, remote_tasks
 from .mcp_server import INSTRUCTIONS, TOOL_DESCRIPTIONS, TOOL_HINTS, AgentMemory, MemoryItem, _line
 from .persistent_memory import HashEmbeddingProvider, SQLiteCognitiveMemoryStore
 
@@ -416,8 +416,16 @@ def build_app(people: People, issuer: Optional[str] = None):
 
     @memory_tool("forget")
     def forget(memory_ids: List[str], ctx: Context, keep: Optional[List[str]] = None) -> str:
-        return with_memory(ctx, "forget", lambda memory: memory.forget(memory_ids, keep or [], app_of(ctx)),
-                           writes=True)
+        answer = with_memory(ctx, "forget", lambda memory: memory.forget(memory_ids, keep or [], app_of(ctx)),
+                             writes=True)
+        state = ctx.request_context.request.scope["state"]
+        if state["infinito_memories"] != "accounts" or not answer.startswith("Deleted"):
+            return answer
+        # What was built on a forgotten memory goes with it, so it cannot be rebuilt from an opinion about it.
+        person = state["infinito_person"]
+        dropped = remote_reflections.change(accounts.memory_folder(person), state["infinito_key"], person,
+                                            lambda data: remote_reflections.drop_citing(data, memory_ids))
+        return f"{answer}\nDeleted {dropped} of your reflections that rested on them." if dropped else answer
 
     if issuer:
         from . import remote_vault
@@ -540,6 +548,64 @@ def build_app(people: People, issuer: Optional[str] = None):
                     "proposed": f"Proposed. It becomes a guideline for all the user's AIs once they accept it with a "
                                 f"click at {page}: tell them it waits there. Until then, follow it in this conversation "
                                 "only."}[said]
+
+        def reflection_tool(name: str):
+            return server.tool(description=remote_reflections.TOOL_DESCRIPTIONS[name],
+                               annotations=ToolAnnotations(**remote_reflections.TOOL_HINTS[name]), meta=signed_in)
+
+        def on_reflections(ctx: Context, tool: str, action, *, writes: bool = False, memories: bool = False) -> str:
+            """The agent's own reflections (remote_reflections.py), with the memories when the action needs them."""
+            state = ctx.request_context.request.scope["state"]
+            if state["infinito_memories"] != "accounts":
+                return remote_reflections.NEEDS_ACCOUNT
+            refusal = refused(ctx, tool)
+            if refusal:
+                return refusal
+            person = state["infinito_person"]
+            where = (accounts.memory_folder(person), state["infinito_key"], person)
+            known = with_memory(ctx, tool, lambda memory: memory._active(), writes=False) if memories else []
+            try:
+                if writes:
+                    return remote_reflections.change(*where, lambda data: action(data, known))
+                return action(remote_reflections.read(*where), known)
+            except remote_reflections.Refused as refused_call:
+                return str(refused_call)
+
+        @reflection_tool("reflection_due")
+        def reflection_due(ctx: Context) -> str:
+            return on_reflections(ctx, "reflection_due", lambda data, known: remote_reflections.due(data, known),
+                                  memories=True)
+
+        @reflection_tool("reflection_context")
+        def reflection_context(ctx: Context, scope: Optional[str] = None, project: Optional[str] = None,
+                               since: Optional[str] = None) -> str:
+            return on_reflections(ctx, "reflection_context", lambda data, known: remote_reflections.context(
+                data, known, scope=scope, project=project, since=since), memories=True)
+
+        @reflection_tool("reflection_add")
+        def reflection_add(reflection: str, sources: List[str], scope: str, ctx: Context, project: Optional[str] = None,
+                           advice: Optional[str] = None, questions: Optional[List[str]] = None,
+                           relates_to: Optional[List[remote_reflections.Relation]] = None,
+                           model: Optional[str] = None) -> str:
+            def act(data: dict, known: list) -> str:
+                kept = remote_reflections.add(data, app_of(ctx), reflection, sources, scope, [m.id for m in known],
+                                              project=project, advice=advice, questions=questions or [],
+                                              relates=relates_to or [], model=model)
+                return (f"Kept as your reflection {kept['id']}. It is an opinion of this moment, kept as written: not a "
+                        "fact about the user and not a guideline. The user can read, comment on, hide or delete it on "
+                        f"their memory page ({issuer}/memory?view=reflections).")
+            return on_reflections(ctx, "reflection_add", act, writes=True, memories=True)
+
+        @reflection_tool("reflection_list")
+        def reflection_list(ctx: Context, scope: Optional[str] = None, project: Optional[str] = None,
+                            since: Optional[str] = None) -> str:
+            return on_reflections(ctx, "reflection_list", lambda data, known: remote_reflections.listing(
+                data, scope, project, since))
+
+        @reflection_tool("reflection_history")
+        def reflection_history(reflection_id: str, ctx: Context) -> str:
+            return on_reflections(ctx, "reflection_history",
+                                  lambda data, known: remote_reflections.history(data, reflection_id))
 
         def task_tool(name: str):
             return server.tool(description=remote_tasks.TOOL_DESCRIPTIONS[name],
