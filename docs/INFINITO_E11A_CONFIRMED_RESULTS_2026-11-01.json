@@ -1,0 +1,195 @@
+{
+  "experiment": "E11-A learned future relevance, synthetic fixed-budget delayed query-feedback",
+  "date": "2026-11-01",
+  "workflow_run": 41317309779,
+  "workflow_sha": "eb8ccb9b51158d5bdf6fa9e052c96ba01bf76759",
+  "training_artifact": 13088310237,
+  "confirmation_artifact": 13088200715,
+  "training_replicas": 5,
+  "training_episodes_per_replica": 2500,
+  "confirmation_episodes_per_regime": 3200,
+  "capacity": 4,
+  "stream_length": 16,
+  "oracle_latent_relation_only_used_in_generator_and_ceiling": true,
+  "preregistered_progress_gate": true,
+  "results": {
+    "predictive": {
+      "fifo": {
+        "hit": 889,
+        "rate": 0.2778125
+      },
+      "reservoir": {
+        "hit": 780,
+        "rate": 0.24375
+      },
+      "fixed_priority": {
+        "hit": 2208,
+        "rate": 0.69
+      },
+      "recency_priority": {
+        "hit": 1364,
+        "rate": 0.42625
+      },
+      "learned_shuffled": {
+        "hit": 1052,
+        "rate": 0.32875
+      },
+      "learned": {
+        "hit": 2484,
+        "rate": 0.77625
+      },
+      "distribution_oracle": {
+        "hit": 2494,
+        "rate": 0.779375
+      }
+    },
+    "uniform": {
+      "fifo": {
+        "hit": 843,
+        "rate": 0.2634375
+      },
+      "reservoir": {
+        "hit": 759,
+        "rate": 0.2371875
+      },
+      "fixed_priority": {
+        "hit": 840,
+        "rate": 0.2625
+      },
+      "recency_priority": {
+        "hit": 826,
+        "rate": 0.258125
+      },
+      "learned_shuffled": {
+        "hit": 806,
+        "rate": 0.251875
+      },
+      "learned": {
+        "hit": 826,
+        "rate": 0.258125
+      },
+      "distribution_oracle": {
+        "hit": 830,
+        "rate": 0.259375
+      }
+    },
+    "reversed": {
+      "fifo": {
+        "hit": 691,
+        "rate": 0.2159375
+      },
+      "reservoir": {
+        "hit": 823,
+        "rate": 0.2571875
+      },
+      "fixed_priority": {
+        "hit": 157,
+        "rate": 0.0490625
+      },
+      "recency_priority": {
+        "hit": 434,
+        "rate": 0.135625
+      },
+      "learned_shuffled": {
+        "hit": 625,
+        "rate": 0.1953125
+      },
+      "learned": {
+        "hit": 87,
+        "rate": 0.0271875
+      },
+      "distribution_oracle": {
+        "hit": 1824,
+        "rate": 0.57
+      }
+    },
+    "paired_differences": {
+      "fifo": {
+        "mean_difference": 0.49843750000000003,
+        "by_replica": [
+          0.5,
+          0.490625,
+          0.48125,
+          0.5062500000000001,
+          0.5140625
+        ],
+        "positive_replicas": 5,
+        "bootstrap_95": [
+          0.48874999999999996,
+          0.508125
+        ]
+      },
+      "reservoir": {
+        "mean_difference": 0.5325,
+        "by_replica": [
+          0.5265625,
+          0.5171874999999999,
+          0.5140625,
+          0.5609375000000001,
+          0.54375
+        ],
+        "positive_replicas": 5,
+        "bootstrap_95": [
+          0.5178125,
+          0.5487500000000001
+        ]
+      },
+      "fixed_priority": {
+        "mean_difference": 0.08625000000000001,
+        "by_replica": [
+          0.08124999999999993,
+          0.09375,
+          0.07968750000000002,
+          0.09062500000000007,
+          0.0859375
+        ],
+        "positive_replicas": 5,
+        "bootstrap_95": [
+          0.08156249999999998,
+          0.09093750000000003
+        ]
+      },
+      "recency_priority": {
+        "mean_difference": 0.35,
+        "by_replica": [
+          0.33281249999999996,
+          0.33593749999999994,
+          0.3515625,
+          0.36875,
+          0.3609375
+        ],
+        "positive_replicas": 5,
+        "bootstrap_95": [
+          0.33781249999999996,
+          0.3621875
+        ]
+      },
+      "learned_shuffled": {
+        "mean_difference": 0.44749999999999995,
+        "by_replica": [
+          0.6828124999999999,
+          0.6625,
+          0.3546875,
+          0.43125,
+          0.10624999999999996
+        ],
+        "positive_replicas": 5,
+        "bootstrap_95": [
+          0.26718749999999997,
+          0.624375
+        ]
+      },
+      "strongest_practical_baseline": "fixed_priority",
+      "preregistered_gate": true
+    },
+    "progress_gate": true
+  },
+  "limitations": [
+    "Distribution intentionally generated from stable 7 observable features, including a learnable interaction",
+    "Query feedback reveals requested key only after each training history; this is retrospective supervised predictive-demand learning, not end-to-end RL or cognitive semantics",
+    "Five training replicas, not 3200 independent models",
+    "No generalization to non-synthetic natural-language retrieval has been tested",
+    "Inverted predictive relation drops learned to 87/3200 (2.71875%), below random 25%; no adaptation evaluated",
+    "Uniform future demand yields learned 826/3200 (25.8125%), near 25% capacity limit"
+  ]
+}
