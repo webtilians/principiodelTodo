@@ -8,6 +8,20 @@ tell ChatGPT, Claude remembers, and the other way round.
 
 ## Connect an app
 
+**New connection wizard (draft, not deployed):** visit
+https://<host>/connect. It offers six clients, a token-free one-click Cursor
+install link, official ChatGPT/Claude settings links, Codex/Claude Code
+commands and a generic HTTP MCP JSON configuration. Every client authorizes
+through the existing OAuth flow at https://<host>/mcp.
+
+On a computer where infinito-remote is installed, use
+infinito-remote connect codex https://<host> or
+infinito-remote connect claude-code https://<host> to preview and confirm
+installation through the vendor CLI. Use --dry-run for preview only; --yes
+explicitly approves changes without a prompt. Claude Code still needs
+authorization using /mcp inside that client. These commands do not change
+your stored memories or vault, and do not silently add hooks.
+
 Every app gets the same public address, `https://<host>/mcp`. The first time, the app opens
 INFINITO's page: choose a username and a password (or sign in, if you already have a memory) and
 that app is connected. Each other app is one more sign-in. To tell someone, send them

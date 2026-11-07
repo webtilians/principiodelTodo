@@ -226,6 +226,22 @@ def test_the_front_page_gives_the_address_and_the_steps_for_each_app(server):
     assert "One memory" in english and "paid plan" in english and "keeps emails and phone numbers" in english
 
 
+
+def test_connection_wizard_is_public_and_uses_existing_mcp_oauth(server):
+    base, _, _ = server
+    page = httpx2.get(f"{base}/connect", headers={"accept-language": "es-ES"})
+    assert page.status_code == 200
+    assert "Conecta tus IAs" in page.text
+    assert f"{base}/mcp" in page.text
+    assert 'href="cursor://anysphere.cursor-deeplink/mcp/install?' in page.text
+    assert "ChatGPT" in page.text and "Claude Code" in page.text
+    assert page.headers["cache-control"] == "no-store"
+    assert httpx2.get(f"{base}/.well-known/oauth-authorization-server").status_code == 200
+    assert httpx2.post(f"{base}/mcp", json={}).status_code == 401
+    landing = httpx2.get(f"{base}/").text
+    assert 'href="/connect"' in landing
+
+
 def test_the_front_page_makes_you_want_it_and_says_nothing_it_cannot_back(server):
     base, _, _ = server
     for lang, slogan, grok_step, gemini_step in (

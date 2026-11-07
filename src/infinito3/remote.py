@@ -519,6 +519,11 @@ def main(argv: Optional[List[str]] = None) -> None:
     # On a person's computer (remote_client.py): sign it in once, then agents' hooks bring the memory in.
     commands.add_parser("login", help="sign this computer in to an INFINITO server").add_argument("server")
     commands.add_parser("logout", help="delete this computer's session")
+    connect = commands.add_parser("connect", help="install the existing OAuth/MCP server in a local AI client")
+    connect.add_argument("client", choices=("codex", "claude-code"))
+    connect.add_argument("server", help="public INFINITO HTTPS URL, without credentials")
+    connect.add_argument("--dry-run", action="store_true", help="show commands without executing them")
+    connect.add_argument("--yes", action="store_true", help="approve changes without interactive confirmation")
     commands.add_parser("context", help="hook for Claude Code and Codex: the memories related to a message")
     commands.add_parser("checkpoint", help="hook for Claude Code: after work, the agent saves where it stands")
     serve = commands.add_parser("serve", help="run the server")
@@ -527,6 +532,24 @@ def main(argv: Optional[List[str]] = None) -> None:
     serve.add_argument("--url", default=os.environ.get("INFINITO_REMOTE_URL"),
                        help="the server's public URL; without it there is no sign-in, only addresses")
     args = parser.parse_args(argv)
+    if args.command == "connect":
+        from . import remote_installer
+
+        plan = remote_installer.install(args.client, args.server, dry_run=True)
+        print("These commands will be run by the installed client; no tokens or passwords are copied:")
+        for command in plan:
+            print("  " + command)
+        if args.dry_run:
+            return
+        if not args.yes and input("Configure this client now? [y/N] ").strip().lower() not in ("y", "yes"):
+            print("Cancelled; no configuration changed.")
+            return
+        remote_installer.install(args.client, args.server, approved=True)
+        if args.client == "claude-code":
+            print("Now open Claude Code and use /mcp to authorize INFINITO.")
+        else:
+            print("Codex has started its own OAuth login. Approve it in your browser.")
+        return
     if args.command in ("login", "logout", "context", "checkpoint"):
         from . import remote_client
 
