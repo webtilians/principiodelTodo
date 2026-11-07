@@ -150,6 +150,37 @@ refused here too.
 INFINITO is the memory, not the assistant: it does not read your email, send reminders or move files. Whatever
 does (ChatGPT, n8n, another agent) can share this memory instead of each keeping its own.
 
+## What each app may do
+
+On your memory page, **Apps** lists the AIs you have connected, where each signs in from and since when, and lets
+you choose what each may do:
+
+- **Everything**: reads, saves, forgets and uses the vault. An app starts here when it connects;
+- **Read and add**: reads, saves and works the task queue, but never forgets and never reaches the vault, so what
+  was known stays, as in a log that is only added to. Right for an agent that works on its own;
+- **Read only**.
+
+The app is the one its sign-in names, never what a model says, and only you, signed in on your page, change its
+level. A call it may not make answers that it is not allowed, says where you can change it, and tells the agent not
+to ask another app to do it instead. **Disconnect** signs that app out of your memory at once. Two connections of the
+same app (ChatGPT from two places, say) are two rows, each with its own level.
+
+## A work queue between your AIs
+
+One AI proposes, you approve, another does it. An assistant that coordinates (ChatGPT, say) proposes tasks with
+`task_propose`; an agent that works on its own (Grok Bot in its own cloud computer, a scheduled task) takes the
+approved ones with `task_take`, hands them in with `task_done` or gives them back with `task_return`, saying what is
+missing. `task_list` shows the queue. The AIs never talk to each other: they meet here, and every change says which
+app made it.
+
+**Only you approve**, on your memory page under **Tasks**, which always asks for your password: there is no tool for
+it, so no AI can approve a task, its own or another's, whatever a web page, an email or another AI tells it. There
+you choose who does each one (an app, any app, or you), approve several at once, and review what was handed in:
+close it, or return it with a comment. The morning briefing on the server adds what waits for you.
+
+The queue is sealed with your memory's key, next to it, and goes in the backups. Secrets are refused in it as in
+the memory.
+
 ## The memory in every message
 
 Agents look at the memory when they think to, which is not always. Claude Code and Codex can run a
@@ -200,8 +231,9 @@ memory into an address's memory.
 
 ## Backups
 
-A copy holds only what is already sealed: each memory, each vault locked under its master password, and each
-person's key locked under their password or address. Without those a copy opens nothing, so it can be kept anywhere;
+A copy holds only what is already sealed: each memory and its work queue, each vault locked under its master
+password, and each person's key locked under their password or address. What each app may do is in the copy too;
+after a restore every app signs in again and starts with Everything. Without those a copy opens nothing, so it can be kept anywhere;
 the usernames and the size of each memory and vault are all that can be read in one. A person who loses their password and recovery code can't be saved
 by a backup either: the copy is as locked as the original.
 

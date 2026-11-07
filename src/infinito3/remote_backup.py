@@ -34,9 +34,9 @@ MANIFEST = "MANIFEST.json"
 NAME = re.compile(r"infinito-\d{8}-\d{6}\.tar\.gz")
 KEY_FILES = ("accounts.json", "people.json")
 KDBX_MAGIC = b"\x03\xd9\xa2\x9a"  # how a vault starts: a KeePass file, locked under its master password
-PERSON_FILES = ("memory.sealed", "vault.kdbx", "vault-names.sealed")
+PERSON_FILES = ("memory.sealed", "vault.kdbx", "vault-names.sealed", "tasks.sealed")
 MEMBER = re.compile(r"(accounts\.json|people\.json|(accounts|people)/[a-z0-9][a-z0-9-]*/"
-                    r"(memory\.sealed|vault\.kdbx|vault-names\.sealed))")
+                    r"(memory\.sealed|vault\.kdbx|vault-names\.sealed|tasks\.sealed))")
 
 
 def _checksum(data: bytes) -> str:

@@ -116,6 +116,8 @@ body.app { min-height: 100vh; font-size: 1rem; background:
   background: linear-gradient(90deg, #7d52f4, #3f4cc4 52%, #164880);
   box-shadow: 0 0 1.3rem rgba(125, 82, 244, .65), inset 0 0 .9rem rgba(160, 200, 255, .24); }
 .nav a.on .ic { color: #fff; }
+.nav .badge { margin-left: auto; min-width: 1.6rem; padding: .05rem .45rem; font-size: .85rem; text-align: center; color: #240a3a;
+  background: #e879f9; border-radius: 99rem; }
 .side .leave { margin-top: auto; position: relative; }
 .side .leave button { display: flex; align-items: center; gap: .8rem; width: 100%; margin: 0; padding: .65rem 1.25rem;
   color: #aab6d8; font-size: .95rem; font-weight: 500; background: transparent; border: 0; }
@@ -301,16 +303,24 @@ _LOGO = ('<svg viewBox="0 0 120 60" aria-hidden="true"><defs><linearGradient id=
          '38 7 26 7 13 7 5 17 5 30s8 23 21 23c12 0 24-7 34-23s22-23 34-23c13 0 21 10 21 23s-8 23-21 23c-12 0-24-7-34-23Z"/></svg>')
 
 
-def shell(t: dict, active: str, account: str, csrf: str, body: str, hidden_fields, *, pending: int = 0, query: str = "") -> str:
-    """Everything around a signed-in page. It takes the signing-out form's fields from its caller."""
+def shell(t: dict, active: str, account: str, csrf: str, body: str, hidden_fields, *, pending: int = 0, query: str = "",
+          to_approve: int = 0) -> str:
+    """Everything around a signed-in page. It takes the signing-out form's fields from its caller. to_approve is how
+    many tasks wait for the person, shown next to Tasks."""
     e = html.escape
     items = (("home", "/", "nav_home", "home"), ("vault", "/memory", "nav_vault", "lock"),
              ("memories", "/memory?view=memories", "nav_memories", "layers"),
              ("projects", "/memory?view=projects", "nav_projects", "folder"),
+             ("tasks", "/memory?view=tasks", "nav_tasks", "check"),
              ("search", "/memory?view=search", "nav_search", "search"),
+             ("apps", "/memory?view=apps", "nav_apps", "network"),
              ("settings", "/memory?view=settings", "nav_settings", "gear"))
-    nav = "".join(f'<a href="{href}"{" class=on aria-current=page" if key == active else ""}>{icon(name)}{t[label]}</a>'
-                  for key, href, label, name in items)
+
+    def label(key: str, name: str) -> str:
+        return f'{t[name]} <b class="badge">{to_approve}</b>' if key == "tasks" and to_approve else t[name]
+
+    nav = "".join(f'<a href="{href}"{" class=on aria-current=page" if key == active else ""}>{icon(name)}{label(key, text)}</a>'
+                  for key, href, text, name in items)
     alert = '<i class="dot"></i>' if pending else ""
     return (f'<div class="frame"><aside class="side"><a class="logo" href="/memory" aria-label="INFINITO">{_LOGO}</a>'
             f'<nav class="nav" aria-label="{t["menu"]}">{nav}</nav>'

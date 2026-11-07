@@ -22,7 +22,7 @@ from datetime import datetime, timezone
 from typing import Dict, List, Optional, Sequence
 from urllib.parse import urlencode
 
-from . import remote_photos, remote_portal, remote_vault
+from . import remote_apps, remote_photos, remote_portal, remote_tasks, remote_vault
 from .mcp_server import BY_THE_USER, KINDS, OPEN_KINDS, OVERVIEW_OPEN_ITEMS, STALE_DAYS, AgentMemory, _day
 from .remote_accounts import _HEADERS, NAME, _STYLE as _BASE_STYLE, _page, _texts
 from .types import MemoryRecord
@@ -507,7 +507,8 @@ def routes(accounts, grants, memories, limiter, secure: bool) -> list:
 
     def texts(request) -> dict:
         base = _texts(request)
-        return {**base, **TEXT[base["lang"]], **remote_portal.TEXT[base["lang"]]}
+        return {**base, **TEXT[base["lang"]], **remote_portal.TEXT[base["lang"]], **remote_apps.TEXT[base["lang"]],
+                **remote_tasks.TEXT[base["lang"]]}
 
     def view(t: dict, title: str, body: str, status: int = 200):
         response = _page(t, title, body, status, style=_STYLE)
@@ -518,9 +519,10 @@ def routes(accounts, grants, memories, limiter, secure: bool) -> list:
                     query: str = "", whole: bool = False):
         """A page of the portal, for someone signed in. whole is for a page that lays itself out, as the home does."""
         pending = await use(session, lambda memory: len(memory._active(kind="pending")), writes=False)
+        to_approve = sum(task["state"] in remote_tasks.WAITING for task in await queue(session))
         inner = body if whole else (f'<div class="page"><h1>{html.escape(title)}</h1><div class="sheet">{body}</div></div>')
         page_html = remote_portal.shell(t, active, session["account"], session["data"]["csrf"], inner, _hidden,
-                                        pending=pending, query=query)
+                                        pending=pending, query=query, to_approve=to_approve)
         response = HTMLResponse(
             f'<!doctype html><html lang="{t["lang"]}"><head><meta charset="utf-8"><meta name="viewport" '
             f'content="width=device-width, initial-scale=1"><title>{html.escape(title)} · INFINITO</title>'
@@ -558,6 +560,50 @@ def routes(accounts, grants, memories, limiter, secure: bool) -> list:
     async def use(session: dict, action, *, writes: bool):
         work = functools.partial(memories.use, session["account"], session["key"], action, writes=writes)
         return await anyio.to_thread.run_sync(work)
+
+    async def queue(session: dict, action=None):
+        """The person's work queue (remote_tasks.py): read, or changed by action, sealed with their memory's key."""
+        where = (accounts.memory_folder(session["account"]), session["key"], session["account"])
+        if action is None:
+            return await anyio.to_thread.run_sync(lambda: remote_tasks.read(*where))
+        return await anyio.to_thread.run_sync(lambda: remote_tasks.change(*where, action))
+
+    async def tasks_page(t: dict, session: dict, **notices):
+        tasks = await queue(session)
+        apps = [app["name"] for app in grants.apps_of(session["account"])]
+        body = remote_tasks.tasks_body(t, tasks, apps, session["data"]["csrf"], _hidden, **notices)
+        return await shown(t, session, t["tasks_title"], body, active="tasks")
+
+    async def apps_page(t: dict, session: dict, message: str = ""):
+        body = remote_apps.apps_body(t, grants.apps_of(session["account"]), accounts.app_levels(session["account"]),
+                                     session["data"]["csrf"], _hidden, message=message)
+        return await shown(t, session, t["apps_title"], body, active="apps")
+
+    async def on_tasks(t: dict, session: dict, form, action: str):
+        """What the person decides about their tasks. Only here, signed in with their password, is a task approved."""
+        task_ids = [str(value) for value in form.getlist("id")][:remote_tasks.MAX_OPEN]
+        if action in ("task_approve", "task_discard") and not task_ids:
+            return await tasks_page(t, session, error=t["tasks_none_marked"])
+        comment = str(form.get("comment", "")).strip()
+        if action == "task_reopen" and not comment:
+            return await tasks_page(t, session, error=t["tasks_comment_needed"])
+        assign = {task_id: str(form.get(f"for:{task_id}", "")) for task_id in task_ids if f"for:{task_id}" in form}
+        steps = {
+            "task_approve": (lambda tasks: remote_tasks.approve(tasks, task_ids, assign), "tasks_approved"),
+            "task_discard": (lambda tasks: remote_tasks.discard(tasks, task_ids), "tasks_discarded"),
+            "task_cancel": (lambda tasks: remote_tasks.discard(tasks, task_ids), "tasks_cancelled"),
+            "task_close": (lambda tasks: remote_tasks.close(tasks, task_ids[0] if task_ids else ""), "tasks_closed_one"),
+            "task_reopen": (lambda tasks: remote_tasks.reopen(tasks, task_ids[0] if task_ids else "", comment),
+                            "tasks_reopened"),
+        }
+        step, said = steps[action]
+        try:
+            done = await queue(session, step)
+        except remote_tasks.Refused as refused:
+            return await tasks_page(t, session, error=t["tasks_gone"] if str(refused) == "gone" else t["tasks_refused"])
+        if isinstance(done, int) and not done:
+            return await tasks_page(t, session, error=t["tasks_gone"])
+        return await tasks_page(t, session, message=t[said].format(n=done) if isinstance(done, int) else t[said])
 
     def sign_in_page(t: dict, token: str = "", *, name: str = "", error: str = "", status: int = 200):
         return view(t, t["title"], sign_in_body(t, token, name=name, error=error), status)
@@ -637,6 +683,10 @@ def routes(accounts, grants, memories, limiter, secure: bool) -> list:
             return await projects(t, session)
         if wanted == "vault":
             return await keys(t, session)
+        if wanted == "tasks":
+            return await tasks_page(t, session)
+        if wanted == "apps":
+            return await apps_page(t, session)
         if wanted == "settings":
             return await shown(t, session, t["settings_title"], remote_portal.settings_body(t, session["account"]),
                                active="settings")
@@ -746,6 +796,20 @@ def routes(accounts, grants, memories, limiter, secure: bool) -> list:
                 body = correct_body(t, found[0], session["data"]["csrf"], t["refused"])
                 return await shown(t, session, t["correct_title"], body, status=400)
             return await listing(t, session, {}, message=t[done])
+        if action in ("task_approve", "task_discard", "task_cancel", "task_close", "task_reopen"):
+            return await on_tasks(t, session, form, action)
+        if action == "app_level":
+            client_id, level = str(form.get("client", "")), str(form.get("level", ""))
+            if client_id not in {app["client_id"] for app in grants.apps_of(session["account"])}:
+                return await apps_page(t, session)
+            if str(form.get("what", "")) == "disconnect":
+                grants.drop_client(session["account"], client_id)
+                accounts.set_app_level(session["account"], client_id, None)
+                return await apps_page(t, session, message=t["apps_disconnected"])
+            if level not in remote_apps.LEVELS:
+                return await apps_page(t, session)
+            accounts.set_app_level(session["account"], client_id, level)
+            return await apps_page(t, session, message=t["apps_saved"])
         if action == "vault":
             entry, what = str(form.get("entry", "")), str(form.get("what", ""))
             items = vault_items(session) or []
