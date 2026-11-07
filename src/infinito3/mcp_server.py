@@ -152,7 +152,7 @@ TOOL_DESCRIPTIONS = {
                 "requests are refused too. The answer names earlier memories it may disagree with.",
     "remember_many": "Store several memories in one call, such as everything a meeting, an email or a document "
                      "established: its facts, decisions, agreements and pending items. Each statement must make "
-                     "sense alone. Give source, project and date once for all of them, or per item.",
+                     "sense alone. Give kind, source, project and date once for all of them, or per item.",
     "recall": "What INFINITO remembers about a topic, oldest first, with ids, dates and, when known, kind, project "
               "and source. Call it before answering anything about the user or their past work. project keeps one "
               "client or project ('where were we with Acme?'), kind keeps one kind ('what is pending?'), and "
@@ -378,14 +378,14 @@ class AgentMemory:
         return "\n".join(lines + [MAY_DISAGREE_ADVICE])
 
     def remember_many(self, items: Sequence[dict], source: Optional[str] = None, project: Optional[str] = None,
-                      date: Optional[str] = None, author: Optional[str] = None) -> str:
+                      date: Optional[str] = None, author: Optional[str] = None, kind: Optional[str] = None) -> str:
         """Everything a meeting or a document established, with one call (and one permission, in the apps
         that ask before each one). A refused item is named by its number, never repeated: it may be a secret."""
         if len(items) > MANY_LIMIT:
             return f"Nothing stored: at most {MANY_LIMIT} memories in one call."
         notes, kept = [], 0
         for number, item in enumerate(items, 1):
-            answer = self.remember(item.get("statement", ""), item.get("kind"), item.get("source") or source,
+            answer = self.remember(item.get("statement", ""), item.get("kind") or kind, item.get("source") or source,
                                    item.get("project") or project, item.get("date") or date, author)
             if answer.startswith("Remembered"):
                 kept += 1
@@ -641,8 +641,8 @@ def main() -> None:
 
         @memory_tool("remember_many")
         def remember_many(items: List[MemoryItem], source: Optional[str] = None, project: Optional[str] = None,
-                          date: Optional[str] = None) -> str:
-            return memory.remember_many(items, source, project, date)
+                          date: Optional[str] = None, kind: Optional[str] = None) -> str:
+            return memory.remember_many(items, source, project, date, kind=kind)
 
         @memory_tool("recall")
         def recall(query: str, limit: Optional[int] = None, project: Optional[str] = None,

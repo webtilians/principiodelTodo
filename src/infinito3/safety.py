@@ -37,6 +37,51 @@ _GUARDED = re.compile(r"\b(?:wi-?fi|router|banco|bank|correo|e-?mail|cuenta|acco
 _NOT_WHERE_IT_IS_KEPT = r"(?!\s+(?:kept\s+|stored\s+|saved\s+)?in\s+(?:the\s+|my\s+|a\s+)?(?:vault|keepass|password\s+manager)\b)"
 
 
+_PASSWORD_WORD = r"\b(?:password|passwd|contrase(?:ñ|n)a)\b"
+# What a sentence about a password starts with ("contraseña: no la compartas", "password: change it every month"),
+# where a password itself would not: an article, a negation, a pronoun or a common verb.
+_SPEECH = re.compile(
+    r"(?:la|el|los|las|lo|un|una|unos|unas|no|ni|nunca|siempre|ya|se|que|y|o|en|de|del|al|con|por|para|sin|mi|mis|tu|"
+    r"tus|su|sus|nuestra|nuestro|esta|este|esa|ese|hay|es|está|tengo|tiene|tenemos|hemos|he|ha|cambia|cambio|cambié|"
+    r"cámbiala|pide|pídela|pregunta|mínimo|máximo|nueva|antigua|caducada|olvidada|the|a|an|it|its|is|not|never|"
+    r"always|my|your|our|their|to|in|on|for|with|without|we|i|you|ask|change|changed|use|same|minimum|maximum|new|"
+    r"old|expired|forgotten)$", re.I)
+
+
+# A password given after "es", "is", ":" or "=", up to the end of its clause. "The router password is in the vault"
+# says where it is kept; "...is in the vault: hunter2" still gives one, after the colon.
+_PASSWORD_GIVEN = re.compile(_PASSWORD_WORD + r"(?:\s+[\w.-]+){0,4}?\s*(?:\b(?:es|is|was|era)\b" + _NOT_WHERE_IT_IS_KEPT
+                             + r"|[:=])\s*(?P<value>[^\s.;\n][^.;\n]*)", re.I)
+
+
+def _password_given(found: str, text: str) -> bool:
+    """A password actually given, not a sentence about one. One word, or something with a digit or a symbol, is a
+    password; several words that start like ordinary speech are not. Fail-closed otherwise: "contraseña: caballo
+    batería grapa" is a passphrase. The value is where the rule found it, not after the first "is" in the words."""
+    given = _PASSWORD_GIVEN.match(found)
+    value = given.group("value").strip() if given else found
+    words = [word.strip("\"'«»“”,") for word in value.split()]
+    words = [word for word in words if word]
+    if len(words) <= 1:
+        return True
+    first = words[0]
+    if re.search(r"\d|[^\w\s]", first):
+        return True
+    return not _SPEECH.match(first)
+
+
+def _password_right_after(found: str, text: str) -> bool:
+    """"con la contraseña limonero77": the password word followed at once by something shaped like one, with no "es"
+    or ":" in between. Letters with digits, or six digits or more; a year or a count ("3 veces") is not one."""
+    token = re.split(r"\s+", found.strip(), maxsplit=1)[-1].strip("\"'«»“”.,;:")
+    if len(token) < 6:
+        return False
+    if token.isdigit():
+        return not re.fullmatch(r"(?:19|20)\d{2}", token)
+    return bool(re.search(r"\d", token) and re.search(r"[A-Za-zÀ-ÿ]", token)) or bool(
+        re.search(r"\d", token) and re.search(r"[^\w]", token))
+
+
 def _given_secret(found: str, text: str) -> bool:
     """A key or code actually given: it looks like one, or it guards something ("la clave del wifi es ...")."""
     if re.search(r"c[oó]digo postal|postal code|zip code", found, re.I):
@@ -57,10 +102,6 @@ class SensitiveInformationFilter:
     _FORBIDDEN_PATTERNS: List[Tuple[Pattern[str], str]] = [
         (re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----", re.I), "private_key"),
         (re.compile(r"\bsk-[A-Za-z0-9_-]{16,}\b"), "api_key"),
-        # A password given ("mi contraseña del banco es X", "password: X"), not one mentioned
-        # ("a password-protected PDF", "un gestor de contraseñas").
-        (re.compile(r"\b(?:password|passwd|contrase(?:ñ|n)a)\b(?:\s+[\w.-]+){0,4}?\s*(?:\b(?:es|is|was|era)\b"
-                    + _NOT_WHERE_IT_IS_KEPT + r"|[:=])\s*\S+", re.I), "password"),
         (re.compile(r"\b(?:pin)\s*(?:es|:|=)?\s*\d{3,8}\b", re.I), "pin"),
         # Spanish DNI (12345678Z) and NIE (X1234567L), whether or not the control letter is
         # right: a typo in the letter does not make it less of an identity number.
@@ -72,6 +113,12 @@ class SensitiveInformationFilter:
 
     # Shapes that ordinary text can also take, so a check sum or a nearby word confirms them.
     _CHECKED_FORBIDDEN: List[Tuple[Pattern[str], str, Callable[[str, str], bool]]] = [
+        # A password given ("mi contraseña del banco es X", "password: X"), not one mentioned ("a password-protected
+        # PDF", "un gestor de contraseñas") nor a sentence about one ("contraseña: no la compartas"). The match runs to
+        # the end of the clause, so the check sees how the value starts.
+        (_PASSWORD_GIVEN, "password", _password_given),
+        # ...and one given with nothing in between: "entra con la contraseña limonero77".
+        (re.compile(_PASSWORD_WORD + r"\s+[\"'«“]?\S+", re.I), "password", _password_right_after),
         (re.compile(r"\b[A-Za-z]{2}\d{2}(?:[ ]?[A-Za-z0-9]){11,30}\b"), "bank_account", _iban_ok),
         (re.compile(r"\b\d(?:[ -]?\d){12,18}\b"), "card_number", _card_ok),
         # "Clave" and "code" also mean a key to a problem ("la clave es la constancia"): a given

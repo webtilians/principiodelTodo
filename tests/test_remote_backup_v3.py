@@ -160,3 +160,41 @@ def test_the_commands(server, tmp_path, monkeypatch, capsys):
     assert "Restored 2" in capsys.readouterr().out
     assert "Nena" in memories_of_ana(tmp_path / "new")
     assert json.loads((tmp_path / "new" / "accounts.json").read_text())["ana"] and os.path.exists(tmp_path / "new" / "people.json")
+
+
+def test_a_photo_comes_back_with_its_memory(server, tmp_path):
+    from src.infinito3 import remote_photos
+    from src.infinito3.remote_accounts import Accounts
+
+    data, _, _ = server
+    accounts = Accounts(data)
+    key = accounts.open("ana", PASSWORD)
+    picture = b"\x89PNG\r\n\x1a\n" + b"una foto de Nena" * 20
+    answer = SealedMemories(accounts).use("ana", key, lambda m: remote_photos.keep(
+        accounts.memory_folder("ana"), key, m, picture, "Nena en la playa"), writes=True)
+    assert answer.startswith("Remembered")
+    backup(data, tmp_path / "copies")
+    copy = only_copy(tmp_path / "copies")
+    with tarfile.open(copy, "r:gz") as archive:
+        names = archive.getnames()
+        sealed_photos = [archive.extractfile(n).read() for n in names if "/photos/" in n]
+    assert len(sealed_photos) == 1 and b"Nena" not in sealed_photos[0]  # sealed, like the rest
+    restored = tmp_path / "another-computer"
+    restore(copy, restored)
+    again = Accounts(restored)
+    record = SealedMemories(again).use("ana", again.open("ana", PASSWORD),
+                                       lambda m: next(r for r in m._active() if r.metadata.get("photo")), writes=False)
+    assert remote_photos.load(again.memory_folder("ana"), key, record.metadata["photo"]) == picture
+
+
+def test_a_copy_names_only_what_a_photo_can_be_called(tmp_path):
+    import io
+
+    evil = tmp_path / "evil.tar.gz"
+    with tarfile.open(evil, "w:gz") as archive:
+        for name, body in (("MANIFEST.json", b'{"files": {}}'), ("accounts/ana/photos/../../../x.sealed", b"x")):
+            member = tarfile.TarInfo(name)
+            member.size = len(body)
+            archive.addfile(member, io.BytesIO(body))
+    with pytest.raises(SystemExit, match="unexpected entry"):
+        restore(evil, tmp_path / "data")

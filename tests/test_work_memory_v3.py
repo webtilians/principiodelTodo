@@ -147,3 +147,35 @@ def test_an_item_can_say_its_own_source_and_too_many_store_nothing(memory):
 def test_plain_memories_read_as_before(memory):
     memory.remember("Me llamo Ana.")
     assert re.fullmatch(r'\[[0-9a-f-]{36}\] \(\d{4}-\d{2}-\d{2}\) "Me llamo Ana\."', lines(memory.list_memories())[0])
+
+
+# Said again, with what it is
+
+def test_a_memory_said_again_with_its_kind_gets_the_kind(tmp_path):
+    from src.infinito3.mcp_server import AgentMemory
+
+    memory = AgentMemory(str(tmp_path / "memory.db"))
+    memory.remember("Falta que Acme apruebe el presupuesto de otoño.")
+    again = memory.remember("Falta que Acme apruebe el presupuesto de otoño.", kind="pending", project="Acme",
+                            source="llamada con Marta")
+    listed = memory.list_memories()
+    assert listed.count("presupuesto de otoño") == 1 and again.startswith("Remembered")
+    assert "(" in listed and ", pending, Acme, source: llamada con Marta)" in listed
+    assert "Falta que Acme" in memory.recall("presupuesto", kind="pending")
+    memory.remember("Falta que Acme apruebe el presupuesto de otoño.", kind="fact", source="otra fuente")
+    assert ", pending, Acme, source: llamada con Marta)" in memory.list_memories()  # what it said stays
+    memory.close()
+
+
+def test_remember_many_takes_one_kind_for_all(tmp_path):
+    from src.infinito3.mcp_server import AgentMemory, TOOL_DESCRIPTIONS
+
+    memory = AgentMemory(str(tmp_path / "memory.db"))
+    answer = memory.remember_many([{"statement": "Acme quiere tres piezas."},
+                                   {"statement": "Acme cierra el plan en marzo.", "kind": "decision"}],
+                                  project="Acme", kind="proposal")
+    assert answer.startswith("Remembered 2 of 2")
+    assert len(memory.recall("piezas", kind="proposal").splitlines()) == 2  # the header and the one memory
+    assert "marzo" in memory.recall("plan", kind="decision")  # an item's own kind wins
+    assert "Give kind, source, project and date once" in TOOL_DESCRIPTIONS["remember_many"]
+    memory.close()

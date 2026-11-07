@@ -4,13 +4,13 @@
     infinito-remote verify-backup <file>          # is this copy whole?
     infinito-remote restore <file>                # puts a copy back, with the service stopped
 
-A copy holds what is already sealed on the server's disk: each memory.sealed, each vault (a KeePass file
-locked under its master password, with the sealed list of its names), and the files that hold each
-person's key wrapped under their password or address (accounts.json, people.json). Without the password
+A copy holds what is already sealed on the server's disk: each memory.sealed with its photos, guidelines and work
+queue, each vault (a KeePass file locked under its master password, with the sealed list of its names), and the files
+that hold each person's key wrapped under their password or address (accounts.json, people.json). Without the password
 or the address a copy opens nothing, so it can be kept anywhere. What can be read in one is the usernames
-and how large each memory is. A plain memory left from before sealing is never copied, and neither are
-the apps' sign-ins (grants.db): after a restore each app simply signs in again. Photos are not copied yet: a restore
-brings back the memory that names one, with its words, and not the picture.
+and how large each memory and each photo is. A plain memory left from before sealing is never copied, and neither are
+the apps' sign-ins (grants.db): after a restore each app simply signs in again. Photos make copies larger: up to
+remote_photos.MAX_TOTAL per person in each one.
 
 A forgotten memory stays, sealed, in the copies made before it was forgotten until they age out, so
 restoring an old copy brings it back: keep few, and say how long (remote/README.md).
@@ -34,9 +34,12 @@ MANIFEST = "MANIFEST.json"
 NAME = re.compile(r"infinito-\d{8}-\d{6}\.tar\.gz")
 KEY_FILES = ("accounts.json", "people.json")
 KDBX_MAGIC = b"\x03\xd9\xa2\x9a"  # how a vault starts: a KeePass file, locked under its master password
-PERSON_FILES = ("memory.sealed", "vault.kdbx", "vault-names.sealed", "tasks.sealed", "guidelines.sealed")
+PERSON_FILES = ("memory.sealed", "vault.kdbx", "vault-names.sealed", "tasks.sealed", "guidelines.sealed",
+                "photos/*.sealed")
+# Every name a copy may hold, and so the only places a restore may write: a photo is named by its 32-character id.
 MEMBER = re.compile(r"(accounts\.json|people\.json|(accounts|people)/[a-z0-9][a-z0-9-]*/"
-                    r"(memory\.sealed|vault\.kdbx|vault-names\.sealed|tasks\.sealed|guidelines\.sealed))")
+                    r"(memory\.sealed|vault\.kdbx|vault-names\.sealed|tasks\.sealed|guidelines\.sealed|"
+                    r"photos/[0-9a-f]{32}\.sealed))")
 
 
 def _checksum(data: bytes) -> str:
