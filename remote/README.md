@@ -184,6 +184,23 @@ So every AI gets three layers, each with its own standing:
 The Guidelines page has a preview with the first two exactly as your AIs receive them, so nothing reaches an AI that
 you cannot see.
 
+## Reflections (draft)
+
+A memory says what happened; a reflection says how the agent saw it then. The agent keeps its own opinions, in the
+first person, about what it has lived with you: why a decision was taken, what it would tell itself next time, what it
+still does not know. Each rests on the memories it cites (at least one: earlier reflections are context, never
+evidence) and is never rewritten. A later one expands, reconsiders or questions it, and both stay, so you can see how
+a view changed. If a fact it rests on is wrong, you comment on it; the opinion stays as it was written.
+
+- `reflection_due` says whether it is time: you asked for one on your page, or enough is new in your memory since the
+  last one. The server decides; the agent, with your own app and model, writes. Nothing runs between conversations.
+- `reflection_context` brings what is new and the earlier reflections; `reflection_add` keeps one;
+  `reflection_list` and `reflection_history` read them back.
+- Reflections are opinions, never facts about you and never guidelines: they do not appear in `recall` and never reach
+  your guidelines. Forgetting a memory deletes every reflection resting on it.
+- On your page, under **Reflections**, they are in order, with what they rest on; you comment on, hide, delete or ask
+  for one. Sealed with your memory's key and in the backups.
+
 ## What each app may do
 
 On your memory page, **Apps** lists the AIs you have connected, where each signs in from and since when, and lets
