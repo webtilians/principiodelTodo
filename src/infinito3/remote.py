@@ -334,6 +334,17 @@ def build_app(people: People, issuer: Optional[str] = None):
         level = accounts.app_level(state["infinito_person"], state.get("infinito_client") or "")
         return remote_apps.refusal(level, tool, issuer)
 
+    def with_views(ctx: Context, answer: str, query: str, project: Optional[str]) -> str:
+        """The agent's own earlier views closest to the question, at the end of what recall says (remote_reflections.py):
+        kept so they shape its judgement over time, which is the person's reason for keeping them."""
+        state = ctx.request_context.request.scope["state"]
+        if state["infinito_memories"] != "accounts" or answer.startswith("Not allowed"):
+            return answer
+        person = state["infinito_person"]
+        data = remote_reflections.read(accounts.memory_folder(person), state["infinito_key"], person)
+        chosen = remote_reflections.related(data, query, project)
+        return f"{answer}\n\n{remote_reflections.views(data, chosen)}" if chosen else answer
+
     def with_guidelines(ctx: Context, answer: str) -> str:
         """The person's own guidelines first (remote_guidelines.py), above what a reading tool answers."""
         state = ctx.request_context.request.scope["state"]
@@ -387,8 +398,8 @@ def build_app(people: People, issuer: Optional[str] = None):
         the longest lines are cut first, so every memory stays in view."""
         from .remote_client import fit
 
-        answer = with_guidelines(ctx, with_memory(ctx, "recall", lambda memory: memory.recall(query, limit, project, kind),
-                                                  writes=False))
+        answer = with_memory(ctx, "recall", lambda memory: memory.recall(query, limit, project, kind), writes=False)
+        answer = with_guidelines(ctx, with_views(ctx, answer, query, project))
         return fit(answer, max(int(max_chars), 1000)) if max_chars else answer
 
     @memory_tool("list_memories")
