@@ -119,8 +119,8 @@ print(assistant.turn("Mañana tengo reunión con el equipo a las 10").response.t
 INFINITO also runs as an MCP server, so Claude Code, Claude Desktop, Cursor and other
 MCP clients get a long-term memory about you and your work that stays correct and
 private: it refuses secrets, keeps no questions, lets a newer fact win, and forgets
-for real when you ask. Five tools: `remember`, `remember_many`, `recall`, `list_memories`
-and `forget`. The memory is a local SQLite file (`~/.infinito/memory.db`, or `INFINITO_MEMORY_DB`);
+for real when you ask. Seven tools: `remember`, `remember_many`, `recall`, `list_memories`,
+`overview`, `briefing` and `forget`. The memory is a local SQLite file (`~/.infinito/memory.db`, or `INFINITO_MEMORY_DB`);
 the server itself sends nothing anywhere.
 
 **Claude Desktop, one click:** download

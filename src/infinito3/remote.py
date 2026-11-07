@@ -367,6 +367,11 @@ def build_app(people: People, issuer: Optional[str] = None):
     def overview(ctx: Context, stale_days: Optional[int] = None) -> str:
         return with_memory(ctx, lambda memory: memory.overview(stale_days), writes=False)
 
+    @memory_tool("briefing")
+    def briefing(ctx: Context, moment: Optional[str] = None, project: Optional[str] = None,
+                 since: Optional[str] = None) -> str:
+        return with_memory(ctx, lambda memory: memory.briefing(moment, project, since), writes=False)
+
     @memory_tool("forget")
     def forget(memory_ids: List[str], ctx: Context, keep: Optional[List[str]] = None) -> str:
         return with_memory(ctx, lambda memory: memory.forget(memory_ids, keep or [], app_of(ctx)), writes=True)
