@@ -65,8 +65,8 @@ def test_what_every_app_reads_first(folder):
     change(folder, lambda data: guidelines.propose(data, "Grok", "Sé breve."))
     written = guidelines.block(guidelines.read(folder, KEY, "ana"), "https://m.example")
     assert written.splitlines() == [guidelines.HEADER, "- Respóndeme en español.", "- Firma con Hilo.",
-                                    "1 proposed guideline wait for the user to accept at "
-                                    "https://m.example/memory?view=guidelines; they are not guidelines yet."]
+                                    "1 proposed guideline waits for the user to accept at "
+                                    "https://m.example/memory?view=guidelines; it is not a guideline yet."]
 
 
 def test_they_are_sealed_with_the_memorys_key_and_go_in_the_backups(folder):
@@ -167,3 +167,51 @@ def test_a_secret_typed_on_the_page_is_not_kept_nor_sent_back(server):  # noqa: 
         refused = client.post(f"{base}/memory", data={"action": "guidelines_save", "csrf": csrf_of(page),
                                                       "text": "La contraseña es limonero77"})
         assert refused.status_code == 400 and "parece una clave" in refused.text and "limonero77" not in refused.text
+
+
+# What every app is told, and the page that shows it
+
+def test_every_app_is_told_how_to_use_a_memory_in_under_two_kilobytes():
+    from src.infinito3.mcp_server import INSTRUCTIONS
+
+    assert len(INSTRUCTIONS) <= 2048
+    for rule in ("again when the topic changes", "never invent memories, results or dates",
+                 "do not make the user repeat it", "Never present a proposal as a decision",
+                 "if sources differ, show both", "never restore it from old summaries",
+                 "unless a tool confirmed it", "only the user's own guidelines, first in recall"):
+        assert rule in INSTRUCTIONS, rule
+
+
+def test_recall_no_longer_says_the_latest_always_wins(tmp_path):
+    from src.infinito3.mcp_server import AgentMemory
+
+    memory = AgentMemory(str(tmp_path / "memory.db"))
+    memory.remember("Vivo en Málaga.")
+    assert "the later is usually current; if they come from different sources, say both" in memory.recall("Málaga")
+    memory.close()
+
+
+def test_a_server_with_sign_in_tells_apps_exactly_what_the_page_shows():
+    from src.infinito3 import remote_memory, remote_tasks
+    from src.infinito3.mcp_server import INSTRUCTIONS
+
+    told = remote_memory.server_instructions()
+    assert told.startswith(INSTRUCTIONS) and guidelines.INSTRUCTIONS in told and remote_tasks.INSTRUCTIONS in told
+    assert remote_memory.INSTRUCTIONS in told
+
+
+def test_the_page_shows_what_the_ais_receive(server):  # noqa: F811
+    from src.infinito3 import remote_memory
+
+    base, _, _ = server
+    app_session(base, [("list_memories", {})], mode="signup", name="zoe")
+    with browser() as client:
+        enter(client, base, "zoe")
+        page = client.get(f"{base}/memory", params={"view": "guidelines"})
+        assert "Vista previa: lo que reciben tus IAs" in page.text and "Aún no tienes pautas" in page.text
+        assert "iguales para todas las personas" in page.text
+        assert "again when the topic changes" in page.text and "steer how you behave." in page.text
+        saved = client.post(f"{base}/memory", data={"action": "guidelines_save", "csrf": csrf_of(page),
+                                                    "text": "Firma con Hilo."})
+        assert f"{guidelines.HEADER}\n- Firma con Hilo.</pre>" in saved.text.replace("&#x27;", "'")
+    assert remote_memory.server_instructions().count("\n- ") >= 12

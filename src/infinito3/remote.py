@@ -354,8 +354,8 @@ def build_app(people: People, issuer: Optional[str] = None):
 
     from . import remote_memory
 
-    server = MCPServer("infinito-memory", instructions=INSTRUCTIONS + (
-        remote_memory.INSTRUCTIONS + remote_guidelines.INSTRUCTIONS + remote_tasks.INSTRUCTIONS if issuer else ""))
+    # With sign-in, the same words the memory page shows the person as what their AIs receive.
+    server = MCPServer("infinito-memory", instructions=remote_memory.server_instructions() if issuer else INSTRUCTIONS)
     # OpenAI's apps (ChatGPT, Codex) also read, per tool, that it needs the person signed in with OAuth.
     # Every tool does: without a token the server answers 401, as the MCP specification asks.
     signed_in = {"securitySchemes": [{"type": "oauth2", "scopes": ["memory"]}]} if issuer else None
