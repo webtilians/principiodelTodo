@@ -516,13 +516,17 @@ def build_auth(accounts: Accounts, grants: Grants, issuer: str,
     async def home(request: Request):
         return remote_home.home_page(_texts(request)["lang"], f"{issuer}/mcp", _STYLE, _HOME_HEADERS)
 
+    async def connect(request: Request):
+        """A short address to give someone: there is one guide to connecting, on the front page."""
+        return RedirectResponse("/#connect", status_code=302, headers=_HEADERS)
+
     from . import remote_home, remote_memory, remote_vault
 
     memory_page = [] if memories is None else remote_memory.routes(accounts, grants, memories, one_at_a_time,
                                                                    secure=issuer.startswith("https://"))
     app = Starlette(routes=routes + resource_routes + remote_vault.routes(accounts, grants, one_at_a_time) + memory_page
                     + [Route("/login", sign_in_page, methods=["GET"]), Route("/login", sign_in, methods=["POST"]),
-                       Route("/", home, methods=["GET"])])
+                       Route("/connect", connect, methods=["GET"]), Route("/", home, methods=["GET"])])
 
     def bearer(token: str) -> Optional[Tuple[str, bytes, Optional[str], str]]:
         """Whose memory a token opens: the account, its key, the app's name and the app's client id."""

@@ -333,7 +333,7 @@ def shell(t: dict, active: str, account: str, csrf: str, body: str, hidden_field
             f'<form class="find" method="get" action="/memory" role="search">{icon("search")}'
             f'<input type="search" name="q" value="{e(query)}" placeholder="{t["find"]}" aria-label="{t["find"]}"></form>'
             f'<div class="tools"><a href="/memory?kind=pending" aria-label="{t["pending_alert"]}: {pending}">{icon("bell")}{alert}</a>'
-            f'<a href="/" aria-label="{t["help"]}">{icon("help")}</a>'
+            f'<a href="/#connect" aria-label="{t["help"]}">{icon("help")}</a>'
             f'<a class="me" href="/memory?view=settings" aria-label="{t["account"]}">{e(account[:1])}</a></div></header>'
             f'<main class="dash">{body}</main></div></div>')
 

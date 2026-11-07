@@ -10,21 +10,27 @@ tell ChatGPT, Claude remembers, and the other way round.
 
 Every app gets the same public address, `https://<host>/mcp`. The first time, the app opens
 INFINITO's page: choose a username and a password (or sign in, if you already have a memory) and
-that app is connected. Each other app is one more sign-in. To tell someone, send them
-`https://<host>/`: that page shows the address, with a copy button, and the steps below.
+that app is connected. Each other app is one more sign-in.
 
-- **Claude** (desktop, web, phone and Claude Code in the app): Settings → Connectors → **Add custom
-  connector**, name `INFINITO`, URL `https://<host>/mcp`, then **Connect**.
-- **ChatGPT** (a paid plan, on the web): on `chatgpt.com/plugins`, **Add** → Add custom MCP server, with that
-  URL and authentication **OAuth**, then **Create as a plugin**. Where that is missing, turn on **Developer
-  mode** first in Settings → Apps & Connectors → Advanced settings. Without custom instructions it needs `@INFINITO`
-  in each message; the front page gives a text to paste once so it looks by itself. A connector made before a server update keeps its old tools until **Refresh tools** in its
-  settings. OpenAI's help lists writing for Business and Enterprise/Edu and read/fetch for Pro, and this changes
-  often: if ChatGPT reads the memory but does not save, connect Claude as well.
-- **Codex** (app and terminal): `codex mcp add infinito --url https://<host>/mcp`, then
-  `codex mcp login infinito` to sign in.
-- **Claude Code in a terminal**: `claude mcp add --transport http --scope user infinito https://<host>/mcp`,
-  then `/mcp` to sign in.
+There is one guide, on the front page: send someone `https://<host>/connect`, which leads there. Each app gets the
+fewest steps it allows, and everything to type is already filled in with this server's address
+(`src/infinito3/remote_home.py`, `connect_links`):
+
+- **Claude** (web, desktop and phone): one button opens Claude's *Add custom connector* dialog with the name and
+  the URL already in it (`claude.ai/customize/connectors?modal=add-custom-connector&connectorName=…&connectorUrl=…`);
+  the person checks it, clicks **Add** and **Connect**, and signs in.
+- **Cursor** and **VS Code**: one button each (`cursor://anysphere.cursor-deeplink/mcp/install?…`,
+  `vscode:mcp/install?…`); the editor asks to confirm, then the person signs in.
+- **ChatGPT** (a paid plan, on the web): OpenAI lets no link fill in a connector, so a button opens
+  `chatgpt.com/plugins`, the address has a copy button, and so does the text for custom instructions that makes it
+  look by itself; then **Allow all** so it does not ask before each change. A connector made before a server update
+  keeps its old tools until **Refresh tools**.
+- **Grok**: a button opens `grok.com/connectors`; the address has a copy button.
+- **Claude Code** and **Codex**: the commands, ready to copy, then a sign-in (`/mcp` in Claude Code). A second text,
+  to paste to the agent itself, adds a hook that brings the memory and the guidelines to each message by calling
+  `recall` on the server they already have connected (hook type `mcp_tool`, with `max_chars` so it fits): nothing to
+  install on the computer.
+- **Gemini CLI** and **any other MCP app**: the command or the configuration, ready to copy.
 
 The menu names change now and then; the steps stay the same.
 

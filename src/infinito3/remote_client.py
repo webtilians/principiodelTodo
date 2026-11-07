@@ -226,7 +226,7 @@ def _pending(event: dict) -> Optional[str]:
         return None
 
 
-def _fit(text: str, room: int = HOOK_CHARS) -> str:
+def fit(text: str, room: int = HOOK_CHARS) -> str:
     """Only the longest lines are cut, from their end: every memory stays in view, its id, date and kind first."""
     if len(text) <= room:
         return text
@@ -267,7 +267,7 @@ def context(stdin=None, stdout=None) -> None:
         if text and not text.startswith("No memories")]
     if parts:
         json.dump({"hookSpecificOutput": {"hookEventName": event.get("hook_event_name") or "UserPromptSubmit",
-                                          "additionalContext": _fit("\n\n".join(parts))}}, stdout)
+                                          "additionalContext": fit("\n\n".join(parts))}}, stdout)
 
 
 def _tool_uses(path: str) -> Iterator[Tuple[str, str, dict]]:
