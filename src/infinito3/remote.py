@@ -376,9 +376,9 @@ def build_app(people: People, issuer: Optional[str] = None):
 
     @memory_tool("remember_many")
     def remember_many(items: List[MemoryItem], ctx: Context, source: Optional[str] = None,
-                      project: Optional[str] = None, date: Optional[str] = None) -> str:
+                      project: Optional[str] = None, date: Optional[str] = None, kind: Optional[str] = None) -> str:
         return with_memory(ctx, "remember_many", lambda memory: memory.remember_many(items, source, project, date,
-                                                                                    app_of(ctx)), writes=True)
+                                                                                    app_of(ctx), kind=kind), writes=True)
 
     @memory_tool("recall")
     def recall(query: str, ctx: Context, limit: Optional[int] = None, project: Optional[str] = None,

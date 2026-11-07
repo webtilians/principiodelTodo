@@ -84,7 +84,8 @@ sealed beside the memory, under the same key. By invitation for now, like the va
 - **What is checked.** The words go through the same checks as `remember`. What the picture shows is not read, and it
   is kept as it came, with whatever its file says of where it was taken: a screenshot of a password is one more photo
   any connected app can ask to see. Secrets belong in the vault.
-- **Not in the backups yet.** After a restore a memory keeps its words, and its picture is missing.
+- **In the backups,** sealed as they are, so a restore brings each memory back with its picture. They make copies
+  larger: up to 500 MB per person in each copy, and a server keeps 14.
 
 ## A vault from any app
 

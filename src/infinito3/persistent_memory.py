@@ -324,8 +324,13 @@ class SQLiteCognitiveMemoryStore:
         return record
 
     def _reinforce(self, row: sqlite3.Row, incoming: MemoryRecord) -> MemoryRecord:
+        """The same memory said again. What it says about itself and the earlier copy did not (what kind it is, where it
+        came from, whose project it is) is added; what the earlier copy already said stays."""
         metadata = json.loads(row["metadata_json"] or "{}")
         metadata["reinforcement_count"] = int(metadata.get("reinforcement_count", 0)) + 1
+        for key in ("kind", "source", "project"):
+            if (incoming.metadata or {}).get(key) and not metadata.get(key):
+                metadata[key] = incoming.metadata[key]
         importance = max(float(row["importance"]), float(incoming.importance))
         confidence = min(1.0, float(row["confidence"]) + 0.05)
         now = self._tick().isoformat()
