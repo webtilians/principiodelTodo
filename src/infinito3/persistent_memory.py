@@ -255,6 +255,11 @@ class SQLiteCognitiveMemoryStore:
         embedding = self._safe_embed(record.content)
 
         with self._lock, self._conn:
+            # Inter-process atomicity: lock the SQLite writer BEFORE checking
+            # which exclusive fact is active. A per-instance Python RLock and
+            # a deferred transaction cannot serialize SELECT -> supersede -> INSERT
+            # across two independent MCP server processes.
+            self._conn.execute("BEGIN IMMEDIATE")
             now = self._tick()
             record.updated_at = now
             exact = None if alone else self._conn.execute(

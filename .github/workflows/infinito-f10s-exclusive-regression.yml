@@ -1,0 +1,31 @@
+name: INFINITO F10-S Interprocess Exclusive Memory Regression
+
+on:
+  push:
+    branches: [fix/f10s-atomic-exclusive-updates-20261104]
+    paths:
+      - tests/test_f10s_exclusive_multi_mcp.py
+      - .github/workflows/infinito-f10s-exclusive-regression.yml
+
+permissions:
+  contents: read
+
+jobs:
+  real_mcp_regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install product and test environment
+        run: python -m pip install -e '.[mcp]' 'pytest>=8'
+      - name: Assert two ACTUAL MCP stdio processes cannot leave two exclusive facts active
+        run: |
+          python -m pytest -q \
+            tests/test_f10s_exclusive_multi_mcp.py \
+            tests/test_mcp_server_v3.py \
+            tests/test_memory_updates_v3.py \
+            tests/test_forgetting_v3.py
+          echo "F10S_IMMEDIATE_LOCK_CROSS_PROCESS_REGRESSION_PASS"
