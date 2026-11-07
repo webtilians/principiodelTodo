@@ -49,6 +49,15 @@ INSTRUCTIONS = """
   give the user the link, so they confirm it themselves. It is also the page to offer when they want to see what is kept."""
 NEEDS_ACCOUNT = "The memory page needs an INFINITO account with sign-in; this memory uses a private address."
 
+
+def server_instructions() -> str:
+    """What every app is told when it connects to a server with sign-in: how to use a memory, the same for everyone. The
+    memory page shows it word for word, next to the person's own guidelines."""
+    from . import remote_guidelines, remote_tasks
+    from .mcp_server import INSTRUCTIONS as GENERAL
+
+    return GENERAL + INSTRUCTIONS + remote_guidelines.INSTRUCTIONS + remote_tasks.INSTRUCTIONS
+
 TEXT = {
     "es": {
         "title": "Tu memoria",
@@ -197,6 +206,9 @@ button.bad { color: #240a08; background: var(--bad); }
 button.bad-quiet { font-weight: 500; color: var(--bad); background: transparent; border: 1px solid var(--line); }
 .actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1rem; align-items: center; }
 .ok { font-weight: 600; margin: 0 0 1rem; }
+pre.preview { max-height: 22rem; overflow: auto; margin: .4rem 0 0; padding: .8rem .95rem; white-space: pre-wrap;
+  overflow-wrap: anywhere; font: .82rem/1.5 ui-monospace, Consolas, monospace; background: rgba(5, 10, 30, .55);
+  border: 1px solid var(--line); border-radius: 9px; }
 """
 
 
@@ -490,7 +502,7 @@ def set_session_cookie(response, token: str, *, secure: bool) -> None:
                         samesite="strict")
 
 
-def routes(accounts, grants, memories, limiter, secure: bool) -> list:
+def routes(accounts, grants, memories, limiter, secure: bool, issuer: str = "") -> list:
     """The page; memories opens each person's sealed memory, and limiter keeps one heavy password check at a time."""
     import anyio
     from starlette.datastructures import UploadFile
@@ -586,7 +598,7 @@ def routes(accounts, grants, memories, limiter, secure: bool) -> list:
         data = await guidelines_of(session)
         suggested = await use(session, lambda memory: remote_guidelines.suggestions(memory._active(), data), writes=False)
         body = remote_guidelines.guidelines_body(t, data, suggested, session["data"]["csrf"], _hidden, message=message,
-                                                 error=error)
+                                                 error=error, rules=server_instructions(), issuer=issuer)
         return await shown(t, session, t["guidelines_title"], body, status, active="guidelines")
 
     async def on_guidelines(t: dict, session: dict, form, action: str):

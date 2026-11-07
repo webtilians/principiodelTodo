@@ -69,6 +69,12 @@ TEXT = {
         "guidelines_suggested": "En tu memoria hay frases que parecen pautas",
         "guidelines_suggested_note": "Añádelas con un clic si quieres que todas tus IAs las sigan.",
         "guidelines_gone": "Eso ya no está. Mira cómo están ahora tus pautas.",
+        "guidelines_preview": "Vista previa: lo que reciben tus IAs",
+        "guidelines_rules": "Las reglas de INFINITO, iguales para todas las personas",
+        "guidelines_rules_note": "Cada IA las recibe al conectarse. Van en inglés porque son las mismas para todos, y no "
+                                 "se pueden cambiar: dicen cómo usar una memoria, no quién eres tú.",
+        "guidelines_yours": "Tus pautas, lo primero cada vez que consultan tu memoria",
+        "guidelines_none_yet": "Aún no tienes pautas: tus IAs solo reciben las reglas de arriba.",
     },
     "en": {
         "nav_guidelines": "Guidelines", "guidelines_title": "Your guidelines",
@@ -86,6 +92,12 @@ TEXT = {
         "guidelines_suggested": "Your memory has sentences that read like guidelines",
         "guidelines_suggested_note": "Add them with a click if you want all your AIs to follow them.",
         "guidelines_gone": "That is no longer there. See how your guidelines are now.",
+        "guidelines_preview": "Preview: what your AIs receive",
+        "guidelines_rules": "INFINITO's rules, the same for everyone",
+        "guidelines_rules_note": "Each AI receives them when it connects. They cannot be changed: they say how to use a "
+                                 "memory, not who you are.",
+        "guidelines_yours": "Your guidelines, first every time they look at your memory",
+        "guidelines_none_yet": "You have no guidelines yet: your AIs only receive the rules above.",
     },
 }
 
@@ -237,8 +249,9 @@ def block(data: dict, issuer: str) -> str:
     """What every app reads first: the person's guidelines, and how many of its proposals still wait for them."""
     lines = [HEADER] + [f"- {item}" for item in data["items"]] if data["items"] else []
     if data["proposed"]:
-        waiting = (f"{len(data['proposed'])} proposed guideline{'s' if len(data['proposed']) != 1 else ''} wait for the "
-                   f"user to accept at {issuer}/memory?view=guidelines; they are not guidelines yet.")
+        many = len(data["proposed"])
+        waiting = (f"{many} proposed guideline{'s wait' if many != 1 else ' waits'} for the user to accept at "
+                   f"{issuer}/memory?view=guidelines; {'they are' if many != 1 else 'it is'} not a guideline yet.")
         lines = (lines or ["The user has no guidelines for their AIs yet."]) + [waiting]
     return "\n".join(lines)
 
@@ -262,7 +275,9 @@ def suggestions(records: Sequence, data: dict) -> List:
 # The person's page
 
 def guidelines_body(t: dict, data: dict, suggested: Sequence, csrf: str, hidden_fields, *, message: str = "",
-                    error: str = "") -> str:
+                    error: str = "", rules: str = "", issuer: str = "") -> str:
+    """rules is what every app is told when it connects (remote_memory.server_instructions); the page shows it and the
+    person's own block exactly as the apps receive them, so nothing reaches an AI that the person cannot see."""
     e = html.escape
     notice = ((f'<p class="ok" role="status">{e(message)}</p>' if message else "")
               + (f'<p class="error" role="alert">{e(error)}</p>' if error else ""))
@@ -293,4 +308,12 @@ def guidelines_body(t: dict, data: dict, suggested: Sequence, csrf: str, hidden_
             f'</button></form></div></div>' for record in suggested)
         from_memory = (f'<h2>{t["guidelines_suggested"]}</h2><p class="note">{t["guidelines_suggested_note"]}</p>'
                        f'{rows}')
-    return f"{notice}{editor}{proposed}{from_memory}"
+    yours = block(data, issuer)
+    preview = ""
+    if rules:
+        preview = (f'<details class="add" style="margin-top:1.4rem"><summary>{t["guidelines_preview"]}</summary>'
+                   f'<h2 style="margin-top:.8rem">{t["guidelines_yours"]}</h2>'
+                   + (f'<pre class="preview">{e(yours)}</pre>' if yours else f'<p class="note">{t["guidelines_none_yet"]}</p>')
+                   + f'<h2>{t["guidelines_rules"]}</h2><p class="note">{t["guidelines_rules_note"]}</p>'
+                   f'<pre class="preview">{e(rules.strip())}</pre></details>')
+    return f"{notice}{editor}{proposed}{from_memory}{preview}"
