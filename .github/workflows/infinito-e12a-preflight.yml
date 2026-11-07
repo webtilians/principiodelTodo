@@ -1,0 +1,38 @@
+name: INFINITO E12-A — Contract and Core Regression Tests
+
+on:
+  push:
+    branches: [experiment/e12a-agent-memory-search-decision]
+    paths:
+      - observatory/e12a_autonomous_search.py
+      - tests/test_e12a_autonomous_search.py
+      - docs/INFINITO_E12A_AUTONOMOUS_SEARCH_PROTOCOL.md
+      - .github/workflows/infinito-e12a-preflight.yml
+
+permissions:
+  contents: read
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install test runner
+        run: python -m pip install pytest
+      - name: Check core untouched and scientific protocol frozen
+        run: |
+          git diff --exit-code origin/master -- src/infinito3/
+          test -f docs/INFINITO_E12A_AUTONOMOUS_SEARCH_PROTOCOL.md
+          python -m py_compile observatory/e12a_autonomous_search.py
+      - name: E12-A autonomous retrieval and gap-detection contract tests
+        run: python -m pytest -q tests/test_e12a_autonomous_search.py
+      - name: Frozen INFINITO v3 regression tests
+        run: python -m pytest -q tests/test_*_v3.py
+      - name: Explicit mock-only instrumentation boundary
+        run: echo "E12A_OFFLINE_CONTRACTS_OK. Fake API outputs never used for science."
