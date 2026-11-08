@@ -22,10 +22,10 @@ from datetime import datetime, timezone
 from typing import Dict, List, Optional, Sequence
 from urllib.parse import urlencode
 
-from . import (remote_apps, remote_guidelines, remote_photos, remote_portal, remote_reflections, remote_tasks,
-               remote_vault)
+from . import (remote_apps, remote_guidelines, remote_photos, remote_portal, remote_reflections, remote_shares,
+               remote_tasks, remote_vault)
 from .mcp_server import BY_THE_USER, KINDS, OPEN_KINDS, OVERVIEW_OPEN_ITEMS, STALE_DAYS, AgentMemory, _day
-from .remote_accounts import _HEADERS, NAME, _STYLE as _BASE_STYLE, _page, _texts
+from .remote_accounts import _HEADERS, MIN_PASSWORD, NAME, _STYLE as _BASE_STYLE, _page, _texts
 from .types import MemoryRecord
 
 SESSION = "memory-session"
@@ -354,6 +354,8 @@ def _correct(memory: AgentMemory, memory_id: str, text: str) -> str:
         if any(about.values()) else memory.remember(text, author=BY_THE_USER)
     if not answer.startswith("Remembered"):
         raise _Refused()
+    # The new words have a new id: a copy shared with someone goes along with them (remote_shares.py).
+    memory.replaced = {memory_id: answer.split()[2].rstrip(".")}
     return "corrected"
 
 
@@ -371,10 +373,14 @@ def _meta(t: dict, record: MemoryRecord) -> str:
     return " · ".join(about)
 
 
-def _item(t: dict, record: MemoryRecord, *, checked: bool = False, correct: bool = True) -> str:
+def _item(t: dict, record: MemoryRecord, *, checked: bool = False, correct: bool = True, shared: Sequence[str] = ()) -> str:
     e = html.escape
     fix = f' · <a href="/memory?edit={e(record.id)}">{t["correct"]}</a>' if correct else ""
     photo = record.metadata.get("photo")
+    if correct and not photo:  # a photo is not shared yet: only words are
+        fix += f' · <a href="/memory?share={e(record.id)}">{t["share_link"]}</a>'
+    if shared:
+        fix = f' · {t["shared_with"].format(names=e(", ".join(shared)))}{fix}'
     thumb = (f'<a class="thumb" href="/memory?{urlencode({"photo": record.id})}">{remote_portal.photo_image(photo)}</a>'
              if photo else "")
     return (f'<div class="memo"><input type="checkbox" name="id" value="{e(record.id)}" id="m-{e(record.id)}"'
@@ -452,7 +458,7 @@ def list_body(t: dict, found: dict, csrf: str, *, query: str, project: str, kind
                     f'{t["delete_found"].format(n=len(records))}</button>') if filtering and records else ""
     if shown:
         listing = (f'<form method="post" action="/memory">{_hidden(csrf=csrf)}{filter_fields}'
-                   + "".join(_item(t, record) for record in shown)
+                   + "".join(_item(t, record, shared=found.get("shared", {}).get(record.id, ())) for record in shown)
                    + f'<div class="actions"><button class="bad" type="submit" name="action" value="review">'
                      f'{t["delete_marked"]}</button>{delete_found}</div></form>')
     else:
@@ -523,7 +529,7 @@ def routes(accounts, grants, memories, limiter, secure: bool, issuer: str = "") 
         base = _texts(request)
         return {**base, **TEXT[base["lang"]], **remote_portal.TEXT[base["lang"]], **remote_apps.TEXT[base["lang"]],
                 **remote_tasks.TEXT[base["lang"]], **remote_guidelines.TEXT[base["lang"]],
-                **remote_reflections.TEXT[base["lang"]]}
+                **remote_reflections.TEXT[base["lang"]], **remote_shares.TEXT[base["lang"]]}
 
     def view(t: dict, title: str, body: str, status: int = 200):
         response = _page(t, title, body, status, style=_STYLE)
@@ -700,6 +706,133 @@ def routes(accounts, grants, memories, limiter, secure: bool, issuer: str = "") 
     def sign_in_page(t: dict, token: str = "", *, name: str = "", error: str = "", status: int = 200):
         return view(t, t["title"], sign_in_body(t, token, name=name, error=error), status)
 
+    async def on_shelf(session: dict, action):
+        """The person's side of sharing (remote_shares.py), opened with their memory's key."""
+        shelf = remote_shares.Shelf(accounts, session["account"], session["key"])
+        return await anyio.to_thread.run_sync(lambda: action(shelf))
+
+    async def shares_page(t: dict, session: dict, *, message: str = "", error: str = "", status: int = 200):
+        people = await on_shelf(session, lambda shelf: shelf.people())
+        body = remote_shares.shares_body(t, people, session["account"], issuer, session["data"]["csrf"], _hidden,
+                                         me=session["account"], message=message, error=error)
+        return await shown(t, session, t["shares_title"], body, status, active="shares")
+
+    async def sharing(t: dict, session: dict, memory_id: str, *, error: str = "", status: int = 200):
+        """What the person sees before a memory leaves: its exact words, and who can get them."""
+        found = await use(session, lambda memory: _chosen(memory, [memory_id]), writes=False)
+        if not found or found[0].metadata.get("photo"):
+            return await shown(t, session, t["missing_title"], f'<p><a href="/memory">{t["back"]}</a></p>', status=404)
+        people = await on_shelf(session, lambda shelf: shelf.people())
+        has_it = {contact["box"] for contact in people for item in contact["items"]
+                  if item["from"] == session["account"] and item["memory"] == memory_id}
+        body = remote_shares.share_body(t, memory_id, found[0].content, _day(found[0]), people, has_it,
+                                        session["data"]["csrf"], _hidden, error=error)
+        return await shown(t, session, t["share_title"], body, status)
+
+    def invitation_gone(t: dict):
+        return view(t, t["invite_gone_title"], f'<p>{t["invite_gone"]}</p>', status=400)
+
+    async def invitation(t: dict, request, token: str, *, name: str = "", error: str = "", status: int = 200,
+                         creating: bool = False):
+        """An invitation link. Opening one changes nothing, because chat apps fetch links first: it takes a person,
+        signed in, pressing Accept."""
+        offer = grants.find(remote_shares.INVITE, token)
+        if offer is None:
+            return invitation_gone(t)
+        session = signed_in(request)
+        if session is None:
+            return view(t, t["invite_title"], remote_shares.gate_body(t, offer, token, _hidden, min_password=MIN_PASSWORD,
+                                                                      name=name, error=error, creating=creating), status)
+        if offer["account"] == session["account"]:
+            return await shown(t, session, t["invite_title"], f'<p>{t["invite_own"]}</p>', active="shares")
+        body = remote_shares.accept_body(t, offer, token, session["data"]["csrf"], _hidden)
+        return await shown(t, session, t["invite_title"], body, active="shares")
+
+    async def invite_signup(t: dict, request, form):
+        """Someone invited who has no memory yet creates one here, as they would on the page an app sends them to."""
+        token, name = str(form.get("invite", "")), str(form.get("name", "")).strip().lower()
+        password, repeat = str(form.get("password", "")), str(form.get("repeat", ""))
+        if grants.find(remote_shares.INVITE, token) is None:
+            return invitation_gone(t)
+        wrong = (t["bad_name"] if not NAME.fullmatch(name)
+                 else t["wait"].format(n=accounts.waiting(name)) if accounts.waiting(name)
+                 else t["short"].format(n=MIN_PASSWORD) if len(password) < MIN_PASSWORD
+                 else t["differ"] if password != repeat
+                 else t["taken"] if accounts.exists(name) else "")
+        if wrong:
+            return await invitation(t, request, token, name=name, error=wrong, status=400, creating=True)
+        key, code = await anyio.to_thread.run_sync(accounts.create, name, password, limiter=limiter)
+        session = grants.issue(SESSION, client_id="", seconds=SESSION_SECONDS, account=name, key=key,
+                               data={"csrf": secrets.token_urlsafe(24)})
+        response = view(t, t["code_title"], remote_shares.recovery_body(t, code, token))
+        set_session_cookie(response, session, secure=secure)
+        return response
+
+    async def on_shares(t: dict, session: dict, form, action: str):
+        """Only here, signed in with their password, does anything leave a person's memory."""
+        box = str(form.get("box", ""))
+        if action == "share_invite":
+            def issue(box_key: bytes, data: dict) -> str:
+                return grants.issue(remote_shares.INVITE, client_id="", seconds=remote_shares.INVITE_SECONDS,
+                                    account=session["account"], key=box_key, data=data)
+
+            try:
+                await on_shelf(session, lambda shelf: shelf.invite(str(form.get("calls", "")), str(form.get("me", "")), issue))
+            except remote_shares.Refused as refused:
+                return await shares_page(t, session, error=t[f"shares_{refused}"], status=400)
+            return await shares_page(t, session, message=t["shares_invited"])
+        if action == "share_send":
+            memory_id, boxes = str(form.get("id", "")), [str(value) for value in form.getlist("box")]
+            if not boxes:
+                return await sharing(t, session, memory_id, error=t["share_none_marked"], status=400)
+            found = await use(session, lambda memory: _chosen(memory, [memory_id]), writes=False)
+            if not found or found[0].metadata.get("photo"):
+                return await shown(t, session, t["missing_title"], f'<p><a href="/memory">{t["back"]}</a></p>', status=404)
+            record = found[0]
+            try:
+                names = await on_shelf(session, lambda shelf: shelf.share(boxes, record.id, record.content, _day(record)))
+            except remote_shares.Refused:
+                return await sharing(t, session, memory_id, error=t["share_box_full"], status=400)
+            if not names:
+                return await shares_page(t, session, error=t["shares_gone"], status=400)
+            return await listing(t, session, {}, message=t["share_done"].format(names=", ".join(names)))
+        if action == "share_stop":
+            done = await on_shelf(session, lambda shelf: shelf.stop(box, str(form.get("item", ""))))
+            return await shares_page(t, session, message=t["shares_stopped"] if done else "",
+                                     error="" if done else t["shares_gone"])
+        if action == "share_remove_review":
+            people = await on_shelf(session, lambda shelf: shelf.people())
+            contact = next((c for c in people if c["box"] == box), None)
+            if contact is None:
+                return await shares_page(t, session, error=t["shares_gone"], status=400)
+            body = remote_shares.remove_body(t, contact, session["data"]["csrf"], _hidden)
+            return await shown(t, session, t["shares_remove_title"], body, active="shares")
+        if action == "share_remove":
+            gone = await on_shelf(session, lambda shelf: shelf.remove(box))
+            if gone is None:
+                return await shares_page(t, session, error=t["shares_gone"], status=400)
+            if gone.get("invite"):
+                grants.drop(gone["invite"])
+            return await shares_page(t, session, message=t["shares_removed"])
+        token = str(form.get("invite", ""))  # share_accept
+        offer = grants.find(remote_shares.INVITE, token)
+        if offer is None:
+            return invitation_gone(t)
+        if offer["account"] == session["account"]:
+            return await shown(t, session, t["invite_title"], f'<p>{t["invite_own"]}</p>', active="shares")
+        try:
+            name = await on_shelf(session, lambda shelf: shelf.accept(offer))
+        except remote_shares.Refused as refused:
+            grants.drop(token)
+            if str(refused) == "already":
+                await on_shelf(session, lambda shelf: shelf.discard(offer))
+                return await shares_page(t, session, message=t["invite_already"])
+            return invitation_gone(t)
+        grants.drop(token)
+        body = (f'<p>{t["invite_done"].format(name=html.escape(name))}</p><p class="note">{t["invite_connect"]}</p>'
+                f'<p class="actions"><a href="/memory?view=shares">{t["nav_shares"]}</a></p>')
+        return await shown(t, session, t["invite_done_title"], body, active="shares")
+
     def vault_items(session: dict) -> Optional[List[Dict[str, str]]]:
         account = session["account"]
         if not accounts.vault_allowed(account):
@@ -714,6 +847,7 @@ def routes(accounts, grants, memories, limiter, secure: bool, issuer: str = "") 
         except ValueError:
             page_number = 1
         found = await use(session, lambda memory: _found(memory, query, project, kind), writes=False)
+        found["shared"] = await on_shelf(session, lambda shelf: remote_shares.index(shelf.people(), shelf.account))
         if str(params.get("added", "")):
             notices.setdefault("message", t["photo_saved"])
         body = list_body(t, found, session["data"]["csrf"], query=query, project=project, kind=kind, page=page_number,
@@ -747,6 +881,8 @@ def routes(accounts, grants, memories, limiter, secure: bool, issuer: str = "") 
 
     async def page(request):
         t, params = texts(request), request.query_params
+        if params.get("invite"):
+            return await invitation(t, request, params["invite"])
         token = params.get("r", "")
         link = grants.find(LINK, token) if token else None
         if token and link is None:
@@ -764,6 +900,8 @@ def routes(accounts, grants, memories, limiter, secure: bool, issuer: str = "") 
             if not found:
                 return await shown(t, session, t["missing_title"], f'<p><a href="/memory">{t["back"]}</a></p>', status=404)
             return await shown(t, session, t["correct_title"], correct_body(t, found[0], session["data"]["csrf"]))
+        if params.get("share"):
+            return await sharing(t, session, params["share"])
         if params.get("photo"):
             wanted = params["photo"]
             found = await use(session, lambda memory: _chosen(memory, [wanted]), writes=False)
@@ -773,6 +911,8 @@ def routes(accounts, grants, memories, limiter, secure: bool, issuer: str = "") 
         wanted = params.get("view", "")
         if wanted == "projects":
             return await projects(t, session)
+        if wanted == "shares":
+            return await shares_page(t, session)
         if wanted == "vault":
             return await keys(t, session)
         if wanted == "tasks":
@@ -790,19 +930,27 @@ def routes(accounts, grants, memories, limiter, secure: bool, issuer: str = "") 
             return await listing(t, session, params)
         return await home(t, session)
 
-    async def sign_in(t: dict, form):
+    async def sign_in(t: dict, form, request):
         token, password = str(form.get("r", "")), str(form.get("password", ""))
+        invite = str(form.get("invite", ""))
         name = str(form.get("name", "")).strip().lower()
+
+        async def again(error: str, status: int):
+            if invite:
+                return await invitation(t, request, invite, name=name, error=error, status=status)
+            return sign_in_page(t, token, name=name, error=error, status=status)
+
         if not NAME.fullmatch(name):
-            return sign_in_page(t, token, name=name, error=t["bad_password"], status=400)
+            return await again(t["bad_password"], 400)
         if accounts.waiting(name):
-            return sign_in_page(t, token, name=name, error=t["wait"].format(n=accounts.waiting(name)), status=429)
+            return await again(t["wait"].format(n=accounts.waiting(name)), 429)
         key = await anyio.to_thread.run_sync(accounts.open, name, password, limiter=limiter)
         if key is None:
-            return sign_in_page(t, token, name=name, error=t["bad_password"], status=400)
+            return await again(t["bad_password"], 400)
         session = grants.issue(SESSION, client_id="", seconds=SESSION_SECONDS, account=name, key=key,
                                data={"csrf": secrets.token_urlsafe(24)})
-        target = f"/memory?{urlencode({'r': token})}" if token else "/memory"
+        wanted = {"invite": invite} if invite else {"r": token} if token else {}
+        target = f"/memory?{urlencode(wanted)}" if wanted else "/memory"
         response = RedirectResponse(target, status_code=303, headers=_HEADERS)
         set_session_cookie(response, session, secure=secure)
         return response
@@ -846,9 +994,13 @@ def routes(accounts, grants, memories, limiter, secure: bool, issuer: str = "") 
         form = await request.form()
         action = str(form.get("action", ""))
         if action == "signin":
-            return await sign_in(t, form)
+            return await sign_in(t, form, request)
+        if action == "invite_signup":
+            return await invite_signup(t, request, form)
         session = signed_in(request)
         if session is None:
+            if form.get("invite"):
+                return await invitation(t, request, str(form.get("invite")), error=t["session_over"], status=401)
             return sign_in_page(t, str(form.get("r", "")), error=t["session_over"], status=401)
         if not hmac.compare_digest(str(form.get("csrf", "")), session["data"]["csrf"]):
             return await shown(t, session, t["title"], f'<p>{t["bad_form"]}</p><p><a href="/memory">{t["back"]}</a></p>',
@@ -901,6 +1053,8 @@ def routes(accounts, grants, memories, limiter, secure: bool, issuer: str = "") 
             return await on_reflections(t, session, form, action)
         if action in ("guidelines_save", "guideline_accept", "guideline_discard", "guideline_from_memory"):
             return await on_guidelines(t, session, form, action)
+        if action in ("share_invite", "share_send", "share_stop", "share_remove_review", "share_remove", "share_accept"):
+            return await on_shares(t, session, form, action)
         if action == "app_level":
             client_id, level = str(form.get("client", "")), str(form.get("level", ""))
             if client_id not in {app["client_id"] for app in grants.apps_of(session["account"])}:

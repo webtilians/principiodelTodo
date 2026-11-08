@@ -18,7 +18,7 @@ LEVELS = ("all", "add", "read")
 DEFAULT = "all"
 
 READS = frozenset({"recall", "list_memories", "overview", "briefing", "photo_show", "task_list", "reflection_due",
-                   "reflection_context", "reflection_list", "reflection_history"})
+                   "reflection_context", "reflection_list", "reflection_history", "shared_memories"})
 ADDS = READS | {"remember", "remember_many", "photo_save", "task_propose", "task_take", "task_done", "task_return",
                 "guideline_propose", "reflection_add"}
 
