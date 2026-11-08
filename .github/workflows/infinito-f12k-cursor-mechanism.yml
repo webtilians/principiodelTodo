@@ -1,0 +1,46 @@
+name: INFINITO F12-K causal isolation of cursor mechanism
+on:
+  push:
+    branches: [experiment/f12k-cursor-causal-isolation-20261108]
+    paths:
+      - observatory/f12k_cursor_causal_isolation.py
+      - tests/test_f12k_cursor_causal_isolation.py
+      - .github/workflows/infinito-f12k-cursor-mechanism.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  contracts:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run pre-inference isolation and fake-only tests
+        run: python -m unittest tests.test_f12k_cursor_causal_isolation -v
+  frozen-qwen7b:
+    needs: contracts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    env:
+      PYTHONHASHSEED: '0'
+      HF_HUB_DISABLE_TELEMETRY: '1'
+      OMP_NUM_THREADS: '4'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install pinned CPU inference backend
+        run: |
+          python -m pip install --only-binary llama-cpp-python --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu llama-cpp-python==0.3.36 huggingface_hub==0.29.3
+      - name: Run 120 frozen Qwen7B evaluation episodes on ten new worlds
+        run: python -m observatory.f12k_cursor_causal_isolation --out f12k_artifacts
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: f12k-frozen7b-cursor-causal-isolation
+          path: f12k_artifacts/
+          if-no-files-found: warn
+          retention-days: 30
