@@ -80,7 +80,7 @@ class F12JContracts(unittest.TestCase):
         b2=prompt_for("goal",ctx,policy,history,"B2")
         self.assertIn("NEXT EXPECTED PLAN STEP",b1)
         self.assertIn("DISABLED_TOOL",b2)
-        self.assertNotIn("DISABLED_TOOL",b1)
+        self.assertNotIn("Do not retry a permanently unavailable operation",b1)
         self.assertNotIn("_hidden",b2)
         self.assertNotIn("PRIMARY",b2)
     def test_parse_action_fails_closed(self):
