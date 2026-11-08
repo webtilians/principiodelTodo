@@ -311,6 +311,7 @@ def shell(t: dict, active: str, account: str, csrf: str, body: str, hidden_field
     items = (("home", "/", "nav_home", "home"), ("vault", "/memory", "nav_vault", "lock"),
              ("memories", "/memory?view=memories", "nav_memories", "layers"),
              ("projects", "/memory?view=projects", "nav_projects", "folder"),
+             ("shares", "/memory?view=shares", "nav_shares", "people"),
              ("tasks", "/memory?view=tasks", "nav_tasks", "check"),
              ("guidelines", "/memory?view=guidelines", "nav_guidelines", "bulb"),
              ("reflections", "/memory?view=reflections", "nav_reflections", "pulse"),

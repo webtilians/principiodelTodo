@@ -201,6 +201,26 @@ a view changed. If a fact it rests on is wrong, you comment on it; the opinion s
 - On your page, under **Reflections**, they are in order, with what they rest on; you comment on, hide, delete or ask
   for one. Sealed with your memory's key and in the backups.
 
+## Share a memory with someone
+
+You share one memory at a time, by hand, on your memory page. There is no tool for it, so no AI can share anything,
+whatever a web page, an email or another AI tells it.
+
+1. Under **Shared**, invite someone. You get a link that works once and lasts seven days. They open it, sign in or
+   create a memory there, and accept. Before sharing, check which account accepted.
+2. Under **Memories**, press **Share** on a memory. You see exactly what they will get, and you choose who.
+3. When they ask their AI what you have on something, it reads it with `shared_memories`, which says whose words they
+   are. `recall` does not search them, so what you said in the first person is never taken for theirs.
+
+- **What goes** is a copy of the words and the date. The source, the tags and the rest of your memory stay behind.
+  Photos are not shared yet. It has to be a copy: your memory opens only while you use it, and they may ask at night.
+- **It follows the original.** Correct the memory and they see it corrected; forget it, or press **Stop sharing**, and
+  it disappears for them. What their AI has already read cannot be removed from their chats.
+- **Either of you can end it**, and everything the two of you shared goes, both ways. Your memories stay in your memory.
+- **Sealed.** Each pair of people has a box with its own key, which each of the two keeps sealed with their own memory's
+  key, so the files alone open nothing. Boxes go in the backups. An account the server's owner removes leaves its
+  copies behind only until the other person next opens theirs.
+
 ## What each app may do
 
 On your memory page, **Apps** lists the AIs you have connected, where each signs in from and since when, and lets

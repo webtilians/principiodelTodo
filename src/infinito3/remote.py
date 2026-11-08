@@ -31,11 +31,12 @@ and photos, sealed the same way (remote_photos.py).
     infinito-remote restore <file>   # puts a copy back, with the service stopped
 
 With sign-in, the person also writes guidelines that every app reads first (remote_guidelines.py), chooses what each
-app may do (remote_apps.py), and their AIs share a work queue that only the person approves (remote_tasks.py).
+app may do (remote_apps.py), shares memories one by one with people they invite (remote_shares.py), and their AIs share
+a work queue that only the person approves (remote_tasks.py).
 
 Data lives in INFINITO_REMOTE_DIR (default ~/.infinito-remote): accounts.json, grants.db and
-accounts/<name>/memory.sealed, with its photos/, tasks.sealed and guidelines.sealed, for sign-in; people.json and
-people/<name>/memory.sealed for addresses.
+accounts/<name>/memory.sealed, with its photos/, tasks.sealed, guidelines.sealed and contacts.sealed, for sign-in;
+shares/<box>/box.sealed for what two people share; people.json and people/<name>/memory.sealed for addresses.
 """
 # No `from __future__ import annotations`: the MCP SDK reads the tools' annotations, and Context is
 # imported inside build_app so the core never needs the SDK.
@@ -54,7 +55,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple
 
-from . import remote_apps, remote_guidelines, remote_photos, remote_reflections, remote_tasks
+from . import remote_apps, remote_guidelines, remote_photos, remote_reflections, remote_shares, remote_tasks
 from .mcp_server import INSTRUCTIONS, TOOL_DESCRIPTIONS, TOOL_HINTS, AgentMemory, MemoryItem, _line
 from .persistent_memory import HashEmbeddingProvider, SQLiteCognitiveMemoryStore
 
@@ -155,9 +156,10 @@ class SealedMemories:
 
     owners keeps the folders: People for private addresses, Accounts (remote_accounts.py) for sign-in."""
 
-    def __init__(self, owners, ranker=None):
+    def __init__(self, owners, ranker=None, after_write=None):
         self.owners = owners
         self.ranker = ranker  # orders memories by meaning in recall (semantic.py), when the server has a model
+        self.after_write = after_write  # (name, key, memory), once what changed is safely on disk
         self._locks: Dict[str, threading.Lock] = {}
         self._guard = threading.Lock()
 
@@ -212,6 +214,8 @@ class SealedMemories:
                 if writes or plain_left:
                     self.write(name, key, memory.store.to_bytes())
                     self._sweep(name, memory)
+                    if self.after_write:
+                        self.after_write(name, key, memory)
                 return result
             finally:
                 memory.close()
@@ -309,7 +313,9 @@ def build_app(people: People, issuer: Optional[str] = None):
 
         grants = Grants(people.folder)
         accounts = Accounts(people.folder)
-        sealed["accounts"] = SealedMemories(accounts, ranker)
+        # A memory that was shared by hand and has since changed or gone takes its copies along (remote_shares.py).
+        sealed["accounts"] = SealedMemories(
+            accounts, ranker, after_write=lambda name, key, memory: remote_shares.Shelf(accounts, name, key).follow(memory))
 
         def adopt(name: str, key: bytes, address: str) -> bool:
             """Someone who used a private address signs up with it: the memory moves and the address ends."""
@@ -454,6 +460,20 @@ def build_app(people: People, issuer: Optional[str] = None):
             return remote_memory.answer_with_link(issuer, memory_ids or [], known, lambda data: grants.issue(
                 remote_memory.LINK, client_id="", seconds=remote_memory.LINK_SECONDS, account=state["infinito_person"],
                 data=data))
+
+        # The only tool about sharing, and it only reads: a memory is shared by its person, on their page.
+        @server.tool(description=remote_shares.TOOL_DESCRIPTION, annotations=ToolAnnotations(**remote_shares.TOOL_HINTS),
+                     meta=signed_in)
+        def shared_memories(ctx: Context, person: Optional[str] = None, query: Optional[str] = None,
+                            limit: Optional[int] = None) -> str:
+            state = ctx.request_context.request.scope["state"]
+            if state["infinito_memories"] != "accounts":
+                return remote_shares.NEEDS_ACCOUNT
+            if refused(ctx, "shared_memories"):
+                return refused(ctx, "shared_memories")
+            account = state["infinito_person"]
+            people = remote_shares.Shelf(accounts, account, state["infinito_key"]).people()
+            return remote_shares.answer(remote_shares.received(people, account), person, query, limit, ranker)
 
         @server.tool(description=remote_photos.SAVE_DESCRIPTION, annotations=ToolAnnotations(**remote_photos.SAVE_HINTS),
                      meta={**signed_in, "openai/fileParams": ["photo"]})

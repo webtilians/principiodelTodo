@@ -5,8 +5,8 @@
     infinito-remote restore <file>                # puts a copy back, with the service stopped
 
 A copy holds what is already sealed on the server's disk: each memory.sealed with its photos, guidelines and work
-queue, each vault (a KeePass file locked under its master password, with the sealed list of its names), and the files
-that hold each person's key wrapped under their password or address (accounts.json, people.json). Without the password
+queue, the boxes of memories two people share, each vault (a KeePass file locked under its master password, with the
+sealed list of its names), and the files that hold each person's key wrapped under their password or address (accounts.json, people.json). Without the password
 or the address a copy opens nothing, so it can be kept anywhere. What can be read in one is the usernames
 and how large each memory and each photo is. A plain memory left from before sealing is never copied, and neither are
 the apps' sign-ins (grants.db): after a restore each app simply signs in again. Photos make copies larger: up to
@@ -35,11 +35,12 @@ NAME = re.compile(r"infinito-\d{8}-\d{6}\.tar\.gz")
 KEY_FILES = ("accounts.json", "people.json")
 KDBX_MAGIC = b"\x03\xd9\xa2\x9a"  # how a vault starts: a KeePass file, locked under its master password
 PERSON_FILES = ("memory.sealed", "vault.kdbx", "vault-names.sealed", "tasks.sealed", "guidelines.sealed",
-                "reflections.sealed", "photos/*.sealed")
-# Every name a copy may hold, and so the only places a restore may write: a photo is named by its 32-character id.
-MEMBER = re.compile(r"(accounts\.json|people\.json|(accounts|people)/[a-z0-9][a-z0-9-]*/"
+                "reflections.sealed", "contacts.sealed", "photos/*.sealed", "box.sealed")
+# Every name a copy may hold, and so the only places a restore may write: a photo is named by its 32-character id, and
+# so is a box of memories shared between two people (remote_shares.py).
+MEMBER = re.compile(r"(accounts\.json|people\.json|shares/[0-9a-f]{32}/box\.sealed|(accounts|people)/[a-z0-9][a-z0-9-]*/"
                     r"(memory\.sealed|vault\.kdbx|vault-names\.sealed|tasks\.sealed|guidelines\.sealed|"
-                    r"reflections\.sealed|"
+                    r"reflections\.sealed|contacts\.sealed|"
                     r"photos/[0-9a-f]{32}\.sealed))")
 
 
@@ -129,7 +130,7 @@ def restore(path: Path, data_dir: Path) -> str:
     aside = data_dir / f"before-restore-{datetime.now(timezone.utc):%Y%m%d-%H%M%S}"
     moved: List[str] = []
     data_dir.mkdir(parents=True, exist_ok=True)
-    for name in KEY_FILES + ("grants.db", "grants.db-wal", "grants.db-shm", "accounts", "people"):
+    for name in KEY_FILES + ("grants.db", "grants.db-wal", "grants.db-shm", "accounts", "people", "shares"):
         if (data_dir / name).exists():
             aside.mkdir(mode=0o700, exist_ok=True)
             shutil.move(str(data_dir / name), str(aside / name))

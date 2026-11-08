@@ -249,6 +249,7 @@ def test_apps_are_told_which_tools_only_read_so_they_need_not_ask_first(server):
     reads = {tool.name: tool.annotations.read_only_hint for tool in app.tools}
     assert reads == {"recall": True, "list_memories": True, "remember": False, "remember_many": False,
                      "forget": False, "vault_add": True, "vault_reveal": True, "vault_list": True,
+                     "shared_memories": True,
                      # These two only answer with a link: nothing changes until the person acts on the page.
                      "memory_page": True, "vault_delete": True,
                      "overview": True, "briefing": True,
