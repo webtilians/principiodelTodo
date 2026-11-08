@@ -120,12 +120,18 @@ def save_probes(store, public_records):
 def from_memory(store):
     # Read from real SQLite search and confirm coverage; do not substitute
     # evaluator-private map or fabricate any missing episode.
-    hits = store.search("observed actions tool output probe public input", top_k=20)
+    # INFINITO's hybrid search applies a relevance floor, even with top_k=20.
+    # Exact IDs are preregistered independently of results; recover each one
+    # by SQLite search, rather than silently dropping a negative observation.
     parsed = []
-    for r in hits:
-        if r.kind != MemoryKind.EPISODIC:
-            continue
-        x = json.loads(r.content)
+    for i in range(10):
+        source_id = f"OBS{i}"
+        matches = store.search(source_id, top_k=20)
+        rec = next((r for r in matches if r.kind == MemoryKind.EPISODIC
+                    and r.metadata.get("source_id") == source_id), None)
+        if rec is None:
+            raise ValueError(f"F12-I missing public source {source_id}")
+        x = json.loads(rec.content)
         if set(x) != {"source_id","public_input","events"}:
             raise ValueError("unexpected or private evidence field")
         parsed.append(x)
