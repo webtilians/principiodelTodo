@@ -115,8 +115,16 @@ def save_probes(st,records):
         ))
 
 def from_store(st):
-    matches=st.search("public observed tool events partial probe feedback",top_k=20)
-    out=[json.loads(r.content) for r in matches if r.kind==MemoryKind.EPISODIC]
+    # Hybrid retrieval has a relevance floor; source-ID queries ensure the
+    # same ten preregistered public probes, with no hidden world information.
+    out=[]
+    for i in range(10):
+        sid=f"P{i}"
+        matches=st.search(sid,top_k=20)
+        rec=next((r for r in matches if r.kind==MemoryKind.EPISODIC
+                  and r.metadata.get("source_id")==sid),None)
+        if rec is None:raise ValueError(f"Missing public probe {sid}")
+        out.append(json.loads(rec.content))
     out.sort(key=lambda r:int(r["source_id"][1:]))
     if [r["source_id"] for r in out]!=[f"P{i}" for i in range(10)]:
         raise ValueError("INFINITO SQLite probe retrieval incomplete")
@@ -227,8 +235,9 @@ def run_llm_case(wid,condition,public_bit,hidden_bit,model,context,plan_info,mod
         "prompt_tokens":sum(e["prompt_tokens"] for e in events),
         "output_tokens":sum(e["output_tokens"] for e in events),
         "recovered_after_error":any(
-            e["response"]=={"error":"DISABLED_TOOL"} for e in events[:i])
-            and e["action"]==plan_info["backup"] and "value" in e["response"]
+            e["action"]==plan_info["backup"] and "value" in e["response"]
+            and any(prev["response"]=={"error":"DISABLED_TOOL"}
+                    for prev in events[:i])
             for i,e in enumerate(events)
         ),
     }
