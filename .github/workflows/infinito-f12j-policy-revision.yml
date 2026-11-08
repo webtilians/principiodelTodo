@@ -1,0 +1,46 @@
+name: INFINITO F12-J policy execution and revision
+on:
+  push:
+    branches: [experiment/f12j-policy-execution-revision-20261108]
+    paths:
+      - observatory/f12j_policy_execution_revision.py
+      - tests/test_f12j_policy_execution_revision.py
+      - .github/workflows/infinito-f12j-policy-revision.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  contracts:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify public-effect plan, executable baseline, and actor boundaries
+        run: python -m unittest tests.test_f12j_policy_execution_revision -v
+  frozen-llm:
+    needs: contracts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 95
+    env:
+      PYTHONHASHSEED: '0'
+      HF_HUB_DISABLE_TELEMETRY: '1'
+      OMP_NUM_THREADS: '4'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install pinned Qwen 7B CPU inference dependencies
+        run: |
+          python -m pip install --only-binary llama-cpp-python --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu llama-cpp-python==0.3.36 huggingface_hub==0.29.3
+      - name: Run frozen 7B execution and feedback revision episodes
+        run: python -m observatory.f12j_policy_execution_revision --out f12j_artifacts
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: f12j-pinned7b-plan-execution-and-revision
+          path: f12j_artifacts/
+          if-no-files-found: warn
+          retention-days: 30
