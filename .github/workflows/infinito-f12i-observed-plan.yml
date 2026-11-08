@@ -1,0 +1,46 @@
+name: INFINITO F12-I observed effect plan induction
+on:
+  push:
+    branches: [experiment/f12i-observed-effect-plan-induction-20261108]
+    paths:
+      - observatory/f12i_observed_plan_induction.py
+      - tests/test_f12i_observed_plan_induction.py
+      - .github/workflows/infinito-f12i-observed-plan.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  contracts:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify world split, observation-only traces and fake backend isolation
+        run: python -m unittest tests.test_f12i_observed_plan_induction -v
+  frozen-llm:
+    needs: contracts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 65
+    env:
+      PYTHONHASHSEED: '0'
+      HF_HUB_DISABLE_TELEMETRY: '1'
+      OMP_NUM_THREADS: '4'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install frozen Qwen 7B CPU backend
+        run: |
+          python -m pip install --only-binary llama-cpp-python --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu llama-cpp-python==0.3.36 huggingface_hub==0.29.3
+      - name: Run F12-I 24 LLM plans and 128 offline evaluations
+        run: python -m observatory.f12i_observed_plan_induction --out f12i_artifacts
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: f12i-pinned7b-observed-plan-induction
+          path: f12i_artifacts/
+          if-no-files-found: warn
+          retention-days: 30
