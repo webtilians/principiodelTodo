@@ -5,7 +5,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from collections import Counter
 
-from observatory.f12l_cursor_independent_confirmation import (
+from observatory.f12lc_cursor_independent_confirmation import (
     STUDY, ROLE_MAPS, USED_J_MAPS, USED_K_MAPS, BIT_PAIRS, TOOLS, ARMS,
     CONDITIONS, SHARD_COUNT, HORIZON, collect_probes, new_store, save_probes,
     from_store, grounded_plan, public_context, deterministic_case, shown_action,
