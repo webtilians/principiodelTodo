@@ -1,0 +1,72 @@
+name: INFINITO F12-L-C independent cursor confirmation
+on:
+  push:
+    branches: [experiment/f12l-cursor-independent-confirm-20261108]
+    paths:
+      - observatory/f12lc_cursor_independent_confirmation.py
+      - tests/test_f12lc_cursor_independent_confirmation.py
+      - .github/workflows/infinito-f12lc-cursor-confirm.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  contracts:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify frozen splits, public evidence, fake-only isolation and four-shard aggregation
+        run: python -m unittest tests.test_f12lc_cursor_independent_confirmation -v
+  pinned-qwen7b-shards:
+    needs: contracts
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
+    timeout-minutes: 90
+    env:
+      PYTHONHASHSEED: '0'
+      HF_HUB_DISABLE_TELEMETRY: '1'
+      OMP_NUM_THREADS: '4'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install pinned local inference dependencies
+        run: |
+          python -m pip install --only-binary llama-cpp-python --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu llama-cpp-python==0.3.36 huggingface_hub==0.29.3
+      - name: Run exact 48 episode shard (no scientific decision before aggregate)
+        run: python -m observatory.f12lc_cursor_independent_confirmation --shard ${{ matrix.shard }} --out f12lc_part
+      - name: Preserve raw provenance for this shard
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: f12lc-shard-${{ matrix.shard }}
+          path: f12lc_part/
+          if-no-files-found: warn
+          retention-days: 45
+  aggregate:
+    needs: pinned-qwen7b-shards
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: f12lc-shard-*
+          merge-multiple: true
+          path: f12lc_parts
+      - name: Audit all four sealed shards before reporting confirmation
+        run: python -m observatory.f12lc_cursor_independent_confirmation --aggregate-dir f12lc_parts --out f12lc_confirm_artifacts
+      - name: Publish immutable aggregate with every prompt, event and gate
+        uses: actions/upload-artifact@v4
+        with:
+          name: f12lc-frozen7b-independent-cursor-confirmation
+          path: f12lc_confirm_artifacts/
+          retention-days: 45
