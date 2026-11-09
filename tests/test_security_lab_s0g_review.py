@@ -144,7 +144,6 @@ def test_a07_old_compromised_key_should_be_rejected_after_revocation(tmp_path):
         verify_attestation(signed_with_old, **checks(old))
 
 
-@pytest.mark.xfail(strict=True, reason="P2 issue #149: signer does not validate group/world-writable key-parent permissions")
 def test_a08_world_writable_key_root_should_fail_closed(tmp_path):
     os.chmod(tmp_path, 0o777)
     try:

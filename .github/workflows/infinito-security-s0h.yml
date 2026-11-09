@@ -1,0 +1,62 @@
+name: INFINITO Security S0-H OAuth tenant isolation and key-root hardening
+
+on:
+  push:
+    branches: ["experiment/security-s0h-tenant-isolation-20261109"]
+    paths:
+      - "src/infinito3/remote_provenance.py"
+      - "tests/test_security_lab_s0h.py"
+      - "tests/test_security_lab_s0g_review.py"
+      - "docs/INFINITO_SECURITY_S0H_*"
+      - ".github/workflows/infinito-security-s0h.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: s0h-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  cross_tenant_e2e:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify syntax
+        run: python -m compileall -q src/infinito3/remote_provenance.py tests/test_security_lab_s0h.py
+      - name: Build offline OAuth MCP clone
+        run: docker build -f security_lab/Dockerfile.s0b -t infinito-security-s0h .
+      - name: Run prospective S0-H and all old security regression suites
+        run: |
+          docker run --rm \
+            --network none --read-only --cap-drop ALL \
+            --security-opt no-new-privileges \
+            --pids-limit 128 --memory 1600m --cpus 2 \
+            --tmpfs /tmp:rw,nosuid,size=256m,mode=1777 \
+            -e HOME=/tmp \
+            --entrypoint python infinito-security-s0h -m pytest -p no:cacheprovider -q -rx \
+            tests/test_security_lab_s0.py \
+            tests/test_security_lab_s0b.py \
+            tests/test_security_lab_s0c.py \
+            tests/test_security_lab_s0d.py \
+            tests/test_security_lab_s0e.py \
+            tests/test_security_lab_s0f.py \
+            tests/test_security_lab_s0g_review.py \
+            tests/test_security_lab_s0h.py
+      - name: Existing OAuth/MCP compatibility
+        run: |
+          docker run --rm \
+            --network none --read-only --cap-drop ALL \
+            --security-opt no-new-privileges \
+            --pids-limit 128 --memory 1600m --cpus 2 \
+            --tmpfs /tmp:rw,nosuid,size=256m,mode=1777 \
+            -e HOME=/tmp \
+            --entrypoint python infinito-security-s0h -m pytest -p no:cacheprovider -q \
+            tests/test_remote_accounts_v3.py
+      - name: Research-only result; release policy proportional to actual risks
+        run: |
+          echo 'S0-H is an isolated lab result, not production approval.'
+          echo 'A07 old-key revocation remains an expected gap; pinning and rotation are not implemented.'
+          echo 'Return next to measuring agent learning rather than expanding this crypto lab indefinitely.'

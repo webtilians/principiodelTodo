@@ -99,8 +99,19 @@ class ServerAttestor:
         if not isinstance(issuer, str) or not issuer.startswith(("https://", "http://127.0.0.1:", "http://localhost:")):
             raise ValueError("Attested evidence requires a trusted HTTPS issuer or loopback in lab")
         root = Path(root)
-        if not root.is_dir():
-            raise ValueError("Remote server storage root must already exist")
+        # Refuse key material in a shared or symlinked root: 0600 on the
+        # private key itself does not prevent another user from swapping a
+        # directory entry if that user can write the enclosing directory.
+        try:
+            root_stat = root.lstat()
+        except FileNotFoundError:
+            raise ValueError("Remote server storage root must already exist") from None
+        if not stat.S_ISDIR(root_stat.st_mode) or root.is_symlink():
+            raise PermissionError("Attestation key root must be a real directory")
+        if root_stat.st_mode & 0o022:
+            raise PermissionError("Attestation key root cannot be group/world writable")
+        if hasattr(os, "getuid") and root_stat.st_uid != os.getuid():
+            raise PermissionError("Attestation key root must be owned by the service user")
         self.issuer = issuer.rstrip("/")
         path = root / NAME
         try:
