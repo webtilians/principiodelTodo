@@ -19,6 +19,9 @@ class FakeGen:
         self.cache=None
         self._ctx=FakeCtx()
     def n_ctx(self):return 4096
+    @property
+    def _input_ids(self):
+        return self.input_ids[:self.n_tokens]
     def reset(self):
         self.n_tokens=0
         self._requires_eval=True
