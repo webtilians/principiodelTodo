@@ -1,0 +1,15 @@
+# S0-C scientific pilot: online build, OFFLINE execution, real frozen Qwen7B.
+FROM python:3.11-slim
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 \
+    HF_HUB_DISABLE_TELEMETRY=1 OMP_NUM_THREADS=4 OPENBLAS_NUM_THREADS=4
+WORKDIR /app
+RUN python -m pip install --disable-pip-version-check --no-cache-dir \
+      --only-binary llama-cpp-python \
+      --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu \
+      llama-cpp-python==0.3.36 "mcp>=2,<3" "cryptography>=42" \
+      "pykeepass>=4.1,<5" "pytest>=8"
+COPY src/ /app/src/
+COPY security_lab/ /app/security_lab/
+COPY tests/ /app/tests/
+USER 10001:10001
+ENTRYPOINT ["python", "-m", "security_lab.s0c"]
