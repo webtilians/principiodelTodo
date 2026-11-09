@@ -18,6 +18,7 @@ and the memory kept; changing the password signs every app out. Losing both lose
 # No `from __future__ import annotations`: pydantic reads the field annotations of the token models.
 import base64
 import hashlib
+import hmac
 import html
 import json
 import os
@@ -40,6 +41,14 @@ CODE_SECONDS = 600
 SIGN_IN_SECONDS = 1800  # the sign-in page, and the recovery code page before the app gets its tokens
 SCOPE = "memory"
 _SCRYPT = {"n": 2 ** 15, "r": 8, "p": 1}
+# Anyone can create a memory, so what stops a bot is here. Creating one is deliberately slow and the server does one at
+# a time: a flood would keep people waiting to sign in. No captcha or email, which would bring a third party to the
+# page where a password is typed.
+SIGNUP_MIN_SECONDS = 3  # a person takes longer than this to fill in the form
+SIGNUP_MAX_SECONDS = 86400
+SIGNUP_WINDOW = 3600
+SIGNUPS_PER_ADDRESS = 5
+SIGNUPS_IN_ALL = 30
 
 
 def _hash(token: str) -> str:
@@ -95,6 +104,39 @@ class Accounts:
         self.file = self.folder / "accounts.json"
         self._lock = threading.Lock()
         self._failures: Dict[str, Tuple[int, float]] = {}
+        self._form_key = os.urandom(32)  # both die with the process: nothing about who signs up reaches the disk
+        self._signups: List[Tuple[float, str]] = []
+
+    def form_stamp(self) -> str:
+        """When a sign-up form was handed out, signed so that a bot can neither skip the form nor backdate it."""
+        moment = str(int(time.time()))
+        return f"{moment}.{hmac.new(self._form_key, moment.encode(), hashlib.sha256).hexdigest()}"
+
+    def signup_looks_automatic(self, form) -> bool:
+        """The field people cannot see was filled in, or the form did not come from here, or came back too fast."""
+        if str(form.get("homepage", "")):
+            return True
+        moment, _, signature = str(form.get("stamp", "")).partition(".")
+        if not moment.isascii() or not moment.isdigit():
+            return True
+        expected = hmac.new(self._form_key, moment.encode(), hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(signature.encode(), expected.encode()):
+            return True
+        return not SIGNUP_MIN_SECONDS <= time.time() - int(moment) <= SIGNUP_MAX_SECONDS
+
+    def signup_wait(self, address: str) -> int:
+        """Seconds before this address may create another memory; 0 means it may, and this one is counted.
+        Addresses are kept only as a hash, only in memory and only for the window."""
+        now = time.time()
+        self._signups = [(when, who) for when, who in self._signups if now - when < SIGNUP_WINDOW]
+        who = hmac.new(self._form_key, address.encode(), hashlib.sha256).hexdigest()
+        theirs = [when for when, whose in self._signups if whose == who]
+        full = (theirs if len(theirs) >= SIGNUPS_PER_ADDRESS
+                else [when for when, _ in self._signups] if len(self._signups) >= SIGNUPS_IN_ALL else [])
+        if full:
+            return max(1, int(full[0] + SIGNUP_WINDOW - now))
+        self._signups.append((now, who))
+        return 0
 
     def _read(self) -> dict:
         return json.loads(self.file.read_text(encoding="utf-8")) if self.file.exists() else {}
@@ -443,7 +485,8 @@ def build_auth(accounts: Accounts, grants: Grants, issuer: str,
         if pending is None:
             return _page(t, t["expired_title"], f"<p>{t['expired']}</p>", status=400)
         mode = request.query_params.get("m", "signin")
-        return _form(t, request.query_params["r"], mode if mode in _FORMS else "signin", _asking(pending))
+        return _form(t, request.query_params["r"], mode if mode in _FORMS else "signin", _asking(pending),
+                     stamp=accounts.form_stamp())
 
     async def sign_in(request: Request):
         t = _texts(request)
@@ -463,9 +506,12 @@ def build_auth(accounts: Accounts, grants: Grants, issuer: str,
         name = str(form.get("name", "")).strip().lower()
         password, repeat = str(form.get("password", "")), str(form.get("repeat", ""))
 
-        def again(message: str):
-            return _form(t, token, mode, _asking(pending), name=name, error=message, status=400)
+        def again(message: str, status: int = 400):
+            return _form(t, token, mode, _asking(pending), name=name, error=message, status=status,
+                         stamp=accounts.form_stamp())
 
+        if mode == "signup" and accounts.signup_looks_automatic(form):
+            return again(t["too_fast"])
         if not NAME.fullmatch(name):
             return again(t["bad_name"])
         if accounts.waiting(name):
@@ -478,6 +524,9 @@ def build_auth(accounts: Accounts, grants: Grants, issuer: str,
         if mode == "signup":
             if accounts.exists(name):
                 return again(t["taken"])
+            wait = accounts.signup_wait(client_address(request))
+            if wait:
+                return again(t["signups_busy"].format(n=wait // 60 + 1), 429)
             key, code = await anyio.to_thread.run_sync(accounts.create, name, password, limiter=one_at_a_time)
             old = str(form.get("old_address", "")).strip()
             moved = old and await anyio.to_thread.run_sync(adopt, name, key, old)
@@ -494,7 +543,8 @@ def build_auth(accounts: Accounts, grants: Grants, issuer: str,
         elif not accounts.exists(name):
             # Most people who try to sign in to a name that does not exist have not created it yet:
             # the page offers to, with the name already filled in.
-            return _form(t, token, "signup", _asking(pending), name=name, error=t["no_such"].format(name=name))
+            return _form(t, token, "signup", _asking(pending), name=name, error=t["no_such"].format(name=name),
+                         stamp=accounts.form_stamp())
         else:
             key = await anyio.to_thread.run_sync(accounts.open, name, password, limiter=one_at_a_time)
             if key is None:
@@ -579,6 +629,9 @@ _TEXT = {
         "wait": "Demasiados intentos. Espera {n} segundos y vuelve a probar.",
         "short": "La contraseña necesita al menos {n} caracteres.",
         "differ": "Las dos contraseñas no coinciden.",
+        "too_fast": "No hemos podido crear tu memoria. Espera unos segundos, escribe la contraseña otra vez y vuelve a intentarlo.",
+        "signups_busy": "Se han creado demasiadas memorias en poco tiempo. Vuelve a probar dentro de {n} minutos.",
+        "leave_empty": "Deja este campo vacío",
         "taken": "Ese nombre ya está en uso. Elige otro, o entra si es tuyo.",
         "bad_password": "Ese nombre y esa contraseña no abren ninguna memoria.",
         "no_such": "Todavía no hay ninguna memoria llamada «{name}». Créala ahora: escribe tu contraseña dos veces.",
@@ -611,6 +664,9 @@ _TEXT = {
         "wait": "Too many attempts. Wait {n} seconds and try again.",
         "short": "The password needs at least {n} characters.",
         "differ": "The two passwords differ.",
+        "too_fast": "We could not create your memory. Wait a few seconds, type the password again and retry.",
+        "signups_busy": "Too many memories have been created recently. Try again in {n} minutes.",
+        "leave_empty": "Leave this field empty",
         "taken": "That name is taken. Choose another, or sign in if it is yours.",
         "bad_password": "That name and password open no memory.",
         "no_such": "There is no memory called “{name}” yet. Create it now: type your password twice.",
@@ -668,6 +724,7 @@ a { color: var(--accent); }
 details { margin-top: 1rem; } summary { cursor: pointer; color: var(--soft); font-size: .92rem; }
 .code { font: 600 1.35rem/1.4 ui-monospace, Consolas, monospace; letter-spacing: .06em; text-align: center;
   padding: 1rem; margin: 1rem 0; border: 1px dashed var(--accent); border-radius: 10px; word-break: break-all; }
+.leave { position: absolute; left: -9999px; }
 """
 
 
@@ -681,7 +738,20 @@ def _page(t: dict, title: str, body: str, status: int = 200, style: str = ""):
         f'<h1>{html.escape(title)}</h1>{body}</div></main></body></html>', status_code=status, headers=_HEADERS)
 
 
-def _form(t: dict, request_token: str, mode: str, who: str, name: str = "", error: str = "", status: int = 200):
+def client_address(request) -> str:
+    """Who is asking: Caddy, on this same machine, passes the real address on and uvicorn trusts only that."""
+    return request.client.host if request.client else ""
+
+
+def signup_guard_fields(t: dict, stamp: str) -> str:
+    """What every sign-up form carries: when it was handed out, and a field only a program would fill in."""
+    return (f'<input type="hidden" name="stamp" value="{html.escape(stamp)}"><div class="leave" aria-hidden="true">'
+            f'<label for="homepage">{t["leave_empty"]}</label><input id="homepage" name="homepage" type="text" '
+            'tabindex="-1" autocomplete="off"></div>')
+
+
+def _form(t: dict, request_token: str, mode: str, who: str, name: str = "", error: str = "", status: int = 200,
+          stamp: str = ""):
     e = html.escape
     fields = []
     for field in _FORMS[mode]:
@@ -711,7 +781,8 @@ def _form(t: dict, request_token: str, mode: str, who: str, name: str = "", erro
              "signup": [("signin", "to_signin")], "recover": [("signin", "to_signin")]}[mode]
     body = (f'<p class="note">{t["asking"].format(who=e(who))}</p>'
             f'<form method="post" action="/login"><input type="hidden" name="r" value="{r}">'
-            f'<input type="hidden" name="action" value="{mode}">{"".join(fields)}'
+            f'<input type="hidden" name="action" value="{mode}">'
+            f'{signup_guard_fields(t, stamp) if mode == "signup" else ""}{"".join(fields)}'
             + (f'<p class="error" role="alert">{e(error)}</p>' if error else "")
             + f'<button type="submit">{t["go_" + mode]}</button></form>'
             f'<div class="links">' + "".join(f'<a href="/login?r={r}&amp;m={m}">{t[k]}</a>' for m, k in links)

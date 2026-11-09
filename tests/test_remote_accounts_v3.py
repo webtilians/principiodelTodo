@@ -23,9 +23,10 @@ PASSWORD = "mi casa tiene un limonero"
 
 
 @pytest.fixture
-def server(tmp_path):
+def server(tmp_path, monkeypatch):
     from src.infinito3.remote import build_app
 
+    monkeypatch.setattr("src.infinito3.remote_accounts.SIGNUP_MIN_SECONDS", 0)  # these tests fill forms in at once
     with socket.socket() as probe:
         probe.bind(("127.0.0.1", 0))
         port = probe.getsockname()[1]
@@ -66,7 +67,11 @@ def sign_in_page(base, authorize_url, *, mode, name, password=PASSWORD, extra=No
         request = parse_qs(urlparse(login).query)["r"][0]
         page = browser.get(login, headers={"accept-language": "es-ES"})
         assert page.status_code == 200 and "Prueba" in page.text  # the page says which app asks
-        form = {"r": request, "action": mode, "name": name, "password": password, "repeat": password, **(extra or {})}
+        form = {"r": request, "action": mode, "name": name, "password": password, "repeat": password}
+        if mode == "signup":
+            creating = browser.get(f"{login}&m=signup", headers={"accept-language": "es-ES"})
+            form["stamp"] = re.search(r'name="stamp" value="([^"]+)"', creating.text).group(1)
+        form.update(extra or {})
         answer = browser.post(f"{base}/login", data=form, headers={"accept-language": "es-ES"})
         recovery = None
         if answer.status_code == 200 and "class=\"code\"" in answer.text:  # a new memory: its recovery code first
@@ -490,3 +495,29 @@ def test_an_app_saves_a_whole_meeting_and_asks_about_one_client(server):
     assert "statement" in str(schema) and "kind" in str(schema)  # the app is told what each item takes
     on_disk = b"".join(p.read_bytes() for p in folder.rglob("*") if p.is_file())
     assert "fotógrafo".encode() not in on_disk and b"presupuesto" not in on_disk  # sealed, like everything else
+
+
+def authorize_link(base):
+    """Where an app would send a person to sign in, for the tests that do not get as far as being let in."""
+    client = httpx2.post(f"{base}/register", json={"client_name": "Prueba", "redirect_uris": ["http://localhost:3030/callback"],
+                                                   "token_endpoint_auth_method": "none"}).json()
+    return httpx2.URL(f"{base}/authorize", params={
+        "response_type": "code", "client_id": client["client_id"], "redirect_uri": "http://localhost:3030/callback",
+        "code_challenge": "a" * 43, "code_challenge_method": "S256", "state": "x", "scope": "memory"})
+
+
+def test_a_program_gets_no_memory_through_the_page_an_app_sends_people_to(server):
+    base, _, folder = server
+    for extra in ({"homepage": "http://spam.example"}, {"stamp": ""}, {"stamp": "123.forged"}):
+        answer, recovery = sign_in_page(base, authorize_link(base), mode="signup", name="robot", extra=extra)
+        assert answer.status_code == 400 and recovery is None and 'name="stamp"' in answer.text
+    accounts = folder / "accounts.json"
+    assert not accounts.exists() or "robot" not in accounts.read_text()
+
+
+def test_the_page_an_app_sends_people_to_also_limits_new_memories(server, monkeypatch):
+    base, _, _ = server
+    monkeypatch.setattr("src.infinito3.remote_accounts.SIGNUPS_PER_ADDRESS", 1)
+    app_session(base, [("list_memories", {})], mode="signup", name="una")
+    answer, recovery = sign_in_page(base, authorize_link(base), mode="signup", name="otra")
+    assert answer.status_code == 429 and recovery is None and "minutos" in answer.text
