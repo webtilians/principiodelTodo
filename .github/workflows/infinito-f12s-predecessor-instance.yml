@@ -1,0 +1,77 @@
+name: INFINITO F12-S predecessor by instance factorial
+on:
+  push:
+    branches: [experiment/f12s-last-prompt-x-instance-20261109]
+    paths:
+      - observatory/f12s_predecessor_instance_factorial.py
+      - tests/test_f12s_predecessor_instance_factorial.py
+      - .github/workflows/infinito-f12s-predecessor-instance.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  contracts:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify original 12-call history, Latin square and fake-only safety
+        env:
+          PYTHONHASHSEED: '0'
+          OMP_NUM_THREADS: '4'
+        run: python -m unittest tests.test_f12s_predecessor_instance_factorial -v
+  qwen7b-factorial:
+    needs: contracts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        worker: [0, 1, 2, 3]
+    env:
+      PYTHONHASHSEED: '0'
+      HF_HUB_DISABLE_TELEMETRY: '1'
+      OMP_NUM_THREADS: '4'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install locked Qwen2.5-7B CPU backend
+        run: |
+          python -m pip install --only-binary llama-cpp-python --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu llama-cpp-python==0.3.36 huggingface_hub==0.29.3
+      - name: Evaluate four independent OS child cells with frozen 12-call history
+        run: python -m observatory.f12s_predecessor_instance_factorial --worker ${{ matrix.worker }} --out f12s_cells
+      - name: Preserve every inference, model provenance and cache-state proxy
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: f12s-worker-${{ matrix.worker }}
+          path: f12s_cells/
+          if-no-files-found: warn
+          retention-days: 45
+  aggregate:
+    needs: qwen7b-factorial
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: f12s-worker-*
+          merge-multiple: true
+          path: f12s_workers
+      - name: Audit 16 targets, 224 real model calls and preregistered S0-S5
+        run: python -m observatory.f12s_predecessor_instance_factorial --aggregate-dir f12s_workers --out f12s_aggregate
+      - name: Archive full audit and four-cell interaction decision
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: f12s-predecessor-instance-final
+          path: f12s_aggregate/
+          if-no-files-found: warn
+          retention-days: 45
