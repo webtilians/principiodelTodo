@@ -1,0 +1,72 @@
+name: INFINITO F12-N evidence-updated public cursor
+on:
+  push:
+    branches: [experiment/f12n-evidence-updated-cursor-20261109]
+    paths:
+      - observatory/f12n_public_error_cursor.py
+      - tests/test_f12n_public_error_cursor.py
+      - .github/workflows/infinito-f12n-public-error-cursor.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  contracts:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify preregistered 24-world split, public evidence and fake-only engineering contracts
+        run: python -m unittest tests.test_f12n_public_error_cursor -v
+  frozen-qwen7b-shards:
+    needs: contracts
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
+    timeout-minutes: 120
+    env:
+      PYTHONHASHSEED: '0'
+      HF_HUB_DISABLE_TELEMETRY: '1'
+      OMP_NUM_THREADS: '4'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install locked CPU inference backend
+        run: |
+          python -m pip install --only-binary llama-cpp-python --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu llama-cpp-python==0.3.36 huggingface_hub==0.29.3
+      - name: Execute preregistered 72 episodes per shard with frozen Qwen 7B
+        run: python -m observatory.f12n_public_error_cursor --shard ${{ matrix.shard }} --out f12n_parts
+      - name: Upload all public feedback, prompts, decisions and frozen model metadata
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: f12n-shard-${{ matrix.shard }}
+          path: f12n_parts/
+          if-no-files-found: warn
+          retention-days: 45
+  aggregate:
+    needs: frozen-qwen7b-shards
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: f12n-shard-*
+          merge-multiple: true
+          path: f12n_parts
+      - name: Audit all 288 trials and immutable N0-N6 scientific gates
+        run: python -m observatory.f12n_public_error_cursor --aggregate-dir f12n_parts --out f12n_aggregate
+      - name: Publish four-shard full audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: f12n-frozen7b-public-error-cursor-results
+          path: f12n_aggregate/
+          retention-days: 45
