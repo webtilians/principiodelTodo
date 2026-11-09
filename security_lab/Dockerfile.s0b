@@ -1,0 +1,10 @@
+# S0-B: build public dependencies, then RUN offline without any external network.
+FROM python:3.11-slim
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1
+WORKDIR /app
+RUN python -m pip install --no-cache-dir pytest "mcp>=2,<3" "cryptography>=42" "pykeepass>=4.1,<5"
+COPY src/ /app/src/
+COPY security_lab/ /app/security_lab/
+COPY tests/ /app/tests/
+USER 10001:10001
+ENTRYPOINT ["python", "-m", "pytest", "-p", "no:cacheprovider", "-q", "tests/test_security_lab_s0b.py"]
