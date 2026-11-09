@@ -1,0 +1,45 @@
+name: INFINITO Security S0-G independent audit readiness (NO DEPLOY)
+
+on:
+  push:
+    branches: ["experiment/security-s0g-independent-review-readiness-20261109"]
+    paths:
+      - "tests/test_security_lab_s0g_review.py"
+      - "docs/INFINITO_SECURITY_S0G_*"
+      - ".github/workflows/infinito-security-s0g-review.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: s0g-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  adversarial_review:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Python syntax checks
+        run: python -m compileall -q src/infinito3/remote_provenance.py src/infinito3/remote.py tests/test_security_lab_s0g_review.py
+      - name: Build frozen S0-F source with external network unavailable
+        run: docker build -f security_lab/Dockerfile.s0b -t infinito-security-s0g .
+      - name: Execute review checks and existing S0-F OAuth isolation tests
+        run: |
+          docker run --rm \
+            --network none --read-only --cap-drop ALL \
+            --security-opt no-new-privileges \
+            --pids-limit 128 --memory 1400m --cpus 2 \
+            --tmpfs /tmp:rw,nosuid,size=256m,mode=1777 \
+            -e HOME=/tmp \
+            --entrypoint python infinito-security-s0g -m pytest -p no:cacheprovider -q -rx \
+            tests/test_security_lab_s0g_review.py \
+            tests/test_security_lab_s0f.py \
+            tests/test_remote_accounts_v3.py
+      - name: Production remains blocked independent of test outcome
+        run: |
+          echo 'AUDIT REQUIRED: this job only collects review evidence.'
+          echo 'Known missing capabilities marked XFAIL; no independent security reviewer approved PR #147.'
+          echo 'See issue #149. NO DEPLOY, NO MERGE.'
