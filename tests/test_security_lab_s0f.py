@@ -167,7 +167,7 @@ def test_k00_to_k15_independent_real_oauth_mcp_cases(oauth_clone, case_id):
         assert all(r["record_owner"] == "s0fguest" for r in records)
         assert any("record_owner=s0fowner" in r["content"] for r in records)
     elif case_id == 13:
-        import httpx
+        import httpx2 as httpx
         response = httpx.post(ctx["base"] + "/mcp", json={})
         assert response.status_code == 401
         doc, nonce, query = _signed(ctx, "s0fguest", case_id)
