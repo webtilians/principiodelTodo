@@ -25,7 +25,8 @@ from urllib.parse import urlencode
 from . import (remote_apps, remote_guidelines, remote_photos, remote_portal, remote_reflections, remote_shares,
                remote_tasks, remote_vault)
 from .mcp_server import BY_THE_USER, KINDS, OPEN_KINDS, OVERVIEW_OPEN_ITEMS, STALE_DAYS, AgentMemory, _day
-from .remote_accounts import _HEADERS, MIN_PASSWORD, NAME, _STYLE as _BASE_STYLE, _page, _texts
+from .remote_accounts import (_HEADERS, MIN_PASSWORD, NAME, _STYLE as _BASE_STYLE, _page, _texts, client_address,
+                              signup_guard_fields)
 from .types import MemoryRecord
 
 SESSION = "memory-session"
@@ -412,10 +413,11 @@ def sign_in_body(t: dict, token: str, *, name: str = "", error: str = "") -> str
             + f'<button type="submit">{t["go_in"]}</button></form>{first_time}')
 
 
-def signup_body(t: dict, *, name: str = "", error: str = "") -> str:
+def signup_body(t: dict, stamp: str, *, name: str = "", error: str = "") -> str:
     """Anyone can create a memory here: a name and a password, with no invitation and no app to come from."""
     e = html.escape
     return (f'<p class="note">{t["signup_note"]}</p><form method="post" action="/memory">' + _hidden(action="signup")
+            + signup_guard_fields(t, stamp)
             + f'<label for="name">{t["name"]}</label><input id="name" name="name" type="text" value="{e(name)}" '
               'autocomplete="username" autocapitalize="none" spellcheck="false" required>'
               f'<p class="hint">{t["name_hint"]}</p>'
@@ -737,7 +739,7 @@ def routes(accounts, grants, memories, limiter, secure: bool, issuer: str = "") 
         return view(t, t["title"], sign_in_body(t, token, name=name, error=error), status)
 
     def signup_page(t: dict, *, name: str = "", error: str = "", status: int = 200):
-        return view(t, t["signup"], signup_body(t, name=name, error=error), status)
+        return view(t, t["signup"], signup_body(t, accounts.form_stamp(), name=name, error=error), status)
 
     async def on_shelf(session: dict, action):
         """The person's side of sharing (remote_shares.py), opened with their memory's key."""
@@ -809,12 +811,17 @@ def routes(accounts, grants, memories, limiter, secure: bool, issuer: str = "") 
         return grants.issue(SESSION, client_id="", seconds=SESSION_SECONDS, account=name, key=key,
                             data={"csrf": secrets.token_urlsafe(24)}), code
 
-    async def web_signup(t: dict, form):
+    async def web_signup(t: dict, request, form):
         """Whoever wants one creates a memory here, with no invitation and without coming from an app."""
         name, password = str(form.get("name", "")).strip().lower(), str(form.get("password", ""))
+        if accounts.signup_looks_automatic(form):
+            return signup_page(t, name=name, error=t["too_fast"], status=400)
         wrong = signup_problem(t, name, password, str(form.get("repeat", "")))
         if wrong:
             return signup_page(t, name=name, error=wrong, status=400)
+        wait = accounts.signup_wait(client_address(request))
+        if wait:
+            return signup_page(t, name=name, error=t["signups_busy"].format(n=wait // 60 + 1), status=429)
         session, code = await new_memory(name, password)
         response = view(t, t["code_title"], signup_done_body(t, code))
         set_session_cookie(response, session, secure=secure)
@@ -1052,7 +1059,7 @@ def routes(accounts, grants, memories, limiter, secure: bool, issuer: str = "") 
         if action == "invite_signup":
             return await invite_signup(t, request, form)
         if action == "signup":
-            return await web_signup(t, form)
+            return await web_signup(t, request, form)
         session = signed_in(request)
         if session is None:
             if form.get("invite"):

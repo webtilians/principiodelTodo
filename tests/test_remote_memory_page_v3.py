@@ -23,6 +23,10 @@ def enter(client, base, name, *, password=PASSWORD, link=""):
     return client.get(f"{base}/memory", params={"view": "memories"}) if 'class="dash"' in answer.text and not link else answer
 
 
+def stamp_on_the_form(base):
+    return re.search(r'name="stamp" value="([^"]+)"', httpx2.get(f"{base}/memory", params={"new": "1"}).text).group(1)
+
+
 def csrf_of(page):
     return re.search(r'name="csrf" value="([^"]+)"', page.text).group(1)
 
@@ -546,7 +550,8 @@ def test_whoever_wants_creates_a_memory_on_the_page_with_no_invitation_and_no_ap
 
     def create(client, name, password=PASSWORD, repeat=None):
         return client.post(f"{base}/memory", data={"action": "signup", "name": name, "password": password,
-                                                   "repeat": password if repeat is None else repeat})
+                                                   "repeat": password if repeat is None else repeat,
+                                                   "stamp": stamp_on_the_form(base)})
 
     with browser() as client:
         entry = client.get(f"{base}/memory")
@@ -582,3 +587,54 @@ def test_a_link_to_confirm_something_does_not_offer_to_create_a_memory(server): 
     listed = memory_of(base, "lucas", ["Mi taller se llama Motos Vega."])
     (answer,), _, _ = app_session(base, [("memory_page", {"memory_ids": ids_in(listed)})], name="lucas")
     assert "/memory?new=1" not in httpx2.get(link_in(answer).group(0), headers=SPANISH).text
+
+
+def try_to_sign_up(base, name, **fields):
+    form = {"action": "signup", "name": name, "password": PASSWORD, "repeat": PASSWORD, **fields}
+    return httpx2.post(f"{base}/memory", data=form, headers=SPANISH)
+
+
+def test_what_a_program_sends_creates_no_memory_and_a_person_is_only_asked_to_retry(server, monkeypatch):  # noqa: F811
+    base, _, folder = server
+    good = stamp_on_the_form(base)
+    for fields in ({"stamp": good, "homepage": "http://spam.example"}, {}, {"stamp": "123.forged"}, {"stamp": "no"}):
+        refused = try_to_sign_up(base, "robot", **fields)
+        assert refused.status_code == 400 and 'class="code"' not in refused.text
+        assert "Espera unos segundos" in refused.text and 'name="stamp"' in refused.text  # a fresh form to try again
+
+    monkeypatch.setattr("src.infinito3.remote_accounts.SIGNUP_MIN_SECONDS", 60)
+    assert try_to_sign_up(base, "robot", stamp=stamp_on_the_form(base)).status_code == 400  # at once: no person is so fast
+    monkeypatch.setattr("src.infinito3.remote_accounts.SIGNUP_MAX_SECONDS", -1)
+    monkeypatch.setattr("src.infinito3.remote_accounts.SIGNUP_MIN_SECONDS", -60)
+    assert try_to_sign_up(base, "robot", stamp=stamp_on_the_form(base)).status_code == 400  # a form kept for too long
+    accounts = folder / "accounts.json"
+    assert not accounts.exists() or "robot" not in accounts.read_text()
+
+
+def test_the_field_only_a_program_fills_in_is_out_of_a_persons_way(server):  # noqa: F811
+    base, _, _ = server
+    form = httpx2.get(f"{base}/memory", params={"new": "1"}, headers=SPANISH).text
+    assert '<div class="leave" aria-hidden="true">' in form and 'name="homepage"' in form and 'tabindex="-1"' in form
+    assert ".leave { position: absolute; left: -9999px; }" in form
+
+
+def test_new_memories_are_limited_by_address_and_in_all_and_failed_tries_do_not_count(server, monkeypatch):  # noqa: F811
+    base, _, folder = server
+    monkeypatch.setattr("src.infinito3.remote_accounts.SIGNUPS_PER_ADDRESS", 2)
+    monkeypatch.setattr("src.infinito3.remote_accounts.SIGNUPS_IN_ALL", 3)
+
+    def create(name, address, **fields):
+        form = {"action": "signup", "name": name, "password": PASSWORD, "repeat": PASSWORD,
+                "stamp": stamp_on_the_form(base), **fields}
+        return httpx2.post(f"{base}/memory", data=form, headers={**SPANISH, "x-forwarded-for": address})
+
+    assert create("nueva-a", "203.0.113.7", repeat="otra-frase-distinta").status_code == 400  # a mistake is not a memory
+    assert create("nueva-a", "203.0.113.7").status_code == 200
+    assert create("nueva-b", "203.0.113.7").status_code == 200
+    third = create("nueva-c", "203.0.113.7")
+    assert third.status_code == 429 and "Vuelve a probar dentro de 60 minutos" in third.text and 'class="code"' not in third.text
+    assert create("nueva-d", "198.51.100.9").status_code == 200  # someone else, somewhere else
+    assert create("nueva-e", "192.0.2.44").status_code == 429  # and now the whole server has had enough for this hour
+    accounts = (folder / "accounts.json").read_text()
+    assert "nueva-c" not in accounts and "nueva-e" not in accounts
+    assert "203.0.113.7" not in accounts and "198.51.100.9" not in accounts  # an address never reaches the disk
