@@ -35,6 +35,12 @@ TEXT = {
                    "¡La presentación de esta semana! Enhorabuena, sabía que te tenía de los nervios.")],
         "scene_end": "Tres IAs distintas. Y ni una sola vez has tenido que explicárselo.",
         "fresh_title": "Lo que acaba de llegar",
+        "voice_title": "Háblale. También te recuerda",
+        "voice": "Tu memoria no se queda en el teclado. En el chat de voz, tu IA consulta lo que sabe de ti y guarda lo que le "
+                 "cuentas, igual que por escrito. Ya funciona en ChatGPT, y sirve en cualquier IA cuyo modo de voz pueda usar "
+                 "sus conectores. Lo que hablas caminando lo tienes luego escrito en todas las demás.",
+        "voice_say": "Oye, ¿qué era lo que tenía el viernes?",
+        "voice_hear": "La presentación a tu jefa. ¿La repasamos?",
         "photos_title": "Tus fotos también se recuerdan", "photos_mark": "Por invitación",
         "photos": "El cartel de aquel refugio, un pantallazo, la factura que no quieres perder. Adjúntala en ChatGPT y dile que "
                   'la guarde, o súbela a <a href="/memory">tu portal</a>. Queda sellada como todo lo demás, cualquiera de tus IAs '
@@ -187,6 +193,12 @@ TEXT = {
                    "This week's presentation! Congratulations, I knew it had you on edge.")],
         "scene_end": "Three different AIs. And not once did you have to explain.",
         "fresh_title": "Just arrived",
+        "voice_title": "Talk to it. It remembers you there too",
+        "voice": "Your memory is not stuck at the keyboard. In voice chat, your AI looks up what it knows about you and saves what "
+                 "you tell it, just as in writing. It already works in ChatGPT, and it serves any AI whose voice mode can use its "
+                 "connectors. What you say on a walk is later written down in all the others.",
+        "voice_say": "Hey, what was it I had on Friday?",
+        "voice_hear": "The presentation to your boss. Shall we go over it?",
         "photos_title": "Your photos are remembered too", "photos_mark": "By invitation",
         "photos": "The sign at that refuge, a screenshot, the invoice you don't want to lose. Attach it in ChatGPT and tell it to "
                   'save it, or upload it to <a href="/memory">your portal</a>. It is sealed like everything else, any of your AIs '
@@ -352,6 +364,13 @@ _PHOTO = ('<svg viewBox="0 0 320 215" aria-hidden="true"><defs><linearGradient i
           '</linearGradient></defs><rect width="320" height="215" fill="url(#dusk)"/><circle cx="232" cy="95" r="18" fill="#fff3d6"/>'
           '<path fill="#2b2f4e" d="M0 175 60 82l45 58 55-80 65 90 45-45 50 65v45H0Z"/><path fill="#f4f6ff" d="m160 60-12.500 18 10-3 7.500 7.500 8.750-3Z"/>'
           '<rect y="190" width="320" height="25" fill="#14172e"/></svg>')
+# A voice, drawn here as sound bars.
+_VOICE = ('<svg viewBox="0 0 320 110" aria-hidden="true"><defs><linearGradient id="talk" gradientUnits="userSpaceOnUse" x1="0" x2="320" y1="0" y2="0">'
+          '<stop offset="0" stop-color="#67e8f9"/><stop offset=".55" stop-color="#a78bfa"/><stop offset="1" stop-color="#f0abfc"/>'
+          '</linearGradient></defs><rect width="320" height="110" fill="#10183a"/><g fill="url(#talk)">'
+          + "".join(f'<rect x="{10 + n * 20}" y="{55 - h}" width="10" height="{2 * h}" rx="5"/>'
+                    for n, h in enumerate((8, 16, 28, 40, 24, 12, 32, 44, 30, 18, 36, 22, 10, 26, 14, 6)))
+          + '</g></svg>')
 
 STYLE = """
 html { scroll-behavior: smooth; }
@@ -550,6 +569,8 @@ def home_page(lang: str, address: str, base_style: str, headers: dict):
     apps = "".join(f'<div class="app">{name}{badge(mark)}</div>' for name, mark in APPS)
     days = "".join(f'<article class="day rise"><header><span>{e(when)}</span><b>{e(app)}</b></header><div class="say">{e(said)}</div>'
                    f'<div class="hear">{e(heard)}</div></article>' for when, app, said, heard in t["scene"])
+    voice = (f'<article class="card2 wide rise"><div><h3>{t["voice_title"]}<i>{t["new"]}</i></h3><p>{t["voice"]}</p></div>'
+             f'<div class="keep">{_VOICE}<div class="say">{t["voice_say"]}</div><div class="hear">{t["voice_hear"]}</div></div></article>')
     photos = (f'<article class="card2 wide rise"><div><h3>{t["photos_title"]}<i>{t["photos_mark"]}</i></h3><p>{t["photos"]}</p></div>'
               f'<div class="keep">{_PHOTO}<div class="say">{t["photos_say"]}</div><div class="hear">{t["photos_hear"]}</div></div></article>')
     fresh = "".join(f'<article class="card2 rise"><h3>{title}</h3><p>{text}</p></article>' for title, text in t["fresh"])
@@ -572,7 +593,7 @@ def home_page(lang: str, address: str, base_style: str, headers: dict):
         f'<section><div class="wrap"><h2>{t["apps_title"]}</h2><div class="apps">{apps}</div><p class="apps-more">{t["apps_more"]}</p></div></section>'
         f'<section id="feel"><div class="wrap"><h2>{t["scene_title"]}</h2><span class="tag">{t["scene_tag"]}</span>'
         f'<div class="scene">{days}</div><p class="scene-end">{t["scene_end"]}</p></div></section>'
-        f'<section><div class="wrap"><h2>{t["fresh_title"]}</h2><div class="cards">{photos}{fresh}</div></div></section>'
+        f'<section><div class="wrap"><h2>{t["fresh_title"]}</h2><div class="cards">{voice}{photos}{fresh}</div></div></section>'
         f'<section><div class="wrap"><h2>{t["yours_title"]}</h2><div class="cards">{yours}</div></div></section>'
         f'<section><div class="wrap"><h2>{t["proof_title"]}</h2><p class="sub">{t["proof_lead"]}</p><div class="scores rise">{scores}</div>'
         f'<p class="fine">{t["proof_note"]}</p><div class="figures">{figures}</div></div></section>'
