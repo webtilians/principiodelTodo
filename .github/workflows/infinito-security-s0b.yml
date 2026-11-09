@@ -1,0 +1,39 @@
+name: INFINITO Security S0-B real MCP clone
+
+on:
+  push:
+    branches: ["feat/security-s0b-mcp-agent-20261109"]
+  pull_request:
+    branches: ["master", "feat/security-s0-isolated-lab-20261109"]
+    paths:
+      - "security_lab/**"
+      - "tests/test_security_lab_s0b.py"
+      - "docs/INFINITO_SECURITY_S0B_PROTOCOL_2026-11-09.md"
+      - ".github/workflows/infinito-security-s0b.yml"
+      - "src/infinito3/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  s0b:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Static Python syntax check
+        run: python -m compileall -q security_lab tests/test_security_lab_s0b.py
+      - name: Build the synthetic S0-B clone
+        run: docker build -f security_lab/Dockerfile.s0b -t infinito-security-s0b .
+      - name: Execute OAuth/MCP and vault probes without external network
+        run: |
+          docker run --rm \
+            --network none --read-only --cap-drop ALL \
+            --security-opt no-new-privileges \
+            --pids-limit 128 --memory 1024m --cpus 2 \
+            --tmpfs /tmp:rw,nosuid,size=128m,mode=1777 \
+            infinito-security-s0b
