@@ -73,7 +73,7 @@ class F12RContracts(unittest.TestCase):
         with patch.dict(os.environ,{"PYTHONHASHSEED":"0","OMP_NUM_THREADS":"4"}):
             reused=study.run_cell(4,0,FakeFrozen)
             reloaded=study.run_cell(5,0,FakeFrozen)
-        self.assertEqual(reused["prior_schedule"],study.NORMAL*2+("O21-disabled",))
+        self.assertEqual(reused["prior_schedule"],list(study.NORMAL*2+("O21-disabled",)))
         self.assertEqual(reloaded["prior_schedule"],reused["prior_schedule"])
         self.assertEqual(reused["model_instance_init_count"],1)
         self.assertEqual(reloaded["model_instance_init_count"],2)
