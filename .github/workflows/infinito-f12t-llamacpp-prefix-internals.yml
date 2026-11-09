@@ -1,0 +1,77 @@
+name: INFINITO F12-T llama.cpp prefix reuse internals
+on:
+  push:
+    branches: [experiment/f12t-llamacpp-prefix-context-mechanism-20261109]
+    paths:
+      - observatory/f12t_llamacpp_prefix_internals.py
+      - tests/test_f12t_llamacpp_prefix_internals.py
+      - .github/workflows/infinito-f12t-llamacpp-prefix-internals.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  contracts:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Check frozen prompts, spy/noop, prefix-block fallback, reset and fake-only gates
+        env:
+          PYTHONHASHSEED: '0'
+          OMP_NUM_THREADS: '4'
+        run: python -m unittest tests.test_f12t_llamacpp_prefix_internals -v
+  frozen-qwen7b-mechanism:
+    needs: contracts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    strategy:
+      fail-fast: false
+      matrix:
+        worker: [0, 1, 2]
+    env:
+      PYTHONHASHSEED: '0'
+      HF_HUB_DISABLE_TELEMETRY: '1'
+      OMP_NUM_THREADS: '4'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install pinned llama-cpp-python CPU backend
+        run: |
+          python -m pip install --only-binary llama-cpp-python --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu llama-cpp-python==0.3.36 huggingface_hub==0.29.3
+      - name: Run ten isolated child-process controls on consumed O21 prompts
+        run: python -m observatory.f12t_llamacpp_prefix_internals --worker ${{ matrix.worker }} --out f12t_cells
+      - name: Upload per-call raw, exact prefix interception and source checksums
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: f12t-worker-${{ matrix.worker }}
+          path: f12t_cells/
+          if-no-files-found: warn
+          retention-days: 45
+  aggregate:
+    needs: frozen-qwen7b-mechanism
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: f12t-worker-*
+          merge-multiple: true
+          path: f12t_workers
+      - name: Audit 420 inferences and frozen T0-T5 mechanism gates
+        run: python -m observatory.f12t_llamacpp_prefix_internals --aggregate-dir f12t_workers --out f12t_aggregate
+      - name: Preserve full status and source-level intervention evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: f12t-llamacpp-prefix-final
+          path: f12t_aggregate/
+          if-no-files-found: warn
+          retention-days: 45
