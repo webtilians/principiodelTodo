@@ -1,0 +1,77 @@
+name: INFINITO F12-R exact O21 second-position warm-history replication
+on:
+  push:
+    branches: [experiment/f12r-p2-warm-history-replication-20261109]
+    paths:
+      - observatory/f12r_o21_position2_reproduction.py
+      - tests/test_f12r_o21_position2_reproduction.py
+      - .github/workflows/infinito-f12r-o21-position2-reproduction.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  contracts:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Check frozen O21 SHA, exact twelve-call warmup and 264 fake-only audit
+        env:
+          PYTHONHASHSEED: '0'
+          OMP_NUM_THREADS: '4'
+        run: python -m unittest tests.test_f12r_o21_position2_reproduction -v
+  frozen-qwen7b-cells:
+    needs: contracts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    strategy:
+      fail-fast: false
+      matrix:
+        worker: [0, 1]
+    env:
+      PYTHONHASHSEED: '0'
+      HF_HUB_DISABLE_TELEMETRY: '1'
+      OMP_NUM_THREADS: '4'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install pinned Qwen2.5-7B llama-cpp-python CPU runtime
+        run: |
+          python -m pip install --only-binary llama-cpp-python --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu llama-cpp-python==0.3.36 huggingface_hub==0.29.3
+      - name: Execute twelve child-process cells, with original P warmup or controlled alternatives
+        run: python -m observatory.f12r_o21_position2_reproduction --worker ${{ matrix.worker }} --out f12r_cells
+      - name: Preserve full raw events per cell, model metadata and instance-cache state
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: f12r-worker-${{ matrix.worker }}
+          path: f12r_cells/
+          if-no-files-found: warn
+          retention-days: 45
+  aggregate:
+    needs: frozen-qwen7b-cells
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: f12r-worker-*
+          merge-multiple: true
+          path: f12r_workers
+      - name: Apply prospectively frozen R0-R5 gates to all 264 inference events
+        run: python -m observatory.f12r_o21_position2_reproduction --aggregate-dir f12r_workers --out f12r_aggregate
+      - name: Archive scientific audit including all 24 O21 outputs and controls
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: f12r-original-o21-reproduction-final
+          path: f12r_aggregate/
+          if-no-files-found: warn
+          retention-days: 45
