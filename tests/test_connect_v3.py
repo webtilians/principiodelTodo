@@ -64,6 +64,16 @@ def test_the_front_page_is_the_one_guide_with_every_app_and_a_copy_button_for_ea
     assert "pautas" in t["chatgpt_text"] or "guidelines" in t["chatgpt_text"]
 
 
+@pytest.mark.parametrize("lang", ["es", "en"])
+def test_the_security_research_comes_near_the_end_and_says_it_is_only_research(lang):
+    page = home_page(lang, ADDRESS, "", {}).body.decode()
+    t = TEXT[lang]
+    assert page.index(t["proof_title"]) < page.index(t["research_title"]) < page.index('class="slogan"') < page.index('id="connect"')
+    assert t["research_mark"] in page and t["research"] in page
+    assert ("nunca el original" if lang == "es" else "never the original") in t["research"]
+    assert ("Aún es investigación" if lang == "es" else "still research") in t["research"]
+
+
 def test_a_hooks_answer_fits_and_every_line_stays():
     lines = [f"[{n}] (2026-11-07) \"{'palabra ' * 120}\"" for n in range(30)]
     fitted = remote_client.fit("\n".join(lines), 9000)

@@ -74,6 +74,11 @@ TEXT = {
                   "juntos, que mejora cada día sus capacidades cognitivas: aprender de la experiencia, comprobar lo que cree "
                   "saber, decidir qué merece recordarse. Cada experimento se fija antes de ver los datos. Y lo que funciona, "
                   "acaba en tu memoria.",
+        "research_title": "Nueva línea de investigación: seguridad con agentes", "research_mark": "En investigación",
+        "research": "Estamos desarrollando una nueva rama de INFINITO: agentes de IA que ponen a prueba la seguridad de un "
+                    "sistema atacando una copia aislada, nunca el original, y aprenden de lo que encuentran. Hemos empezado "
+                    "por proteger el propio INFINITO, con clones y datos inventados. Aún es investigación: lo ofreceremos "
+                    "cuando esté medido y funcione.",
         "slogan": "Esto es solo el principio de tu agente definitivo.",
         "connect_title": "Conéctala en dos minutos",
         "connect_lead": "Elige tu IA: en muchas basta un botón. La dirección es la misma para todas, por si te la piden.",
@@ -231,6 +236,10 @@ TEXT = {
         "future": "Behind INFINITO is a development team in constant evolution, people and AI agents working together, improving "
                   "its cognitive abilities every day: learning from experience, checking what it thinks it knows, deciding what "
                   "deserves remembering. Every experiment is fixed before seeing the data. And what works ends up in your memory.",
+        "research_title": "A new line of research: security with agents", "research_mark": "In research",
+        "research": "We are developing a new branch of INFINITO: AI agents that test a system's security by attacking an isolated "
+                    "copy, never the original, and learn from what they find. We started by protecting INFINITO itself, on "
+                    "clones with made-up data. It is still research: we will offer it once it is measured and works.",
         "slogan": "This is only the beginning of your ultimate agent.",
         "connect_title": "Connect it in two minutes",
         "connect_lead": "Pick your AI: in many, one button is enough. The address is the same for all of them, in case you are asked for it.",
@@ -471,6 +480,11 @@ h2 { margin: 0 0 .7rem; font-size: clamp(1.9rem, 3.4vw, 2.85rem); font-weight: 8
 .figure span { color: var(--soft); font-size: .95rem; }
 .future { padding: 4.5rem 0; text-align: center; background: radial-gradient(50rem 22rem at 50% 50%, rgba(124, 58, 237, .32), transparent 75%); }
 .future p { margin: 0 auto 1.8rem; max-width: 44rem; font-size: 1.15rem; line-height: 1.6; color: #d4ddf6; }
+.future .research { max-width: 44rem; margin: 0 auto 2.4rem; text-align: left; }
+.future .research h3 { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; }
+.future .research h3 i { padding: .05rem .55rem; font-size: .7rem; font-style: normal; font-weight: 800; letter-spacing: .05em; color: #071022; text-transform: uppercase;
+  background: #fbbf24; border-radius: 99rem; box-shadow: 0 0 .8rem rgba(251, 191, 36, .7); }
+.future .research p { margin: 0; font-size: 1.05rem; }
 .slogan { display: block; margin: 0 auto 2rem; max-width: 56rem; font-size: clamp(2.1rem, 4.6vw, 3.9rem); font-weight: 800; line-height: 1.1; letter-spacing: -.015em; color: transparent;
   background: linear-gradient(90deg, #67e8f9, #a78bfa 55%, #f0abfc); -webkit-background-clip: text; background-clip: text; }
 .address { display: flex; gap: .5rem; max-width: 42rem; margin: .4rem auto 1.8rem; }
@@ -597,7 +611,9 @@ def home_page(lang: str, address: str, base_style: str, headers: dict):
         f'<section><div class="wrap"><h2>{t["yours_title"]}</h2><div class="cards">{yours}</div></div></section>'
         f'<section><div class="wrap"><h2>{t["proof_title"]}</h2><p class="sub">{t["proof_lead"]}</p><div class="scores rise">{scores}</div>'
         f'<p class="fine">{t["proof_note"]}</p><div class="figures">{figures}</div></div></section>'
-        f'<div class="future"><div class="wrap"><h2>{t["future_title"]}</h2><p>{t["future"]}</p><strong class="slogan">{t["slogan"]}</strong>'
+        f'<div class="future"><div class="wrap"><h2>{t["future_title"]}</h2><p>{t["future"]}</p>'
+        f'<article class="card2 research rise"><h3>{t["research_title"]}<i>{t["research_mark"]}</i></h3><p>{t["research"]}</p></article>'
+        f'<strong class="slogan">{t["slogan"]}</strong>'
         f'<a class="go" href="#connect">{t["cta"]}</a></div></div>'
         f'<section id="connect"><div class="wrap"><h2>{t["connect_title"]}</h2><p class="sub">{t["connect_lead"]}</p>'
         f'<label class="center-label" for="address">{t["address"]}</label><div class="address">'
