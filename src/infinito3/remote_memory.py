@@ -66,6 +66,9 @@ TEXT = {
         "sign_in_note": "Escribe tu contraseña para abrirla. Antes, comprueba que esta dirección es la de tu INFINITO.",
         "asked": "Tu IA te pide que confirmes qué borrar. Lo verás aquí antes de que se borre nada.",
         "go_in": "Abrir mi memoria",
+        "signup_note": "Solo necesitas un nombre y una contraseña: sin correo y sin invitación.",
+        "signup_ready": "Tu memoria ya existe y está vacía. El siguiente paso es conectar tu primera IA.",
+        "signup_connect": "Ya lo he guardado, conectar mi primera IA", "signup_open": "Ir a mi memoria",
         "session_over": "Tu sesión ha terminado. Vuelve a entrar.",
         "link_expired_title": "Este enlace ha caducado",
         "link_expired": "Pídele a tu IA uno nuevo, o <a href=\"/memory\">abre tu memoria</a> y hazlo desde ahí.",
@@ -127,6 +130,9 @@ TEXT = {
         "sign_in_note": "Type your password to open it. First, check that this address is your INFINITO's.",
         "asked": "Your AI asks you to confirm what to delete. You will see it here before anything is deleted.",
         "go_in": "Open my memory",
+        "signup_note": "All you need is a name and a password: no email, no invitation.",
+        "signup_ready": "Your memory exists and is empty. The next step is to connect your first AI.",
+        "signup_connect": "I have kept it, connect my first AI", "signup_open": "Go to my memory",
         "session_over": "Your session has ended. Sign in again.",
         "link_expired_title": "This link has expired",
         "link_expired": "Ask your AI for a new one, or <a href=\"/memory\">open your memory</a> and do it from there.",
@@ -395,6 +401,7 @@ def _hidden(**fields: str) -> str:
 def sign_in_body(t: dict, token: str, *, name: str = "", error: str = "") -> str:
     e = html.escape
     asked = f'<p class="note">{t["asked"]}</p>' if token else ""
+    first_time = f'<div class="links"><a href="/memory?new=1">{t["to_signup"]}</a></div>' if not token else ""
     return (f'{asked}<p class="note">{t["sign_in_note"]}</p><form method="post" action="/memory">'
             + _hidden(action="signin", r=token)
             + f'<label for="name">{t["name"]}</label><input id="name" name="name" type="text" value="{e(name)}" '
@@ -402,7 +409,30 @@ def sign_in_body(t: dict, token: str, *, name: str = "", error: str = "") -> str
               f'<label for="password">{t["password"]}</label><input id="password" name="password" type="password" '
               'autocomplete="current-password" required>'
             + (f'<p class="error" role="alert">{e(error)}</p>' if error else "")
-            + f'<button type="submit">{t["go_in"]}</button></form>')
+            + f'<button type="submit">{t["go_in"]}</button></form>{first_time}')
+
+
+def signup_body(t: dict, *, name: str = "", error: str = "") -> str:
+    """Anyone can create a memory here: a name and a password, with no invitation and no app to come from."""
+    e = html.escape
+    return (f'<p class="note">{t["signup_note"]}</p><form method="post" action="/memory">' + _hidden(action="signup")
+            + f'<label for="name">{t["name"]}</label><input id="name" name="name" type="text" value="{e(name)}" '
+              'autocomplete="username" autocapitalize="none" spellcheck="false" required>'
+              f'<p class="hint">{t["name_hint"]}</p>'
+              f'<label for="password">{t["password"]}</label><input id="password" name="password" type="password" '
+              f'autocomplete="new-password" required><p class="hint">{t["password_hint"].format(n=MIN_PASSWORD)}</p>'
+              f'<label for="repeat">{t["repeat"]}</label><input id="repeat" name="repeat" type="password" '
+              'autocomplete="new-password" required>'
+            + (f'<p class="error" role="alert">{e(error)}</p>' if error else "")
+            + f'<button type="submit">{t["go_signup"]}</button></form>'
+              f'<div class="links"><a href="/memory">{t["to_signin"]}</a></div>')
+
+
+def signup_done_body(t: dict, code: str) -> str:
+    """The recovery code, shown once, and then on to a first AI: a memory with nothing connected to it stays empty."""
+    return (f'<p>{t["code_text"]}</p><div class="code">{html.escape(code)}</div><p class="note">{t["signup_ready"]}</p>'
+            f'<form method="get" action="/#connect"><button type="submit">{t["signup_connect"]}</button></form>'
+            f'<div class="links"><a href="/memory">{t["signup_open"]}</a></div>')
 
 
 def photo_form(t: dict, csrf: str) -> str:
@@ -706,6 +736,9 @@ def routes(accounts, grants, memories, limiter, secure: bool, issuer: str = "") 
     def sign_in_page(t: dict, token: str = "", *, name: str = "", error: str = "", status: int = 200):
         return view(t, t["title"], sign_in_body(t, token, name=name, error=error), status)
 
+    def signup_page(t: dict, *, name: str = "", error: str = "", status: int = 200):
+        return view(t, t["signup"], signup_body(t, name=name, error=error), status)
+
     async def on_shelf(session: dict, action):
         """The person's side of sharing (remote_shares.py), opened with their memory's key."""
         shelf = remote_shares.Shelf(accounts, session["account"], session["key"])
@@ -751,20 +784,39 @@ def routes(accounts, grants, memories, limiter, secure: bool, issuer: str = "") 
     async def invite_signup(t: dict, request, form):
         """Someone invited who has no memory yet creates one here, as they would on the page an app sends them to."""
         token, name = str(form.get("invite", "")), str(form.get("name", "")).strip().lower()
-        password, repeat = str(form.get("password", "")), str(form.get("repeat", ""))
+        password = str(form.get("password", ""))
         if grants.find(remote_shares.INVITE, token) is None:
             return invitation_gone(t)
-        wrong = (t["bad_name"] if not NAME.fullmatch(name)
-                 else t["wait"].format(n=accounts.waiting(name)) if accounts.waiting(name)
-                 else t["short"].format(n=MIN_PASSWORD) if len(password) < MIN_PASSWORD
-                 else t["differ"] if password != repeat
-                 else t["taken"] if accounts.exists(name) else "")
+        wrong = signup_problem(t, name, password, str(form.get("repeat", "")))
         if wrong:
             return await invitation(t, request, token, name=name, error=wrong, status=400, creating=True)
-        key, code = await anyio.to_thread.run_sync(accounts.create, name, password, limiter=limiter)
-        session = grants.issue(SESSION, client_id="", seconds=SESSION_SECONDS, account=name, key=key,
-                               data={"csrf": secrets.token_urlsafe(24)})
+        session, code = await new_memory(name, password)
         response = view(t, t["code_title"], remote_shares.recovery_body(t, code, token))
+        set_session_cookie(response, session, secure=secure)
+        return response
+
+    def signup_problem(t: dict, name: str, password: str, repeat: str) -> str:
+        """What is wrong with the name or password for a new memory, or nothing."""
+        return (t["bad_name"] if not NAME.fullmatch(name)
+                else t["wait"].format(n=accounts.waiting(name)) if accounts.waiting(name)
+                else t["short"].format(n=MIN_PASSWORD) if len(password) < MIN_PASSWORD
+                else t["differ"] if password != repeat
+                else t["taken"] if accounts.exists(name) else "")
+
+    async def new_memory(name: str, password: str) -> tuple:
+        """Create a memory and open it: its session, and the recovery code to show once."""
+        key, code = await anyio.to_thread.run_sync(accounts.create, name, password, limiter=limiter)
+        return grants.issue(SESSION, client_id="", seconds=SESSION_SECONDS, account=name, key=key,
+                            data={"csrf": secrets.token_urlsafe(24)}), code
+
+    async def web_signup(t: dict, form):
+        """Whoever wants one creates a memory here, with no invitation and without coming from an app."""
+        name, password = str(form.get("name", "")).strip().lower(), str(form.get("password", ""))
+        wrong = signup_problem(t, name, password, str(form.get("repeat", "")))
+        if wrong:
+            return signup_page(t, name=name, error=wrong, status=400)
+        session, code = await new_memory(name, password)
+        response = view(t, t["code_title"], signup_done_body(t, code))
         set_session_cookie(response, session, secure=secure)
         return response
 
@@ -889,6 +941,8 @@ def routes(accounts, grants, memories, limiter, secure: bool, issuer: str = "") 
             return view(t, t["link_expired_title"], f'<p>{t["link_expired"]}</p>', status=400)
         session = signed_in(request)
         if session is None:  # a link alone shows nothing: chat apps may open it first, and it may reach anyone
+            if params.get("new") and not token:
+                return signup_page(t)
             return sign_in_page(t, token, name=link["account"] if link else "")
         if link is not None:
             if link["account"] != session["account"]:
@@ -997,6 +1051,8 @@ def routes(accounts, grants, memories, limiter, secure: bool, issuer: str = "") 
             return await sign_in(t, form, request)
         if action == "invite_signup":
             return await invite_signup(t, request, form)
+        if action == "signup":
+            return await web_signup(t, form)
         session = signed_in(request)
         if session is None:
             if form.get("invite"):

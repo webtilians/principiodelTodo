@@ -539,3 +539,46 @@ def test_the_menu_marks_where_you_are_and_it_all_speaks_english_too(server):  # 
         assert re.search(r'<a href="/memory\?view=memories" class=on aria-current=page>', listing.text)
         assert client.post(f"{base}/memory", data={"action": "signout", "csrf": csrf_of(page)}).status_code == 200
         assert 'class="side"' not in client.get(f"{base}/memory").text
+
+
+def test_whoever_wants_creates_a_memory_on_the_page_with_no_invitation_and_no_app(server):  # noqa: F811
+    base, _, _ = server
+
+    def create(client, name, password=PASSWORD, repeat=None):
+        return client.post(f"{base}/memory", data={"action": "signup", "name": name, "password": password,
+                                                   "repeat": password if repeat is None else repeat})
+
+    with browser() as client:
+        entry = client.get(f"{base}/memory")
+        assert 'href="/memory?new=1"' in entry.text and "Primera vez" in entry.text
+        form = client.get(f"{base}/memory", params={"new": "1"})
+        assert 'name="action" value="signup"' in form.text and 'name="repeat"' in form.text and "invite" not in form.text
+        assert "ni quien administra" not in form.text.lower()  # a claim the front page's tests refuse
+
+        assert "no coinciden" in create(client, "nadia", repeat="otra-frase-distinta").text
+        assert "al menos" in create(client, "nadia", password="corta").text
+        wrong_name = create(client, "NO VALE!")
+        assert wrong_name.status_code == 400 and "Elige un nombre" in wrong_name.text
+        assert "nadia" not in client.get(f"{base}/memory").text  # none of those created anything
+
+        done = create(client, "nadia")
+        assert done.status_code == 200 and re.search(r'class="code">[^<]+<', done.text)
+        assert 'action="/#connect"' in done.text and "conectar mi primera IA" in done.text
+        opened = client.get(f"{base}/memory")
+        assert "Lo que le cuentes" in opened.text and 'type="password"' not in opened.text  # inside, nothing more to type
+        assert 'value="signup"' not in client.get(f"{base}/memory", params={"new": "1"}).text  # and no form once inside
+
+    with browser() as stranger:
+        taken = create(stranger, "nadia")
+        assert taken.status_code == 400 and "ya está en uso" in taken.text and 'class="code"' not in taken.text
+        assert "Abrir mi memoria" not in enter(stranger, base, "nadia").text  # the password opens it from anywhere
+
+    (listed,), _, _ = app_session(base, [("list_memories", {})], name="nadia")  # and an app can connect to it
+    assert isinstance(listed, str)
+
+
+def test_a_link_to_confirm_something_does_not_offer_to_create_a_memory(server):  # noqa: F811
+    base, _, _ = server
+    listed = memory_of(base, "lucas", ["Mi taller se llama Motos Vega."])
+    (answer,), _, _ = app_session(base, [("memory_page", {"memory_ids": ids_in(listed)})], name="lucas")
+    assert "/memory?new=1" not in httpx2.get(link_in(answer).group(0), headers=SPANISH).text
