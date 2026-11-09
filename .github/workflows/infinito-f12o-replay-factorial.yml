@@ -1,0 +1,126 @@
+name: INFINITO F12-O replay gate then cursor factorial
+on:
+  push:
+    branches: [experiment/f12o-repeatability-format-factorial-20261109]
+    paths:
+      - observatory/f12o_repeatability_gate.py
+      - observatory/f12o_cursor_factorial.py
+      - tests/test_f12o_repeatability_and_factorial.py
+      - .github/workflows/infinito-f12o-replay-factorial.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  contracts:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Validate frozen O21 checksum, fake-only gate and preregistered new worlds
+        run: python -m unittest tests.test_f12o_repeatability_and_factorial -v
+  reproducibility:
+    needs: contracts
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        worker: [0, 1]
+    timeout-minutes: 80
+    env:
+      PYTHONHASHSEED: '0'
+      HF_HUB_DISABLE_TELEMETRY: '1'
+      OMP_NUM_THREADS: '4'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install preregistered Qwen7B CPU backend
+        run: |
+          python -m pip install --only-binary llama-cpp-python --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu llama-cpp-python==0.3.36 huggingface_hub==0.29.3
+      - name: Replay 6 exact frozen F12-N prompts five times in a fresh process
+        run: python -m observatory.f12o_repeatability_gate --worker ${{ matrix.worker }} --out f12o_replay_worker
+      - name: Preserve raw inference evidence for reproducibility
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: f12o-replay-worker-${{ matrix.worker }}
+          path: f12o_replay_worker/
+          if-no-files-found: warn
+          retention-days: 45
+  replay_gate:
+    needs: reproducibility
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: f12o-replay-worker-*
+          merge-multiple: true
+          path: f12o_workers
+      - name: HARD GATE - require 60 real and literally identical outputs, otherwise FAIL
+        run: python -m observatory.f12o_repeatability_gate --aggregate-dir f12o_workers --out f12o_gate
+      - name: Preserve replay-gate outcome even if repeatability fails
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: f12o-replay-gate-report
+          path: f12o_gate/
+          if-no-files-found: warn
+          retention-days: 45
+  factorial:
+    needs: replay_gate
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
+    timeout-minutes: 120
+    env:
+      PYTHONHASHSEED: '0'
+      HF_HUB_DISABLE_TELEMETRY: '1'
+      OMP_NUM_THREADS: '4'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install preregistered Qwen7B CPU backend
+        run: |
+          python -m pip install --only-binary llama-cpp-python --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu llama-cpp-python==0.3.36 huggingface_hub==0.29.3
+      - name: Only after REPLAY_PASS - evaluate 72 novel-world episodes
+        run: python -m observatory.f12o_cursor_factorial --shard ${{ matrix.shard }} --out f12o_factor_shard
+      - name: Preserve audited source events and raw prompts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: f12o-factor-shard-${{ matrix.shard }}
+          path: f12o_factor_shard/
+          if-no-files-found: warn
+          retention-days: 45
+  factorial_aggregate:
+    needs: factorial
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: f12o-factor-shard-*
+          merge-multiple: true
+          path: f12o_factor_shards
+      - name: Audit all 288 cases and preregistered factorial gates
+        run: python -m observatory.f12o_cursor_factorial --aggregate-dir f12o_factor_shards --out f12o_factor_aggregate
+      - name: Publish scientific audit on completed 4-shard factorial only
+        uses: actions/upload-artifact@v4
+        with:
+          name: f12o-factorial-final-audit
+          path: f12o_factor_aggregate/
+          retention-days: 45
