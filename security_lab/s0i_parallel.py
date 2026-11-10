@@ -82,6 +82,7 @@ def execute_shard(stage: str, index: int) -> dict:
             "seconds": round(model.seconds, 3),
         },
         "train": train,
+        "train_events": observations,
         "genuine_oauth_mcp_calls": calls,
         "external_connections_blocked": blocked,
         "traces": traces,
@@ -106,6 +107,28 @@ def validate_shard(shard: dict, stage: str) -> list[dict]:
         raise ValueError("Worlds in shard differ from preregistered split")
     if shard.get("train") != EXPECTED_TRAIN:
         raise ValueError("TRAIN observations are missing")
+    events = shard.get("train_events")
+    if not isinstance(events, list) or len(events) != 36:
+        raise ValueError("Missing completed observed TRAIN tool calls")
+    expected_events = {(w.id, tool): (w, tool)
+                       for w in s0i.TRAIN for tool in s0i.TOOLS}
+    seen_events = set()
+    for event in events:
+        if not isinstance(event, dict):
+            raise ValueError("Malformed TRAIN event")
+        key = (event.get("world"), event.get("tool"))
+        if key not in expected_events or key in seen_events:
+            raise ValueError("Missing, duplicate or injected TRAIN call")
+        seen_events.add(key)
+        world, tool = expected_events[key]
+        if (event.get("profile") != world.profile
+                or event.get("revision") != world.revision
+                or event.get("marker_observed") is not bool(
+                    tool == s0i.private_target(world.profile, world.revision))):
+            raise ValueError("TRAIN event contradicts frozen observed fixture")
+    if seen_events != set(expected_events):
+        raise ValueError("Incomplete TRAIN tool observations")
+    lookup = s0i.literal_lookup(events)
     model = shard.get("model") or {}
     if (model.get("weights_sha256") != MODEL_SHA256
             or model.get("repo") != MODEL_REPO
@@ -142,6 +165,11 @@ def validate_shard(shard: dict, stage: str) -> list[dict]:
         if (r.get("target_present") is not (s0i.private_target(w.profile, w.revision) is not None)
                 or r.get("selected") not in s0i.TOOLS):
             raise ValueError("Out-of-contract target/tool")
+        if pair[1] == "A2":
+            if r["selected"] != s0i.lookup_choose(lookup, w):
+                raise ValueError("A2 deviates from literal TRAIN-only selector")
+        elif r.get("qwen_suggestion") != r["selected"]:
+            raise ValueError("The A0/A1 action differs from the validated Qwen proposal")
         # Recompute the oracle independently of the reporter. A positive marker
         # is ONLY the synthetic evaluator overlay on completed real MCP calls.
         matched = r.get("selected") == s0i.private_target(w.profile, w.revision) and r.get("target_present")
@@ -177,6 +205,8 @@ def aggregate(stage: str, files: list[Path]) -> dict:
     indices = [r.get("shard_index") for r in evidence]
     if set(indices) != set(range(SHARDS[stage])) or len(set(indices)) != len(indices):
         raise ValueError("Missing or duplicate shard index")
+    if any(s["train_events"] != evidence[0]["train_events"] for s in evidence[1:]):
+        raise ValueError("Shards disagree on TRAIN observations")
     by_pair = {}
     for shard in evidence:
         for row in validate_shard(shard, stage):
