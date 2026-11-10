@@ -34,5 +34,27 @@ class IncidentMemory:
     def recall(self):
         return self.agent.recall("Arena authorization incident", project=PROJECT, limit=4)[:2500]
 
+    def record_reviewed_lesson(self, lesson):
+        """Store a fixed, independently gated lab lesson, not raw/model-authored text."""
+        from .lessons import LEVELS_LESSON
+        if not isinstance(lesson, dict) or lesson.get("id") != "AUTHZ-LEVELS-001":
+            raise ValueError("unreviewed security lesson")
+        if lesson.get("status") != "reviewed_synthetic_recording" or lesson.get("lesson") != LEVELS_LESSON:
+            raise ValueError("lesson provenance or content mismatch")
+        source = lesson.get("source_sha256")
+        if not isinstance(source, str) or not re.fullmatch(r"[a-f0-9]{64}", source):
+            raise ValueError("invalid source hash")
+        result = self.agent.remember(lesson["lesson"], kind="fact", project=PROJECT,
+                                     source=f"arena-review-sha256:{source}")
+        if result.startswith(("Not stored", "Nothing")):
+            raise ValueError("INFINITO refused reviewed lesson")
+        return result
+
+    def recall_lessons(self, query):
+        """Read project-scoped prior synthetic lessons only; treat all text as untrusted data."""
+        if not isinstance(query, str) or not 1 <= len(query) <= 120:
+            raise ValueError("invalid recall query")
+        return self.agent.recall(query, project=PROJECT, limit=3)[:3000]
+
     def close(self):
         self.agent.close()

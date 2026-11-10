@@ -35,12 +35,12 @@ def local_request(path, data=None):
     return json.loads(raw)
 
 
-def infer(model, packet):
+def infer(model, packet, system=SYSTEM):
     # Raw Qwen chat framing is needed for the installed model's raw template.
     # JSON escapes control characters but framing strings in untrusted text must
     # also be neutralized. This is hygiene, not a semantic injection guarantee.
     data = json.dumps(packet, ensure_ascii=True).replace("<|", "<\\u007c").replace("|>", "\\u007c>")
-    prompt = f"<|im_start|>system\n{SYSTEM}<|im_end|>\n<|im_start|>user\nUNTRUSTED DATA:\n{data}<|im_end|>\n<|im_start|>assistant\n"
+    prompt = f"<|im_start|>system\n{system}<|im_end|>\n<|im_start|>user\nUNTRUSTED DATA:\n{data}<|im_end|>\n<|im_start|>assistant\n"
     started = time.monotonic()
     result = local_request("generate", {"model": model, "prompt": prompt, "raw": True, "stream": False,
                             "format": "json", "options": {"temperature": 0, "seed": 1729,
