@@ -27,5 +27,16 @@ __HOST__ {
 		Referrer-Policy no-referrer
 		-Server
 	}
-	reverse_proxy 127.0.0.1:8500
+	# Public replay of synthetic lab recordings; expose only the two viewer assets.
+	redir /security/arena /security/arena/ 308
+	@arena path /security/arena/ /security/arena/index.html /security/arena/run.json
+	handle @arena {
+		root * /opt/infinito-remote/security_lab/arena/viewer
+		uri strip_prefix /security/arena
+		header Cache-Control "no-cache"
+		file_server
+	}
+	handle {
+		reverse_proxy 127.0.0.1:8500
+	}
 }
