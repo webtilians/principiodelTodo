@@ -1,0 +1,136 @@
+name: INFINITO S0-J0 frozen Qwen7B known-episode interpretation diagnosis
+
+on:
+  push:
+    branches: ["experiment/security-s0j0-episode-interpretation-diagnostic-20261110"]
+    paths:
+      - "security_lab/s0j0.py"
+      - "tests/test_security_lab_s0j0.py"
+      - "docs/INFINITO_SECURITY_S0J0_*"
+      - ".github/workflows/infinito-security-s0j0.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: s0j0-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contracts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install memory/MCP contract dependencies
+        run: python -m pip install -q pytest "mcp>=2,<3" "cryptography>=42" "pykeepass>=4.1,<5"
+      - name: Validate S0-J0 source-only reading contracts and inherited S0-I
+        run: |
+          python -m pytest -q -rx \
+            tests/test_security_lab_s0i.py \
+            tests/test_security_lab_s0i_parallel.py \
+            tests/test_security_lab_s0j0.py
+      - name: Check compile of new diagnostic only
+        run: python -m compileall -q security_lab/s0j0.py
+
+  qwen_reading:
+    needs: contracts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    strategy:
+      fail-fast: false
+      matrix:
+        arm: ["N0", "N1", "N2", "N3"]
+    env:
+      HF_HUB_DISABLE_TELEMETRY: "1"
+      PYTHONHASHSEED: "0"
+      OMP_NUM_THREADS: "4"
+      OPENBLAS_NUM_THREADS: "4"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Fetch exact S0-I frozen Qwen2.5-7B weights
+        id: gguf
+        run: |
+          python -m pip install -q huggingface_hub==0.29.3
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          from huggingface_hub import hf_hub_download
+          model_path = hf_hub_download(
+              "bartowski/Qwen2.5-7B-Instruct-GGUF",
+              "Qwen2.5-7B-Instruct-Q4_K_M.gguf",
+              revision="8911e8a47f92bac19d6f5c64a2e2095bd2f7d031",
+          )
+          print("model_path=" + model_path)
+          PY
+      - name: Build original isolated OAuth/MCP model container
+        run: docker build -f security_lab/Dockerfile.s0c -t infinito-security-s0j0 .
+      - name: Execute 8 known-TRAIN evidence interpretations, arm ${{ matrix.arm }}
+        env:
+          MODEL_PATH: ${{ steps.gguf.outputs.model_path }}
+          ARM: ${{ matrix.arm }}
+        run: |
+          set -euo pipefail
+          mkdir -p result
+          docker run --rm \
+            --network none --read-only --cap-drop ALL \
+            --security-opt no-new-privileges \
+            --pids-limit 128 --memory 6500m --cpus 4 \
+            --tmpfs /tmp:rw,nosuid,size=256m,mode=1777 \
+            --mount "type=bind,src=${MODEL_PATH},dst=/models/model.gguf,readonly" \
+            -e ARM \
+            --entrypoint /bin/sh infinito-security-s0j0 -c '
+              python -m security_lab.s0j0 arm --arm "$ARM" --out /tmp/s0j0/report.json
+              rc=$?
+              echo S0J0_REPORT_BEGIN
+              cat /tmp/s0j0/report.json 2>/dev/null || cat /tmp/s0j0/blocked.json 2>/dev/null
+              echo S0J0_REPORT_END
+              exit "$rc"
+            ' 2>&1 | tee result/console.log
+      - name: Extract immutable model evidence to one JSON
+        if: always()
+        run: |
+          if test -f result/console.log; then
+            awk '/^S0J0_REPORT_BEGIN$/{f=1;next} /^S0J0_REPORT_END$/{f=0} f{print}' \
+              result/console.log > result/report.json
+          fi
+      - name: Publish arm observation including raw Qwen outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: s0j0-reading-${{ matrix.arm }}
+          path: result/report.json
+          retention-days: 30
+
+  aggregate:
+    needs: [contracts, qwen_reading]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install source memory dependencies for frozen grader
+        run: python -m pip install -q "mcp>=2,<3" "cryptography>=42" "pykeepass>=4.1,<5"
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: s0j0-reading-*
+          path: reading_parts
+      - name: Aggregate exact 32 real answers against actually observed TRAIN events
+        run: |
+          mkdir -p report
+          python -m security_lab.s0j0 aggregate \
+            --inputs reading_parts --out report/interpretation.json
+      - name: Keep full audit: raw outputs, source proof, no production connection
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: s0j0-frozen7b-known-episode-interpretation-audit
+          path: report/
+          retention-days: 30
