@@ -110,7 +110,7 @@ def evidence_for_arm(arm: str, profile: str, memory: AgentMemory, events: list[d
     if arm == "N0":
         content = NO_EVIDENCE
     elif arm == "N1":
-        content = memory.recall(project="S0-I")
+        content = memory.recall("S0-I completed observed TRAIN episodes", project="S0-I")
     elif arm == "N2":
         content = memory.recall(profile, limit=3, project="S0-I")
     elif arm == "N3":
