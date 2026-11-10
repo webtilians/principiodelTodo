@@ -127,7 +127,7 @@ jobs:
           mkdir -p report
           python -m security_lab.s0j0 aggregate \
             --inputs reading_parts --out report/interpretation.json
-      - name: Keep full audit: raw outputs, source proof, no production connection
+      - name: "Keep full audit: raw outputs, source proof, no production connection"
         if: always()
         uses: actions/upload-artifact@v4
         with:
