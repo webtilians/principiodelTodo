@@ -1,0 +1,37 @@
+{
+  "base_commit": "90f9b5813424d32105cdc0a22c07f39c5ca22042",
+  "trace_sha256": "ceab1ae51a2f1af07080aa3914c7b990a7490510e2666fdf305f1a9bdf2c4bff",
+  "catalog_sha256": "f80bfc8c4351a08198c1f8cca1901c278e815b775ca641897aafa13698ebc10a",
+  "model": "lain-qwen7b:latest",
+  "model_inventory": {
+    "models": [
+      {
+        "name": "lain-qwen7b:latest",
+        "model": "lain-qwen7b:latest",
+        "modified_at": "2026-09-20T18:19:58.9085836+02:00",
+        "size": 4683074355,
+        "digest": "d04a742596b9894c0c6b1b06d13dcb021f65319543f16792254324988186d5ae",
+        "details": {
+          "parent_model": "Qwen2.5-7B-Instruct-Q4_K_M.gguf",
+          "format": "gguf",
+          "family": "qwen2",
+          "families": [
+            "qwen2"
+          ],
+          "parameter_size": "7.6B",
+          "quantization_level": "Q4_K_M",
+          "context_length": 32768,
+          "embedding_length": 3584,
+          "runner": "ggml"
+        },
+        "capabilities": [
+          "tools",
+          "completion"
+        ]
+      }
+    ]
+  },
+  "seed": 1729,
+  "max_output_tokens": 1400,
+  "scope": "engineering demo, no learning claim"
+}

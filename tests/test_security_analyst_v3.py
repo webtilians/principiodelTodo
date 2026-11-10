@@ -1,5 +1,4 @@
 """Boundary tests; the live LLM demonstration is explicit and never a CI dependency."""
-import copy
 import inspect
 import json
 from datetime import date
@@ -129,3 +128,21 @@ def test_independent_referee_requires_reproduction_and_positive_controls(monkeyp
     assert calls == ["levels-off", None]
     monkeypatch.setattr(recorder, "play", lambda fault=None: [])
     assert verify(answer())["status"] == "failed"
+
+
+def test_imported_trace_never_reaches_demo_verifier(tmp_path, monkeypatch):
+    from security_lab.analyst import __main__ as cli
+    trace = tmp_path / "trace.json"
+    trace.write_text(json.dumps({"format": "structured-v1", "events": [dict(event(), request="authorization")]}))
+    monkeypatch.setattr(cli, "local_request", lambda *args: {"models": []})
+    monkeypatch.setattr(cli, "infer", lambda *args: {"response": json.dumps(answer()),
+                        "prompt_tokens": 1, "output_tokens": 1, "seconds": 0})
+    def forbidden(*args):
+        pytest.fail("imported trace reached demo verifier")
+    monkeypatch.setattr(cli, "verify", forbidden)
+    out = tmp_path / "out"
+    assert cli.main(["--out", str(out), "--model", "fake", "--trace", str(trace), "--synthetic"]) == 2
+    assert read_json(out / "comparison.json")["arms"]["baseline"]["status"] == "unverified"
+    with pytest.raises(ValueError, match="bundled Arena"):
+        cli.main(["--out", str(tmp_path / "other"), "--model", "fake", "--trace", str(trace),
+                  "--synthetic", "--demo-levels"])

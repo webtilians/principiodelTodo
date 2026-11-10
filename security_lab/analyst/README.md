@@ -110,3 +110,18 @@ configuration or product files are changed by this PR.
 
 See `docs/ARENA_ANALYST_PROTOCOL.md` for gates frozen before inference and
 `docs/ARENA_ANALYST_RESULTS.md` for what was actually executed.
+
+## Supervised positive control
+
+The initial local Qwen model failed to produce an acceptable repair in both arms,
+including after a documented prompt amendment. Those failures are preserved.
+`reviewed-proposal.json` is a **Codex-authored, full-context supervised proposal**,
+not a hidden successful Qwen response. It demonstrates the accepted repair path:
+
+```sh
+python -m security_lab.analyst.review --response security_lab/analyst/reviewed-proposal.json --out work/review-control
+```
+
+This command validates citations, runs the independent Arena verifier, emits the
+synthetic repair diff, and records incident/hypothesis/defence metadata in a new
+local INFINITO database. It is not a baseline arm or evidence of autonomous success.

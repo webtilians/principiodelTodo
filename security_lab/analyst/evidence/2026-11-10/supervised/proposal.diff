@@ -1,0 +1,9 @@
+--- synthetic/remote_apps.allowed
++++ proposed/remote_apps.allowed
+@@ -1,2 +1,6 @@
+ def allowed(level: Optional[str], tool: str) -> bool:
++    if level == 'read':
++        return tool in READS
++    if level == 'add':
++        return tool in ADDS
+     return True
