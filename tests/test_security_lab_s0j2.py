@@ -39,7 +39,7 @@ def test_real_sqlite_memories_and_only_observed_synthetic_source(tmp_path):
     public, secret, ev, prompts, calls = fixture(tmp_path)
     assert len(calls) == len(ev) == 72
     assert len(prompts) == 24
-    assert len(set(p["prompt_sha256"] for p in prompts)) == 17  # N1 per profile, N3 per profile, N0 per profile
+    assert len(set(p["prompt_sha256"] for p in prompts)) == 24  # 3 distinct evidence arms x 8 profiles
     assert [x["arm"] for x in prompts] == ["N0"]*8 + ["N1"]*8 + ["N3"]*8
     assert all("labels_evaluator_only" not in p["user"] for p in prompts)
     assert all(p["system"] == s0j0.SYSTEM for p in prompts)
