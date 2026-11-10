@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "sources": [
+    {"id":"OWASP-AUTHZ","url":"https://cheatsheetseries.owasp.org/cheatsheets/Authorization_Cheat_Sheet.html","authority":"OWASP primary guidance","version":"reviewed web summary 2026-11-10","reviewed":"2026-11-10","review_after":"2027-02-10","tags":["authorization","permissions","read","add","forget","vault","levels"],"summary":"Check authorization for each request and test both permitted and forbidden operations. Apply least privilege and deny access unless explicitly authorized."},
+    {"id":"CWE-862","url":"https://cwe.mitre.org/data/definitions/862.html","authority":"MITRE primary weakness taxonomy","version":"CWE 5.0 web entry","reviewed":"2026-11-10","review_after":"2027-02-10","tags":["authorization","permissions","allowed","levels"],"summary":"Missing authorization means an action or resource access occurs without checking whether the actor is authorized. This class mapping is a hypothesis, not proof of a vulnerability."},
+    {"id":"OWASP-LLM01-2025","url":"https://genai.owasp.org/llmrisk/llm01-prompt-injection/","authority":"OWASP primary guidance","version":"2025","reviewed":"2026-11-10","review_after":"2027-02-10","tags":["injection","prompt","memory","logs","llm"],"summary":"External content can manipulate a model. Separate untrusted data, validate output and restrict capabilities. RAG and prompt instructions alone do not eliminate injection."},
+    {"id":"OWASP-ASVS-5","url":"https://asvs.owasp.org/","authority":"OWASP primary standard","version":"5.0.0","reviewed":"2026-11-10","review_after":"2027-02-10","tags":["verification","tests","authorization"],"summary":"ASVS provides requirements for designing and testing web application security controls. This catalog pointer does not claim compliance or reproduce the full standard."},
+    {"id":"NIST-CSF-2","url":"https://www.nist.gov/cyberframework","authority":"NIST primary framework","version":"2.0","reviewed":"2026-11-10","review_after":"2027-02-10","tags":["risk","incident","governance"],"summary":"CSF supports managing cybersecurity risk. Use it for incident governance rather than as evidence that a code patch fixes a defect."}
+  ]
+}
