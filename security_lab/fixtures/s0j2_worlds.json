@@ -1,0 +1,160 @@
+{
+  "study": "INFINITO-SECURITY-S0-J2",
+  "fixture_version": "1",
+  "profiles": [
+    "aurora",
+    "bracken",
+    "copper",
+    "drift",
+    "ember",
+    "glen",
+    "fable",
+    "hush"
+  ],
+  "worlds": [
+    {
+      "id": "T00",
+      "profile": "aurora",
+      "revision": "r1",
+      "service": "cedar telemetry desk"
+    },
+    {
+      "id": "T01",
+      "profile": "aurora",
+      "revision": "r2",
+      "service": "marsh relay catalog"
+    },
+    {
+      "id": "T02",
+      "profile": "aurora",
+      "revision": "r2",
+      "service": "cinder harbor index"
+    },
+    {
+      "id": "T03",
+      "profile": "bracken",
+      "revision": "r1",
+      "service": "coastal firmware ledger"
+    },
+    {
+      "id": "T04",
+      "profile": "bracken",
+      "revision": "r2",
+      "service": "amber freight mirror"
+    },
+    {
+      "id": "T05",
+      "profile": "bracken",
+      "revision": "r2",
+      "service": "linden beacon journal"
+    },
+    {
+      "id": "T06",
+      "profile": "copper",
+      "revision": "r1",
+      "service": "reed transit archive"
+    },
+    {
+      "id": "T07",
+      "profile": "copper",
+      "revision": "r2",
+      "service": "delta signal cache"
+    },
+    {
+      "id": "T08",
+      "profile": "copper",
+      "revision": "r2",
+      "service": "juniper cloud bulletin"
+    },
+    {
+      "id": "T09",
+      "profile": "drift",
+      "revision": "r1",
+      "service": "quartz district atlas"
+    },
+    {
+      "id": "T10",
+      "profile": "drift",
+      "revision": "r2",
+      "service": "orchid current digest"
+    },
+    {
+      "id": "T11",
+      "profile": "drift",
+      "revision": "r2",
+      "service": "brass skyline ledger"
+    },
+    {
+      "id": "T12",
+      "profile": "ember",
+      "revision": "r1",
+      "service": "harbor pollen register"
+    },
+    {
+      "id": "T13",
+      "profile": "ember",
+      "revision": "r2",
+      "service": "violet bridge docket"
+    },
+    {
+      "id": "T14",
+      "profile": "ember",
+      "revision": "r2",
+      "service": "sable ridge almanac"
+    },
+    {
+      "id": "T15",
+      "profile": "glen",
+      "revision": "r1",
+      "service": "citron tracking digest"
+    },
+    {
+      "id": "T16",
+      "profile": "glen",
+      "revision": "r2",
+      "service": "mooring audit monitor"
+    },
+    {
+      "id": "T17",
+      "profile": "glen",
+      "revision": "r2",
+      "service": "winter relay sheet"
+    },
+    {
+      "id": "T18",
+      "profile": "fable",
+      "revision": "r1",
+      "service": "ivy robotics minutes"
+    },
+    {
+      "id": "T19",
+      "profile": "fable",
+      "revision": "r2",
+      "service": "cobalt canal records"
+    },
+    {
+      "id": "T20",
+      "profile": "fable",
+      "revision": "r2",
+      "service": "oyster weather board"
+    },
+    {
+      "id": "T21",
+      "profile": "hush",
+      "revision": "r1",
+      "service": "alpine fiber log"
+    },
+    {
+      "id": "T22",
+      "profile": "hush",
+      "revision": "r2",
+      "service": "flint ferry archive"
+    },
+    {
+      "id": "T23",
+      "profile": "hush",
+      "revision": "r2",
+      "service": "lucent metering table"
+    }
+  ]
+}
