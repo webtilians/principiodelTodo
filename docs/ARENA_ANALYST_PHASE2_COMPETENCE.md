@@ -102,3 +102,10 @@ be reported as such; no inferred model improvement should be claimed.
 
 The baseline and memory arms' outputs should be archived with full prompts,
 responses, model version, checksums and actual evaluation statuses.
+
+## CI invocation
+
+The repository's normal server workflow runs for pull requests targeting `master`.
+The phase-2 PR is stacked on PR #163; GitHub Actions tests must be reported
+against the exact head commit, and cannot be inferred from PR #163's green checks.
+This document is not an LLM result and no Qwen success is claimed.
