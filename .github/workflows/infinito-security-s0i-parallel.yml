@@ -1,0 +1,248 @@
+name: INFINITO Security S0-I parallel runtime (frozen scientific protocol)
+
+on:
+  push:
+    branches: ["experiment/security-s0i-sharded-runtime-20261110"]
+    paths:
+      - "security_lab/s0i_parallel.py"
+      - "tests/test_security_lab_s0i_parallel.py"
+      - "docs/INFINITO_SECURITY_S0I_RUNTIME_*"
+      - ".github/workflows/infinito-security-s0i-parallel.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: s0i-parallel-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contracts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install real INFINITO SQLite, OAuth and crypto dependencies
+        run: python -m pip install -q pytest "mcp>=2,<3" "cryptography>=42" "pykeepass>=4.1,<5"
+      - name: Test exact split and aggregate; verify original S0-A through S0-I regression
+        run: |
+          python -m pytest -q -rx \
+            tests/test_security_lab_s0.py \
+            tests/test_security_lab_s0b.py \
+            tests/test_security_lab_s0c.py \
+            tests/test_security_lab_s0d.py \
+            tests/test_security_lab_s0e.py \
+            tests/test_security_lab_s0f.py \
+            tests/test_security_lab_s0g_review.py \
+            tests/test_security_lab_s0h.py \
+            tests/test_security_lab_s0i.py \
+            tests/test_security_lab_s0i_parallel.py
+      - name: Check exact original S0-I source remains syntax valid
+        run: python -m compileall -q security_lab/s0i.py security_lab/s0i_parallel.py
+
+  pilot:
+    needs: contracts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2]
+    env:
+      HF_HUB_DISABLE_TELEMETRY: "1"
+      PYTHONHASHSEED: "0"
+      OMP_NUM_THREADS: "4"
+      OPENBLAS_NUM_THREADS: "4"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Download the SAME pinned Qwen7B to this disposable shard
+        id: gguf
+        run: |
+          python -m pip install -q huggingface_hub==0.29.3
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          from huggingface_hub import hf_hub_download
+          p = hf_hub_download(
+              "bartowski/Qwen2.5-7B-Instruct-GGUF",
+              "Qwen2.5-7B-Instruct-Q4_K_M.gguf",
+              revision="8911e8a47f92bac19d6f5c64a2e2095bd2f7d031",
+          )
+          print("model_path=" + p)
+          PY
+      - name: Build frozen OAuth/MCP + llama-cpp sandbox
+        run: docker build -f security_lab/Dockerfile.s0c -t infinito-security-s0i-shard .
+      - name: Run PILOT shard ${{ matrix.shard }} (same model, worlds and memory)
+        env:
+          MODEL_PATH: ${{ steps.gguf.outputs.model_path }}
+          SHARD: ${{ matrix.shard }}
+        run: |
+          set -euo pipefail
+          mkdir -p s0i_pilot_artifacts
+          docker run --rm \
+            --network none --read-only --cap-drop ALL \
+            --security-opt no-new-privileges \
+            --pids-limit 128 --memory 6500m --cpus 4 \
+            --tmpfs /tmp:rw,nosuid,size=256m,mode=1777 \
+            --mount "type=bind,src=${MODEL_PATH},dst=/models/model.gguf,readonly" \
+            -e SHARD \
+            --entrypoint /bin/sh infinito-security-s0i-shard -c '
+              python -m security_lab.s0i_parallel shard --stage pilot --index "$SHARD" --out /tmp/s0i/report.json
+              rc=$?
+              echo S0I_PARALLEL_JSON_BEGIN
+              cat /tmp/s0i/report.json 2>/dev/null || cat /tmp/s0i/blocked.json 2>/dev/null
+              echo S0I_PARALLEL_JSON_END
+              exit "$rc"
+            ' 2>&1 | tee s0i_pilot_artifacts/console.log
+      - name: Extract data-only report from console
+        if: always()
+        run: |
+          if test -f s0i_pilot_artifacts/console.log; then
+            awk '/^S0I_PARALLEL_JSON_BEGIN$/{f=1;next} /^S0I_PARALLEL_JSON_END$/{f=0} f{print}' \
+              s0i_pilot_artifacts/console.log > s0i_pilot_artifacts/report.json
+          fi
+      - name: Keep shard result for complete cross-shard validation
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: s0i-pilot-shard-${{ matrix.shard }}
+          path: s0i_pilot_artifacts/report.json
+          retention-days: 30
+
+  pilot_gate:
+    needs: [contracts, pilot]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    outputs:
+      go: ${{ steps.assemble.outputs.go }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install aggregation dependencies
+        run: python -m pip install -q "mcp>=2,<3" "cryptography>=42" "pykeepass>=4.1,<5"
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: s0i-pilot-shard-*
+          path: pilot_shards
+      - name: Validate all 24 original PILOT cases, 72 Qwen/MCP calls and original G2 gate
+        id: assemble
+        run: |
+          set -euo pipefail
+          mkdir -p aggregated
+          python -m security_lab.s0i_parallel aggregate --stage pilot \
+            --inputs pilot_shards --out aggregated/pilot.json
+          python -c 'import json;print("go="+str(json.load(open("aggregated/pilot.json"))["gate"]).lower())' >> "$GITHUB_OUTPUT"
+      - name: Publish pilot even when scientific NO-GO
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: s0i-pilot-validated-gate
+          path: aggregated/
+          retention-days: 30
+
+  confirm:
+    needs: [pilot_gate]
+    if: needs.pilot_gate.outputs.go == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5, 6, 7]
+    env:
+      HF_HUB_DISABLE_TELEMETRY: "1"
+      PYTHONHASHSEED: "0"
+      OMP_NUM_THREADS: "4"
+      OPENBLAS_NUM_THREADS: "4"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Download same pinned Qwen7B into independent CONFIRM shard
+        id: gguf
+        run: |
+          python -m pip install -q huggingface_hub==0.29.3
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          from huggingface_hub import hf_hub_download
+          p = hf_hub_download(
+              "bartowski/Qwen2.5-7B-Instruct-GGUF",
+              "Qwen2.5-7B-Instruct-Q4_K_M.gguf",
+              revision="8911e8a47f92bac19d6f5c64a2e2095bd2f7d031",
+          )
+          print("model_path=" + p)
+          PY
+      - name: Build independent offline confirmation clone
+        run: docker build -f security_lab/Dockerfile.s0c -t infinito-security-s0i-shard .
+      - name: Run reserved CONFIRM shard ${{ matrix.shard }} without adjusting cases
+        env:
+          MODEL_PATH: ${{ steps.gguf.outputs.model_path }}
+          SHARD: ${{ matrix.shard }}
+        run: |
+          set -euo pipefail
+          mkdir -p s0i_confirm_artifacts
+          docker run --rm \
+            --network none --read-only --cap-drop ALL \
+            --security-opt no-new-privileges \
+            --pids-limit 128 --memory 6500m --cpus 4 \
+            --tmpfs /tmp:rw,nosuid,size=256m,mode=1777 \
+            --mount "type=bind,src=${MODEL_PATH},dst=/models/model.gguf,readonly" \
+            -e SHARD \
+            --entrypoint /bin/sh infinito-security-s0i-shard -c '
+              python -m security_lab.s0i_parallel shard --stage confirm --index "$SHARD" --out /tmp/s0i/report.json
+              rc=$?
+              echo S0I_PARALLEL_JSON_BEGIN
+              cat /tmp/s0i/report.json 2>/dev/null || cat /tmp/s0i/blocked.json 2>/dev/null
+              echo S0I_PARALLEL_JSON_END
+              exit "$rc"
+            ' 2>&1 | tee s0i_confirm_artifacts/console.log
+      - name: Extract data-only report from console
+        if: always()
+        run: |
+          if test -f s0i_confirm_artifacts/console.log; then
+            awk '/^S0I_PARALLEL_JSON_BEGIN$/{f=1;next} /^S0I_PARALLEL_JSON_END$/{f=0} f{print}' \
+              s0i_confirm_artifacts/console.log > s0i_confirm_artifacts/report.json
+          fi
+      - name: Keep independent confirmation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: s0i-confirm-shard-${{ matrix.shard }}
+          path: s0i_confirm_artifacts/report.json
+          retention-days: 30
+
+  confirm_gate:
+    needs: [pilot_gate, confirm]
+    if: needs.pilot_gate.outputs.go == 'true' && needs.confirm.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install frozen aggregate score dependencies
+        run: python -m pip install -q "mcp>=2,<3" "cryptography>=42" "pykeepass>=4.1,<5"
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: s0i-confirm-shard-*
+          path: confirm_shards
+      - name: Apply original S0-I confirm_gate to exactly 48 reserved worlds
+        run: |
+          mkdir -p aggregated
+          python -m security_lab.s0i_parallel aggregate --stage confirm \
+            --inputs confirm_shards --out aggregated/confirm.json
+      - name: Publish confirmation even if scientific NO-GO
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: s0i-confirm-validated-gate
+          path: aggregated/
+          retention-days: 30
