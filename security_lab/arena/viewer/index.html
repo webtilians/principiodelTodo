@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>INFINITO Security Arena</title>
+<style>
+:root { color-scheme: dark; --ink: #eaf0ff; --soft: #aab6d8; --dim: #7f8bb3; --line: rgba(130, 160, 255, .26);
+  --page: #070b1c; --card: rgba(15, 21, 50, .82); --accent: #67e8f9; --accent-2: #a78bfa; --bad: #ff8a80;
+  --good: #86efac; --mono: ui-monospace, "Cascadia Code", Consolas, "SF Mono", monospace; }
+* { box-sizing: border-box; }
+body { margin: 0; min-height: 100vh; color: var(--ink); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: radial-gradient(60rem 36rem at 85% -5%, rgba(124, 58, 237, .28), transparent 70%),
+    radial-gradient(52rem 34rem at 5% 105%, rgba(14, 165, 233, .2), transparent 70%), var(--page);
+  background-attachment: fixed; }
+main { max-width: 76rem; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
+header { display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-start; justify-content: space-between; }
+.brand { color: var(--accent); font-size: .78rem; font-weight: 600; letter-spacing: .24em; text-transform: uppercase;
+  margin: 0 0 .35rem; }
+.brand::before { content: "∞"; margin-right: .5em; font-size: 1.15rem; letter-spacing: 0; vertical-align: -.08em; }
+h1 { font-size: clamp(1.4rem, 3.2vw, 2rem); line-height: 1.2; margin: 0 0 .5rem; max-width: 26ch; }
+.lead { color: var(--soft); margin: 0; max-width: 62ch; }
+h2 { font-size: 1.05rem; margin: 2rem 0 .75rem; }
+button { font: inherit; color: var(--ink); background: rgba(130, 160, 255, .12); border: 1px solid var(--line);
+  border-radius: 999px; padding: .45rem 1rem; cursor: pointer; }
+button:hover { background: rgba(130, 160, 255, .22); }
+button:focus-visible, li.step:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button.main { background: var(--accent); color: #04121c; border-color: transparent; font-weight: 600; }
+.tabs { display: flex; flex-wrap: wrap; gap: .5rem; margin: 1.75rem 0 .75rem; }
+.tabs button { border-radius: 12px; text-align: left; padding: .55rem .9rem; }
+.tabs button[aria-selected="true"] { border-color: var(--accent); background: rgba(103, 232, 249, .14); }
+.tabs small { display: block; color: var(--dim); font-size: .72rem; letter-spacing: .04em; }
+.chip { display: inline-block; font-size: .72rem; font-weight: 600; border-radius: 999px; padding: .05rem .55rem;
+  margin-left: .4rem; border: 1px solid currentColor; }
+.chip.caught, .chip.clean { color: var(--good); } .chip.contained { color: var(--accent); } .chip.open { color: var(--bad); }
+#about { color: var(--soft); margin: 0 0 1rem; max-width: 80ch; }
+#about code { font-family: var(--mono); font-size: .85em; color: var(--ink); }
+.score { display: grid; grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr)); gap: .75rem; margin: 0 0 1rem; }
+.score div { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: .7rem 1rem; }
+.score span { display: block; color: var(--soft); font-size: .8rem; }
+.score b { font-size: 1.6rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.score .bad b { color: var(--bad); } .score .ok b { color: var(--good); }
+.stage { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 1rem; align-items: start; }
+.panel { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 1rem;
+  box-shadow: 0 0 44px rgba(96, 120, 255, .12); }
+svg { display: block; width: 100%; height: auto; }
+svg text { fill: var(--ink); font-size: 12px; }
+svg .cap { fill: var(--dim); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; }
+svg .sub { fill: var(--soft); font-size: 10.5px; } svg .nm { font-weight: 600; font-size: 12.5px; }
+svg .mono { font-family: var(--mono); font-size: 9.5px; fill: var(--accent); }
+svg .clone { fill: rgba(130, 160, 255, .05); stroke: var(--line); stroke-dasharray: 4 5; }
+svg .agent rect { fill: rgba(167, 139, 250, .1); stroke: rgba(167, 139, 250, .45); }
+svg .door rect, svg .target rect { fill: rgba(130, 160, 255, .08); stroke: var(--line); }
+svg .agent.on rect { stroke: var(--accent-2); stroke-width: 2; fill: rgba(167, 139, 250, .26); }
+svg .door.on rect { stroke: var(--accent); stroke-width: 2; }
+svg .held rect { stroke: var(--good); stroke-width: 2; fill: rgba(134, 239, 172, .12); }
+svg .through rect { stroke: var(--bad); stroke-width: 2; fill: rgba(255, 138, 128, .16); }
+svg .wire { stroke: var(--line); fill: none; }
+#dot { fill: var(--accent-2); opacity: 0; } #dot.fly { opacity: 1; }
+#verdict { font-weight: 600; }
+.controls { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-top: .9rem; }
+.controls .where { margin-left: auto; color: var(--soft); font-size: .85rem; font-variant-numeric: tabular-nums; }
+.blk { border-top: 1px solid var(--line); padding: .7rem 0 .75rem; transition: opacity .35s; }
+.blk:first-child { border-top: 0; padding-top: 0; }
+.blk.wait { opacity: .12; }
+.blk h3 { margin: 0 0 .35rem; font-size: .72rem; font-weight: 600; letter-spacing: .16em; text-transform: uppercase;
+  color: var(--accent); }
+.blk p { margin: .2rem 0; } .blk .big { font-size: 1.05rem; font-weight: 600; }
+.muted { color: var(--soft); font-size: .9rem; }
+dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: .15rem .75rem; margin: .2rem 0; font-size: .92rem; }
+dt { color: var(--dim); } dd { margin: 0; }
+pre { margin: .3rem 0; padding: .55rem .7rem; background: rgba(4, 8, 24, .7); border: 1px solid var(--line);
+  border-radius: 10px; font: .8rem/1.5 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; color: #d5defa;
+  max-height: 9.5rem; overflow: auto; }
+pre .st { color: var(--dim); }
+mark { background: rgba(255, 138, 128, .28); color: #fff; border-radius: 4px; padding: 0 .2em; }
+.verdict { font-weight: 600; } .verdict.held { color: var(--good); } .verdict.through { color: var(--bad); }
+ol.steps { list-style: none; margin: 0; padding: 0; display: grid; gap: .35rem; }
+li.step { display: grid; grid-template-columns: 3.2rem minmax(0, 9rem) minmax(0, 1fr) max-content; gap: .6rem;
+  align-items: baseline; padding: .5rem .8rem; border: 1px solid transparent; border-radius: 10px; cursor: pointer;
+  background: rgba(130, 160, 255, .06); }
+li.step:hover { border-color: var(--line); } li.step.now { border-color: var(--accent); background: rgba(103, 232, 249, .1); }
+li.step.later { opacity: .5; }
+li.step code { font-family: var(--mono); font-size: .8rem; color: var(--dim); }
+li.step .by { color: var(--soft); font-size: .9rem; }
+.pill { font-size: .78rem; font-weight: 600; white-space: nowrap; }
+.pill.held { color: var(--good); } .pill.through { color: var(--bad); } .pill.none { color: var(--dim); }
+.notes { color: var(--soft); max-width: 80ch; padding-left: 1.1rem; } .notes li { margin: .3rem 0; }
+footer { color: var(--dim); font-size: .85rem; margin-top: 2rem; }
+@media (max-width: 900px) { .stage { grid-template-columns: minmax(0, 1fr); }
+  li.step { grid-template-columns: 3rem minmax(0, 1fr) max-content; } li.step .by { display: none; } }
+@media (prefers-reduced-motion: reduce) { .blk { transition: none; } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <p class="brand" id="brand"></p>
+      <h1 id="title"></h1>
+      <p class="lead" id="lead"></p>
+    </div>
+    <button id="lang" type="button"></button>
+  </header>
+  <div class="tabs" id="tabs" role="tablist"></div>
+  <p id="about"></p>
+  <div class="score" id="score"></div>
+  <div class="stage">
+    <section class="panel">
+      <svg id="map" viewBox="0 0 600 420" role="img" aria-labelledby="map-title"></svg>
+      <div class="controls">
+        <button class="main" id="play" type="button"></button>
+        <button id="prev" type="button"></button>
+        <button id="next" type="button"></button>
+        <button id="speed" type="button"></button>
+        <span class="where" id="where"></span>
+      </div>
+    </section>
+    <section class="panel" id="card" aria-live="polite"></section>
+  </div>
+  <h2 id="steps-title"></h2>
+  <ol class="steps" id="steps"></ol>
+  <div id="repair"></div>
+  <h2 id="notes-title"></h2>
+  <ul class="notes" id="notes"></ul>
+  <footer id="foot"></footer>
+</main>
+<script>
+const UI = {
+  es: {
+    brand: "INFINITO · Arena de seguridad",
+    title: "Atacantes contra un clon de INFINITO, decisión a decisión",
+    lead: "Cinco atacantes prueban sus ideas contra una copia real del servidor. En cada paso ves qué les llega, cómo lo leen, qué deciden y qué dice el árbitro.",
+    other: "English", current: "Servidor actual", asIs: "tal como está", planted: "Fallo plantado",
+    aboutCurrent: (r) => `El servidor tal como está en el commit <code>${r.commit}</code>, grabado el ${r.day}. Las cuentas son inventadas y nada sale de la máquina.`,
+    aboutFault: (f) => `Fallo puesto a propósito en el clon, para medir si los atacantes y el árbitro lo notan: ${f.what} <code>${f.where}</code>. No es un fallo del producto.`,
+    caught: (n) => `Cazado: ${n} ${n === 1 ? "ataque pasó" : "ataques pasaron"} y el árbitro lo probó. Con la comprobación de vuelta en su sitio, vuelven a fallar.`,
+    contained: "Contenido: ningún ataque pasó.", open: "Abierto: algún ataque sigue pasando tras la reparación.",
+    chip: { caught: "Cazado", contained: "Contenido", open: "Abierto", clean: "Sin fugas" },
+    attacks: "Ataques", held: "Parados", through: "Pasaron", result: "Resultado", soFar: "hasta este paso",
+    who: "Quién", has: "Qué tiene", wants: "Qué busca", arrives: "Qué le llega", reads: "Cómo lo lee",
+    start: "Nada todavía: es su primer movimiento.", decides: "Qué decide", sends: "Qué envía", door: "Puerta",
+    gets: "Qué recibe", referee: "Qué dice el árbitro", looks: "Mira", rule: "Regla", vHeld: "Parado", vThrough: "Pasó",
+    defence: "Defensa que actuó", play: "Reproducir", pause: "Pausar", prev: "Anterior", next: "Siguiente",
+    speed: "Velocidad", step: (a, b) => `Paso ${a} de ${b}`, steps: "Todos los pasos de esta ronda",
+    repair: "Después de devolver la comprobación a su sitio",
+    repairNote: "Los ataques que habían pasado, repetidos en un clon nuevo con el código original.",
+    notTried: "No llegó a intentarse: el paso anterior ya no pasa.",
+    notes: "Cómo leer esto",
+    note: [
+      "El servidor es el de verdad: el mismo código, levantado en una máquina sin salida a la red y con cuentas inventadas.",
+      "Los atacantes siguen reglas fijas, no un modelo de IA. Cada decisión que ves es la regla aplicada a la respuesta real que acababan de recibir.",
+      "El árbitro tampoco opina: aplica la regla que se muestra a lo que realmente volvió.",
+      "El canario es una frase inventada que solo está en la memoria de Ana. Verla en otra parte prueba una fuga.",
+      "Que estos ataques fallen dice que estas ideas no funcionan, no que no exista otra.",
+    ],
+    clone: "Clon de INFINITO", memory: "Memoria de Ana", sealed: "sellada con su clave", vault: "Bóveda de Ana",
+    entry: "1 entrada", ref: "Árbitro", refSub: "aplica una regla", moves: (n) => n === 1 ? "1 movimiento" : `${n} movimientos`,
+    mapTitle: "Mapa de la arena: atacantes a la izquierda, puertas del servidor en el centro, lo de Ana y el árbitro a la derecha",
+    error: "No se pudo cargar la grabación (run.json).",
+    foot: (r) => `Grabado el ${r.day} · commit ${r.commit} · Python ${r.python} · ${r.system}`,
+  },
+  en: {
+    brand: "INFINITO · Security Arena",
+    title: "Attackers against a clone of INFINITO, one decision at a time",
+    lead: "Five attackers try their ideas against a real copy of the server. At each step you see what reaches them, how they read it, what they decide and what the referee says.",
+    other: "Español", current: "Current server", asIs: "as it is", planted: "Planted fault",
+    aboutCurrent: (r) => `The server as it is at commit <code>${r.commit}</code>, recorded on ${r.day}. The accounts are made up and nothing leaves the machine.`,
+    aboutFault: (f) => `A fault put in the clone on purpose, to measure whether the attackers and the referee notice: ${f.what} <code>${f.where}</code>. It is not a flaw of the product.`,
+    caught: (n) => `Caught: ${n} ${n === 1 ? "attack got through" : "attacks got through"} and the referee proved it. With the check back in place, they fail again.`,
+    contained: "Contained: no attack got through.", open: "Open: an attack still gets through after the repair.",
+    chip: { caught: "Caught", contained: "Contained", open: "Open", clean: "No leaks" },
+    attacks: "Attacks", held: "Stopped", through: "Got through", result: "Result", soFar: "up to this step",
+    who: "Who", has: "What it has", wants: "What it wants", arrives: "What reaches it", reads: "How it reads it",
+    start: "Nothing yet: this is its first move.", decides: "What it decides", sends: "What it sends", door: "Door",
+    gets: "What it gets back", referee: "What the referee says", looks: "Looks at", rule: "Rule", vHeld: "Stopped",
+    vThrough: "Got through", defence: "The defence that acted", play: "Play", pause: "Pause", prev: "Previous",
+    next: "Next", speed: "Speed", step: (a, b) => `Step ${a} of ${b}`, steps: "Every step of this round",
+    repair: "After putting the check back",
+    repairNote: "The attacks that had got through, run again on a new clone with the original code.",
+    notTried: "Never attempted: the step before it no longer gets through.",
+    notes: "How to read this",
+    note: [
+      "The server is the real one: the same code, started on a machine with no way out to the network and with made-up accounts.",
+      "The attackers follow fixed rules, not an AI model. Each decision you see is the rule applied to the real answer they had just received.",
+      "The referee has no opinion either: it applies the rule shown to what really came back.",
+      "The canary is a made-up phrase that lives only in Ana's memory. Seeing it anywhere else proves a leak.",
+      "These attacks failing says these ideas do not work, not that no other exists.",
+    ],
+    clone: "Clone of INFINITO", memory: "Ana's memory", sealed: "sealed with her key", vault: "Ana's vault",
+    entry: "1 entry", ref: "Referee", refSub: "applies a rule", moves: (n) => n === 1 ? "1 move" : `${n} moves`,
+    mapTitle: "Map of the arena: attackers on the left, the server's doors in the middle, what is Ana's and the referee on the right",
+    error: "The recording (run.json) could not be loaded.",
+    foot: (r) => `Recorded on ${r.day} · commit ${r.commit} · Python ${r.python} · ${r.system}`,
+  },
+};
+const WAITS = [0, 900, 1100, 900, 1000, 1500];
+const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+let run, lang = (navigator.language || "en").toLowerCase().startsWith("es") ? "es" : "en";
+let round = 0, step = 0, phase = 5, playing = false, timer = null, speed = 1;
+const $ = (id) => document.getElementById(id);
+const esc = (text) => String(text).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const t = () => UI[lang];
+const L = (pair) => (pair ? esc(pair[lang]) : "");
+const events = () => run.rounds[round].events;
+const marked = (text) => [run.canary, run.vault_entry].reduce(
+  (html, word) => html.split(esc(word)).join(`<mark>${esc(word)}</mark>`), esc(text));
+const info = () => ({ commit: esc(run.commit), python: esc(run.python), system: esc(run.system),
+  day: new Date(run.recorded).toLocaleDateString(lang, { year: "numeric", month: "long", day: "numeric" }) });
+
+function agentY(key) { return 40 + Object.keys(run.agents).indexOf(key) * 70; }
+function doorY(key) { return 44 + Object.keys(run.doors).indexOf(key) * 48; }
+
+function drawMap() {
+  const counts = {};
+  events().forEach((e) => { counts[e.who] = (counts[e.who] || 0) + 1; });
+  let svg = `<title id="map-title">${esc(t().mapTitle)}</title>`
+    + `<rect class="clone" x="214" y="14" width="180" height="392" rx="14"/>`
+    + `<text class="cap" x="304" y="33" text-anchor="middle">${esc(t().clone)}</text>`
+    + `<path class="wire" d="M394 90 H440 M394 190 H440"/>`;
+  for (const key of Object.keys(run.agents)) {
+    svg += `<g class="agent" id="ag-${key}" transform="translate(8,${agentY(key)})"><rect width="170" height="52" rx="10"/>`
+      + `<text class="nm" x="12" y="22">${L(run.agents[key].name)}</text>`
+      + `<text class="sub" x="12" y="40">${esc(t().moves(counts[key] || 0))}</text></g>`;
+  }
+  for (const key of Object.keys(run.doors)) {
+    svg += `<g class="door" id="dr-${key}" transform="translate(226,${doorY(key)})"><rect width="156" height="36" rx="8"/>`
+      + `<text x="78" y="23" text-anchor="middle">${L(run.doors[key])}</text></g>`;
+  }
+  svg += `<g class="target" id="tg-memory" transform="translate(440,40)"><rect width="152" height="100" rx="12"/>`
+    + `<text class="nm" x="12" y="24">${esc(t().memory)}</text><text class="sub" x="12" y="42">${esc(t().sealed)}</text>`
+    + `<text class="mono" x="12" y="70">${esc(run.canary)}</text></g>`
+    + `<g class="target" id="tg-vault" transform="translate(440,156)"><rect width="152" height="70" rx="12"/>`
+    + `<text class="nm" x="12" y="24">${esc(t().vault)}</text><text class="sub" x="12" y="42">${esc(t().entry)}</text>`
+    + `<text class="mono" x="12" y="58">${esc(run.vault_entry)}</text></g>`
+    + `<g class="target" id="tg-ref" transform="translate(440,290)"><rect width="152" height="100" rx="12"/>`
+    + `<text class="nm" x="12" y="24">${esc(t().ref)}</text><text class="sub" x="12" y="42">${esc(t().refSub)}</text>`
+    + `<text id="verdict" x="12" y="74"></text></g><circle id="dot" r="6" cx="0" cy="0"/>`;
+  $("map").innerHTML = svg;
+}
+
+function paintMap() {
+  const e = events()[step], judged = phase >= 5;
+  document.querySelectorAll("#map .agent, #map .door, #map .target").forEach((node) => {
+    node.setAttribute("class", node.getAttribute("class").split(" ")[0]);
+  });
+  $("ag-" + e.who).classList.add("on");
+  const door = $("dr-" + e.door), target = $(e.door === "vault" ? "tg-vault" : "tg-memory");
+  door.classList.add(judged ? (e.held ? "held" : "through") : "on");
+  if (judged && !e.held) target.classList.add("through");
+  if (judged) $("tg-ref").classList.add(e.held ? "held" : "through");
+  $("verdict").textContent = judged ? (e.held ? "✓ " + t().vHeld : "✕ " + t().vThrough) : "";
+  $("verdict").setAttribute("fill", e.held ? "var(--good)" : "var(--bad)");
+  if (phase !== 3 || reduced) $("dot").classList.remove("fly");
+}
+
+function fly() {
+  if (reduced) return;
+  const e = events()[step], dot = $("dot");
+  dot.style.transition = "none";
+  dot.style.transform = `translate(178px, ${agentY(e.who) + 26}px)`;
+  dot.classList.add("fly");
+  dot.getBoundingClientRect();
+  dot.style.transition = `transform ${0.7 / speed}s ease-in-out`;
+  dot.style.transform = `translate(226px, ${doorY(e.door) + 18}px)`;
+}
+
+function paintCard() {
+  const e = events()[step], agent = run.agents[e.who], rule = run.rules[e.rule], a = e.arrived;
+  const block = (at, title, body) => `<div class="blk${phase < at ? " wait" : ""}"><h3>${esc(title)}</h3>${body}</div>`;
+  $("card").innerHTML =
+    block(0, t().who, `<p class="big">${L(agent.name)}</p><dl><dt>${esc(t().has)}</dt><dd>${L(agent.has)}</dd>`
+      + `<dt>${esc(t().wants)}</dt><dd>${L(agent.wants)}</dd></dl>`)
+    + block(1, t().arrives, a
+      ? `<pre><span class="st">HTTP ${a.status}</span> ${marked(a.reply)}</pre><dl><dt>${esc(t().reads)}</dt><dd>${L(a.read)}</dd></dl>`
+      : `<p class="muted">${esc(t().start)}</p>`)
+    + block(2, t().decides, `<p class="big">${L(e.title)}</p><p class="muted">${L(e.decided)}</p>`)
+    + block(3, t().sends, `<pre>${esc(e.request)}</pre><p class="muted">${esc(t().door)}: ${L(run.doors[e.door])}</p>`)
+    + block(4, t().gets, `<pre><span class="st">HTTP ${e.status}</span> ${marked(e.reply)}</pre>`)
+    + block(5, t().referee, `<dl><dt>${esc(t().looks)}</dt><dd>${L(rule.looks)}</dd><dt>${esc(t().rule)}</dt><dd>${L(rule.rule)}</dd></dl>`
+      + `<p class="verdict ${e.held ? "held" : "through"}">${e.held ? "✓ " + esc(t().vHeld) : "✕ " + esc(t().vThrough)}: ${L(e.saw)}</p>`
+      + (e.held ? `<p class="muted">${esc(t().defence)}: ${L(run.defences[e.defence])}</p>` : ""));
+}
+
+function paintSteps() {
+  const judged = (index) => index < step || (index === step && phase >= 5);
+  $("steps").innerHTML = events().map((e, index) => {
+    const pill = !judged(index) ? `<span class="pill none">·</span>`
+      : `<span class="pill ${e.held ? "held" : "through"}">${e.held ? "✓ " + esc(t().vHeld) : "✕ " + esc(t().vThrough)}</span>`;
+    return `<li class="step${index === step ? " now" : index > step ? " later" : ""}" data-step="${index}" tabindex="0">`
+      + `<code>${esc(e.id)}</code><span class="by">${L(run.agents[e.who].name)}</span><span>${L(e.title)}</span>${pill}</li>`;
+  }).join("");
+  const done = events().filter((e, index) => judged(index));
+  const entry = run.rounds[round], through = done.filter((e) => !e.held).length;
+  $("score").innerHTML = `<div><span>${esc(t().attacks)}</span><b>${done.length} / ${entry.attacks}</b></div>`
+    + `<div class="ok"><span>${esc(t().held)}</span><b>${done.length - through}</b></div>`
+    + `<div class="${through ? "bad" : ""}"><span>${esc(t().through)}</span><b>${through}</b></div>`
+    + `<div><span>${esc(t().result)}</span><b style="font-size:1.15rem">${esc(t().chip[entry.outcome || (entry.through.length ? "open" : "clean")])}</b></div>`;
+  $("where").textContent = t().step(step + 1, events().length);
+}
+
+function paintRound() {
+  const entry = run.rounds[round], text = t();
+  $("tabs").innerHTML = run.rounds.map((r, index) => {
+    const outcome = r.outcome || (r.through.length ? "open" : "clean");
+    return `<button type="button" role="tab" aria-selected="${index === round}" data-round="${index}">`
+      + `<small>${esc(r.fault ? text.planted : text.asIs)}</small>${r.fault ? L(r.fault.title) : esc(text.current)}`
+      + `<span class="chip ${outcome}">${esc(text.chip[outcome])}</span></button>`;
+  }).join("");
+  let about = entry.fault ? text.aboutFault({ what: L(entry.fault.what), where: esc(entry.fault.where) }) : text.aboutCurrent(info());
+  if (entry.outcome === "caught") about += " " + esc(text.caught(entry.through.length));
+  if (entry.outcome === "contained") about += " " + esc(text.contained) + (entry.fault.contained ? " " + L(entry.fault.contained) : "");
+  if (entry.outcome === "open") about += " " + esc(text.open);
+  $("about").innerHTML = about;
+  let repair = "";
+  if (entry.replay && entry.replay.length) {
+    const again = Object.fromEntries(entry.replay.map((e) => [e.id, e]));
+    repair = `<h2>${esc(text.repair)}</h2><p class="muted">${esc(text.repairNote)}</p><ol class="steps">`
+      + entry.through.map((id) => {
+        const e = again[id], was = entry.events.find((x) => x.id === id);
+        return `<li class="step" style="cursor:default"><code>${esc(id)}</code><span class="by">${L(run.agents[was.who].name)}</span>`
+          + `<span>${e ? L(e.saw) : esc(text.notTried)}</span>`
+          + `<span class="pill ${!e || e.held ? "held" : "through"}">${!e || e.held ? "✓ " + esc(text.vHeld) : "✕ " + esc(text.vThrough)}</span></li>`;
+      }).join("") + "</ol>";
+  }
+  $("repair").innerHTML = repair;
+  drawMap();
+}
+
+function paint() { paintMap(); paintCard(); paintSteps(); }
+
+function paintAll() {
+  const text = t();
+  document.documentElement.lang = lang;
+  $("brand").textContent = text.brand; $("title").textContent = text.title; $("lead").textContent = text.lead;
+  $("lang").textContent = text.other; $("prev").textContent = text.prev; $("next").textContent = text.next;
+  $("play").textContent = playing ? text.pause : text.play; $("speed").textContent = `${text.speed} ×${speed}`;
+  $("steps-title").textContent = text.steps; $("notes-title").textContent = text.notes;
+  $("notes").innerHTML = text.note.map((line) => `<li>${esc(line)}</li>`).join("");
+  $("foot").textContent = text.foot(info());
+  paintRound(); paint();
+}
+
+function stop() { playing = false; clearTimeout(timer); $("play").textContent = t().play; }
+function tick() {
+  if (!playing) return;
+  if (phase < 5) {
+    phase += 1;
+  } else if (step < events().length - 1) {
+    step += 1; phase = 1;
+  } else return stop();
+  paint();
+  if (phase === 3) fly();
+  timer = setTimeout(tick, WAITS[phase] / speed);
+}
+function go(to) { stop(); step = Math.max(0, Math.min(events().length - 1, to)); phase = 5; paint(); }
+
+$("play").addEventListener("click", () => {
+  if (playing) return stop();
+  if (step >= events().length - 1 && phase >= 5) step = 0;
+  playing = true; phase = 1; $("play").textContent = t().pause; paint();
+  timer = setTimeout(tick, WAITS[1] / speed);
+});
+$("prev").addEventListener("click", () => go(step - 1));
+$("next").addEventListener("click", () => go(step + 1));
+$("speed").addEventListener("click", () => { speed = speed === 1 ? 2 : speed === 2 ? 0.5 : 1; $("speed").textContent = `${t().speed} ×${speed}`; });
+$("lang").addEventListener("click", () => { lang = lang === "es" ? "en" : "es"; paintAll(); });
+$("tabs").addEventListener("click", (event) => {
+  const tab = event.target.closest("button[data-round]");
+  if (!tab) return;
+  stop(); round = Number(tab.dataset.round); step = 0; phase = 5; paintRound(); paint();
+});
+const pick = (event) => { const row = event.target.closest("li[data-step]"); if (row) go(Number(row.dataset.step)); };
+$("steps").addEventListener("click", pick);
+$("steps").addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); pick(event); } });
+document.addEventListener("keydown", (event) => {
+  if (event.target.closest("button, li")) return;
+  if (event.key === "ArrowRight") go(step + 1);
+  if (event.key === "ArrowLeft") go(step - 1);
+});
+
+fetch("run.json").then((answer) => { if (!answer.ok) throw new Error(answer.status); return answer.json(); })
+  .then((data) => { run = data; paintAll(); })
+  .catch(() => { $("title").textContent = UI[lang].error; });
+</script>
+</body>
+</html>
