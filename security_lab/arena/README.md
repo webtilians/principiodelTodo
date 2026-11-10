@@ -63,5 +63,5 @@ is a model: `arrived` is what it was given, `decided` what it chose and why.
 ## Tests
 
 ```bash
-python -m pytest tests/test_security_arena.py -q
+python -m pytest tests/test_security_arena_v3.py -q
 ```
