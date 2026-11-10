@@ -1,0 +1,38 @@
+{
+  "study": "INFINITO-SECURITY-S0-J2",
+  "fixture_version": "1",
+  "labels": {
+    "aurora": {
+      "r1": "recall",
+      "r2": "vault_list"
+    },
+    "bracken": {
+      "r1": "list_memories",
+      "r2": "recall"
+    },
+    "copper": {
+      "r1": "vault_list",
+      "r2": "list_memories"
+    },
+    "drift": {
+      "r1": "recall",
+      "r2": "list_memories"
+    },
+    "ember": {
+      "r1": "list_memories",
+      "r2": "vault_list"
+    },
+    "glen": {
+      "r1": "vault_list",
+      "r2": "recall"
+    },
+    "fable": {
+      "r1": null,
+      "r2": null
+    },
+    "hush": {
+      "r1": null,
+      "r2": null
+    }
+  }
+}
