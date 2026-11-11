@@ -55,7 +55,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple
 
-from . import remote_apps, remote_guidelines, remote_photos, remote_reflections, remote_shares, remote_tasks
+from . import (remote_apps, remote_cognition, remote_guidelines, remote_photos, remote_reflections, remote_shares,
+               remote_tasks)
 from .mcp_server import INSTRUCTIONS, TOOL_DESCRIPTIONS, TOOL_HINTS, AgentMemory, MemoryItem, _line
 from .persistent_memory import HashEmbeddingProvider, SQLiteCognitiveMemoryStore
 
@@ -442,6 +443,8 @@ def build_app(people: People, issuer: Optional[str] = None):
         person = state["infinito_person"]
         dropped = remote_reflections.change(accounts.memory_folder(person), state["infinito_key"], person,
                                             lambda data: remote_reflections.drop_citing(data, memory_ids))
+        remote_cognition.change(accounts.memory_folder(person), state["infinito_key"], person,
+                                lambda data: remote_cognition.drop_citing(data, memory_ids))
         return f"{answer}\nDeleted {dropped} of your reflections that rested on them." if dropped else answer
 
     if issuer:
@@ -637,6 +640,37 @@ def build_app(people: People, issuer: Optional[str] = None):
         def reflection_history(reflection_id: str, ctx: Context) -> str:
             return on_reflections(ctx, "reflection_history",
                                   lambda data, known: remote_reflections.history(data, reflection_id))
+
+        def cognition_tool(name: str):
+            return server.tool(description=remote_cognition.TOOL_DESCRIPTIONS[name],
+                               annotations=ToolAnnotations(**remote_cognition.TOOL_HINTS[name]), meta=signed_in)
+
+        def on_cognition(ctx: Context, tool: str, action: Callable[[dict], str], *, writes: bool) -> str:
+            """The cognitive engine's reviews (remote_cognition.py), sealed with the memory's key."""
+            state = ctx.request_context.request.scope["state"]
+            if state["infinito_memories"] != "accounts":
+                return remote_cognition.NEEDS_ACCOUNT
+            refusal = refused(ctx, tool)
+            if refusal:
+                return refusal
+            person = state["infinito_person"]
+            where = (accounts.memory_folder(person), state["infinito_key"], person)
+            try:
+                return remote_cognition.change(*where, action) if writes else action(remote_cognition.read(*where))
+            except remote_cognition.Refused as refused_call:
+                return str(refused_call)
+
+        @cognition_tool("cognition_report")
+        def cognition_report(review: dict, ctx: Context) -> str:
+            def act(data: dict) -> str:
+                kept = remote_cognition.report(data, app_of(ctx), review)
+                return (f"Kept as review {kept['id']}, with {len(kept['proposals'])} guideline(s) waiting for the user, "
+                        f"who reads it and decides at {issuer}/memory?view=cognition.")
+            return on_cognition(ctx, "cognition_report", act, writes=True)
+
+        @cognition_tool("cognition_decisions")
+        def cognition_decisions(ctx: Context) -> str:
+            return on_cognition(ctx, "cognition_decisions", remote_cognition.decisions, writes=False)
 
         def task_tool(name: str):
             return server.tool(description=remote_tasks.TOOL_DESCRIPTIONS[name],

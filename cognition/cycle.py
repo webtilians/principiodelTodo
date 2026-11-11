@@ -117,11 +117,102 @@ class Engine:
         try:
             with self.lock():
                 now = self.clock()
+                if self.live:
+                    self.sync()
+                    self.publish_unreported()
                 if self.review_due(now):
                     return self.review()
                 return self.watch()
         except Busy:
             return "another run is in progress"
+
+    # The person's word, given on their memory page
+
+    def sync(self) -> int:
+        """Bring in what the person decided on their page about each guideline. Their latest word wins."""
+        try:
+            found = json.loads(self.infinito.call("cognition_decisions"))
+        except (InfinitoError, ValueError):
+            return 0  # the server is not there yet, or does not have the tool: nothing decided there
+        local = {p["id"]: p["status"] for p in proposals(self.diary)}
+        changed = 0
+        for decided in found if isinstance(found, list) else []:
+            pid, status = decided.get("id"), decided.get("status")
+            if pid in local and status in ("approved", "rejected", "revoked") and local[pid] != status:
+                self.diary.append("policy_decision", proposal=pid, decision=status, actor="owner (web)",
+                                  decided_at=decided.get("decided_at"), body={"why": str(decided.get("note") or "")})
+                changed += 1
+        return changed
+
+    def payload(self, run: str) -> Optional[dict]:
+        """A live review as the person's page shows it: built from the diary, so it can be sent again if it failed."""
+        entries = [e for e in self.diary.entries() if e.get("run") == run]
+        end = next((e for e in entries if e["type"] == "review_end" and e.get("outcome") == "reviewed"), None)
+        if end is None:
+            return None
+        of = lambda kind, **match: next((e for e in entries if e["type"] == kind  # noqa: E731
+                                         and all(e.get(k) == v for k, v in match.items())), None)
+        review = self.diary.body(of("supervisor_review") or {"seq": 0}) or {}
+        hypotheses = (self.diary.body(of("hypothesis_set", arm="hierarchy") or {"seq": 0}) or {}).get("hypotheses", [])
+        verdicts = {v.get("hypothesis"): v for v in review.get("verdicts", [])}
+        published = of("reflection_published")
+        reflection, reflection_id = (self.diary.body(published) or {}) if published else {}, end.get("reflection")
+        for again in self.diary.entries("reflection_republished"):  # republished after its source was forgotten
+            if reflection_id and again.get("replaces") == reflection_id:
+                reflection, reflection_id = self.diary.body(again) or {}, again.get("reflection")
+        inventory = of("inventory") or {}
+        supervisor = of("call", role="supervisor") or {}
+        cover = end.get("coverage") or {}
+        return {
+            "run": run, "summary": review.get("summary_for_owner", ""),
+            "reflection": {"id": reflection_id or "", "text": reflection.get("reflection", ""),
+                           "advice": reflection.get("advice") or "", "questions": reflection.get("questions") or [],
+                           "sources": reflection.get("sources") or [], "model": supervisor.get("model", "")},
+            "coverage": {"read": cover.get("inventory", 0), "reported": inventory.get("reported_new", 0),
+                         "nobody": len(cover.get("cited_by_nobody", [])), "limits": cover.get("limits", [])},
+            "audit": review.get("audit", []),
+            "hypotheses": [{"id": h.get("id"), "statement": h.get("statement"), "falsifier": h.get("falsifier"),
+                            "verdict": verdicts.get(h.get("id"), {}).get("verdict", "untested"),
+                            "why": verdicts.get(h.get("id"), {}).get("why", ""),
+                            "ids": verdicts.get(h.get("id"), {}).get("ids") or h.get("evidence_ids", [])}
+                           for h in hypotheses],
+            "costs": {"spent_eur": end.get("spent_eur", 0), "cap_eur": end.get("cap_eur", 0)},
+            "proposals": [{"id": e["proposal"], "target_role": e["target_role"], **(self.diary.body(e) or {})}
+                          for e in entries if e["type"] == "policy_proposal"],
+        }
+
+    def publish(self, run: str) -> Optional[str]:
+        """Send a live review to the person's page and tell them it is there. None when it could not go."""
+        review = self.payload(run)
+        if review is None:
+            return None
+        for proposal in review["proposals"]:
+            proposal.pop("salt", None)
+        try:
+            answer = self.infinito.call("cognition_report", review=review)
+        except InfinitoError as error:
+            self.diary.append("error", run=run, where="report", code=str(error)[:200])
+            return None
+        if not answer.startswith(("Kept as review", "Already kept")):
+            self.diary.append("error", run=run, where="report", code=answer[:200])
+            return None
+        self.diary.append("review_reported", run=run, proposals=[p["id"] for p in review["proposals"]])
+        if self.config.get("notify", True):
+            from .notify import review_waiting
+
+            review_waiting(self.config["server"], len(review["proposals"]), bool(review["reflection"]["text"]))
+        return answer
+
+    def publish_unreported(self) -> int:
+        """Live reviews of the last week that never reached the person's page (the server was down or older): again."""
+        reported = {e.get("run") for e in self.diary.entries("review_reported")}
+        week_ago = self.clock() - timedelta(days=7)
+        sent = 0
+        for end in self.diary.entries("review_end"):
+            if (end.get("live") and end.get("outcome") == "reviewed" and end.get("run") not in reported
+                    and _parse_at(end["at"]) > week_ago and self.publish(end["run"])):
+                sent += 1
+        return sent
 
     # Reading INFINITO
 
@@ -258,6 +349,7 @@ class Engine:
             self.diary.append("error", run=run, where="inventory", code=str(error)[:200])
             return f"INFINITO did not answer: {error}"
         known = set(inventory["ids"])
+        still_open = validate.open_ids(inventory["text"])
         self.diary.append("inventory", run=run, ids=inventory["ids"], reported_new=inventory["reported_new"],
                           shown_new=inventory["shown_new"])
         if not inventory["ids"]:
@@ -303,6 +395,7 @@ class Engine:
             lines = [line.strip() for line in answer.splitlines() if validate.memory_ids(line)]
             found = [validate.memory_ids(line)[0] for line in lines]
             check_ids.update(found)
+            still_open |= validate.open_ids(answer)
             checks.append({"hypothesis": hypothesis.get("id"), "query": query, "found_ids": found, "lines": lines})
         self.diary.append("check_set", run=run, ids=sorted(check_ids),
                           body={"checks": [{k: v for k, v in c.items() if k != "lines"} for c in checks]})
@@ -337,13 +430,14 @@ class Engine:
         judged = self.ask(run, "supervisor",
                           roles.section(f"Inventario íntegro del día ({len(inventory['ids'])} recuerdos)", text)
                           + children)
-        evidence = known | check_ids
-        audit, audit_aside = validate.grounded(roles.items(judged, "audit"), "ids", known)
+        evidence = known | check_ids  # the supervisor was shown the checks too, so it may cite them
+        audit, audit_aside = validate.grounded(roles.items(judged, "audit"), "ids", evidence)
         named = {h.get("id") for h in hypotheses}
         verdicts, verdicts_aside = validate.grounded(
             [v for v in roles.items(judged, "verdicts") if v.get("hypothesis") in named], "ids", evidence)
         reflection, dropped = validate.reflection((judged or {}).get("reflection"), evidence,
-                                                  set(validate.reflection_ids(inventory["reflections"])))
+                                                  set(validate.reflection_ids(inventory["reflections"])),
+                                                  avoid=still_open)
         self.diary.append("supervisor_review", run=run, ids=sorted(set(i for a in audit for i in a["ids"])
                                                                    | set(i for v in verdicts for i in v["ids"])),
                           understood=judged is not None,
@@ -378,7 +472,7 @@ class Engine:
             guideline = str(proposal.get("guideline") or "").strip()[:600]
             if target not in ("observer", "investigator", "supervisor") or not guideline:
                 continue
-            pid = f"P{now:%Y%m%d}-{number}"
+            pid = f"P{run[1:]}-{number}"  # unique per run: two reviews of one day never share an id
             self.diary.append("policy_proposal", run=run, proposal=pid, target_role=target,
                               body={"guideline": guideline, "rationale": str(proposal.get("rationale") or "")[:600],
                                     "test": str(proposal.get("test") or "")[:400]})
@@ -394,6 +488,8 @@ class Engine:
         self.diary.append("review_end", run=run, outcome="reviewed", live=self.live, coverage=cover,
                           proposals=made, reflection=published, spent_eur=round(self.ledger.spent(now.date()), 4),
                           cap_eur=self.ledger.cap(now.date()))
+        if self.live:  # to the person's page, where they read it all and decide on the guidelines
+            self.publish(run)
         return self._report(run, now, inventory, {
             "observations": observations, "observations_aside": observations_aside, "hypotheses": hypotheses,
             "hypotheses_aside": hypotheses_aside, "checks": checks, "verdicts": verdicts, "audit": audit,
@@ -408,7 +504,7 @@ class Engine:
         random.SystemRandom().shuffle(mixed)
         shown = []
         for number, (arm, hypothesis) in enumerate(mixed, 1):
-            label = f"X{now:%m%d}-{number}"
+            label = f"X{run[5:]}-{number}"
             shown.append({"label": label, "statement": hypothesis.get("statement", ""),
                           "falsifier": hypothesis.get("falsifier", "")})
             self.diary.append("blind_item", run=run, label=label, ids=hypothesis.get("evidence_ids", []),

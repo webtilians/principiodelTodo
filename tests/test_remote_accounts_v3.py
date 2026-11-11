@@ -266,6 +266,8 @@ def test_apps_are_told_which_tools_only_read_so_they_need_not_ask_first(server):
                      # Reflections: only keeping one writes.
                      "reflection_due": True, "reflection_context": True, "reflection_list": True,
                      "reflection_history": True, "reflection_add": False,
+                     # The cognitive engine: it keeps its review; only the person decides, on their page.
+                     "cognition_report": False, "cognition_decisions": True,
                      "photo_save": False, "photo_show": True}
     assert [t.annotations.destructive_hint for t in app.tools if t.name == "forget"] == [True]
 

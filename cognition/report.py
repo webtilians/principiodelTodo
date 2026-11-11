@@ -92,7 +92,10 @@ def render(engine, run: str, now: datetime, inventory: dict, done: dict, *, noth
         lines += [f"- **{p['id']}** para el **{p['target_role']}**: {p['guideline']}",
                   f"  - Por qué: {p['rationale'] or '—'}", f"  - Cómo se comprobaría: {p['test'] or '—'}"]
     if waiting:
-        lines += ["", "`python -m cognition approve <id>`, `reject <id>`; una aprobada se puede retirar con "
+        where = f"{engine.config['server'].rstrip('/')}/memory?view=cognition"
+        lines += ["", f"Léelas entero y decide en tu página: {where} (Aceptar, Rechazar; una aceptada se puede "
+                      "retirar). Ninguna se aplica sin ti." if engine.live else
+                      "`python -m cognition approve <id>`, `reject <id>`; una aprobada se puede retirar con "
                       "`revoke <id>`. Ninguna se aplica sin ti."]
     lines.append("")
 

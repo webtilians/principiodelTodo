@@ -9,7 +9,9 @@
     review                a review now, whatever the hour
     status                where it stands: last review, today's spending, proposals waiting, paused or not
     proposals             the guidelines the supervisor proposed, with their status
-    approve ID | reject ID | revoke ID     your word on a proposal
+    publish               send to your memory page the live reviews that have not reached it yet
+    approve ID | reject ID | revoke ID     your word on a proposal that never reached your page (a published one
+                          is decided there, on /memory?view=cognition)
     rate LABEL util|no    your rating of a blind hypothesis from a report
     mission add TEXT | mission list | mission remove N
     pause | resume        stop or restart it; nothing else changes
@@ -81,6 +83,7 @@ def main(argv=None) -> int:
     purge = commands.add_parser("purge")
     purge.add_argument("ids", nargs="+")
     commands.add_parser("verify")
+    commands.add_parser("publish")
     args = parser.parse_args(argv)
 
     folder = settings.home()
@@ -138,10 +141,26 @@ def main(argv=None) -> int:
         else:
             try:
                 with engine.lock():
+                    if engine.live:
+                        engine.sync()
                     _say(engine.review())
             except Busy:
                 _say("Ya hay una ejecución en marcha.")
                 return 1
+    elif args.command == "publish":
+        engine = _engine(folder, conf)
+        if not engine.live:
+            _say("En modo prueba no se publica nada.")
+            return 2
+        try:
+            with engine.lock():
+                engine.sync()
+                sent = engine.publish_unreported()
+        except Busy:
+            _say("Ya hay una ejecución en marcha.")
+            return 1
+        _say(f"Enviadas a tu página: {sent} revisión(es). Están en {conf['server']}/memory?view=cognition"
+             if sent else "No había ninguna revisión pendiente de enviar, o el servidor aún no la acepta.")
     elif args.command == "status":
         ledger, today = Ledger(folder, conf), datetime.now().date()
         last = diary.last("review_end")
@@ -156,7 +175,7 @@ def main(argv=None) -> int:
             f"Pautas esperando tu aprobación: {len(waiting)}",
             "Modelos: " + "; ".join(f"{r} {conf['roles'][r].get('model') or '(sin elegir)'}" for r in ROLES),
             f"Diario: {'íntegro' if not check(diary) else '; '.join(check(diary))}",
-            f"Informes: {folder / 'reports'}"]))
+            f"Informes: {folder / 'reports'} · en la web: {conf['server']}/memory?view=cognition"]))
     elif args.command == "proposals":
         found = proposals(diary)
         _say("\n".join(f"{p['id']} [{p['status']}] {p['target_role']}: {p['guideline']}" for p in found)
@@ -165,6 +184,10 @@ def main(argv=None) -> int:
         found = {p["id"]: p for p in proposals(diary)}
         if args.id not in found:
             _say(f"No hay ninguna propuesta {args.id}.")
+            return 2
+        published = {pid for entry in diary.entries("review_reported") for pid in entry.get("proposals", [])}
+        if args.id in published:  # one place to decide, so the page and the engine never disagree
+            _say(f"{args.id} está en tu página: se decide allí, en {conf['server']}/memory?view=cognition")
             return 2
         decision = {"approve": "approved", "reject": "rejected", "revoke": "revoked"}[args.command]
         if decision == "revoked" and found[args.id]["status"] != "approved":

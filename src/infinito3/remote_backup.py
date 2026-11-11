@@ -35,12 +35,12 @@ NAME = re.compile(r"infinito-\d{8}-\d{6}\.tar\.gz")
 KEY_FILES = ("accounts.json", "people.json")
 KDBX_MAGIC = b"\x03\xd9\xa2\x9a"  # how a vault starts: a KeePass file, locked under its master password
 PERSON_FILES = ("memory.sealed", "vault.kdbx", "vault-names.sealed", "tasks.sealed", "guidelines.sealed",
-                "reflections.sealed", "contacts.sealed", "photos/*.sealed", "box.sealed")
+                "reflections.sealed", "cognition.sealed", "contacts.sealed", "photos/*.sealed", "box.sealed")
 # Every name a copy may hold, and so the only places a restore may write: a photo is named by its 32-character id, and
 # so is a box of memories shared between two people (remote_shares.py).
 MEMBER = re.compile(r"(accounts\.json|people\.json|shares/[0-9a-f]{32}/box\.sealed|(accounts|people)/[a-z0-9][a-z0-9-]*/"
                     r"(memory\.sealed|vault\.kdbx|vault-names\.sealed|tasks\.sealed|guidelines\.sealed|"
-                    r"reflections\.sealed|contacts\.sealed|"
+                    r"reflections\.sealed|cognition\.sealed|contacts\.sealed|"
                     r"photos/[0-9a-f]{32}\.sealed))")
 
 
