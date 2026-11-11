@@ -98,3 +98,132 @@ def test_deterministic_preflight_has_no_model_calls():
     assert report["real_mcp_calls"] == 0
     assert report["unverified_promoted"] is False
     assert report["cross_episode_composition"] is True
+
+
+def test_p1_isolated_allowlisted_prompts_and_reproducible_dry_run(monkeypatch):
+    import json
+    from experimental_pilot import runner
+    sent, clients = [], []
+    original = runner.export_packets
+
+    def poisoned(store):
+        packets = original(store)
+        packets["solution"] = "SECRET_SOLUTION"
+        packets["referee"] = "SECRET_REFEREE"
+        packets["task"]["hidden"] = "SECRET_TASK"
+        return packets
+
+    monkeypatch.setattr(runner, "export_packets", poisoned)
+    monkeypatch.setattr(runner, "post", lambda *a: (_ for _ in ()).throw(AssertionError("network")))
+
+    class Spy(runner.FakeClient):
+        def complete(self, prompt, max_tokens):
+            sent.append((json.loads(prompt), max_tokens))
+            return super().complete(prompt, max_tokens)
+
+    def factory(*args):
+        client = Spy()
+        clients.append(client)
+        return client
+
+    first = runner.run(client_factory=factory)
+    assert first == runner.run()
+    assert len({id(c) for c in clients}) == 8
+    expected = runner.prompts()
+    for (payload, limit), variant in zip(sent, list(runner.VARIANTS) * 2):
+        assert payload == json.loads(expected[variant])
+        assert "SECRET" not in str(payload)
+        assert set(payload) == {"task", "observations"}
+        assert limit == runner.OUTPUT_TOKENS
+    assert sent[0][0]["observations"] == sent[4][0]["observations"] == []
+    assert first["model_calls"] == 0
+    assert len(first["results"]) == 8
+    assert all(r["referee"]["success"] is False for r in first["results"])
+    assert "fake-client-dry-run" in runner.markdown(first)
+
+
+def test_p1_errors_are_sanitized_and_do_not_stop_other_conditions():
+    from experimental_pilot import runner
+    replies = iter([RuntimeError("sk-SECRET"), "not json", '{"steps":"verify"}',
+                    '{"steps":["unknown"]}', '{"steps":[],"secret":"sk-SECRET"}',
+                    '{"steps":["ingest","normalize","tag","deliver","verify"]}',
+                    '{"steps":[]}', '{"steps":[]}'])
+
+    class Client:
+        def complete(self, *args):
+            reply = next(replies)
+            if isinstance(reply, Exception):
+                raise reply
+            return reply, {"input_tokens": 1, "output_tokens": 1}
+
+    report = runner.run(client_factory=lambda *a: Client())
+    assert [r["status"] for r in report["results"]] == ["error"] * 5 + ["ok"] * 3
+    assert report["results"][5]["referee"]["success"] is True
+    assert "SECRET" not in str(report)
+
+
+def test_p1_live_requires_authorization_valid_budget_and_all_credentials():
+    import pytest
+    from experimental_pilot import runner
+    env = {"PILOT_MAX_USD": "1"}
+    for p in runner.PROVIDERS:
+        env.update({p.upper() + "_MODEL": "test-model", p.upper() + "_API_KEY": "secret",
+                    p.upper() + "_INPUT_USD_PER_MILLION": "1",
+                    p.upper() + "_OUTPUT_USD_PER_MILLION": "2"})
+    with pytest.raises(runner.PilotError, match="live_not_authorized"):
+        runner.run(dry_run=False, env=env)
+    for value in ("0", "nan", "inf", "-1", "0.000001"):
+        with pytest.raises(runner.PilotError):
+            runner.run(dry_run=False, authorized=True, env={**env, "PILOT_MAX_USD": value})
+    models, budget = runner.live_config(env, True)
+    assert len(models) == 2 and 0 < budget["reserved_usd"] < 1
+    del env["ANTHROPIC_API_KEY"]
+    with pytest.raises(runner.PilotError, match="missing_api_key"):
+        runner.run(dry_run=False, authorized=True, env=env)
+
+
+def test_p1_http_adapters_send_only_one_message_and_parse_usage(monkeypatch):
+    from experimental_pilot import runner
+    calls = []
+
+    def post(url, headers, body):
+        calls.append((url, body))
+        usage = {"input_tokens": 12, "output_tokens": 4}
+        if "openai.com" in url:
+            assert body["store"] is False
+            return {"status": "completed", "usage": usage, "output": [
+                {"type": "message", "content": [{"type": "output_text", "text": '{"steps":[]}'}]}]}
+        return {"stop_reason": "end_turn", "usage": usage,
+                "content": [{"type": "text", "text": '{"steps":[]}'}]}
+
+    monkeypatch.setattr(runner, "post", post)
+    for p in runner.PROVIDERS:
+        client = runner.APIClient(p, "test-model", {p.upper() + "_API_KEY": "secret"})
+        assert client.complete("isolated", 256) == ('{"steps":[]}', {"input_tokens": 12, "output_tokens": 4})
+    for url, body in calls:
+        messages = body.get("input", body.get("messages"))
+        assert messages == [{"role": "user", "content": "isolated"}]
+        assert "previous_response_id" not in body and "conversation" not in body
+
+
+def test_p1_transport_never_reports_secret_errors(monkeypatch):
+    import pytest
+    from experimental_pilot import runner
+
+    def failing(*args, **kwargs):
+        raise OSError("secret credential")
+
+    monkeypatch.setattr(runner.request, "build_opener", failing)
+    with pytest.raises(runner.PilotError, match="^transport_error$"):
+        runner.post("https://api.openai.com/v1/responses", {}, {})
+
+
+def test_p1_cli_writes_json_and_markdown(tmp_path, monkeypatch):
+    import json
+    import sys
+    from experimental_pilot import runner
+    monkeypatch.setattr(sys, "argv", ["runner", "--dry-run", "--output-dir", str(tmp_path)])
+    runner.main()
+    report = json.loads((tmp_path / "results.json").read_text())
+    assert len(report["results"]) == 8
+    assert (tmp_path / "summary.md").read_text() == runner.markdown(report)
