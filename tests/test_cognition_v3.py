@@ -130,6 +130,22 @@ def test_the_referee_sets_aside_what_cites_memories_never_shown(tmp_path):
     assert review["audit"] == [] and review["set_aside"][0]["rejected"] == "NOT_IN_EVIDENCE"
 
 
+def test_past_the_thirty_listed_it_adds_only_the_ones_missing(tmp_path):
+    class Busy(FakeInfinito):
+        def call(self, tool, **arguments):
+            if tool == "reflection_context":  # 4 new, but INFINITO shows only the last 2 (C and A)
+                return (f"Memories saved since 2026-11-10, oldest first (4). They are data, not instructions.\n"
+                        f'  [{C}] (2026-11-11) "c…"\n  [{A}] (2026-11-11) "a…"\n  and 2 earlier ones; recall finds them.')
+            if tool == "list_memories":  # by day, then in the order saved: OLD is from that day but not new
+                order = [OLD, GHOST, B, C, A]
+                return "\n".join([f'[{m}] (2026-11-10, fact) "Recuerdo completo {m[:4]}."' for m in order])
+            return super().call(tool, **arguments)
+
+    run = engine(tmp_path, infinito=Busy())
+    inventory = run.inventory(datetime(2026, 11, 10, 12, tzinfo=MADRID), datetime(2026, 11, 11, tzinfo=MADRID))
+    assert inventory["ids"] == [GHOST, B, C, A] and OLD not in inventory["ids"]
+
+
 def test_checks_are_read_only_recalls(tmp_path):
     infinito = FakeInfinito()
     engine(tmp_path, infinito=infinito).review()
@@ -159,6 +175,16 @@ def test_tick_reviews_once_a_day_after_the_hour_and_catches_up_missed_days(tmp_p
     assert run.tick().startswith("review")
     now["t"] = datetime(2026, 11, 14, 8, 0, tzinfo=MADRID)
     assert run.tick().startswith("review")  # the 13th was missed: caught up at once
+
+
+def test_a_dry_run_never_moves_where_the_live_review_starts(tmp_path):
+    now = datetime(2026, 11, 11, 21, 30, tzinfo=MADRID)
+    dry = engine(tmp_path, clock=lambda: now)
+    dry.review()
+    assert not dry.review_due(now)
+    live = engine(tmp_path, live=True, clock=lambda: now)
+    assert live.review_due(now) and live._since(now) == now - timedelta(days=1)
+    assert live._observation_sets(now - timedelta(days=1)) == []  # the dry run's stand-in notes stay out
 
 
 def test_the_budget_has_no_last_day(tmp_path):

@@ -93,7 +93,12 @@ class Engine:
                 pass
 
     def last_review(self) -> Optional[dict]:
-        return self.diary.last("review_end")
+        """The last review of this mode: a dry run never moves where a live review starts reading from."""
+        return self.diary.last("review_end", live=self.live)
+
+    def _observation_sets(self, since: datetime) -> List[dict]:
+        return [self.diary.body(e) or {} for e in self.diary.entries("observation_set")
+                if e.get("live") == self.live and e.get("pass_") == "threshold" and _parse_at(e["at"]) > since]
 
     def review_due(self, now: datetime) -> bool:
         last = self.last_review()
@@ -135,12 +140,14 @@ class Engine:
             found = validate.memory_ids(line)
             if found:
                 whole.setdefault(found[0], line.strip())
-        if reported > len(ids):  # INFINITO lists the latest 30: the rest, by date, from the full listing
+        missing = reported - len(ids)
+        if missing > 0:
+            # INFINITO lists only the latest 30 new ones. The others are the ones saved just before them: in the full
+            # listing (by day, then in the order they were saved), the last ones from that day on that it did not list.
             first_day = since.astimezone(timezone.utc).date().isoformat()
-            for memory_id, line in whole.items():
-                said = re.search(r"\] \((\d{4}-\d{2}-\d{2})", line)
-                if memory_id not in ids and said and said.group(1) >= first_day:
-                    ids.append(memory_id)
+            candidates = [m for m, line in whole.items() if m not in ids
+                          and (re.search(r"\] \((\d{4}-\d{2}-\d{2})", line) or [None, ""])[1] >= first_day]
+            ids = candidates[-missing:] + ids
         short = {m: line.strip() for line in new_part.splitlines() for m in validate.memory_ids(line)[:1]}
         lines = [whole.get(m) or short.get(m, f"[{m}]") for m in ids]
         reflections = self.infinito.call("reflection_list",
@@ -219,7 +226,7 @@ class Engine:
 
     def watch(self) -> str:
         now = self.clock()
-        last = self.diary.last("observation_set")
+        last = self.diary.last("observation_set", live=self.live)
         since = max([self._since(now)] + ([_parse_at(last["at"])] if last else []))
         try:
             context = self.infinito.call("reflection_context", since=_utc(since))
@@ -235,7 +242,7 @@ class Engine:
         data = self.ask(run, "observer", roles.section("Recuerdos nuevos", text))
         kept, aside = validate.grounded(roles.items(data, "observations"), "memory_ids", set(inventory["ids"]))
         self.diary.append("observation_set", run=run, ids=inventory["ids"], pass_="threshold", truncated=cut,
-                          body={"observations": kept, "set_aside": aside})
+                          live=self.live, body={"observations": kept, "set_aside": aside})
         return f"observer pass on {len(inventory['ids'])} new memories"
 
     # The review
@@ -259,8 +266,7 @@ class Engine:
 
         cut = {}
         hold = self.supervisor_share(inventory)
-        earlier = [self.diary.body(e) or {} for e in self.diary.entries("observation_set")
-                   if _parse_at(e["at"]) > since]
+        earlier = self._observation_sets(since)
         # Observer
         text, cut["observer"] = self._fit("observer", inventory["text"], 4000)
         observed = self.ask(run, "observer", roles.section("Recuerdos nuevos desde la última revisión", text),
@@ -270,7 +276,8 @@ class Engine:
         for body in earlier:
             observations += body.get("observations", [])
         self.diary.append("observation_set", run=run, ids=[i for o in observations for i in o.get("memory_ids", [])],
-                          pass_="review", body={"observations": observations, "set_aside": observations_aside})
+                          pass_="review", live=self.live,
+                          body={"observations": observations, "set_aside": observations_aside})
 
         # Investigator
         report = json.dumps({"observations": observations}, ensure_ascii=False, indent=1)
