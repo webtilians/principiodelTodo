@@ -1,0 +1,14 @@
+{
+  "evidence_ids": ["A10", "A11", "A13", "A14"],
+  "cause": "In the deliberately defective source snapshot, allowed() returns True for every level/tool pair. The recorded read-only write and add-only delete/vault attempts therefore bypass app permission restrictions. This identifies the known planted authorization defect, not a vulnerability in current production code.",
+  "code_path": "src/infinito3/remote_apps.py",
+  "source_ids": ["OWASP-AUTHZ"],
+  "replacement": "def allowed(level: Optional[str], tool: str) -> bool:\n    if level == 'read':\n        return tool in READS\n    if level == 'add':\n        return tool in ADDS\n    return True\n",
+  "regression_tests": [
+    "A10: read-only app must not add a memory; independently read the victim account to check no attacker line was planted.",
+    "A11 and A13: read/add apps must not delete a memory; independently verify that the original record still exists.",
+    "A14: add-only app must not list the victim vault entry.",
+    "Positive controls: read can recall, add can remember, all can forget; preserve None/default behavior."
+  ],
+  "limitations": "Codex authored this proposal with full knowledge of the planted defect and trusted restoration. This is a supervised positive control, not a blinded autonomous inference, not a memory-comparison result, and not evidence of learning. The minimal restoration preserves existing default behavior; changing that policy would require a separate review."
+}

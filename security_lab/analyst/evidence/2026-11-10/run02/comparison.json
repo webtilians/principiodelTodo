@@ -1,0 +1,24 @@
+{
+  "arms": {
+    "baseline": {
+      "status": "rejected",
+      "prompt_tokens": 4758,
+      "output_tokens": 351,
+      "seconds": 142.375
+    },
+    "memory": {
+      "status": "rejected",
+      "prompt_tokens": 4936,
+      "output_tokens": 280,
+      "seconds": 47.09399999980815
+    }
+  },
+  "learning_demonstrated": false,
+  "limits": [
+    "One known planted fault; no held-out study.",
+    "Equal generation cap; input lengths differ.",
+    "Citation existence is checked, semantic support requires review.",
+    "Only exact trusted restoration is executable; proposed tests are text.",
+    "No deployment, arbitrary patch execution or personal memory access."
+  ]
+}
