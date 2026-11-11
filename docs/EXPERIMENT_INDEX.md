@@ -6,6 +6,10 @@ Resumen en inglés de los resultados principales: [FINDINGS.md](FINDINGS.md).
 
 ## Último resultado
 
+[E13-A: consolidación mejora recuperación sintética, pero la adaptación no supera
+el gate; no integrar](INFINITO_E13A_RESULTS_2026-11-05.md). Prerregistro, DEV,
+HOLDOUT disjunto, repetición y resultados negativos conservados.
+
 [F9-R: resultado primario negativo y rescate tardío parcial](INFINITO_F9R_RECURRENT_STATE_DRIFT_RESULTS_2026-10-30.md).
 
 ## Dos trabajos F9-I complementarios
