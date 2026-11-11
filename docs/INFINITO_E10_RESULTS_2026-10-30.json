@@ -1,0 +1,114 @@
+{
+  "summary": {
+    "no_memory": {
+      "all_four_correct": 0,
+      "all_four_rate": 0,
+      "individual_correct": 0,
+      "individual_accuracy": 0,
+      "both_counterfactual_flips": 0,
+      "after_correct": 0,
+      "mean_context_tokens": 0
+    },
+    "fifo_8": {
+      "all_four_correct": 0,
+      "all_four_rate": 0,
+      "individual_correct": 0,
+      "individual_accuracy": 0,
+      "both_counterfactual_flips": 0,
+      "after_correct": 0,
+      "mean_context_tokens": 86.26171875
+    },
+    "rag_hash": {
+      "all_four_correct": 7,
+      "all_four_rate": 0.0546875,
+      "individual_correct": 300,
+      "individual_accuracy": 0.5859375,
+      "both_counterfactual_flips": 97,
+      "after_correct": 44,
+      "mean_context_tokens": 64.427734375
+    },
+    "infinito3": {
+      "all_four_correct": 128,
+      "all_four_rate": 1,
+      "individual_correct": 512,
+      "individual_accuracy": 1,
+      "both_counterfactual_flips": 128,
+      "after_correct": 256,
+      "mean_context_tokens": 43.65625
+    }
+  },
+  "negative_control": {
+    "no_memory": {
+      "action": "ABSTENER",
+      "abstained": 1
+    },
+    "fifo_8": {
+      "action": "ABSTENER",
+      "abstained": 1
+    },
+    "rag_hash": {
+      "action": "ABSTENER",
+      "abstained": 1
+    },
+    "infinito3": {
+      "action": "ABSTENER",
+      "abstained": 1
+    }
+  },
+  "gate": {
+    "fifo_8": {
+      "differences_by_index": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "mean_difference": 1,
+      "bootstrap_95_percent": [
+        1,
+        1
+      ],
+      "positive_indices": 8,
+      "passes_descriptive_gate": true
+    },
+    "rag_hash": {
+      "differences_by_index": [
+        0.9375,
+        1,
+        0.8125,
+        0.9375,
+        1,
+        0.875,
+        1,
+        1
+      ],
+      "mean_difference": 0.9453125,
+      "bootstrap_95_percent": [
+        0.8984375,
+        0.984375
+      ],
+      "positive_indices": 8,
+      "passes_descriptive_gate": true
+    },
+    "E10_primary_passes_both_baselines": true
+  },
+  "experiment": "E10 prospective longitudinal memory utility OFFLINE reader",
+  "git_run": 41106177869,
+  "source_confirmation_artifact": 13002100493,
+  "source_dev_artifact": 13002150404,
+  "confirm_seed_base": 1300000,
+  "dev_seed_base": 1200000,
+  "core_modified": false,
+  "old_f9_holdout_used": false,
+  "limitations": [
+    "Deterministic scripted decision reader, not a language model",
+    "Hash RAG is not semantic deep embeddings",
+    "All facts use three known structured predicates",
+    "Two decisions per story, not long open-ended independent agent trajectories",
+    "Eight independent generator indices, not model-training replications"
+  ]
+}
