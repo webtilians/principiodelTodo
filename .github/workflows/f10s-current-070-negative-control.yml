@@ -1,0 +1,63 @@
+name: F10-S frozen master negative control - current v0.7.0
+
+on:
+  push:
+    branches: [fix/f10s-current-070-revalidation-20261106]
+    paths:
+      - .github/workflows/f10s-current-070-negative-control.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  original-master-must-exhibit-concurrency-race:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e ".[mcp,dev]"
+      - name: Replace ONLY SQLite product source with frozen unpatched current master
+        run: |
+          git show 129e70189a060136b3942f8dc251575f8a0b6299:src/infinito3/persistent_memory.py > src/infinito3/persistent_memory.py
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('src/infinito3/persistent_memory.py').read_text()
+          assert 'self._conn.execute("BEGIN IMMEDIATE")' not in p
+          print('BASELINE VERIFIED: frozen current master without F10-S atomic fix')
+          PY
+      - name: Test whether baseline fails specifically on duplicated active exclusive values
+        run: |
+          # The unpatched baseline is EXPECTED to fail; do not let bash -e
+          # abort before we classify the precise observed failure.
+          set +e
+          set -u
+          reproduced=0
+          for attempt in 1 2 3 4; do
+            echo "===== FROZEN MASTER CONTROL ATTEMPT $attempt =====" >> f10s-baseline-race.log
+            python -m pytest tests/test_f10s_current_integration.py::test_four_distinct_real_mcp_processes_share_atomic_sqlite -v -x >> f10s-baseline-race.log 2>&1
+            rc=$?
+            if [ "$rc" -ne 0 ] && grep -q "assert len(current) == 1" f10s-baseline-race.log; then
+              echo "BASELINE_RACE_REPRODUCED: duplicate active values detected" | tee -a f10s-baseline-race.log
+              reproduced=1
+              break
+            fi
+            echo "Attempt $attempt: status $rc, no unequivocal baseline race yet" | tee -a f10s-baseline-race.log
+          done
+          tail -n 45 f10s-baseline-race.log
+          if [ "$reproduced" -ne 1 ]; then
+            echo "INCONCLUSIVE: negative control did not detect the expected specific race"
+            exit 1
+          fi
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: f10s-current-070-unpatched-master-control
+          path: f10s-baseline-race.log
+          if-no-files-found: warn
+          retention-days: 30
