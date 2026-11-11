@@ -306,13 +306,20 @@ def test_providers_read_usage_and_refuse_without_a_key():
     reply = Anthropic("claude-x", {"ANTHROPIC_API_KEY": "k"}, anthropic).complete("s", "p", 10)
     assert reply.finished and reply.usage.as_dict() == {"input": 7, "output": 3, "thinking": 0}
 
+    bodies = []
+
     def openai(url, headers, body):
+        bodies.append(body)
         return {"choices": [{"message": {"content": "{}"}, "finish_reason": "length"}],
                 "usage": {"prompt_tokens": 9, "completion_tokens": 20,
                           "completion_tokens_details": {"reasoning_tokens": 15}}}
 
-    reply = OpenAICompatible("m", {"OPENAI_API_KEY": "k"}, openai).complete("s", "p", 10)
+    model = make({"provider": "openai", "model": "gpt-6-astra", "reasoning_effort": "medium"},
+                 {"OPENAI_API_KEY": "k"}, openai)
+    reply = model.complete("s", "p", 10)
     assert not reply.finished and reply.usage.as_dict() == {"input": 9, "output": 5, "thinking": 15}
+    assert bodies[0]["reasoning_effort"] == "medium" and bodies[0]["max_completion_tokens"] == 10
+    assert "response_format" not in bodies[0]
     with pytest.raises(ProviderError):
         Anthropic("claude-x", {})
     with pytest.raises(ProviderError):

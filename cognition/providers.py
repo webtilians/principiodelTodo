@@ -92,17 +92,19 @@ class OpenAICompatible:
     """OpenAI, or any server that speaks its chat completions (base_url in the role's settings)."""
 
     def __init__(self, model: str, env=None, post: Callable = post_json, base_url: str = "https://api.openai.com/v1",
-                 key_name: str = "OPENAI_API_KEY"):
-        self.model, self.post, self.base_url = model, post, base_url.rstrip("/")
+                 key_name: str = "OPENAI_API_KEY", effort: Optional[str] = None):
+        self.model, self.post, self.base_url, self.effort = model, post, base_url.rstrip("/"), effort
         self.key = (env or os.environ).get(key_name, "")
         if not self.key:
             raise ProviderError("missing_api_key")
 
     def complete(self, system: str, prompt: str, max_output: int) -> Reply:
-        data = self.post(f"{self.base_url}/chat/completions", {"Authorization": f"Bearer {self.key}"},
-                         {"model": self.model, "max_completion_tokens": max_output,
-                          "response_format": {"type": "json_object"},
-                          "messages": [{"role": "system", "content": system}, {"role": "user", "content": prompt}]})
+        # No response_format: not every reasoning model takes it, and roles.parse() finds the JSON in the text.
+        body = {"model": self.model, "max_completion_tokens": max_output,
+                "messages": [{"role": "system", "content": system}, {"role": "user", "content": prompt}]}
+        if self.effort:
+            body["reasoning_effort"] = self.effort
+        data = self.post(f"{self.base_url}/chat/completions", {"Authorization": f"Bearer {self.key}"}, body)
         try:
             usage = data["usage"]
             reasoning = int((usage.get("completion_tokens_details") or {}).get("reasoning_tokens", 0))
@@ -122,7 +124,7 @@ def make(settings: dict, env=None, post: Callable = post_json):
         return Anthropic(settings["model"], env, post)
     if provider == "openai":
         return OpenAICompatible(settings["model"], env, post, settings.get("base_url", "https://api.openai.com/v1"),
-                                settings.get("key_name", "OPENAI_API_KEY"))
+                                settings.get("key_name", "OPENAI_API_KEY"), settings.get("reasoning_effort"))
     raise ProviderError("unknown_provider")
 
 

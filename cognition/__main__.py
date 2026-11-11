@@ -57,6 +57,9 @@ def main(argv=None) -> int:
     chosen.add_argument("--price-out", type=float, required=True)
     chosen.add_argument("--base-url")
     chosen.add_argument("--key-name")
+    chosen.add_argument("--effort", choices=("none", "low", "medium", "high", "xhigh", "max"),
+                        help="reasoning effort, for the models that take it (OpenAI's)")
+    chosen.add_argument("--max-output", type=int, help="output tokens allowed per call, reasoning included")
     commands.add_parser("authorize")
     commands.add_parser("deauthorize")
     commands.add_parser("tick")
@@ -94,13 +97,18 @@ def main(argv=None) -> int:
         roles = conf["roles"]
         roles[args.role] = {**roles[args.role], "provider": args.provider, "model": args.model,
                             **({"base_url": args.base_url} if args.base_url else {}),
-                            **({"key_name": args.key_name} if args.key_name else {})}
+                            **({"key_name": args.key_name} if args.key_name else {}),
+                            **({"reasoning_effort": args.effort} if args.effort else {}),
+                            **({"max_output": args.max_output} if args.max_output else {})}
         prices = {**conf["prices_usd_per_million"], args.model: [args.price_in, args.price_out]}
         settings.save_override(folder, "roles", roles)
         settings.save_override(folder, "prices_usd_per_million", prices)
         diary.append("model_choice", role=args.role, provider=args.provider, model=args.model,
                      price_usd_per_million=[args.price_in, args.price_out])
-        _say(f"{args.role}: {args.provider} {args.model} a {args.price_in}/{args.price_out} $ por millón.")
+        chosen_now = roles[args.role]
+        _say(f"{args.role}: {args.provider} {args.model} a {args.price_in}/{args.price_out} $ por millón, "
+             f"esfuerzo {chosen_now.get('reasoning_effort') or 'el del modelo'}, "
+             f"hasta {chosen_now['max_output']} tokens de salida.")
     elif args.command == "authorize":
         missing = [r for r in ROLES if not conf["roles"][r].get("model")
                    or conf["roles"][r]["model"] not in conf["prices_usd_per_million"]]
