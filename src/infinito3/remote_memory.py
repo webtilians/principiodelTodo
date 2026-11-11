@@ -22,8 +22,8 @@ from datetime import datetime, timezone
 from typing import Dict, List, Optional, Sequence
 from urllib.parse import urlencode
 
-from . import (remote_apps, remote_guidelines, remote_photos, remote_portal, remote_reflections, remote_shares,
-               remote_tasks, remote_vault)
+from . import (remote_apps, remote_cognition, remote_guidelines, remote_photos, remote_portal, remote_reflections,
+               remote_shares, remote_tasks, remote_vault)
 from .mcp_server import BY_THE_USER, KINDS, OPEN_KINDS, OVERVIEW_OPEN_ITEMS, STALE_DAYS, AgentMemory, _day
 from .remote_accounts import (_HEADERS, MIN_PASSWORD, NAME, _STYLE as _BASE_STYLE, _page, _texts, client_address,
                               signup_guard_fields)
@@ -561,7 +561,8 @@ def routes(accounts, grants, memories, limiter, secure: bool, issuer: str = "") 
         base = _texts(request)
         return {**base, **TEXT[base["lang"]], **remote_portal.TEXT[base["lang"]], **remote_apps.TEXT[base["lang"]],
                 **remote_tasks.TEXT[base["lang"]], **remote_guidelines.TEXT[base["lang"]],
-                **remote_reflections.TEXT[base["lang"]], **remote_shares.TEXT[base["lang"]]}
+                **remote_reflections.TEXT[base["lang"]], **remote_shares.TEXT[base["lang"]],
+                **remote_cognition.TEXT[base["lang"]]}
 
     def view(t: dict, title: str, body: str, status: int = 200):
         response = _page(t, title, body, status, style=_STYLE)
@@ -574,9 +575,14 @@ def routes(accounts, grants, memories, limiter, secure: bool, issuer: str = "") 
         pending = await use(session, lambda memory: len(memory._active(kind="pending")), writes=False)
         to_approve = sum(task["state"] in remote_tasks.WAITING for task in await queue(session))
         proposed = len((await guidelines_of(session))["proposed"])
+        engine = await cognition_of(session)
+        # While the cognitive engine has a review unread or a guideline waiting, every page says so.
+        if active != "cognition":
+            body = remote_cognition.notice(t, engine) + body
         inner = body if whole else (f'<div class="page"><h1>{html.escape(title)}</h1><div class="sheet">{body}</div></div>')
         page_html = remote_portal.shell(t, active, session["account"], session["data"]["csrf"], inner, _hidden,
-                                        pending=pending, query=query, to_approve=to_approve, proposed=proposed)
+                                        pending=pending, query=query, to_approve=to_approve, proposed=proposed,
+                                        engine=remote_cognition.waiting(engine))
         response = HTMLResponse(
             f'<!doctype html><html lang="{t["lang"]}"><head><meta charset="utf-8"><meta name="viewport" '
             f'content="width=device-width, initial-scale=1"><title>{html.escape(title)} · INFINITO</title>'
@@ -703,6 +709,33 @@ def routes(accounts, grants, memories, limiter, secure: bool, issuer: str = "") 
             error = t["reflections_refused"] if "secret" in str(refused) else t["reflections_gone"]
             return await reflections_page(t, session, error=error, status=400)
         return await reflections_page(t, session, message=t[said])
+
+    async def cognition_of(session: dict, action=None):
+        """The cognitive engine's reviews (remote_cognition.py), sealed with the memory's key."""
+        where = (accounts.memory_folder(session["account"]), session["key"], session["account"])
+        if action is None:
+            return await anyio.to_thread.run_sync(lambda: remote_cognition.read(*where))
+        return await anyio.to_thread.run_sync(lambda: remote_cognition.change(*where, action))
+
+    async def cognition_page(t: dict, session: dict, *, seen: bool = False, message: str = "", error: str = "",
+                             status: int = 200):
+        data = await cognition_of(session)
+        body = remote_cognition.body(t, data, session["data"]["csrf"], _hidden, message=message, error=error)
+        if seen and remote_cognition.unseen(data):  # shown as new this once, then read
+            await cognition_of(session, remote_cognition.mark_seen)
+        return await shown(t, session, t["cognition_title"], body, status, active="cognition")
+
+    async def on_cognition(t: dict, session: dict, form, action: str):
+        """Only here, signed in with their password, does the person decide on a guideline of the cognitive engine."""
+        wanted, note = str(form.get("id", "")), str(form.get("text", ""))
+        try:
+            status = await cognition_of(session, lambda data: remote_cognition.decide(
+                data, wanted, action.removeprefix("cognition_"), note))
+        except remote_cognition.Refused as refused:
+            # What was typed may hold a secret: it is not sent back.
+            error = t["cognition_gone"] if str(refused) == "gone" else t["cognition_refused"]
+            return await cognition_page(t, session, error=error, status=400)
+        return await cognition_page(t, session, message=t["cognition_done"][status])
 
     async def apps_page(t: dict, session: dict, message: str = ""):
         body = remote_apps.apps_body(t, grants.apps_of(session["account"]), accounts.app_levels(session["account"]),
@@ -984,6 +1017,8 @@ def routes(accounts, grants, memories, limiter, secure: bool, issuer: str = "") 
             return await guidelines_page(t, session)
         if wanted == "reflections":
             return await reflections_page(t, session)
+        if wanted == "cognition":
+            return await cognition_page(t, session, seen=True)
         if wanted == "settings":
             return await shown(t, session, t["settings_title"], remote_portal.settings_body(t, session["account"]),
                                active="settings")
@@ -1090,6 +1125,7 @@ def routes(accounts, grants, memories, limiter, secure: bool, issuer: str = "") 
             deleted = await use(session, lambda memory: _delete(memory, memory_ids), writes=True)
             if deleted:  # what was built on a forgotten memory goes with it
                 await reflections_of(session, lambda data: remote_reflections.drop_citing(data, memory_ids))
+                await cognition_of(session, lambda data: remote_cognition.drop_citing(data, memory_ids))
             token = str(form.get("r", ""))
             link = grants.find(LINK, token) if token else None
             if link is not None and link["account"] == session["account"]:
@@ -1116,6 +1152,8 @@ def routes(accounts, grants, memories, limiter, secure: bool, issuer: str = "") 
             return await on_reflections(t, session, form, action)
         if action in ("guidelines_save", "guideline_accept", "guideline_discard", "guideline_from_memory"):
             return await on_guidelines(t, session, form, action)
+        if action in ("cognition_approve", "cognition_reject", "cognition_revoke"):
+            return await on_cognition(t, session, form, action)
         if action in ("share_invite", "share_send", "share_stop", "share_remove_review", "share_remove", "share_accept"):
             return await on_shares(t, session, form, action)
         if action == "app_level":

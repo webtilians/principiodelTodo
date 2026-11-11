@@ -80,6 +80,7 @@ _ICONS = {
     "wallet": '<rect x="3" y="6" width="18" height="13.5" rx="3"/><path d="M3 10.5h18"/><path d="M15.5 15h2.5"/>',
     "database": '<ellipse cx="12" cy="5.5" rx="8" ry="3"/><path d="M4 5.5v13c0 1.7 3.6 3 8 3s8-1.3 8-3v-13"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/>',
     "pulse": '<path d="M2 12h4l2.5-7 4.5 15 3-8h6"/>',
+    "spark": '<circle cx="12" cy="12" r="3"/><path d="M12 2.5v4M12 17.5v4M2.5 12h4M17.5 12h4M5.3 5.3l2.8 2.8M15.9 15.9l2.8 2.8M5.3 18.7l2.8-2.8M15.9 8.1l2.8-2.8"/>',
     "network": '<circle cx="12" cy="12" r="2.6"/><circle cx="4.5" cy="6" r="2"/><circle cx="19.5" cy="6" r="2"/><circle cx="4.5" cy="18" r="2"/><circle cx="19.5" cy="18" r="2"/><path d="m6.2 7.2 3.8 3M17.8 7.2l-3.8 3M6.2 16.8l3.8-3M17.8 16.8l-3.8-3"/>',
     "eye": '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="2.8"/>',
     "arrow": '<path d="M4 12h15"/><path d="m13.5 6.5 5.5 5.5-5.5 5.5"/>',
@@ -304,9 +305,10 @@ _LOGO = ('<svg viewBox="0 0 120 60" aria-hidden="true"><defs><linearGradient id=
 
 
 def shell(t: dict, active: str, account: str, csrf: str, body: str, hidden_fields, *, pending: int = 0, query: str = "",
-          to_approve: int = 0, proposed: int = 0) -> str:
+          to_approve: int = 0, proposed: int = 0, engine: int = 0) -> str:
     """Everything around a signed-in page. It takes the signing-out form's fields from its caller. to_approve is how
-    many tasks wait for the person, shown next to Tasks, and proposed how many guidelines, next to Guidelines."""
+    many tasks wait for the person, shown next to Tasks, proposed how many guidelines, next to Guidelines, and engine
+    how many of the cognitive engine's guidelines, next to it."""
     e = html.escape
     items = (("home", "/", "nav_home", "home"), ("vault", "/memory", "nav_vault", "lock"),
              ("memories", "/memory?view=memories", "nav_memories", "layers"),
@@ -315,11 +317,12 @@ def shell(t: dict, active: str, account: str, csrf: str, body: str, hidden_field
              ("tasks", "/memory?view=tasks", "nav_tasks", "check"),
              ("guidelines", "/memory?view=guidelines", "nav_guidelines", "bulb"),
              ("reflections", "/memory?view=reflections", "nav_reflections", "pulse"),
+             ("cognition", "/memory?view=cognition", "nav_cognition", "spark"),
              ("search", "/memory?view=search", "nav_search", "search"),
              ("apps", "/memory?view=apps", "nav_apps", "network"),
              ("settings", "/memory?view=settings", "nav_settings", "gear"))
 
-    waiting = {"tasks": to_approve, "guidelines": proposed}
+    waiting = {"tasks": to_approve, "guidelines": proposed, "cognition": engine}
 
     def label(key: str, name: str) -> str:
         return f'{t[name]} <b class="badge">{waiting[key]}</b>' if waiting.get(key) else t[name]

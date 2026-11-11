@@ -9,9 +9,15 @@ against the checks, writes its own **reflection** and proposes **guidelines** fo
 
 The person supervises the supervisor:
 
-- its reflection goes to INFINITO's own reflections (memory page → Reflexiones), where they read, comment on,
-  hide or delete it; the supervisor reads those comments the next day;
-- a guideline it proposes changes nothing until they approve it, and an approved one can be revoked;
+- each live review goes, whole, to the memory page under «Motor cognitivo» (`/memory?view=cognition`): what was
+  read, the audit of the children, every hypothesis with its verdict, the reflection, the cost and the guidelines it
+  proposes. Every page shows a notice while a review is unread or a guideline waits, and the computer running the
+  engine shows a notification that opens it. A review the server could not take is sent again on the next tick;
+- the person accepts, rejects or withdraws each guideline there, signed in with their password, and only there: the
+  engine reads those decisions (`cognition_decisions`) and applies an accepted guideline from its next call on;
+- its reflection also goes to INFINITO's own reflections (Reflexiones), where they comment on, hide or delete it;
+  the supervisor reads those comments the next day. It rests on facts and decisions, not on pending memories, so
+  closing a pending item (which forgets it) does not delete the reflection;
 - everything is in an append-only diary with a hash chain, and a daily report.
 
 Design and gates: [docs/COGNITION_ENGINE_PROTOCOL_2026-11-11.md](../docs/COGNITION_ENGINE_PROTOCOL_2026-11-11.md).

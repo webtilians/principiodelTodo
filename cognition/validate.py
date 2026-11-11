@@ -11,6 +11,8 @@ from typing import Dict, Iterable, List, Sequence, Set, Tuple
 
 MEMORY_ID = re.compile(r"\[([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]")
 REFLECTION_ID = re.compile(r"^\[([0-9a-f]{8})\] \(", re.MULTILINE)
+OPEN_MEMORY = re.compile(r"\[([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\] "
+                         r"\(\d{4}-\d{2}-\d{2}, (?:pending|to_verify)\b")
 RELATIONS = ("expands", "reconsiders", "questions")
 SCOPES = ("self", "user", "relationship", "project", "decision")
 
@@ -41,8 +43,17 @@ def grounded(found: Iterable[dict], key: str, known: Set[str]) -> Tuple[List[dic
     return kept, aside
 
 
-def reflection(found, known_memories: Set[str], known_reflections: Set[str]) -> Tuple[dict, List[str]]:
-    """The supervisor's reflection as INFINITO will take it, and what had to be dropped from it. Empty dict: none."""
+def open_ids(text: str) -> Set[str]:
+    """The memories still open (pending or to_verify), as INFINITO's lines say: when one is closed it is forgotten,
+    and INFINITO deletes every reflection resting on it."""
+    return set(OPEN_MEMORY.findall(text or ""))
+
+
+def reflection(found, known_memories: Set[str], known_reflections: Set[str],
+               avoid: Set[str] = frozenset()) -> Tuple[dict, List[str]]:
+    """The supervisor's reflection as INFINITO will take it, and what had to be dropped from it. Empty dict: none.
+    Sources in avoid (open memories) are dropped when others remain, so closing a pending item does not take the
+    reflection with it; if it rests on nothing else, it keeps them and says so."""
     if not isinstance(found, dict) or not str(found.get("text") or "").strip():
         return {}, ["no reflection"]
     dropped = []
@@ -50,6 +61,12 @@ def reflection(found, known_memories: Set[str], known_reflections: Set[str]) -> 
     dropped += [f"source {s} not in evidence" for s in _cited(found, "sources") if s not in known_memories]
     if not sources:
         return {}, dropped + ["no source left: not published"]
+    lasting = [s for s in sources if s not in avoid]
+    if lasting and len(lasting) < len(sources):
+        dropped.append(f"{len(sources) - len(lasting)} pending source(s) left out, so closing them does not delete it")
+        sources = lasting
+    elif not lasting:
+        dropped.append("it rests only on pending memories: it will go when they are closed")
     relates = []
     for link in found.get("relates_to") or []:
         if isinstance(link, dict) and link.get("id") in known_reflections and link.get("how") in RELATIONS:
