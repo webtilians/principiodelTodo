@@ -1,4 +1,6 @@
-# INFINITO Cognitive Diary P0 — protocolo congelado antes de los resultados
+# INFINITO Cognitive Diary P0 — especificación retrospectiva de la demostración
+
+**Estado metodológico:** documento técnico elaborado durante la implementación; NO es un preregistro prospectivo ni una confirmación científica independiente.
 
 **Objetivo:** demostrar que un diario sintético de un único día puede reconstruirse sin discrepancias, registrar decisiones/hipótesis/pruebas procedentes de fuentes concretas, auditar una omisión de un agente subordinado, conservar la evolución de una reflexión y dejar una pauta solo propuesta hasta decisión humana.
 
