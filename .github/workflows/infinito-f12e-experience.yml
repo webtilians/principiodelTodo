@@ -1,0 +1,57 @@
+name: INFINITO F12-E - Frozen Qwen7B learns from observed tool experiences
+
+on:
+  push:
+    branches:
+      - experiment/f12e-frozen7b-experience-learning-20261106
+    paths:
+      - 'observatory/f12e_experience.py'
+      - 'tests/test_f12e_experience.py'
+      - '.github/workflows/infinito-f12e-experience.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contracts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Check real INFINITO SQLite, versioned splits, source citations and no fake pass
+        run: python -m unittest tests.test_f12e_experience -v
+
+  pilot:
+    needs: contracts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    env:
+      PYTHONHASHSEED: "0"
+      HF_HUB_DISABLE_TELEMETRY: "1"
+      OMP_NUM_THREADS: "4"
+      OPENBLAS_NUM_THREADS: "4"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install frozen CPU GGUF inference dependencies
+        run: |
+          python -m pip install --disable-pip-version-check --only-binary llama-cpp-python \
+            --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu \
+            llama-cpp-python==0.3.36 huggingface_hub==0.29.3
+      - name: Execute real frozen 7B TRAIN and independent TRAIN-heldout A0/A1/A2
+        run: |
+          python -m observatory.f12e_experience --out f12e_pilot_artifacts
+      - name: Preserve all observed train/eval action trajectories, evidence and token costs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: f12e-frozen7b-sqlite-experience-pilot
+          path: f12e_pilot_artifacts/
+          if-no-files-found: warn
+          retention-days: 30
