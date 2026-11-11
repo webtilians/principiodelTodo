@@ -1,0 +1,57 @@
+name: INFINITO F12-F - Verified evidence for learned strategy claims
+
+on:
+  push:
+    branches:
+      - experiment/f12f-evidence-grounded-strategy-validation-20261106
+    paths:
+      - 'observatory/f12f_evidence_validator.py'
+      - 'tests/test_f12f_evidence_validator.py'
+      - '.github/workflows/infinito-f12f-source-validation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contracts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Grounding, version history, ordered verification and fake-only contract tests
+        run: python -m unittest tests.test_f12f_evidence_validator -v
+
+  frozen-llm-pilot:
+    needs: contracts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    env:
+      PYTHONHASHSEED: "0"
+      HF_HUB_DISABLE_TELEMETRY: "1"
+      OMP_NUM_THREADS: "4"
+      OPENBLAS_NUM_THREADS: "4"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install same frozen CPU GGUF backend used in F12-D and F12-E
+        run: |
+          python -m pip install --disable-pip-version-check --only-binary llama-cpp-python \
+            --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu \
+            llama-cpp-python==0.3.36 huggingface_hub==0.29.3
+      - name: Collect eight real LLM experiences; verify proposed claims without oracle
+        run: |
+          python -m observatory.f12f_evidence_validator --out f12f_source_audit_artifacts
+      - name: Preserve all observed sources, LLM proposals, adversarial decisions and rates
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: f12f-real7b-grounded-source-validator
+          path: f12f_source_audit_artifacts/
+          if-no-files-found: warn
+          retention-days: 30
