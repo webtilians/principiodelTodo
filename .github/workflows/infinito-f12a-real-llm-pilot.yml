@@ -1,0 +1,49 @@
+name: INFINITO F12-A — LIVE frozen LLM experiences + SQLite memory pilot
+
+on:
+  workflow_dispatch:
+
+# GitHub Models provider BLOCKED in runs 42052897453/42053094521.
+# Disabled automatic push retries; still available for manual diagnostics.
+
+permissions:
+  contents: read
+  models: read
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Synthetic, memory and agent provenance contracts
+        run: python -m unittest tests.test_f12a_live_llm_experience -v
+
+  pilot:
+    needs: contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+      PYTHONHASHSEED: '0'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run an ACTUAL GitHub Models LLM; NEVER mock live inference
+        run: |
+          python -m observatory.f12a_live_llm_experience \
+            --model openai/gpt-4o-mini \
+            --out f12a_live_pilot_artifacts
+      - name: Preserve source trajectories, inferred strategies and provider status
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: f12a-live-llm-experience-pilot
+          path: f12a_live_pilot_artifacts/
+          if-no-files-found: warn
+          retention-days: 30
