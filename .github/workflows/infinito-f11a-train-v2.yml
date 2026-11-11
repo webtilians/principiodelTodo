@@ -1,0 +1,54 @@
+name: INFINITO F11-A TRAIN v2 — delayed effects and rule changes
+
+on:
+  push:
+    branches: ["experiment/f11a-train-v2-20261105"]
+    paths:
+      - 'observatory/f11a_train_v2.py'
+      - 'tests/test_f11a_train_v2.py'
+      - '.github/workflows/infinito-f11a-train-v2.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Technical safety and reproducibility contracts
+        run: python -m unittest tests.test_f11a_train_v2 -v
+
+  train:
+    needs: contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        replica: [0, 1, 2, 3]
+    env:
+      PYTHONHASHSEED: "0"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Four independent replicas — only preregistered TRAIN worlds
+        run: |
+          python -m observatory.f11a_train_v2 \
+            --replica ${{ matrix.replica }} \
+            --worlds 512 --episodes 30 --probes 2 \
+            --out f11a_train_v2_artifacts/r${{ matrix.replica }}
+      - name: Preserve event log, checkpoints and diagnostic report
+        uses: actions/upload-artifact@v4
+        with:
+          name: f11a-train-v2-r${{ matrix.replica }}
+          path: f11a_train_v2_artifacts/r${{ matrix.replica }}/
+          if-no-files-found: error
+          retention-days: 30
