@@ -1,0 +1,34 @@
+{
+  "0": {
+    "training_trials_replayed": 98304,
+    "evaluation_rows_replayed": 7680,
+    "interventions_replayed": 30720,
+    "I_B_reconstructed_exactly": true,
+    "original_SHA_verified": true,
+    "all_plans_recomputed_from_frozen_models": true
+  },
+  "1": {
+    "training_trials_replayed": 98304,
+    "evaluation_rows_replayed": 7680,
+    "interventions_replayed": 30720,
+    "I_B_reconstructed_exactly": true,
+    "original_SHA_verified": true,
+    "all_plans_recomputed_from_frozen_models": true
+  },
+  "2": {
+    "training_trials_replayed": 98304,
+    "evaluation_rows_replayed": 7680,
+    "interventions_replayed": 30720,
+    "I_B_reconstructed_exactly": true,
+    "original_SHA_verified": true,
+    "all_plans_recomputed_from_frozen_models": true
+  },
+  "3": {
+    "training_trials_replayed": 98304,
+    "evaluation_rows_replayed": 7680,
+    "interventions_replayed": 30720,
+    "I_B_reconstructed_exactly": true,
+    "original_SHA_verified": true,
+    "all_plans_recomputed_from_frozen_models": true
+  }
+}

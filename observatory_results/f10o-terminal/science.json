@@ -1,0 +1,765 @@
+{
+  "replicas": {
+    "0": {
+      "metrics": {
+        "T": {
+          "mean": 0.51953125,
+          "ci95": [
+            0.4765625,
+            0.5625
+          ]
+        },
+        "R": {
+          "mean": 0.51953125,
+          "ci95": [
+            0.4765625,
+            0.5625
+          ]
+        },
+        "S": {
+          "mean": 0.51953125,
+          "ci95": [
+            0.4765625,
+            0.5625
+          ]
+        },
+        "B": {
+          "mean": 0.51953125,
+          "ci95": [
+            0.4765625,
+            0.5625
+          ]
+        },
+        "I": {
+          "mean": 1.0,
+          "ci95": [
+            1.0,
+            1.0
+          ]
+        },
+        "T_action_permuted": {
+          "mean": 0.51953125,
+          "ci95": [
+            0.4765625,
+            0.5625
+          ]
+        }
+      },
+      "contrasts": {
+        "R": {
+          "mean": 0.0,
+          "ci95": [
+            0.0,
+            0.0
+          ]
+        },
+        "S": {
+          "mean": 0.0,
+          "ci95": [
+            0.0,
+            0.0
+          ]
+        },
+        "B": {
+          "mean": 0.0,
+          "ci95": [
+            0.0,
+            0.0
+          ]
+        },
+        "I": {
+          "mean": -0.48046875,
+          "ci95": [
+            -0.5234375,
+            -0.4375
+          ]
+        },
+        "T_action_permuted": {
+          "mean": 0.0,
+          "ci95": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "causal": {
+        "shuffle": {
+          "mean": 0.0,
+          "ci95": [
+            0.0,
+            0.0
+          ]
+        },
+        "x_disabled": {
+          "mean": 0.0390625,
+          "ci95": [
+            -0.046875,
+            0.125
+          ]
+        },
+        "public_randomized": {
+          "mean": 0.0390625,
+          "ci95": [
+            -0.046875,
+            0.125
+          ]
+        }
+      },
+      "dev": {
+        "('PUBLIC', 0)": 1.0,
+        "('PUBLIC', 1)": 1.0,
+        "('MEMORY', 0)": 1.0
+      },
+      "strata": {
+        "variant=S_after": 0.4609375,
+        "variant=S_before": 0.5390625,
+        "variant=U_after": 0.5390625,
+        "variant=U_before": 0.5390625,
+        "n=9": 0.5,
+        "n=11": 0.5390625,
+        "source_mode=alternating": 0.515625,
+        "source_mode=iid": 0.5,
+        "source_mode=signed_source0": 0.578125,
+        "source_mode=signed_source1": 0.484375
+      },
+      "plans": {
+        "T": {
+          "SPX": 512
+        },
+        "R": {
+          "PX": 512
+        },
+        "S": {
+          "SPX": 512
+        },
+        "B": {
+          "PXS": 252,
+          "PSX": 260
+        },
+        "I": {
+          "SRX": 512
+        },
+        "T_action_permuted": {
+          "PXR": 512
+        }
+      },
+      "gates": {
+        "G0": true,
+        "G1": false,
+        "G2": false,
+        "G3": false,
+        "G4_diagnostic": true
+      },
+      "cost": {
+        "all_frozen_sha_verified": true,
+        "eval_sha": "b147c792be40142ea22064f0cbf1dc296bfc6aff1c300427b171adc7757847cb",
+        "frozen_sha": "6ef3f3df617bd00bb7f9755a9735546128206bd3761a4de9e00601b68b0059d8",
+        "original_sha_verified": true,
+        "plan_seconds_per_8_contexts": {
+          "B": 0.0018408000469207764,
+          "I": 0.1503870002925396,
+          "R": 0.005756700178608298,
+          "S": 0.005582100013270974,
+          "T": 0.011702400050126016,
+          "T_action_permuted": 0.008030799799598753
+        },
+        "seconds": 11.915644399938174
+      },
+      "fit": {
+        "R": {
+          "examples": 98304,
+          "parameters": 4266,
+          "seconds": 1.5220532000530511,
+          "updates": 512
+        },
+        "S": {
+          "examples": 98304,
+          "parameters": 4266,
+          "seconds": 1.596262399922125,
+          "updates": 512
+        },
+        "T": {
+          "examples": 98304,
+          "parameters": 4266,
+          "seconds": 1.5765909999608994,
+          "updates": 512
+        }
+      }
+    },
+    "1": {
+      "metrics": {
+        "T": {
+          "mean": 0.4375,
+          "ci95": [
+            0.39453125,
+            0.48046875
+          ]
+        },
+        "R": {
+          "mean": 0.4375,
+          "ci95": [
+            0.39453125,
+            0.48046875
+          ]
+        },
+        "S": {
+          "mean": 0.4375,
+          "ci95": [
+            0.39453125,
+            0.48046875
+          ]
+        },
+        "B": {
+          "mean": 0.4375,
+          "ci95": [
+            0.39453125,
+            0.48046875
+          ]
+        },
+        "I": {
+          "mean": 1.0,
+          "ci95": [
+            1.0,
+            1.0
+          ]
+        },
+        "T_action_permuted": {
+          "mean": 0.4375,
+          "ci95": [
+            0.39453125,
+            0.48046875
+          ]
+        }
+      },
+      "contrasts": {
+        "R": {
+          "mean": 0.0,
+          "ci95": [
+            0.0,
+            0.0
+          ]
+        },
+        "S": {
+          "mean": 0.0,
+          "ci95": [
+            0.0,
+            0.0
+          ]
+        },
+        "B": {
+          "mean": 0.0,
+          "ci95": [
+            0.0,
+            0.0
+          ]
+        },
+        "I": {
+          "mean": -0.5625,
+          "ci95": [
+            -0.60546875,
+            -0.51953125
+          ]
+        },
+        "T_action_permuted": {
+          "mean": 0.0,
+          "ci95": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "causal": {
+        "shuffle": {
+          "mean": 0.0,
+          "ci95": [
+            0.0,
+            0.0
+          ]
+        },
+        "x_disabled": {
+          "mean": -0.125,
+          "ci95": [
+            -0.2109375,
+            -0.0390625
+          ]
+        },
+        "public_randomized": {
+          "mean": -0.125,
+          "ci95": [
+            -0.2109375,
+            -0.0390625
+          ]
+        }
+      },
+      "dev": {
+        "('PUBLIC', 0)": 1.0,
+        "('PUBLIC', 1)": 1.0,
+        "('MEMORY', 0)": 1.0
+      },
+      "strata": {
+        "variant=S_after": 0.625,
+        "variant=S_before": 0.375,
+        "variant=U_after": 0.375,
+        "variant=U_before": 0.375,
+        "n=9": 0.3984375,
+        "n=11": 0.4765625,
+        "source_mode=alternating": 0.46875,
+        "source_mode=iid": 0.421875,
+        "source_mode=signed_source0": 0.46875,
+        "source_mode=signed_source1": 0.390625
+      },
+      "plans": {
+        "T": {
+          "SPX": 512
+        },
+        "R": {
+          "SPX": 264,
+          "PX": 248
+        },
+        "S": {
+          "SPX": 264,
+          "PX": 248
+        },
+        "B": {
+          "PPX": 264,
+          "S": 248
+        },
+        "I": {
+          "SRX": 512
+        },
+        "T_action_permuted": {
+          "PXR": 512
+        }
+      },
+      "gates": {
+        "G0": true,
+        "G1": false,
+        "G2": false,
+        "G3": false,
+        "G4_diagnostic": true
+      },
+      "cost": {
+        "all_frozen_sha_verified": true,
+        "eval_sha": "fa578ecd059d5f3de3f147a5b0fcd59b8236e2a451392fa0dee8cd710a3dffcb",
+        "frozen_sha": "e8bdc6de5f7d42e55c195335e309aee7aae6ee79d87824fa9cb22b5eb0afc6e7",
+        "original_sha_verified": true,
+        "plan_seconds_per_8_contexts": {
+          "B": 0.0018339999951422215,
+          "I": 0.010469000088050961,
+          "R": 0.005757399834692478,
+          "S": 0.005458800122141838,
+          "T": 0.006268499884754419,
+          "T_action_permuted": 0.006467799888923764
+        },
+        "seconds": 11.649159299908206
+      },
+      "fit": {
+        "R": {
+          "examples": 98304,
+          "parameters": 4266,
+          "seconds": 1.5300706999842077,
+          "updates": 512
+        },
+        "S": {
+          "examples": 98304,
+          "parameters": 4266,
+          "seconds": 1.5565049999859184,
+          "updates": 512
+        },
+        "T": {
+          "examples": 98304,
+          "parameters": 4266,
+          "seconds": 1.5288961000042036,
+          "updates": 512
+        }
+      }
+    },
+    "2": {
+      "metrics": {
+        "T": {
+          "mean": 0.45703125,
+          "ci95": [
+            0.4140625,
+            0.49609375
+          ]
+        },
+        "R": {
+          "mean": 0.45703125,
+          "ci95": [
+            0.4140625,
+            0.49609375
+          ]
+        },
+        "S": {
+          "mean": 0.45703125,
+          "ci95": [
+            0.4140625,
+            0.49609375
+          ]
+        },
+        "B": {
+          "mean": 0.45703125,
+          "ci95": [
+            0.4140625,
+            0.49609375
+          ]
+        },
+        "I": {
+          "mean": 0.869140625,
+          "ci95": [
+            0.83203125,
+            0.90234375
+          ]
+        },
+        "T_action_permuted": {
+          "mean": 0.515625,
+          "ci95": [
+            0.4765625,
+            0.5586914062499995
+          ]
+        }
+      },
+      "contrasts": {
+        "R": {
+          "mean": 0.0,
+          "ci95": [
+            0.0,
+            0.0
+          ]
+        },
+        "S": {
+          "mean": 0.0,
+          "ci95": [
+            0.0,
+            0.0
+          ]
+        },
+        "B": {
+          "mean": 0.0,
+          "ci95": [
+            0.0,
+            0.0
+          ]
+        },
+        "I": {
+          "mean": -0.412109375,
+          "ci95": [
+            -0.462890625,
+            -0.357421875
+          ]
+        },
+        "T_action_permuted": {
+          "mean": -0.05859375,
+          "ci95": [
+            -0.11728515625,
+            -0.00390625
+          ]
+        }
+      },
+      "causal": {
+        "shuffle": {
+          "mean": 0.0,
+          "ci95": [
+            0.0,
+            0.0
+          ]
+        },
+        "x_disabled": {
+          "mean": -0.05859375,
+          "ci95": [
+            -0.11728515625,
+            -0.00390625
+          ]
+        },
+        "public_randomized": {
+          "mean": -0.05859375,
+          "ci95": [
+            -0.11728515625,
+            -0.00390625
+          ]
+        }
+      },
+      "dev": {
+        "('PUBLIC', 0)": 1.0,
+        "('PUBLIC', 1)": 1.0,
+        "('MEMORY', 0)": 0.828125
+      },
+      "strata": {
+        "variant=S_after": 0.5859375,
+        "variant=S_before": 0.4140625,
+        "variant=U_after": 0.4140625,
+        "variant=U_before": 0.4140625,
+        "n=9": 0.4296875,
+        "n=11": 0.484375,
+        "source_mode=alternating": 0.390625,
+        "source_mode=iid": 0.5,
+        "source_mode=signed_source0": 0.484375,
+        "source_mode=signed_source1": 0.453125
+      },
+      "plans": {
+        "T": {
+          "XPX": 260,
+          "XXX": 252
+        },
+        "R": {
+          "SPX": 512
+        },
+        "S": {
+          "SPX": 512
+        },
+        "B": {
+          "PXS": 260,
+          "S": 252
+        },
+        "I": {
+          "SRX": 512
+        },
+        "T_action_permuted": {
+          "RXR": 260,
+          "RRR": 252
+        }
+      },
+      "gates": {
+        "G0": true,
+        "G1": false,
+        "G2": false,
+        "G3": false,
+        "G4_diagnostic": true
+      },
+      "cost": {
+        "all_frozen_sha_verified": true,
+        "eval_sha": "1d7e5cc0eaee55a0b5a0e0ca92668d6c695c8e9a098fc1ffcd8410da3b705a1a",
+        "frozen_sha": "f0c34dffa25cd61154d8cd7e7b823db6e9934b849a52797814c612edc26ddf1c",
+        "original_sha_verified": true,
+        "plan_seconds_per_8_contexts": {
+          "B": 0.0019386998610571027,
+          "I": 0.011359100113622844,
+          "R": 0.0062368003418669105,
+          "S": 0.006187000195495784,
+          "T": 0.006555300205945969,
+          "T_action_permuted": 0.0076025002636015415
+        },
+        "seconds": 12.305496899993159
+      },
+      "fit": {
+        "R": {
+          "examples": 98304,
+          "parameters": 4266,
+          "seconds": 1.5893100999528542,
+          "updates": 512
+        },
+        "S": {
+          "examples": 98304,
+          "parameters": 4266,
+          "seconds": 1.6290641999803483,
+          "updates": 512
+        },
+        "T": {
+          "examples": 98304,
+          "parameters": 4266,
+          "seconds": 1.594716800027527,
+          "updates": 512
+        }
+      }
+    },
+    "3": {
+      "metrics": {
+        "T": {
+          "mean": 0.79296875,
+          "ci95": [
+            0.740234375,
+            0.841796875
+          ]
+        },
+        "R": {
+          "mean": 0.48046875,
+          "ci95": [
+            0.4375,
+            0.5234375
+          ]
+        },
+        "S": {
+          "mean": 0.48046875,
+          "ci95": [
+            0.4375,
+            0.5234375
+          ]
+        },
+        "B": {
+          "mean": 0.48046875,
+          "ci95": [
+            0.4375,
+            0.5234375
+          ]
+        },
+        "I": {
+          "mean": 1.0,
+          "ci95": [
+            1.0,
+            1.0
+          ]
+        },
+        "T_action_permuted": {
+          "mean": 0.0,
+          "ci95": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "contrasts": {
+        "R": {
+          "mean": 0.3125,
+          "ci95": [
+            0.255859375,
+            0.3671875
+          ]
+        },
+        "S": {
+          "mean": 0.3125,
+          "ci95": [
+            0.255859375,
+            0.3671875
+          ]
+        },
+        "B": {
+          "mean": 0.3125,
+          "ci95": [
+            0.255859375,
+            0.3671875
+          ]
+        },
+        "I": {
+          "mean": -0.20703125,
+          "ci95": [
+            -0.259765625,
+            -0.158203125
+          ]
+        },
+        "T_action_permuted": {
+          "mean": 0.79296875,
+          "ci95": [
+            0.740234375,
+            0.841796875
+          ]
+        }
+      },
+      "causal": {
+        "shuffle": {
+          "mean": 0.296875,
+          "ci95": [
+            0.224609375,
+            0.37109375
+          ]
+        },
+        "x_disabled": {
+          "mean": 0.578125,
+          "ci95": [
+            0.4921875,
+            0.6640625
+          ]
+        },
+        "public_randomized": {
+          "mean": 0.0,
+          "ci95": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "dev": {
+        "('PUBLIC', 0)": 1.0,
+        "('PUBLIC', 1)": 0.71875,
+        "('MEMORY', 0)": 1.0
+      },
+      "strata": {
+        "variant=S_after": 0.78125,
+        "variant=S_before": 0.796875,
+        "variant=U_after": 0.796875,
+        "variant=U_before": 0.796875,
+        "n=9": 0.78515625,
+        "n=11": 0.80078125,
+        "source_mode=alternating": 0.7578125,
+        "source_mode=iid": 0.8359375,
+        "source_mode=signed_source0": 0.8046875,
+        "source_mode=signed_source1": 0.7734375
+      },
+      "plans": {
+        "T": {
+          "RX": 216,
+          "SRX": 296
+        },
+        "R": {
+          "SPX": 512
+        },
+        "S": {
+          "PX": 216,
+          "SPX": 296
+        },
+        "B": {
+          "PPX": 216,
+          "SPX": 296
+        },
+        "I": {
+          "SRX": 512
+        },
+        "T_action_permuted": {
+          "SR": 216,
+          "PSR": 296
+        }
+      },
+      "gates": {
+        "G0": false,
+        "G1": false,
+        "G2": true,
+        "G3": true,
+        "G4_diagnostic": true
+      },
+      "cost": {
+        "all_frozen_sha_verified": true,
+        "eval_sha": "61518b4b5fbea4f88ee58cc050a045d24518e4bd45692368515524c047826068",
+        "frozen_sha": "5ec01abc9ba2d844cc22f322b509e1213840c638dee0ee0149a7cd3f84602456",
+        "original_sha_verified": true,
+        "plan_seconds_per_8_contexts": {
+          "B": 0.0018019000999629498,
+          "I": 0.010286500095389783,
+          "R": 0.005452699959278107,
+          "S": 0.005641299998387694,
+          "T": 0.0062393001280725,
+          "T_action_permuted": 0.005991399986669421
+        },
+        "seconds": 11.839086499996483
+      },
+      "fit": {
+        "R": {
+          "examples": 98304,
+          "parameters": 4266,
+          "seconds": 1.519821499940008,
+          "updates": 512
+        },
+        "S": {
+          "examples": 98304,
+          "parameters": 4266,
+          "seconds": 1.5647887999657542,
+          "updates": 512
+        },
+        "T": {
+          "examples": 98304,
+          "parameters": 4266,
+          "seconds": 1.5159249999560416,
+          "updates": 512
+        }
+      }
+    }
+  },
+  "gate_counts": {
+    "G0": 3,
+    "G1": 0,
+    "G2": 1,
+    "G3": 1,
+    "G4_diagnostic": 4
+  },
+  "technical": "F10O_TECHNICAL_COMPLETE",
+  "status": "F10O_TERMINAL_TRANSFER_FAIL",
+  "all_sha_and_budget_checks": true
+}
