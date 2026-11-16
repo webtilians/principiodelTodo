@@ -5,6 +5,10 @@ the lock. Once the local clock passes review_hour, the day's review is due; a da
 the next time it runs, from where the last review left off, so nothing new is skipped. Between reviews, enough new
 memories wake the observer for a pass of its own, which the supervisor then reads with the rest.
 
+With night_hours set (say 4 to 8), no model is called outside them: the review runs at the first tick inside, and
+for the rest of those hours the supervisor studies older memories, a batch at a time, oldest first and going on each
+night from where it stopped (study). It closes the night with a reflection of its own. No call outlasts the hours.
+
 A review:
 1. reads from INFINITO what is new since the last review (inventory), the engine's latest reflections with the
    person's comments on them, and the task queue;
@@ -32,7 +36,7 @@ from . import roles, validate
 from .diary import Diary, approved_guidelines, proposals
 from .infinito import InfinitoError
 from .ledger import Ledger, UnknownPrice, cost_eur, estimate_eur
-from .providers import Fake, ProviderError
+from .providers import TIMEOUT, Fake, ProviderError
 
 LOCK_STALE_SECONDS = 3 * 3600
 SUPERVISOR_EXTRA = 40000  # characters the children's reports, the checks and the instructions may add
@@ -100,8 +104,18 @@ class Engine:
         return [self.diary.body(e) or {} for e in self.diary.entries("observation_set")
                 if e.get("live") == self.live and e.get("pass_") == "threshold" and _parse_at(e["at"]) > since]
 
+    def night_end(self, now: datetime) -> Optional[datetime]:
+        """When tonight's hours end, if night_hours are set and now is inside them; else None."""
+        hours = self.config.get("night_hours")
+        if not hours or not int(hours[0]) <= now.hour < int(hours[1]):
+            return None
+        return now.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(hours=int(hours[1]))
+
     def review_due(self, now: datetime) -> bool:
         last = self.last_review()
+        if self.config.get("night_hours"):  # once a night, inside the hours; a missed day waits for them too
+            return self.night_end(now) is not None and (
+                not last or _parse_at(last["at"]).astimezone(now.tzinfo).date() < now.date())
         if not last:
             return True
         last_day = _parse_at(last["at"]).astimezone(now.tzinfo).date()
@@ -120,9 +134,15 @@ class Engine:
                 if self.live:
                     self.sync()
                     self.publish_unreported()
-                if self.review_due(now):
-                    return self.review()
-                return self.watch()
+                if not self.config.get("night_hours"):
+                    return self.review() if self.review_due(now) else self.watch()
+                if self.night_end(now) is None:
+                    return "outside the night hours: no model is called"
+                said = [self.review()] if self.review_due(now) else []
+                end = self.night_end(self.clock())
+                if end is not None:
+                    said.append(self.study(end))
+                return "; ".join(said)
         except Busy:
             return "another run is in progress"
 
@@ -273,14 +293,29 @@ class Engine:
         remaining = self.ledger.remaining(self.clock().date())
         return share if share <= remaining else 0.0
 
-    def ask(self, run: str, role: str, prompt: str, *, hold: float = 0.0) -> Optional[dict]:
+    def ask(self, run: str, role: str, prompt: str, *, hold: float = 0.0,
+            task: Optional[str] = None) -> Optional[dict]:
+        """One call to a role's model. task gives that model other instructions than the role's own (the night study:
+        the supervisor's model, without the role's guidelines)."""
         settings = self.config["roles"][role]
-        guidelines = approved_guidelines(self.diary, role)
-        system = roles.system(role, guidelines, self.config.get("missions") or [])
+        guidelines = approved_guidelines(self.diary, role) if task is None else []
+        system = roles.system(task or role, guidelines, self.config.get("missions") or [])
         day = self.clock().date()
         header = {"run": run, "role": role, "provider": settings.get("provider") if self.live else "fake",
                   "model": settings.get("model") if self.live else "fake", "prompt_version": roles.PROMPT_VERSION,
-                  "guidelines": [g["id"] for g in guidelines], "prompt_chars": len(system) + len(prompt)}
+                  "guidelines": [g["id"] for g in guidelines], "prompt_chars": len(system) + len(prompt),
+                  **({"task": task} if task else {})}
+        try:
+            os.utime(self.folder / "run.lock")  # a long night is one run: the lock stays fresh while it works
+        except OSError:
+            pass
+        end = self.night_end(self.clock())
+        if end is not None and self.live:  # no call outlasts the night hours
+            left = (end - self.clock()).total_seconds() - 60
+            if left <= 0:
+                self.diary.append("error", **header, code="night_over")
+                return None
+            settings = {**settings, "timeout": min(float(settings.get("timeout") or TIMEOUT), left)}
         estimate = 0.0
         if self.live:
             try:
@@ -335,6 +370,118 @@ class Engine:
         self.diary.append("observation_set", run=run, ids=inventory["ids"], pass_="threshold", truncated=cut,
                           live=self.live, body={"observations": kept, "set_aside": aside})
         return f"observer pass on {len(inventory['ids'])} new memories"
+
+    # The night study
+
+    def _study_batch(self, lines: Dict[str, str]) -> Tuple[int, List[str]]:
+        """The next memories to study, oldest first, from where the last pass stopped; a new round once all are done."""
+        passes = [e for e in self.diary.entries("study_pass") if e.get("live") == self.live]
+        round_ = max([int(e.get("round", 1)) for e in passes] or [1])
+        done = {i for e in passes if int(e.get("round", 1)) == round_ for i in e.get("ids", [])}
+        left = [i for i in lines if i not in done]
+        if not left:
+            round_, left = round_ + 1, list(lines)
+        batch, size = [], 0
+        for memory in left:
+            size += len(lines[memory]) + 1
+            if batch and size > int(self.config["study_batch_chars"]):
+                break
+            batch.append(memory)
+        return round_, batch
+
+    def study(self, end: datetime) -> str:
+        """Until the night hours end: the supervisor's model reads older memories a batch at a time and notes what it
+        finds, each finding resting on memories of that batch; then one reflection on the night. Live runs only."""
+        if not self.live:
+            return "night study: only when authorized"
+        night = f"n{end:%Y%m%d}"
+        if self.diary.last("study_end", run=night):
+            return "night study: done for tonight"
+        try:
+            listing = self.infinito.call("list_memories")
+        except InfinitoError as error:
+            return f"night study: INFINITO did not answer: {error}"
+        lines = {}
+        for line in listing.splitlines():
+            found = validate.memory_ids(line)
+            if found:
+                lines.setdefault(found[0], line.strip())
+        if not lines:
+            return "night study: no memories"
+        room = int(self.config["study_pass_minutes"]) + int(self.config["study_close_minutes"])
+        made = failed = 0
+        while failed < 2 and (end - self.clock()).total_seconds() >= room * 60:
+            round_, batch = self._study_batch(lines)
+            text, cut = self._fit("supervisor", "\n".join(lines[i] for i in batch), 6000)
+            shown = [i for i in batch if f"[{i}]" in text]
+            data = self.ask(night, "supervisor", roles.section(f"Recuerdos a repasar ({len(shown)})", text),
+                            task="study")
+            if data is None:
+                failed += 1
+                continue
+            failed = 0
+            findings, aside = validate.grounded(roles.items(data, "findings"), "memory_ids", set(shown))
+            self.diary.append("study_pass", run=night, round=round_, ids=shown, live=self.live, truncated=cut,
+                              body={"findings": findings, "set_aside": aside})
+            made += 1
+        return self._study_close(night, end, validate.open_ids(listing), made)
+
+    def _study_close(self, night: str, end: datetime, still_open: set, made: int) -> str:
+        passes = [e for e in self.diary.entries("study_pass") if e.get("run") == night]
+        findings = [f for e in passes for f in (self.diary.body(e) or {}).get("findings", [])]
+        if (end - self.clock()).total_seconds() < 120:
+            return f"night study: {made} passes, the hours ended before closing"
+        reflection, dropped, published, summary = {}, [], None, ""
+        if findings:
+            try:
+                earlier = self.infinito.call(
+                    "reflection_list", since=(self.clock() - timedelta(days=REFLECTIONS_DAYS)).date().isoformat())
+            except InfinitoError:
+                earlier = ""
+            report = json.dumps({"findings": findings}, ensure_ascii=False, indent=1)
+            report, _ = self._fit("supervisor", report, len(earlier) + 6000)
+            closed = self.ask(night, "supervisor", roles.section("Hallazgos de esta noche", report)
+                              + roles.section("Tus reflexiones recientes y los comentarios de la persona", earlier),
+                              task="study_close")
+            cited = {i for f in findings for i in f.get("memory_ids", [])}
+            reflection, dropped = validate.reflection((closed or {}).get("reflection"), cited,
+                                                      set(validate.reflection_ids(earlier)), avoid=still_open)
+            summary = str((closed or {}).get("summary_for_owner") or "")[:1500]
+            if reflection:
+                try:
+                    answer = self.infinito.call("reflection_add",
+                                                model=self.config["roles"]["supervisor"]["model"], **reflection)
+                    kept_as = KEPT_AS.search(answer)
+                    published = kept_as.group(1) if kept_as else None
+                    self.diary.append("reflection_published" if published else "reflection_refused", run=night,
+                                      ids=reflection["sources"], reflection=published,
+                                      body={**reflection, "server": answer[:500], "dropped": dropped})
+                except InfinitoError as error:
+                    self.diary.append("reflection_refused", run=night, ids=reflection["sources"],
+                                      body={**reflection, "server": str(error)[:500], "dropped": dropped})
+        studied = sorted({i for e in passes for i in e.get("ids", [])})
+        self.diary.append("study_end", run=night, passes=len(passes), studied=len(studied), findings=len(findings),
+                          reflection=published, live=self.live, body={"summary_for_owner": summary})
+        folder = self.folder / "reports"
+        folder.mkdir(parents=True, exist_ok=True)
+        path = folder / f"{end:%Y-%m-%d}-noche.md"
+        out = [f"# Motor cognitivo · repaso nocturno del {end:%d/%m/%Y}", "",
+               f"Ejecución {night} · {len(passes)} tandas · {len(studied)} recuerdos repasados · "
+               f"{len(findings)} hallazgos. Un hallazgo es la lectura del supervisor, no un hecho.", ""]
+        if summary:
+            out += ["## Lo que te dice", "", summary, ""]
+        if reflection:
+            out += ["## Su reflexión de la noche", "", reflection["reflection"], ""]
+            if reflection.get("advice"):
+                out += [f"*Consejo que se da:* {reflection['advice']}", ""]
+            out += [f"- {q}" for q in reflection.get("questions") or []] + [""]
+            out += ["Publicada en INFINITO como reflexión " + published + ": la ves en Reflexiones." if published
+                    else "No se pudo publicar en INFINITO.", ""]
+        out += ["## Hallazgos", ""]
+        out += [f"- **{f.get('kind', '')}** · {f.get('note', '')} ({', '.join(f.get('memory_ids', []))})"
+                for f in findings] or ["Ninguno."]
+        path.write_text("\n".join(out) + "\n", encoding="utf-8")
+        return f"night study {night}: {len(passes)} passes, {len(findings)} findings; report in {path}"
 
     # The review
 
