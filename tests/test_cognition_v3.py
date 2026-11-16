@@ -362,6 +362,17 @@ def test_providers_read_usage_and_refuse_without_a_key():
     assert not reply.finished and reply.usage.as_dict() == {"input": 9, "output": 5, "thinking": 15}
     assert bodies[0]["reasoning_effort"] == "medium" and bodies[0]["max_completion_tokens"] == 10
     assert "response_format" not in bodies[0]
+    waits = []
+
+    def slow(url, headers, body, timeout=None):
+        waits.append(timeout)
+        return openai(url, headers, body)
+
+    # A model on this computer: its own address and key name, and as long a wait as the role's settings give it.
+    local = {"provider": "openai", "model": "qwen", "base_url": "http://localhost:11434/v1", "key_name": "LOCAL_KEY"}
+    make({**local, "timeout": 3600}, {"LOCAL_KEY": "k"}, slow).complete("s", "p", 10)
+    make(local, {"LOCAL_KEY": "k"}, openai).complete("s", "p", 10)  # no timeout set: the default, not passed
+    assert waits == [3600.0]
     with pytest.raises(ProviderError):
         Anthropic("claude-x", {})
     with pytest.raises(ProviderError):

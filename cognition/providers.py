@@ -92,8 +92,9 @@ class OpenAICompatible:
     """OpenAI, or any server that speaks its chat completions (base_url in the role's settings)."""
 
     def __init__(self, model: str, env=None, post: Callable = post_json, base_url: str = "https://api.openai.com/v1",
-                 key_name: str = "OPENAI_API_KEY", effort: Optional[str] = None):
+                 key_name: str = "OPENAI_API_KEY", effort: Optional[str] = None, timeout: Optional[float] = None):
         self.model, self.post, self.base_url, self.effort = model, post, base_url.rstrip("/"), effort
+        self.timeout = timeout  # seconds for the whole answer; a model on this computer can need far more than TIMEOUT
         self.key = (env or os.environ).get(key_name, "")
         if not self.key:
             raise ProviderError("missing_api_key")
@@ -104,7 +105,8 @@ class OpenAICompatible:
                 "messages": [{"role": "system", "content": system}, {"role": "user", "content": prompt}]}
         if self.effort:
             body["reasoning_effort"] = self.effort
-        data = self.post(f"{self.base_url}/chat/completions", {"Authorization": f"Bearer {self.key}"}, body)
+        wait = {"timeout": self.timeout} if self.timeout else {}
+        data = self.post(f"{self.base_url}/chat/completions", {"Authorization": f"Bearer {self.key}"}, body, **wait)
         try:
             usage = data["usage"]
             reasoning = int((usage.get("completion_tokens_details") or {}).get("reasoning_tokens", 0))
@@ -124,7 +126,8 @@ def make(settings: dict, env=None, post: Callable = post_json):
         return Anthropic(settings["model"], env, post)
     if provider == "openai":
         return OpenAICompatible(settings["model"], env, post, settings.get("base_url", "https://api.openai.com/v1"),
-                                settings.get("key_name", "OPENAI_API_KEY"), settings.get("reasoning_effort"))
+                                settings.get("key_name", "OPENAI_API_KEY"), settings.get("reasoning_effort"),
+                                float(settings["timeout"]) if settings.get("timeout") else None)
     raise ProviderError("unknown_provider")
 
 

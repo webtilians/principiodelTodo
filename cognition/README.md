@@ -37,6 +37,8 @@ python -m cognition login                       # sign it in (your password goes
 python -m cognition models supervisor anthropic <model> --price-in <usd> --price-out <usd>
 python -m cognition models observer openai <model> --price-in <usd> --price-out <usd> [--base-url ... --key-name ...]
 # ...the same for investigator and baseline; the key in ANTHROPIC_API_KEY / OPENAI_API_KEY / --key-name
+# a model on this computer (Ollama, llama.cpp...): its address, any key name that is set, price 0 and a long wait
+python -m cognition models supervisor openai <model> --price-in 0 --price-out 0     --base-url http://localhost:11434/v1 --key-name OLLAMA_API_KEY --timeout 3600
 python -m cognition review                      # a dry run until you authorize: no model, no writes, no cost
 python -m cognition authorize                   # let it spend, within the daily budget
 powershell -File scripts/install_cognition_task.ps1   # every hour, with no end date
