@@ -465,3 +465,91 @@ def test_the_notification_opens_the_page_and_cannot_be_broken_by_its_words():
     assert 'launch="https://x.test/memory?view=cognition&amp;a=1"' in xml
     assert "&lt;&quot;cognitivo&quot;&gt;" in xml or "&lt;\"cognitivo\"&gt;" in xml
     assert "Tres pautas &amp; más" in xml
+
+
+# The night hours: the review and a study of older memories, only inside them
+
+def night_engine(tmp_path, now, *, minutes_per_call=30, infinito=None, **extra):
+    """A live engine with night hours 4 to 8, whose every model call takes minutes_per_call of the clock."""
+    chosen, systems = [], []
+
+    def answer(system, prompt):
+        systems.append(system)
+        now["t"] += timedelta(minutes=minutes_per_call)
+        if "cierras tu REPASO NOCTURNO" in system:
+            return json.dumps({"reflection": {"text": "Esta noche entendí algo.", "sources": [OLD, GHOST],
+                                              "scope": "self", "advice": "Repasar más despacio."},
+                               "summary_for_owner": "Repasé lo antiguo."})
+        if "REPASO NOCTURNO" in system:
+            return json.dumps({"findings": [
+                {"id": "F1", "kind": "pattern", "memory_ids": [OLD], "note": "Se repite."},
+                {"id": "F2", "kind": "gap", "memory_ids": [GHOST], "note": "Cita lo que no vio."}]})
+        return supervisor_answer()(system, prompt)
+
+    def make_model(role, settings):
+        chosen.append((role, settings.get("timeout")))
+        return Fake(role, answer if role == "supervisor" else None)
+
+    run = Engine(tmp_path, conf(night_hours=[4, 8], **extra), infinito or FakeInfinito(), make_model, live=True,
+                 clock=lambda: now["t"])
+    return run, chosen, systems
+
+
+def test_outside_the_night_hours_no_model_is_called(tmp_path):
+    now = {"t": datetime(2026, 11, 16, 21, 30, tzinfo=MADRID)}
+    run, chosen, _ = night_engine(tmp_path, now)
+    assert run.tick().startswith("outside the night hours")
+    now["t"] = datetime(2026, 11, 17, 8, 5, tzinfo=MADRID)  # the hours end at 8 sharp
+    assert run.tick().startswith("outside the night hours")
+    assert chosen == [] and list(run.diary.entries("call")) == []
+
+
+def test_in_the_night_hours_it_reviews_then_studies_older_memories_until_they_end(tmp_path):
+    now = {"t": datetime(2026, 11, 17, 4, 5, tzinfo=MADRID)}
+    infinito = FakeInfinito()
+    run, chosen, systems = night_engine(tmp_path, now, minutes_per_call=20, infinito=infinito, study_batch_chars=120)
+    said = run.tick()
+    assert said.startswith("review") and "night study n20261117" in said
+    assert now["t"] <= datetime(2026, 11, 17, 8, 0, tzinfo=MADRID)  # it stopped inside the hours
+    passes = list(run.diary.entries("study_pass"))
+    assert len(passes) >= 2 and passes[0]["ids"] == [OLD]  # oldest first, a batch at a time
+    assert passes[1]["ids"] != passes[0]["ids"]  # and on from where the last pass stopped
+    body = run.diary.body(passes[0])
+    assert [f["id"] for f in body["findings"]] == ["F1"]  # the referee set aside the finding citing a ghost
+    assert body["set_aside"][0]["rejected"] == "NOT_IN_EVIDENCE"
+    study_calls = [e for e in run.diary.entries("call") if e.get("task")]
+    assert {e["task"] for e in study_calls} == {"study", "study_close"}
+    assert all(e["role"] == "supervisor" and e["guidelines"] == [] for e in study_calls)
+    end = run.diary.last("study_end")
+    assert end["run"] == "n20261117" and end["reflection"] == "abcd1234"
+    night = infinito.added[-1]  # the night's reflection, resting only on memories its findings cited
+    assert night["reflection"] == "Esta noche entendí algo." and night["sources"] == [OLD]
+    assert "Se repite." in (tmp_path / "reports" / "2026-11-17-noche.md").read_text(encoding="utf-8")
+    assert all(wait is not None and wait <= 4 * 3600 for _, wait in chosen)  # no call may outlast the hours
+    assert check(run.diary) == []
+    # Later the same night: neither a second review nor a second study
+    now["t"] = datetime(2026, 11, 17, 7, 50, tzinfo=MADRID)
+    calls = len(list(run.diary.entries("call")))
+    assert run.tick() == "night study: done for tonight"
+    assert len(list(run.diary.entries("call"))) == calls
+
+
+def test_the_next_night_goes_on_and_starts_a_new_round_once_all_are_studied(tmp_path):
+    now = {"t": datetime(2026, 11, 17, 6, 0, tzinfo=MADRID)}
+    infinito = FakeInfinito(new=())  # nothing new: no review calls, only the study
+    run, _, _ = night_engine(tmp_path, now, infinito=infinito, study_batch_chars=10 ** 6)
+    run.tick()
+    first = list(run.diary.entries("study_pass"))
+    assert [e["round"] for e in first][0] == 1 and first[0]["ids"] == [OLD]
+    assert any(e["round"] == 2 for e in first) or len(first) == 1
+    now["t"] = datetime(2026, 11, 18, 4, 5, tzinfo=MADRID)
+    run.tick()
+    assert run.diary.last("study_pass")["run"] == "n20261118"
+    assert run.diary.last("study_pass")["round"] >= 2
+
+
+def test_a_dry_run_does_not_study(tmp_path):
+    now = {"t": datetime(2026, 11, 17, 4, 5, tzinfo=MADRID)}
+    run = engine(tmp_path, clock=lambda: now["t"], config=conf(night_hours=[4, 8]))
+    assert run.tick().endswith("night study: only when authorized")
+    assert list(run.diary.entries("study_pass")) == []

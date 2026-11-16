@@ -6,6 +6,8 @@
     authorize             let it spend, within the daily budget; until then every review is a dry run
     deauthorize           back to dry runs
     tick                  what the scheduled task runs every hour: a review if one is due, else an observer check
+                          (with night_hours in config.json: only inside them, the review and then a study of older
+                          memories until they end)
     review                a review now, whatever the hour
     status                where it stands: last review, today's spending, proposals waiting, paused or not
     proposals             the guidelines the supervisor proposed, with their status

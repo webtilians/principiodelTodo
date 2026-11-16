@@ -22,6 +22,18 @@ The person supervises the supervisor:
 
 Design and gates: [docs/COGNITION_ENGINE_PROTOCOL_2026-11-11.md](../docs/COGNITION_ENGINE_PROTOCOL_2026-11-11.md).
 
+## Night hours
+
+With `"night_hours": [4, 8]` in `config.json` the engine works only at night: no model is called outside those
+hours (no observer passes by day either). At the first tick inside them it does the day's review; for the rest of
+them the supervisor's model **studies older memories**, a batch at a time, oldest first, going on each night from
+where it stopped and starting again once it has been through all of them. It notes findings (contradictions,
+pending things that look settled, patterns, connections, lessons, gaps), each resting on memories of its batch (the
+referee sets the others aside), and closes the night with a reflection of its own, published like the review's. The
+night's report is `reports/<date>-noche.md`. No call outlasts the hours. For a model on this computer, which is
+slow, this keeps the work away from the person's day:
+`powershell -File scripts/install_cognition_task.ps1 -NightHour 4` also wakes the computer from sleep for it.
+
 ## Privacy
 
 INFINITO's server cannot open a sealed memory on its own: only a request that brings a password or a live app
