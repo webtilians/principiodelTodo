@@ -411,7 +411,12 @@ class Engine:
             return "night study: no memories"
         room = int(self.config["study_pass_minutes"]) + int(self.config["study_close_minutes"])
         made = failed = 0
+        rounds = self.config.get("study_rounds_per_night")
+        most = int(float(rounds) * len(lines)) if rounds else None  # memories a night may read, e.g. once each
+        read = sum(len(e.get("ids", [])) for e in self.diary.entries("study_pass") if e.get("run") == night)
         while failed < 2 and (end - self.clock()).total_seconds() >= room * 60:
+            if most is not None and read >= most:
+                break
             round_, batch = self._study_batch(lines)
             text, cut = self._fit("supervisor", "\n".join(lines[i] for i in batch), 6000)
             shown = [i for i in batch if f"[{i}]" in text]
@@ -425,6 +430,7 @@ class Engine:
             self.diary.append("study_pass", run=night, round=round_, ids=shown, live=self.live, truncated=cut,
                               body={"findings": findings, "set_aside": aside})
             made += 1
+            read += len(shown)
         return self._study_close(night, end, validate.open_ids(listing), made)
 
     def _study_close(self, night: str, end: datetime, still_open: set, made: int) -> str:

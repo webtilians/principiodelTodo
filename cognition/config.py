@@ -28,6 +28,9 @@ DEFAULTS = {
     "study_pass_minutes": 20,
     "study_close_minutes": 25,
     "study_close_chars": 60000,
+    # How many times over all memories one night may read, or None for as long as the hours last: a fast paid or
+    # free-quota API would otherwise spend a whole quota in one night (1 = each memory at most once a night).
+    "study_rounds_per_night": None,
     # Euros per day: the first seven days as the pilot planned them, then budget_eur_after for every day after.
     # There is no last day: the engine runs until the person pauses it.
     "budget_eur": [0.5, 0.5, 1.0, 1.0, 2.0, 2.0, 1.0],
