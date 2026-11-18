@@ -21,10 +21,13 @@ DEFAULTS = {
     # Night hours [from, until), local clock, or None. When set, nothing calls a model outside them: the day's review
     # runs at the first tick inside, and until the hours end the supervisor studies older memories, a batch at a time
     # (study_batch_chars each), then closes the night with a reflection (study_close_minutes are kept for it).
+    # The night's findings grow with every pass; the closing call reads at most study_close_chars of them, so a long
+    # night still fits a model's context and the time kept for it.
     "night_hours": None,
     "study_batch_chars": 45000,
     "study_pass_minutes": 20,
     "study_close_minutes": 25,
+    "study_close_chars": 60000,
     # Euros per day: the first seven days as the pilot planned them, then budget_eur_after for every day after.
     # There is no last day: the engine runs until the person pauses it.
     "budget_eur": [0.5, 0.5, 1.0, 1.0, 2.0, 2.0, 1.0],

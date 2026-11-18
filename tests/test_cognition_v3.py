@@ -548,6 +548,38 @@ def test_the_next_night_goes_on_and_starts_a_new_round_once_all_are_studied(tmp_
     assert run.diary.last("study_pass")["round"] >= 2
 
 
+def test_a_long_night_closes_on_what_fits_and_tries_once_more_on_half(tmp_path):
+    now = {"t": datetime(2026, 11, 18, 4, 5, tzinfo=MADRID)}
+    closes = []
+
+    def answer(system, prompt):
+        now["t"] += timedelta(minutes=5)
+        if "cierras tu REPASO NOCTURNO" in system:
+            closes.append(prompt)
+            if len(closes) == 1:
+                return "the model lost its way"  # not understood: tried again on half the findings
+            return json.dumps({"reflection": {"text": "Lo largo cansa.", "sources": [OLD], "scope": "self"},
+                               "summary_for_owner": "Cerré con la mitad."})
+        if "REPASO NOCTURNO" in system:  # many long findings each pass
+            return json.dumps({"findings": [{"id": f"F{n}", "kind": "pattern", "memory_ids": [OLD],
+                                             "note": "Se repite. " * 60} for n in range(20)]})
+        return supervisor_answer()(system, prompt)
+
+    infinito = FakeInfinito(new=())
+    run = Engine(tmp_path, conf(night_hours=[4, 8], study_close_chars=20000, study_batch_chars=10 ** 6), infinito,
+                 lambda role, settings: Fake(role, answer if role == "supervisor" else None), live=True,
+                 clock=lambda: now["t"])
+    run.tick()
+    assert len(closes) == 2
+    first, second = (p.split("Tus reflexiones recientes")[0] for p in closes)
+    assert len(first) < 20000 + 1000 and len(second) < 10000 + 1000  # the findings were cut to what fits
+    assert "más hallazgos de los que caben" in first
+    lines = [line for line in first.splitlines() if line.startswith("{")]
+    assert lines and all(json.loads(line)["memory_ids"] == [OLD] for line in lines)  # one whole finding a line
+    assert run.diary.last("study_end")["reflection"] == "abcd1234"
+    assert infinito.added[-1]["reflection"] == "Lo largo cansa."
+
+
 def test_a_dry_run_does_not_study(tmp_path):
     now = {"t": datetime(2026, 11, 17, 4, 5, tzinfo=MADRID)}
     run = engine(tmp_path, clock=lambda: now["t"], config=conf(night_hours=[4, 8]))
