@@ -580,6 +580,20 @@ def test_a_long_night_closes_on_what_fits_and_tries_once_more_on_half(tmp_path):
     assert infinito.added[-1]["reflection"] == "Lo largo cansa."
 
 
+def test_a_fast_model_reads_each_memory_at_most_once_a_night_when_asked(tmp_path):
+    now = {"t": datetime(2026, 11, 18, 4, 5, tzinfo=MADRID)}
+    infinito = FakeInfinito()
+    every = 1 + len(infinito.new)  # what list_memories shows
+    run, _, _ = night_engine(tmp_path, now, minutes_per_call=1, infinito=infinito, study_batch_chars=120,
+                             study_rounds_per_night=1)
+    run.tick()
+    passes = [e for e in run.diary.entries("study_pass") if e["run"] == "n20261118"]
+    read = sum(len(e["ids"]) for e in passes)
+    assert every <= read < every + len(passes[-1]["ids"])  # one round's worth, then the close
+    assert now["t"] < datetime(2026, 11, 18, 5, 0, tzinfo=MADRID)  # it did not keep going until 8
+    assert run.diary.last("study_end")["run"] == "n20261118"
+
+
 def test_a_dry_run_does_not_study(tmp_path):
     now = {"t": datetime(2026, 11, 17, 4, 5, tzinfo=MADRID)}
     run = engine(tmp_path, clock=lambda: now["t"], config=conf(night_hours=[4, 8]))
