@@ -41,6 +41,7 @@ from .providers import TIMEOUT, Fake, ProviderError
 LOCK_STALE_SECONDS = 3 * 3600
 SUPERVISOR_EXTRA = 40000  # characters the children's reports, the checks and the instructions may add
 REFLECTIONS_DAYS = 21
+CLOSE_RETRY_SECONDS = 10 * 60  # a failed night close is tried again only with this much of the night left
 CHECK_LIMIT = 8
 NEW_HEADER = re.compile(r"Memories saved [^\n]*?\((\d+)\)")
 EARLIER = "\nYour latest earlier reflections"
@@ -438,11 +439,19 @@ class Engine:
                     "reflection_list", since=(self.clock() - timedelta(days=REFLECTIONS_DAYS)).date().isoformat())
             except InfinitoError:
                 earlier = ""
-            report = json.dumps({"findings": findings}, ensure_ascii=False, indent=1)
+            # One finding per line: compact, and a cut never splits one.
+            report = "\n".join(json.dumps(f, ensure_ascii=False) for f in findings)
             report, _ = self._fit("supervisor", report, len(earlier) + 6000)
-            closed = self.ask(night, "supervisor", roles.section("Hallazgos de esta noche", report)
-                              + roles.section("Tus reflexiones recientes y los comentarios de la persona", earlier),
-                              task="study_close")
+            closed = None
+            for share in (1, 2):  # a failed close is tried once more on half the findings, while there is time
+                if share > 1 and (closed is not None or (end - self.clock()).total_seconds() < CLOSE_RETRY_SECONDS):
+                    break
+                cap = int(self.config["study_close_chars"]) // share
+                text = report if len(report) <= cap else (
+                    report[:cap].rsplit("\n", 1)[0] + "\n[... cortado: más hallazgos de los que caben]")
+                closed = self.ask(night, "supervisor", roles.section("Hallazgos de esta noche", text)
+                                  + roles.section("Tus reflexiones recientes y los comentarios de la persona",
+                                                  earlier), task="study_close")
             cited = {i for f in findings for i in f.get("memory_ids", [])}
             reflection, dropped = validate.reflection((closed or {}).get("reflection"), cited,
                                                       set(validate.reflection_ids(earlier)), avoid=still_open)
