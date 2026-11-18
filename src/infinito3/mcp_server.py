@@ -410,10 +410,11 @@ class AgentMemory:
         if self.ranker is not None:
             chosen = set(self.ranker.rank(query or "", [r.content for r in memories])[:count])
             return [r for i, r in enumerate(memories) if i in chosen]
+        # The best matches among those allowed (search hands them best first), then shown oldest first.
         allowed = {r.id for r in memories}
         found = self.store.search(query or "", top_k=max(count * 5, 100), record_access=False)
-        related = {r.id for r in found if r.id in allowed}
-        return [r for r in memories if r.id in related][:count]
+        best = {r.id for r in [r for r in found if r.id in allowed][:count]}
+        return [r for r in memories if r.id in best]
 
     def recall(self, query: str, limit: Optional[int] = None, project: Optional[str] = None,
                kind: Optional[str] = None) -> str:

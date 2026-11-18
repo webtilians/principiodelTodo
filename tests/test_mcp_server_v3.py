@@ -165,3 +165,13 @@ def test_recall_finds_a_memory_that_shares_no_word_with_the_question(memory):
         memory.remember(f"Mi proyecto número {n} usa la librería {n} para procesar datos.")
     memory.remember("Ahora mismo mis canciones favoritas son Iris de Goo Goo Dolls y Duvet de bôa.")
     assert "Iris de Goo Goo Dolls" in memory.recall("¿Qué música me gusta?")
+
+
+def test_a_limit_without_a_model_hands_over_the_best_matches_not_the_oldest(memory):
+    # Every memory shares a word with the question, so all are candidates; the newest one answers it.
+    for n in range(30):
+        memory.remember(f"Mi proyecto número {n} usa la librería {n} para procesar datos.")
+    memory.remember("Mi perra se llama Nena.")
+    recalled = memory.recall("¿Cómo se llama mi perra?", limit=3)
+    shown = [line for line in recalled.splitlines() if line.startswith("[")]
+    assert len(shown) == 3 and "Mi perra se llama Nena." in recalled
