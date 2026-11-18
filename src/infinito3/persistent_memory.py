@@ -255,6 +255,9 @@ class SQLiteCognitiveMemoryStore:
         embedding = self._safe_embed(record.content)
 
         with self._lock, self._conn:
+            # Serialize the read/supersede/insert decision across independent
+            # SQLite writer processes, not just threads sharing this instance.
+            self._conn.execute("BEGIN IMMEDIATE")
             now = self._tick()
             record.updated_at = now
             exact = None if alone else self._conn.execute(
