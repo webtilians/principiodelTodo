@@ -223,6 +223,31 @@ class Accounts:
             self._write(accounts)
         return key
 
+    def public_key(self, name: str) -> Optional[bytes]:
+        """The public half of this person's key pair (remote_keys.py), or None if they have none yet."""
+        pair = self._read().get(name, {}).get("pair")
+        return base64.b64decode(pair["public"]) if pair else None
+
+    def key_pair(self, name: str, key: bytes) -> Optional[Tuple[bytes, bytes]]:
+        """This person's (private, public) key pair, made the first time it is asked for. key is their memory's key,
+        from one of their own requests, and seals the private half. None if the account is gone or key does not open
+        it."""
+        from .remote_keys import new_pair
+
+        with self._lock:
+            accounts = self._read()
+            entry = accounts.get(name)
+            if entry is None:
+                return None
+            pair = entry.get("pair")
+            if pair is None:
+                private, public = new_pair()
+                entry["pair"] = {"public": _b64(public), "private": _b64(_seal(key, private, f"pair:{name}"))}
+                self._write(accounts)
+                return private, public
+        private = _unseal(key, base64.b64decode(pair["private"]), f"pair:{name}")
+        return (private, base64.b64decode(pair["public"])) if private else None
+
     def vault_allowed(self, name: str) -> bool:
         return bool(self._read().get(name, {}).get("vault"))
 
