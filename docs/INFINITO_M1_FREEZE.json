@@ -1,0 +1,84 @@
+{
+ "protocol": "docs/INFINITO_M1_FRACTAL_MEMORY_PROTOCOL_2026-11-20.md",
+ "frozen_at": "2026-11-20T16:51:57",
+ "harness": {
+  "observatory/m1_fractal_memory.py": "44cc5770fd34a4ddba2d615b10c1dc4797dbeec1e47f90ded39383b322c143c8",
+  "tests/test_m1_fractal_memory.py": "caaaee968ba3136d21e54e40890f02b0b726c39e255414f50f3c039ee53e9cfd"
+ },
+ "data": {
+  "file": "locomo10.json",
+  "sha256": "79fa87e90f04081343b8c8debecb80a9a6842b76a7aa537dc9fdf651ea698ff4",
+  "source": "https://github.com/snap-research/locomo",
+  "source_commit": "cbfbc1dba6bc53d00625212a0f22d55ffee7c1fc",
+  "licence": "CC BY-NC 4.0"
+ },
+ "split": {
+  "dev": [
+   "conv-26",
+   "conv-47"
+  ],
+  "confirm": [
+   "conv-43",
+   "conv-42",
+   "conv-50",
+   "conv-30",
+   "conv-49",
+   "conv-41",
+   "conv-48",
+   "conv-44"
+  ]
+ },
+ "types": {
+  "1": "multi-hop",
+  "2": "temporal",
+  "3": "open-domain",
+  "4": "single-hop",
+  "5": "adversarial"
+ },
+ "decisive_budget": {
+  "tokens": 1024,
+  "rule": "A0 relational coverage on DEV at 1,024 = 50.0%, below 90%"
+ },
+ "stage2_per_type": 8,
+ "models": {
+  "reader": {
+   "name": "qwen3.8-motor",
+   "digest": "7991c412ee590bbb8a58eecb091de39d3733b70f60d0529f2a83d2bdf6c55106"
+  },
+  "judge": {
+   "name": "llama3.1:8b",
+   "digest": "46e0c10c039e019119339687c3c1757cc81b9da49709a3b3924863ba87ca666e"
+  },
+  "embeddings": {
+   "model.safetensors": "58dd57ff68b5aaab302899dacf9cf3b8ef2f2197cc27434b41ea4e1fb55837aa",
+   "pieces.txt": "2de3a1bad39682fa112152ab59220e5664aa84635f3042ff88e2822c11ce1729",
+   "scores.f32": "410b4b075db676daf78770bd175eecc6a2a9797ab4325a3b953f3d672a51b4bc"
+  }
+ },
+ "prompts": {
+  "reader": "Answer the question using only the memory below. If the memory does not contain the answer, reply exactly: Not in memory. Use at most 15 words.",
+  "judge": "Question, reference answer, response. Does the response give the same answer as the reference (wording, extra detail and date format may differ)? Reply CORRECT or WRONG."
+ },
+ "dev_outputs_sha256": {
+  "dev_stage1.json": "31378c4f206cdb69f461a58f8c42f1dfcd424417192c6b7694bc869ff183f90d",
+  "dev_stage2.json": "3fd5a1f09ecc9128fe4f0f0ddd9e695abe35ac48cf049f7140f65cfaf6c02d16",
+  "dev_stage2_timing.json": "0c5a9b833735395d22a80e94c77d4aea839b047661f345bb9362d195250fa4bd"
+ },
+ "harness_notes": [
+  "Shared rare words: a word in one turn cannot be shared, so the vocabulary whose rarest 5% counts is the words found in two or more turns.",
+  "Discovery drops a resolution whose partition is identical to one already kept: it would only add an identical step to the walk.",
+  "Filling a packet, a turn that does not fit the remaining budget is skipped and the next one is tried.",
+  "Adversarial replies are parsed by trimming whitespace and a final period and ignoring case before comparing with 'Not in memory'.",
+  "Evidence ids are split on ';', ',' and spaces; a question naming an id that is not a turn is left out of stage 1.",
+  "The write path refuses turns that are only a question; they are missing for every arm (DEV: 2 of 419 and 20 of 689 turns; one DEV open-domain question lost its evidence that way).",
+  "When forgetting, a turn whose stored record was shared with a forgotten turn counts as forgotten too.",
+  "Observed on DEV, not changed: A2's attach threshold is the 25th percentile of member-to-own-centroid similarity, and members helped form their centroid, so most later turns stay loose in the frozen arm (conv-26: 145 of 164).",
+  "Observed on DEV, not changed: the judge is lenient with partial answers; the human audit (gate) checks it.",
+  "The first full DEV stage 2 (started 06:09 on 2026-11-20) hung after the laptop suspended on battery at 07:28 and was stopped with no output. Stage 2 now saves each answered row and resumes; a hung call is retried. Calls are deterministic, so neither changes what is measured.",
+  "Stage 2 asks the reader for every row of a conversation before the judge grades any. Alternating them made Ollama reload the 27B reader after each judge call (DEV, 2026-11-20: about 37 s per reader call instead of 10 s). Calls are deterministic and the judge never sees the arm, so the order changes nothing measured. DEV stage 2 rows answered before this change were judged one at a time.",
+  "Added after DEV, outside the gates as written (the four forgetting checks are unchanged): forgetting also rewrites A3's saved versions and removes forgotten turn ids from its revision log, so a rollback cannot bring a forgotten turn back; stage 1 reports what is left there (history_passed).",
+  "Added after DEV, outside the gates: each packet records its time, groups visited and member similarities read, since equal tokens are not equal work; stage 1 also times each arm's build. The protocol's full packet trace (version, nodes visited with scores, each turn's route) is written for every question and arm at the decisive budget to <out>.traces.jsonl, whose hash goes into the stage 1 output. DEV stage 1 was rerun with these additions on 2026-11-20: all 16,212 coverage cells, the summary and the scope checks are identical to the first run, which is kept in artifacts/m1/superseded/. Without the version rewrite, every saved A3 version on DEV (8 of 8 and 13 of 13) still listed forgotten turns.",
+  "Scope isolation checks the project filter (_is_about) inside one owner's store. It is not an authorization boundary or a multi-user security test; the remote service separates owners into distinct encrypted stores.",
+  "No LoCoMo turn reaches the 2,000-character write limit (longest: 454 characters across all 10 conversations, a length count only). Turns are lost only to the filter for turns that are only a question (see above); stage 1 reports every refused turn with its reason and the questions whose evidence is missing from the store, which bound every arm's coverage alike."
+ ]
+}
