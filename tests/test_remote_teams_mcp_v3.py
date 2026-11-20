@@ -90,3 +90,13 @@ def test_a_space_that_is_not_the_users_opens_nothing_whatever_the_app_asks(on):
         storage=bea_app)[0]
     assert "## General" in general and "Proyecto Alfa" not in general and DECISION not in general
     assert alfa_asked == NOT_FOUND and alfa_written == NOT_FOUND
+
+
+def test_an_organization_that_does_not_exist_answers_like_one_that_is_not_the_users(on):
+    base, _, folder = on
+    app_session(base, [("company_list_orgs", {})], mode="signup", name="ceo")
+    _, _, org, _, _ = acme(folder)
+    _, _, bea_app = app_session(base, [("company_list_orgs", {})], mode="signup", name="bea")
+    theirs, made_up = app_session(base, [("company_list_spaces", {"org_id": org}),
+                                         ("company_list_spaces", {"org_id": "0123456789abcdef"})], storage=bea_app)[0]
+    assert theirs == made_up and theirs.startswith("Not allowed")

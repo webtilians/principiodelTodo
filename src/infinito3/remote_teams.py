@@ -466,9 +466,13 @@ class Teams:
 
     def app_level(self, org_id: str, account: str, client_id: str) -> str:
         """"none" until the person chooses "read" or "add" for this app, on the Teams page: an app that connects gets
-        nothing of an organization by itself, whatever it may do in the person's own memory."""
+        nothing of an organization by itself, whatever it may do in the person's own memory. An organization that does
+        not exist answers the same as one the person is not in, so that asking never tells which."""
         with self._lock(org_id):
-            policy = self._load(org_id)
+            try:
+                policy = self._load(org_id)
+            except Refused:
+                return NO_APP
             if self._member(policy, account) is None:
                 return NO_APP
             return policy["apps"].get(account, {}).get(client_id or "", NO_APP)
@@ -789,8 +793,7 @@ def add_tools(server, teams: Teams, issuer: str, Context, ToolAnnotations, meta=
             person, key, client, _ = who(ctx)
             allowed(org_id, person, client, "company_recall")
             found = teams.recall(org_id, person, key, query, space_ids, limit)
-            name = next((o["name"] for o in teams.orgs_of(person) if o["id"] == org_id), org_id)
-            lines = [RECALL_HEADER.format(org=name)]
+            lines = [RECALL_HEADER.format(org=next((space["org"] for space in found), org_id))]
             for space in found:
                 lines.append(f"## {space['name']} ({space['kind']}, space_id {space['space']})")
                 lines += [_memory_line(m) for m in space["memories"]] or ["Nothing about that here."]
