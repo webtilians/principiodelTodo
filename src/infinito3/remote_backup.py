@@ -6,9 +6,10 @@
 
 A copy holds what is already sealed on the server's disk: each memory.sealed with its photos, guidelines and work
 queue, the boxes of memories two people share, each vault (a KeePass file locked under its master password, with the
-sealed list of its names), and the files that hold each person's key wrapped under their password or address (accounts.json, people.json). Without the password
-or the address a copy opens nothing, so it can be kept anywhere. What can be read in one is the usernames
-and how large each memory and each photo is. A plain memory left from before sealing is never copied, and neither are
+sealed list of its names), each INFINITO Teams organization's policy and sealed spaces (remote_teams.py), and the files
+that hold each person's key wrapped under their password or address (accounts.json, people.json). Without the password
+or the address a copy opens nothing, so it can be kept anywhere. What can be read in one is the usernames, how large
+each memory and each photo is and, of an organization, the names of its spaces and members and who has which role. A plain memory left from before sealing is never copied, and neither are
 the apps' sign-ins (grants.db): after a restore each app simply signs in again. Photos make copies larger: up to
 remote_photos.MAX_TOTAL per person in each one.
 
@@ -38,10 +39,13 @@ PERSON_FILES = ("memory.sealed", "vault.kdbx", "vault-names.sealed", "tasks.seal
                 "reflections.sealed", "cognition.sealed", "contacts.sealed", "photos/*.sealed", "box.sealed")
 # Every name a copy may hold, and so the only places a restore may write: a photo is named by its 32-character id, and
 # so is a box of memories shared between two people (remote_shares.py).
+# INFINITO Teams (remote_teams.py): each organization's policy, and its spaces sealed by key version.
+ORG_FILES = ("orgs/*/policy.json", "orgs/*/spaces/*/v*/memory.sealed")
 MEMBER = re.compile(r"(accounts\.json|people\.json|shares/[0-9a-f]{32}/box\.sealed|(accounts|people)/[a-z0-9][a-z0-9-]*/"
                     r"(memory\.sealed|vault\.kdbx|vault-names\.sealed|tasks\.sealed|guidelines\.sealed|"
                     r"reflections\.sealed|cognition\.sealed|contacts\.sealed|"
-                    r"photos/[0-9a-f]{32}\.sealed))")
+                    r"photos/[0-9a-f]{32}\.sealed)|"
+                    r"orgs/[0-9a-f]{16}/(policy\.json|spaces/[0-9a-f]{16}/v[0-9]{1,9}/memory\.sealed))")
 
 
 def _checksum(data: bytes) -> str:
@@ -52,6 +56,11 @@ def _files_to_copy(data_dir: Path) -> Dict[str, bytes]:
     files = {name: (data_dir / name).read_bytes() for name in KEY_FILES if (data_dir / name).exists()}
     for kept in PERSON_FILES:
         for path in sorted(data_dir.glob(f"*/*/{kept}")):
+            relative = path.relative_to(data_dir).as_posix()
+            if MEMBER.fullmatch(relative):
+                files[relative] = path.read_bytes()
+    for kept in ORG_FILES:  # policies first: a space keeps the version its policy names until the next new key
+        for path in sorted(data_dir.glob(kept)):
             relative = path.relative_to(data_dir).as_posix()
             if MEMBER.fullmatch(relative):
                 files[relative] = path.read_bytes()
@@ -130,7 +139,7 @@ def restore(path: Path, data_dir: Path) -> str:
     aside = data_dir / f"before-restore-{datetime.now(timezone.utc):%Y%m%d-%H%M%S}"
     moved: List[str] = []
     data_dir.mkdir(parents=True, exist_ok=True)
-    for name in KEY_FILES + ("grants.db", "grants.db-wal", "grants.db-shm", "accounts", "people", "shares"):
+    for name in KEY_FILES + ("grants.db", "grants.db-wal", "grants.db-shm", "accounts", "people", "shares", "orgs"):
         if (data_dir / name).exists():
             aside.mkdir(mode=0o700, exist_ok=True)
             shutil.move(str(data_dir / name), str(aside / name))

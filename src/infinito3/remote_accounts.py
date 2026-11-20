@@ -261,6 +261,20 @@ class Accounts:
             self._write(accounts)
         return True
 
+    def teams_allowed(self, name: str) -> bool:
+        return bool(self._read().get(name, {}).get("teams"))
+
+    def allow_teams(self, name: str, allowed: bool = True) -> bool:
+        """The server's owner lets an account create organizations in INFINITO Teams (remote_teams.py), or stops it.
+        Joining one needs no permission here: only an invitation from it."""
+        with self._lock:
+            accounts = self._read()
+            if name not in accounts:
+                return False
+            accounts[name]["teams"] = allowed
+            self._write(accounts)
+        return True
+
     def app_levels(self, name: str) -> Dict[str, str]:
         """What the person lets each of their apps do (remote_apps.py), by the app's client id."""
         return dict(self._read().get(name, {}).get("apps", {}))

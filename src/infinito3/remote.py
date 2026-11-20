@@ -781,6 +781,8 @@ def main(argv: Optional[List[str]] = None) -> None:
     commands.add_parser("list", help="who has a memory: accounts and addresses")
     commands.add_parser("vault-allow", help="let an account use the vault on this server").add_argument("name")
     commands.add_parser("vault-deny", help="stop an account from using the vault on this server").add_argument("name")
+    commands.add_parser("teams-allow", help="let an account create organizations in INFINITO Teams").add_argument("name")
+    commands.add_parser("teams-deny", help="stop an account from creating organizations").add_argument("name")
     commands.add_parser("copy-local", help="copy this computer's memory into an address's memory")
     backup = commands.add_parser("backup", help="write one more copy of the sealed memories into a folder")
     backup.add_argument("folder")
@@ -833,6 +835,13 @@ def main(argv: Optional[List[str]] = None) -> None:
         done = Accounts(people.folder).allow_vault(args.name, allowed)
         print((f"{args.name} can now use the vault." if allowed else f"{args.name} can no longer use the vault.")
               if done else f"No account called {args.name}.")
+    elif args.command in ("teams-allow", "teams-deny"):
+        from .remote_accounts import Accounts
+
+        allowed = args.command == "teams-allow"
+        done = Accounts(people.folder).allow_teams(args.name, allowed)
+        print((f"{args.name} can now create organizations in INFINITO Teams." if allowed
+               else f"{args.name} can no longer create organizations.") if done else f"No account called {args.name}.")
     elif args.command == "list":
         from .remote_accounts import Accounts
 
