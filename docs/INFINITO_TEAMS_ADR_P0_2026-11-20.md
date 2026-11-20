@@ -1,6 +1,6 @@
 # INFINITO Teams — ADR P0: espacios, claves y roles
 
-**Estado:** PROPUESTO. Pendiente de firma del propietario (sección 8). No autoriza implementación, migración,
+**Estado:** ACEPTADO PROVISIONALMENTE el 20/11/2026 (decisiones y desviaciones en el §9). P1 en PR en borrador. No autoriza migración,
 despliegue, datos reales ni gasto.
 **Fecha:** 20/11/2026.
 **Base de código:** `master` en `411c540` (comprobado con `git fetch` el 20/11/2026). Las referencias `archivo:línea`
@@ -366,6 +366,95 @@ Ninguno se fusiona ni se despliega sin la revisión del propietario.
 - Propietario: ____________________
 - Fecha: ____________________
 - Decisiones aceptadas, modificadas o rechazadas (D1–D10, P-1…P-7): ____________________
+
+## 9. Adenda 1 (20/11/2026): decisiones del propietario y P1 implementado
+
+### 9.1 Decisiones del propietario (mensaje del 20/11/2026)
+
+- **P-1:** se acepta **provisionalmente** B2 (X25519 por cuenta) para entregar las claves.
+- **D4:** el CEO (`owner`) accede a todos los espacios corporativos, nunca a las memorias personales. Confirmado.
+- **D3 / P-2:** los administradores gestionan permisos sin leer necesariamente los datos. Confirmado.
+- **D6:** las aplicaciones empiezan sin permisos en la organización. Confirmado.
+- **Forma de trabajo:** por fases, con PR independientes, el flag empresarial desactivado por defecto, y sin fusionar
+  ni desplegar en producción sin revisión.
+- **P-7:** Teams **no** va en paralelo a la investigación. Es producto y tiene que ser siempre más estable y estar
+  comprobado; en él no entra nada experimental (motor cognitivo, reflexiones, memoria fractal). Queda escrito en
+  AGENTS.md.
+- **Ruta para probarlo:** `<host>/teams` (https://infinitomemory.com/teams) una vez el flag esté activado en el servidor
+  (remote/README.md).
+- **Siguen abiertas** (el propietario no las ha firmado): P-3, P-4, P-5 y P-6.
+
+### 9.2 Lo implementado, por fases (ramas desde `master`, PR en borrador)
+
+| Fase | PR | Contenido |
+|---|---|---|
+| 1 | #179 | `remote_keys.py`: sobres X25519 + HKDF + AES-GCM con contexto ligado; `Accounts.key_pair` / `public_key`. |
+| 2 | #180 | `remote_teams.py`: política, espacios sellados por versión de clave, `can()`, entrega y confirmación de claves, bajas y rotación, copias de `orgs/`, caché del ranker por espacio y `teams-allow`. |
+| 3 | #181 | Tools `company_list_orgs`, `company_list_spaces`, `company_recall` y `company_remember`; nivel de app `none` por defecto en cada organización. |
+| 4 | este PR | Página `/teams` (sesión y CSRF propios), guía de activación en remote/README.md, regla en AGENTS.md y esta adenda. |
+
+Cada PR contiene los commits de los anteriores: se fusionan en orden.
+
+### 9.3 Desviaciones respecto al ADR
+
+1. **Política en JSON**, `orgs/<id>/policy.json` escrito de forma atómica, no SQLite (D5). Toda operación de una
+   organización sostiene su bloqueo de principio a fin y hay un solo proceso, así que la transacción es una escritura
+   de archivo. Además, `remote_backup` la copia de forma consistente.
+2. **Un archivo sellado por versión de clave**, `spaces/<id>/v<n>/memory.sealed` (D1 y D8). La rotación escribe la
+   versión nueva y luego cambia la política en una sola escritura. La versión anterior se conserva una rotación más
+   para que una copia hecha en ese momento, desde otro proceso, encuentre el archivo que nombra su política.
+3. **`company_recall` responde por bloques de espacio**, sin un top-k global (D9).
+4. **Bloqueo por organización** durante toda la operación: los miembros de una misma organización esperan entre sí.
+5. **D7 parcial:** no hay `version` por recuerdo, `expected_version` ni `company_correct` (A09 sigue abierta). Para
+   corregir, se retira el recuerdo y se vuelve a añadir en la página.
+6. **Pasar una `proposal` a `decision`:** no hay botón en la página. Una persona sí puede guardar una decisión
+   directamente desde la página.
+7. **`company_list_orgs` responde aunque la app tenga nivel `none`:** solo da los nombres de las organizaciones y el
+   nivel de la app, para que el agente pueda decirle al usuario qué activar. El resto de tools exige `read` o `add`.
+8. **Solo crean organizaciones las cuentas que el dueño del servidor autoriza** (`teams-allow`). Se añadió porque el
+   registro está abierto.
+9. **Invitación a la organización:** si quien invita tiene la clave del espacio general, el token la lleva envuelta
+   bajo sí mismo (el patrón B1 de `remote_shares`). Si invita un `org_admin`, el acceso al general queda pendiente de
+   confirmación.
+10. **Auditoría:** se guardan las 500 últimas acciones dentro de la política, sin contenido de los recuerdos. Se
+    registran también las denegaciones.
+11. **No se impone el mínimo de dos sobres por espacio** (D4): un proyecto que crea el `owner` sin miembros solo tiene
+    el suyo.
+
+### 9.4 Comprobado y pendiente
+
+**Comprobado en local** (Python 3.11, mismas dependencias que la CI):
+- `tests/test_remote_keys_v3.py`: 11 pruebas.
+- `tests/test_remote_teams_v3.py`: 24 pruebas.
+- `tests/test_remote_teams_mcp_v3.py`: 5 pruebas.
+- `tests/test_remote_teams_page_v3.py`: 8 pruebas.
+- Una prueba nueva en `tests/test_semantic_v3.py`.
+- Cubren A01–A08, A11, A12, A14, A16 y «denegado = sin descifrar».
+- Prueba de mutación: con `read` abierto a todos fallan 5 pruebas, y sin renovar los sobres al rotar fallan 2.
+- La página se probó a mano en un servidor local con el flag activado: crear la organización, crear un proyecto,
+  guardar un recuerdo e invitar, también en ancho de móvil.
+
+**Revisión de código antes de fusionar** (20/11/2026, 10 hallazgos, todos corregidos con su prueba):
+- un nombre de cuenta borrado y registrado de nuevo por otra persona heredaba su papel; ahora cada miembro queda
+  ligado a la clave pública con la que entró;
+- una `idempotency_key` de más de 100 caracteres no se reconocía al repetir;
+- las denegaciones podían desplazar el registro de cambios; ahora van en una lista aparte y las lecturas denegadas no
+  se escriben;
+- cambiar el papel de alguien que ya estaba en un espacio le quitaba la clave;
+- un proyecto se creaba aunque fallara añadir a su responsable;
+- una invitación abierta por dos personas a la vez dejaba entrar a las dos;
+- las tools distinguían una organización inexistente de una ajena;
+- y tres de eficiencia: `accounts.json` releído decenas de veces por petición, la clave privada abierta una vez por
+  espacio, y `company_recall` leyendo todas las organizaciones del servidor.
+
+**Pendiente:**
+- Medir el AES-GCM en CI (§1.4).
+- P-3, P-4, P-5 y P-6. El límite de unos 2.000 recuerdos por espacio no se impone en el código; sí hay
+  `MAX_SPACES = 100` por organización.
+- A09, A10, A13 y la parte de A15 que va más allá del aviso.
+- Varios procesos.
+- La **revisión de seguridad independiente** que pide el dossier (§12) antes de meter datos reales.
+- El despliegue: activar el flag en el servidor es decisión del propietario, después de fusionar.
 
 ---
 

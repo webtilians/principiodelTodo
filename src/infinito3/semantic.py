@@ -100,30 +100,33 @@ class MeaningRanker:
             end = back[end]
         return [i for i in reversed(found) if i != self._unknown]
 
-    def vector(self, text: str):
+    def vector(self, text: str, cache: "Optional[OrderedDict[str, object]]" = None):
+        """text's vector, kept in cache (the ranker's own when None) so that it is worked out once."""
         import numpy as np
 
-        cached = self._cache.get(text)
+        cache = self._cache if cache is None else cache
+        cached = cache.get(text)
         if cached is not None:
-            self._cache.move_to_end(text)
+            cache.move_to_end(text)
             return cached
         ids = self.pieces(text)
         mean = (self._vectors[ids].astype(np.float32).mean(axis=0) if ids
                 else np.zeros(self._vectors.shape[1], dtype=np.float32))
         mean /= np.linalg.norm(mean) + 1e-9
-        self._cache[text] = mean
-        if len(self._cache) > self._cache_size:
-            self._cache.popitem(last=False)
+        cache[text] = mean
+        if len(cache) > self._cache_size:
+            cache.popitem(last=False)
         return mean
 
-    def rank(self, query: str, texts: Sequence[str]) -> List[int]:
-        """Indexes of texts, closest in meaning to the query first."""
+    def rank(self, query: str, texts: Sequence[str], cache: "Optional[OrderedDict[str, object]]" = None) -> List[int]:
+        """Indexes of texts, closest in meaning to the query first. cache keeps the vectors apart from everyone else's
+        (a team's space, remote_teams.py); without it they go in the ranker's own."""
         import numpy as np
 
         if not texts:
             return []
-        matrix = np.stack([self.vector(t) for t in texts])
-        return [int(i) for i in np.argsort(-(matrix @ self.vector(query)), kind="stable")]
+        matrix = np.stack([self.vector(t, cache) for t in texts])
+        return [int(i) for i in np.argsort(-(matrix @ self.vector(query, cache)), kind="stable")]
 
 
 def ranker_from(folder: Optional[str]) -> Optional[MeaningRanker]:

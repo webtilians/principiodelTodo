@@ -46,3 +46,21 @@ def test_the_model_finds_answers_that_share_no_word_with_the_question():
                              ("¿Tengo mascota?", "Nena"), ("What's my dog called?", "Nena")):
         top = [memories[i] for i in ranker.rank(question, memories)[:5]]
         assert any(answer in text for text in top), question
+
+
+def test_a_cache_of_its_own_keeps_texts_out_of_the_rankers_shared_one():
+    """A team's space ranks with its own cache (remote_teams.py), so its words never sit in the one everyone shares."""
+    from collections import OrderedDict
+
+    np = pytest.importorskip("numpy")
+    from src.infinito3.semantic import MeaningRanker
+
+    ranker = MeaningRanker("unused")
+    ranker._ids = {}  # loaded: no model needed for this
+    ranker._vectors = np.eye(3, dtype=np.float32)
+    ranker.pieces = lambda text: [len(text) % 3]
+    own = OrderedDict()
+    assert ranker.rank("abc", ["ab", "abc"], cache=own) == [1, 0]
+    assert set(own) == {"ab", "abc"} and len(ranker._cache) == 0
+    ranker.rank("abc", ["ab"])
+    assert set(ranker._cache) == {"ab", "abc"}

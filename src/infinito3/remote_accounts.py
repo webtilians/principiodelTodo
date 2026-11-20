@@ -223,6 +223,31 @@ class Accounts:
             self._write(accounts)
         return key
 
+    def public_key(self, name: str) -> Optional[bytes]:
+        """The public half of this person's key pair (remote_keys.py), or None if they have none yet."""
+        pair = self._read().get(name, {}).get("pair")
+        return base64.b64decode(pair["public"]) if pair else None
+
+    def key_pair(self, name: str, key: bytes) -> Optional[Tuple[bytes, bytes]]:
+        """This person's (private, public) key pair, made the first time it is asked for. key is their memory's key,
+        from one of their own requests, and seals the private half. None if the account is gone or key does not open
+        it."""
+        from .remote_keys import new_pair
+
+        with self._lock:
+            accounts = self._read()
+            entry = accounts.get(name)
+            if entry is None:
+                return None
+            pair = entry.get("pair")
+            if pair is None:
+                private, public = new_pair()
+                entry["pair"] = {"public": _b64(public), "private": _b64(_seal(key, private, f"pair:{name}"))}
+                self._write(accounts)
+                return private, public
+        private = _unseal(key, base64.b64decode(pair["private"]), f"pair:{name}")
+        return (private, base64.b64decode(pair["public"])) if private else None
+
     def vault_allowed(self, name: str) -> bool:
         return bool(self._read().get(name, {}).get("vault"))
 
@@ -233,6 +258,20 @@ class Accounts:
             if name not in accounts:
                 return False
             accounts[name]["vault"] = allowed
+            self._write(accounts)
+        return True
+
+    def teams_allowed(self, name: str) -> bool:
+        return bool(self._read().get(name, {}).get("teams"))
+
+    def allow_teams(self, name: str, allowed: bool = True) -> bool:
+        """The server's owner lets an account create organizations in INFINITO Teams (remote_teams.py), or stops it.
+        Joining one needs no permission here: only an invitation from it."""
+        with self._lock:
+            accounts = self._read()
+            if name not in accounts:
+                return False
+            accounts[name]["teams"] = allowed
             self._write(accounts)
         return True
 
@@ -357,7 +396,7 @@ class Grants:
 
 
 def build_auth(accounts: Accounts, grants: Grants, issuer: str,
-               adopt: Callable[[str, bytes, str], bool], memories=None):
+               adopt: Callable[[str, bytes, str], bool], memories=None, teams=None):
     """The OAuth endpoints, the sign-in page, and a function that turns a bearer token into (name, key).
 
     adopt(name, key, old_address) moves a memory kept under a private address (remote.py's People) into
@@ -574,6 +613,11 @@ def build_auth(accounts: Accounts, grants: Grants, issuer: str,
 
     memory_page = [] if memories is None else remote_memory.routes(accounts, grants, memories, one_at_a_time,
                                                                    secure=issuer.startswith("https://"), issuer=issuer)
+    if teams is not None:  # INFINITO Teams is on (remote_teams.py): its page, /teams
+        from . import remote_teams_page
+
+        memory_page += remote_teams_page.routes(accounts, grants, teams, one_at_a_time,
+                                                secure=issuer.startswith("https://"), issuer=issuer)
     app = Starlette(routes=routes + resource_routes + remote_vault.routes(accounts, grants, one_at_a_time) + memory_page
                     + [Route("/login", sign_in_page, methods=["GET"]), Route("/login", sign_in, methods=["POST"]),
                        Route("/connect", connect, methods=["GET"]), Route("/", home, methods=["GET"])])

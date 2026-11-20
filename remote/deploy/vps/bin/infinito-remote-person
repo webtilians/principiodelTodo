@@ -4,6 +4,7 @@
 #   infinito-remote-person list
 #   infinito-remote-person remove ana    the address stops working and Ana's memory is deleted
 #   infinito-remote-person vault-allow ana    the account ana can use the vault on this server (vault-deny stops it)
+#   infinito-remote-person teams-allow ana    ana can create organizations in INFINITO Teams (teams-deny stops it)
 set -euo pipefail
 [ "$(id -u)" -eq 0 ] || { echo "Ejecuta como root." >&2; exit 1; }
 host=$(cat /etc/infinito-remote/host)
