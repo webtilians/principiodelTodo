@@ -60,5 +60,5 @@
     }
   },
   "keywords": ["memory", "privacy", "forgetting", "long-term memory", "agents"],
-  "license": "MIT"
+  "license": "AGPL-3.0-only"
 }

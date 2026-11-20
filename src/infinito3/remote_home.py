@@ -63,7 +63,7 @@ TEXT = {
         "yours": [("Sellada", "AES-256-GCM, con una clave propia que solo abre tu contraseña. En el disco, sin ella, es ruido."),
                   ("Olvida de verdad", "Dile «olvida esto» y desaparece: el recuerdo y su rastro, sobrescritos en disco. No se "
                                        "esconde. Se borra."),
-                  ("Sin secretos", f'Código abierto (MIT) e informes publicados. No nos creas: <a href="{REPO}">compruébalo</a>.')],
+                  ("Sin secretos", f'Código abierto (AGPL-3.0) e informes publicados. No nos creas: <a href="{REPO}">compruébalo</a>.')],
         "proof_title": "Medido, no prometido",
         "proof_lead": "En Bemula-Lite, el benchmark público de olvido a petición, nadie se había acercado.",
         "proof_note": 'Puntuación en Bemula-Lite (<a href="https://arxiv.org/abs/2610.18052">arXiv 2610.18052</a>), INFINITO v0.5, con el runner '
@@ -226,7 +226,7 @@ TEXT = {
         "yours": [("Sealed", "AES-256-GCM, with a key of its own that only your password opens. On disk, without it, it is noise."),
                   ("It really forgets", "Say “forget this” and it is gone: the memory and its trail, overwritten on disk. Not "
                                         "hidden. Deleted."),
-                  ("Nothing to hide", f'Open source (MIT) with published reports. Don\'t take our word: <a href="{REPO}">check it</a>.')],
+                  ("Nothing to hide", f'Open source (AGPL-3.0) with published reports. Don\'t take our word: <a href="{REPO}">check it</a>.')],
         "proof_title": "Measured, not promised",
         "proof_lead": "On Bemula-Lite, the public benchmark for forgetting on request, nobody had come close.",
         "proof_note": 'Score on Bemula-Lite (<a href="https://arxiv.org/abs/2610.18052">arXiv 2610.18052</a>), INFINITO v0.5, with the benchmark\'s own '

@@ -61,7 +61,7 @@ const TEXT = {
     how1_t: "Reconoce la petición.", how1: "Unas reglas detectan «olvida», «borra», «deja de guardar»… antes de que el mensaje se guarde.",
     how2_t: "Elige qué borrar.", how2: "Un LLM revisa todos los recuerdos guardados y señala los que contienen ese dato.",
     how3_t: "Borra de verdad.", how3: "Las filas se eliminan con su historial y se sobrescriben en la base de datos. Solo queda un contador.",
-    footer: "INFINITO es open source (MIT).",
+    footer: "INFINITO es open source (AGPL-3.0).",
     names: { "Full context": "Contexto completo", "Naive RAG": "RAG simple" },
   },
   en: {
@@ -124,7 +124,7 @@ const TEXT = {
     how1_t: "It recognizes the request.", how1: "Rules spot “forget”, “delete”, “stop keeping”… before the message is stored.",
     how2_t: "It picks what to delete.", how2: "An LLM reviews every stored memory and points out the ones that hold that information.",
     how3_t: "It deletes for real.", how3: "The rows are removed with their history and overwritten in the database. Only a count remains.",
-    footer: "INFINITO is open source (MIT).",
+    footer: "INFINITO is open source (AGPL-3.0).",
     names: {},
   },
 };

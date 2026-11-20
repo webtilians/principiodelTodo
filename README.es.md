@@ -4,7 +4,7 @@
 
 [![Core tests](https://github.com/webtilians/principiodelTodo/actions/workflows/repository-integration.yml/badge.svg?branch=master)](https://github.com/webtilians/principiodelTodo/actions/workflows/repository-integration.yml)
 ![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)
-![Licencia: MIT](https://img.shields.io/badge/licencia-MIT-green)
+![Licencia: AGPL-3.0 + comercial](https://img.shields.io/badge/licencia-AGPL--3.0%20%2B%20comercial-blue)
 
 [Read in English](README.md)
 
@@ -404,4 +404,5 @@ cambios, en [`legacy/`](legacy/); sus afirmaciones quedan superadas.
 
 ## Licencia
 
-[MIT](LICENSE)
+INFINITO tiene doble licencia: [GNU AGPL v3](LICENSE) (`AGPL-3.0-only`) o una licencia comercial.
+Las versiones hasta la 0.7.0 (revisión `4b15a60`) se publicaron con licencia MIT. Consulta [LICENSING.md](LICENSING.md).
