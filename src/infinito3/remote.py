@@ -56,7 +56,7 @@ from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple
 
 from . import (remote_apps, remote_cognition, remote_guidelines, remote_photos, remote_reflections, remote_shares,
-               remote_tasks)
+               remote_tasks, remote_teams)
 from .mcp_server import INSTRUCTIONS, TOOL_DESCRIPTIONS, TOOL_HINTS, AgentMemory, MemoryItem, _line
 from .persistent_memory import HashEmbeddingProvider, SQLiteCognitiveMemoryStore
 
@@ -730,6 +730,11 @@ def build_app(people: People, issuer: Optional[str] = None):
                 task = remote_tasks.give_back(tasks, app_of(ctx), task_id, reason)
                 return f"Task {task['id']} is back with the user, with your reason, at {page_of_tasks}."
             return on_queue(ctx, "task_return", act)
+
+        # INFINITO Teams (remote_teams.py): an organization's memory, only with the server's flag on.
+        if remote_teams.enabled():
+            remote_teams.add_tools(server, remote_teams.Teams(accounts, ranker), issuer, Context, ToolAnnotations,
+                                   signed_in)
 
     # DNS rebinding protection checks Host and Origin, which behind a proxy and from ChatGPT's servers are
     # neither 127.0.0.1 nor known in advance. The secret address is what keeps a memory private.
