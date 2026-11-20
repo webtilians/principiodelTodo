@@ -92,7 +92,13 @@ TEXT = {
                      "This account may not create organizations on this server.":
                          "Tu cuenta no puede crear organizaciones en este servidor.",
                      "Everyone in the organization is in the general space already.":
-                         "Todos los de la organización están ya en el espacio general."},
+                         "Todos los de la organización están ya en el espacio general.",
+                     remote_teams.SELF: "Nadie puede añadirse a sí mismo a un espacio: tiene que hacerlo otra "
+                                        "persona que lo lleve.",
+                     remote_teams.OWNER_READS: "El propietario de la organización ya lee y gestiona todos los "
+                                               "espacios: no hace falta añadirlo.",
+                     remote_teams.NOBODY: "No hay nadie con ese nombre de usuario en esta organización: invítalo "
+                                          "primero."},
     },
     "en": {
         "title": "INFINITO Teams", "brand": "INFINITO · Teams",

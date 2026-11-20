@@ -61,6 +61,10 @@ APP_LEVELS = (NO_APP, READ_APP, ADD_APP)
 APP_TOOLS = {"company_list_spaces": READ_APP, "company_recall": READ_APP, "company_remember": ADD_APP}
 # The same answer for what does not exist and for what is not yours, so that asking never tells which.
 NOT_FOUND = "Not found, or not yours to see."
+# Said only to someone who may add people to the space, so they tell nothing to anyone outside it.
+SELF = "Nobody adds themselves to a space: someone else who runs it has to."
+OWNER_READS = "The organization's owner already reads and runs every space: there is no need to add them."
+NOBODY = "Nobody with that username is in this organization: invite them first."
 
 
 def enabled() -> bool:
@@ -219,10 +223,19 @@ class Teams:
                 "remove_member": manages or role == ADMIN,
                 "audit": manages or role == ADMIN}.get(action, False)
 
-    def _refuse(self, policy: dict, actor: str, action: str, target: str = "") -> None:
+    def _refuse(self, policy: dict, actor: str, action: str, target: str = "", said: str = NOT_FOUND) -> None:
         self._audit(policy, actor, action, target, "refused")
         self._save(policy)
-        raise Refused(NOT_FOUND)
+        raise Refused(said)
+
+    def _addable(self, policy: dict, actor: str, target: str, where: str = "") -> None:
+        """Why target cannot be given a seat, to someone already allowed to give one; nothing if they can."""
+        if target == actor:
+            self._refuse(policy, actor, "add_self", where, SELF)
+        if target == policy["owner"]:
+            raise Refused(OWNER_READS)
+        if self._member(policy, target) is None:
+            raise Refused(NOBODY)
 
     # Keys
 
@@ -509,10 +522,10 @@ class Teams:
                 self._refuse(policy, actor, "create_space")
             if not name:
                 raise Refused("A space needs a name.")
-            if manager == actor:
-                self._refuse(policy, actor, "add_self")
-            if manager and (manager == policy["owner"] or self._member(policy, manager) is None):
-                raise Refused(NOT_FOUND)
+            if manager == actor == policy["owner"]:
+                manager = None  # the owner runs every space already
+            if manager:
+                self._addable(policy, actor, manager)
             space_id = self._new_space(policy, actor, name, PROJECT)
             self._audit(policy, actor, "create_space", space_id)
             self._save(policy)
@@ -528,10 +541,7 @@ class Teams:
             policy = self._load(org_id)
             if not self.can(policy, actor, "add_member", space_id) or role not in (MANAGER, MEMBER):
                 self._refuse(policy, actor, "add_member", target)
-            if target == actor:
-                self._refuse(policy, actor, "add_self", space_id)
-            if self._member(policy, target) is None or target == policy["owner"]:
-                raise Refused(NOT_FOUND)
+            self._addable(policy, actor, target, space_id)
             space = policy["spaces"][space_id]
             if space["kind"] == GENERAL and target in space["members"]:
                 raise Refused("Everyone in the organization is in the general space already.")
