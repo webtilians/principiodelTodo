@@ -1,0 +1,3358 @@
+{
+ "split": "dev",
+ "questions": 126,
+ "sizes": {
+  "200": {
+   "active": 200,
+   "refused": [],
+   "gold_missing": [],
+   "build_s": 1.0,
+   "summary": {
+    "A": {
+     "all": {
+      "recall@5": 0.881,
+      "recall@20": 0.9762,
+      "mrr@10": 0.6228,
+      "later_above_older": 0.1667,
+      "n": 126
+     },
+     "F1": {
+      "recall@5": 0.775,
+      "recall@20": 1.0,
+      "mrr@10": 0.6288,
+      "n": 40
+     },
+     "F2": {
+      "recall@5": 1.0,
+      "recall@20": 1.0,
+      "mrr@10": 0.7222,
+      "n": 36
+     },
+     "F3": {
+      "recall@5": 0.7,
+      "recall@20": 0.85,
+      "mrr@10": 0.4912,
+      "n": 20
+     },
+     "F4": {
+      "recall@5": 1.0,
+      "recall@20": 1.0,
+      "mrr@10": 0.5833,
+      "later_above_older": 0.1667,
+      "n": 30
+     },
+     "p50_ms": 0.42,
+     "p95_ms": 0.67
+    },
+    "B": {
+     "all": {
+      "recall@5": 0.6667,
+      "recall@20": 0.873,
+      "mrr@10": 0.5009,
+      "later_above_older": 0.0,
+      "n": 126
+     },
+     "F1": {
+      "recall@5": 1.0,
+      "recall@20": 1.0,
+      "mrr@10": 0.9042,
+      "n": 40
+     },
+     "F2": {
+      "recall@5": 1.0,
+      "recall@20": 1.0,
+      "mrr@10": 0.6171,
+      "n": 36
+     },
+     "F3": {
+      "recall@5": 0.0,
+      "recall@20": 0.2,
+      "mrr@10": 0.0248,
+      "n": 20
+     },
+     "F4": {
+      "recall@5": 0.2667,
+      "recall@20": 1.0,
+      "mrr@10": 0.1411,
+      "later_above_older": 0.0,
+      "n": 30
+     },
+     "p50_ms": 5.15,
+     "p95_ms": 5.37
+    },
+    "C": {
+     "all": {
+      "recall@5": 0.8571,
+      "recall@20": 0.881,
+      "mrr@10": 0.6424,
+      "later_above_older": 0.0,
+      "n": 126
+     },
+     "F1": {
+      "recall@5": 1.0,
+      "recall@20": 1.0,
+      "mrr@10": 1.0,
+      "n": 40
+     },
+     "F2": {
+      "recall@5": 1.0,
+      "recall@20": 1.0,
+      "mrr@10": 0.6611,
+      "n": 36
+     },
+     "F3": {
+      "recall@5": 0.1,
+      "recall@20": 0.25,
+      "mrr@10": 0.1071,
+      "n": 20
+     },
+     "F4": {
+      "recall@5": 1.0,
+      "recall@20": 1.0,
+      "mrr@10": 0.5,
+      "later_above_older": 0.0,
+      "n": 30
+     },
+     "p50_ms": 0.13,
+     "p95_ms": 0.14
+    },
+    "D": {
+     "all": {
+      "recall@5": 0.9127,
+      "recall@20": 0.9762,
+      "mrr@10": 0.615,
+      "later_above_older": 0.1667,
+      "n": 126
+     },
+     "F1": {
+      "recall@5": 0.975,
+      "recall@20": 1.0,
+      "mrr@10": 0.7312,
+      "n": 40
+     },
+     "F2": {
+      "recall@5": 1.0,
+      "recall@20": 1.0,
+      "mrr@10": 0.7139,
+      "n": 36
+     },
+     "F3": {
+      "recall@5": 0.5,
+      "recall@20": 0.85,
+      "mrr@10": 0.2521,
+      "n": 20
+     },
+     "F4": {
+      "recall@5": 1.0,
+      "recall@20": 1.0,
+      "mrr@10": 0.5833,
+      "later_above_older": 0.1667,
+      "n": 30
+     },
+     "p50_ms": 0.29,
+     "p95_ms": 0.3
+    },
+    "E": {
+     "all": {
+      "recall@5": 0.9048,
+      "recall@20": 0.9683,
+      "mrr@10": 0.5386,
+      "later_above_older": 0.0,
+      "n": 126
+     },
+     "F1": {
+      "recall@5": 1.0,
+      "recall@20": 1.0,
+      "mrr@10": 0.7188,
+      "n": 40
+     },
+     "F2": {
+      "recall@5": 1.0,
+      "recall@20": 1.0,
+      "mrr@10": 0.7208,
+      "n": 36
+     },
+     "F3": {
+      "recall@5": 0.4,
+      "recall@20": 0.8,
+      "mrr@10": 0.1909,
+      "n": 20
+     },
+     "F4": {
+      "recall@5": 1.0,
+      "recall@20": 1.0,
+      "mrr@10": 0.3117,
+      "later_above_older": 0.0,
+      "n": 30
+     },
+     "p50_ms": 5.4,
+     "p95_ms": 5.69
+    }
+   },
+   "rows": {
+    "A": [
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 7,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 9,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 7,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 3,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 8,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 4,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 5,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 8,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 10,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 14,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 5,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 3,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 3,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 7,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 9,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 3,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 3,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 3,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 3,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 3,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 4,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 3,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 4,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 49,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 3,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 40,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 3,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 14,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 16,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 3,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 8,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 49,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 5,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 1,
+      "later_above_older": true
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 1,
+      "later_above_older": true
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 1,
+      "later_above_older": true
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 1,
+      "later_above_older": true
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 1,
+      "later_above_older": true
+     }
+    ],
+    "B": [
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 3,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 3,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 3,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 3,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 3,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 5,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 5,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 3,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 4,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 5,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 4,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 3,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 4,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 3,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 3,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 3,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 5,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 4,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 4,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": null,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": null,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": null,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 99,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": null,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": null,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 9,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": null,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 7,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 10,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 87,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": null,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": null,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 23,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 90,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 7,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": null,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": null,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": null,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": null,
+      "later_above_older": null
+     },
+     {
+      "family": "F4",
+      "rank": 8,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 5,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 8,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 8,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 10,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 7,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 5,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 8,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 5,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 10,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 8,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 7,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 10,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 10,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 10,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 10,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 7,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 10,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 5,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 5,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 7,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 10,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 10,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 5,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 8,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 7,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 8,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 7,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 5,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 5,
+      "later_above_older": false
+     }
+    ],
+    "C": [
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 5,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 5,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 3,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 3,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 5,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 4,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 3,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 3,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 3,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 3,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 4,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 4,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 5,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 4,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": null,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": null,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": null,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": null,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": null,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": null,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 36,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 7,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 14,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": null,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": null,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": null,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 16,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": null,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": null,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": null,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": null,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": null,
+      "later_above_older": null
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     }
+    ],
+    "D": [
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 3,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 3,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 3,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 3,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 3,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 4,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 6,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 3,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 3,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 3,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 4,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 4,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 3,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 3,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 4,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 5,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 4,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 3,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 5,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": null,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 19,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 5,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 8,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 3,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 24,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 12,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 12,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 4,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 14,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": null,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 10,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 12,
+      "later_above_older": null
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 1,
+      "later_above_older": true
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 1,
+      "later_above_older": true
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 1,
+      "later_above_older": true
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 1,
+      "later_above_older": true
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 1,
+      "later_above_older": true
+     }
+    ],
+    "E": [
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 3,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 3,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 3,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 3,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 3,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 3,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 3,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 4,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 3,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F1",
+      "rank": 3,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 3,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 4,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 3,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 4,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 3,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 3,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 3,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 3,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 5,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 4,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F2",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 3,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 8,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": null,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 10,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 5,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 4,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 12,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 7,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 3,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 1,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 30,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 12,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 17,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 21,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 2,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": null,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 3,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 12,
+      "later_above_older": null
+     },
+     {
+      "family": "F3",
+      "rank": 12,
+      "later_above_older": null
+     },
+     {
+      "family": "F4",
+      "rank": 4,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 3,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 5,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 4,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 4,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 4,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 4,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 3,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 4,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 5,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 3,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 3,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 3,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 4,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 3,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 3,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 2,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 3,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 3,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 4,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 5,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 3,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 4,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 3,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 3,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 3,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 3,
+      "later_above_older": false
+     },
+     {
+      "family": "F4",
+      "rank": 3,
+      "later_above_older": false
+     }
+    ]
+   }
+  }
+ },
+ "fts5_secure_delete": true,
+ "sqlite": "3.45.1"
+}
