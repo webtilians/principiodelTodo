@@ -283,3 +283,54 @@ def test_each_space_ranks_with_a_cache_of_its_own(tmp_path):
     w.teams.recall(w.acme, "ceo", w.keys["ceo"], "pago", [w.alfa, w.beta], limit=3)
     w.teams.recall(w.acme, "ana", w.keys["ana"], "pago", [w.alfa], limit=3)
     assert len(set(ranker.caches)) == 2 and ranker.caches[0] == ranker.caches[2]
+
+
+# What the review of the four pull requests found (20/11/2026)
+
+def test_a_deleted_name_taken_again_by_someone_else_is_nobody_in_the_organization(w):
+    teams = w.teams
+    teams.set_role(w.acme, "ceo", "bea", ADMIN)
+    w.accounts.remove("bea")
+    impostor = w.accounts.create("bea", "otra contraseña bastante larga")[0]
+    w.accounts.key_pair("bea", impostor)
+    assert teams.orgs_of("bea") == []
+    with pytest.raises(Refused, match=NOT_FOUND):
+        teams.recall(w.acme, "bea", impostor, "pago")
+    with pytest.raises(Refused):
+        teams.invite(w.acme, "bea", impostor, lambda key, data: "token")
+    # Invited on her own, she starts from nothing: no seat in Alfa from the account that had the name before.
+    teams.accept(offer_from(teams, w.acme, "ceo", w.keys["ceo"]), "bea", impostor)
+    assert {s["name"] for s in teams.spaces(w.acme, "bea")} == {"General"}
+    assert teams.org(w.acme, "ceo")["members"]["bea"] == "member"
+
+
+def test_a_long_idempotency_key_still_stores_once(w):
+    long_key = "tarea-" + "x" * 150
+    remember(w, "ana", w.alfa, idempotency_key=long_key)
+    assert remember(w, "ana", w.alfa, idempotency_key=long_key).startswith("Already remembered as")
+    assert texts(recall(w, "ana", [w.alfa])) == [DECISION]
+
+
+def test_refused_reads_never_push_the_record_of_changes_out(w):
+    for _ in range(600):
+        with pytest.raises(Refused):
+            recall(w, "carlos", [w.alfa])
+    actions = [item["action"] for item in w.teams.org(w.acme, "ceo")["audit"]]
+    assert "create_org" in actions and "add_member:member" in actions
+
+
+def test_changing_the_role_of_someone_already_in_a_space_keeps_their_access(w):
+    teams, k = w.teams, w.keys
+    remember(w, "ana", w.alfa)
+    with pytest.raises(Refused, match="already"):
+        teams.add(w.acme, w.alfa, "admin", k["admin"], "bea", role="manager")
+    assert teams.add(w.acme, w.alfa, "ceo", k["ceo"], "bea", role="manager") == ACTIVE
+    assert DECISION in texts(recall(w, "bea", [w.alfa]))
+    assert teams.add(w.acme, w.alfa, "bea", k["bea"], "carlos") == ACTIVE  # now she manages Alfa
+
+
+def test_a_project_whose_manager_cannot_be_added_is_not_created(w):
+    before = {s["id"] for s in w.teams.spaces(w.acme, "ceo")}
+    with pytest.raises(Refused, match=NOT_FOUND):
+        w.teams.create_space(w.acme, "ceo", w.keys["ceo"], "Proyecto Gamma", manager="beaa")
+    assert {s["id"] for s in w.teams.spaces(w.acme, "ceo")} == before

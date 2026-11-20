@@ -50,6 +50,7 @@ INVITE = "teams-invite"
 INVITE_SECONDS = 7 * 86400
 MAX_NAME = 60
 MAX_AUDIT = 500
+MAX_REFUSED = 100  # kept apart, so that refused requests, which anyone can make, never push the real record out
 MAX_SPACES = 100
 IDEMPOTENCY_SECONDS = 86400
 CACHED_SPACES = 32
@@ -131,6 +132,7 @@ class Teams:
         self._caches: "OrderedDict[str, OrderedDict]" = OrderedDict()
         self._locks: Dict[str, threading.RLock] = {}
         self._guard = threading.Lock()
+        self._known: tuple = (None, {})
 
     # The policy of an organization, on disk
 
@@ -159,15 +161,39 @@ class Teams:
 
     @staticmethod
     def _audit(policy: dict, actor: str, action: str, target: str = "", outcome: str = "done") -> None:
-        """Who did what to whom, and when: never the words of a memory."""
-        policy["audit"] = (policy.get("audit", []) + [{"at": _now(), "actor": actor, "action": action, "target": target,
-                                                       "outcome": outcome}])[-MAX_AUDIT:]
+        """Who did what to whom, and when: never the words of a memory. What was refused goes in a list of its own."""
+        kept, most = ("refused", MAX_REFUSED) if outcome == "refused" else ("audit", MAX_AUDIT)
+        policy[kept] = (policy.get(kept, []) + [{"at": _now(), "actor": actor, "action": action, "target": target,
+                                                 "outcome": outcome}])[-most:]
 
     # Who may do what: the one place it is decided
 
+    def _publics(self) -> Dict[str, str]:
+        """Each account's public key as accounts.json has it, read again only when that file changes."""
+        try:
+            stat = self.accounts.file.stat()
+        except FileNotFoundError:
+            return {}
+        stamp = (stat.st_mtime_ns, stat.st_size)
+        with self._guard:
+            if self._known[0] != stamp:
+                entries = json.loads(self.accounts.file.read_text(encoding="utf-8"))
+                self._known = (stamp, {name: entry["pair"]["public"] for name, entry in entries.items()
+                                       if entry.get("pair")})
+            return self._known[1]
+
     def _member(self, policy: dict, account: str) -> Optional[dict]:
+        """account's membership, if it is still the same account: a member is bound to the public key they joined with,
+        so a name that was deleted and taken again by someone else is nobody here."""
         found = policy["members"].get(account)
-        return found if found and self.accounts.exists(account) else None
+        return found if found and found.get("key") and self._publics().get(account) == found["key"] else None
+
+    def _drop_seats(self, policy: dict, account: str) -> None:
+        """account leaves every space; each space whose key they could open gets a new one."""
+        for space in policy["spaces"].values():
+            space["members"].pop(account, None)
+            if space["keys"].pop(account, None) is not None:
+                space["rotate"] = True
 
     def can(self, policy: dict, account: str, action: str, space_id: Optional[str] = None) -> bool:
         """Whether account may do action in this organization, or in one of its spaces. Anything not named is no."""
@@ -200,11 +226,13 @@ class Teams:
 
     # Keys
 
-    def _space_key(self, policy: dict, space_id: str, account: str, key: bytes) -> Optional[bytes]:
-        """The space's key from account's own envelope, opened with their private half; None if they have none."""
+    def _space_key(self, policy: dict, space_id: str, account: str, key: bytes,
+                   pair: Optional[tuple] = None) -> Optional[bytes]:
+        """The space's key from account's own envelope, opened with their private half; None if they have none. pair,
+        when the caller already opened it, saves opening it again for each space."""
         space = policy["spaces"][space_id]
         envelope = space["keys"].get(account)
-        pair = self.accounts.key_pair(account, key) if envelope else None
+        pair = (pair or self.accounts.key_pair(account, key)) if envelope else None
         if pair is None:
             return None
         return remote_keys.open_envelope(pair[0], base64.b64decode(envelope),
@@ -212,17 +240,17 @@ class Teams:
 
     def _give(self, policy: dict, space_id: str, space_key: bytes, account: str) -> bool:
         """An envelope of the space's key for account, if they have a public key yet (they get one by using Teams)."""
-        public = self.accounts.public_key(account)
+        public = self._publics().get(account)
         if public is None:
             return False
         space = policy["spaces"][space_id]
         space["keys"][account] = _b64(remote_keys.seal_to(
-            public, space_key, remote_keys.context(policy["id"], space_id, space["version"], account)))
+            base64.b64decode(public), space_key, remote_keys.context(policy["id"], space_id, space["version"], account)))
         return True
 
-    def _opened(self, policy: dict, space_id: str, account: str, key: bytes) -> bytes:
+    def _opened(self, policy: dict, space_id: str, account: str, key: bytes, pair: Optional[tuple] = None) -> bytes:
         """The space's key, after any change of key it was waiting for (ADR D8). Only called once can() said yes."""
-        space_key = self._space_key(policy, space_id, account, key)
+        space_key = self._space_key(policy, space_id, account, key, pair)
         if space_key is None:
             raise Refused(NOT_FOUND)
         space = policy["spaces"][space_id]
@@ -288,13 +316,14 @@ class Teams:
         name = _name(name)
         if not name:
             raise Refused("An organization needs a name.")
-        if not self.accounts.teams_allowed(actor) or self.accounts.key_pair(actor, key) is None:
+        pair = self.accounts.key_pair(actor, key) if self.accounts.teams_allowed(actor) else None
+        if pair is None:
             raise Refused("This account may not create organizations on this server.")
         org_id = secrets.token_hex(8)
         with self._lock(org_id):
             policy = {"id": org_id, "name": name, "owner": actor, "since": _now(),
-                      "members": {actor: {"role": OWNER, "since": _now(), "by": actor}}, "spaces": {}, "apps": {},
-                      "audit": []}
+                      "members": {actor: {"role": OWNER, "since": _now(), "by": actor, "key": _b64(pair[1])}},
+                      "spaces": {}, "apps": {}, "audit": []}
             self._new_space(policy, actor, "General", GENERAL)
             self._audit(policy, actor, "create_org", org_id)
             self._save(policy)
@@ -334,7 +363,8 @@ class Teams:
             return {"id": org_id, "name": policy["name"], "owner": policy["owner"],
                     "role": policy["members"][account]["role"], "members": members,
                     "spaces": self._spaces(policy, account),
-                    "audit": list(policy.get("audit", [])) if self.can(policy, account, "audit") else []}
+                    "audit": sorted(policy.get("audit", []) + policy.get("refused", []), key=lambda a: a["at"])
+                    if self.can(policy, account, "audit") else []}
 
     def _spaces(self, policy: dict, account: str) -> List[dict]:
         shown = []
@@ -385,11 +415,13 @@ class Teams:
             policy = self._load(org_id)
             if not self.can(policy, inviter, "invite"):
                 raise Refused("This invitation no longer works: ask for a new one.")
-            if account in policy["members"]:
+            if self._member(policy, account) is not None:
                 raise Refused("You are already in this organization.")
-            if self.accounts.key_pair(account, key) is None:
+            pair = self.accounts.key_pair(account, key)
+            if pair is None or account == policy["owner"]:
                 raise Refused(NOT_FOUND)
-            policy["members"][account] = {"role": MEMBER, "since": _now(), "by": inviter}
+            self._drop_seats(policy, account)  # whatever an earlier account of the same name had stays behind
+            policy["members"][account] = {"role": MEMBER, "since": _now(), "by": inviter, "key": _b64(pair[1])}
             general = self._general(policy)
             space = policy["spaces"][general]
             seat = space["members"][account] = {"role": MEMBER, "write": True, "state": PENDING, "by": inviter,
@@ -424,10 +456,7 @@ class Teams:
             if target != actor and (not self.can(policy, actor, "remove_member")
                                     or (member["role"] == ADMIN and policy["members"][actor]["role"] != OWNER)):
                 self._refuse(policy, actor, "remove_member", target)
-            for space in policy["spaces"].values():
-                space["members"].pop(target, None)
-                if space["keys"].pop(target, None) is not None:
-                    space["rotate"] = True
+            self._drop_seats(policy, target)
             del policy["members"][target]
             policy["apps"].pop(target, None)
             self._audit(policy, actor, "remove_member", target)
@@ -437,9 +466,13 @@ class Teams:
 
     def app_level(self, org_id: str, account: str, client_id: str) -> str:
         """"none" until the person chooses "read" or "add" for this app, on the Teams page: an app that connects gets
-        nothing of an organization by itself, whatever it may do in the person's own memory."""
+        nothing of an organization by itself, whatever it may do in the person's own memory. An organization that does
+        not exist answers the same as one the person is not in, so that asking never tells which."""
         with self._lock(org_id):
-            policy = self._load(org_id)
+            try:
+                policy = self._load(org_id)
+            except Refused:
+                return NO_APP
             if self._member(policy, account) is None:
                 return NO_APP
             return policy["apps"].get(account, {}).get(client_id or "", NO_APP)
@@ -478,6 +511,8 @@ class Teams:
                 raise Refused("A space needs a name.")
             if manager == actor:
                 self._refuse(policy, actor, "add_self")
+            if manager and (manager == policy["owner"] or self._member(policy, manager) is None):
+                raise Refused(NOT_FOUND)
             space_id = self._new_space(policy, actor, name, PROJECT)
             self._audit(policy, actor, "create_space", space_id)
             self._save(policy)
@@ -500,6 +535,14 @@ class Teams:
             space = policy["spaces"][space_id]
             if space["kind"] == GENERAL and target in space["members"]:
                 raise Refused("Everyone in the organization is in the general space already.")
+            current = space["members"].get(target)
+            if current and current["state"] == ACTIVE:  # a change of role: their key stays
+                if not self.can(policy, actor, "manage", space_id):
+                    raise Refused("They are in this space already: the owner or a manager changes their role.")
+                current.update(role=role, write=bool(write) or role == MANAGER)
+                self._audit(policy, actor, f"set_seat:{role}", f"{space_id}/{target}")
+                self._save(policy)
+                return ACTIVE
             seat = space["members"][target] = {"role": role, "write": bool(write) or role == MANAGER,
                                                "state": PENDING, "by": actor, "since": _now()}
             space["keys"].pop(target, None)
@@ -553,7 +596,7 @@ class Teams:
             return readable
         wanted = list(dict.fromkeys(space_ids))
         if any(space_id not in readable for space_id in wanted):
-            self._refuse(policy, account, "read", ",".join(map(str, wanted))[:200])
+            raise Refused(NOT_FOUND)
         return wanted
 
     def recall(self, org_id: str, account: str, key: bytes, query: str, space_ids: Optional[Sequence[str]] = None,
@@ -571,11 +614,12 @@ class Teams:
             policy = self._load(org_id)
             if not self.can(policy, account, "see"):
                 raise Refused(NOT_FOUND)
-            found = []
+            found, pair = [], None
             for space_id in self._readable(policy, account, space_ids):
-                space_key = self._opened(policy, space_id, account, key)
+                pair = pair or self.accounts.key_pair(account, key)
+                space_key = self._opened(policy, space_id, account, key, pair)
                 space = policy["spaces"][space_id]
-                found.append({"space": space_id, "name": space["name"], "kind": space["kind"],
+                found.append({"space": space_id, "name": space["name"], "kind": space["kind"], "org": policy["name"],
                               "memories": self._use(policy, space_id, space_key, chosen, writes=False)})
             return found
 
@@ -588,13 +632,14 @@ class Teams:
         with self._lock(org_id):
             policy = self._load(org_id)
             if not self.can(policy, account, "read", space_id):
-                self._refuse(policy, account, "write", str(space_id))
+                raise Refused(NOT_FOUND)
             if not self.can(policy, account, "write", space_id):
                 raise Refused("You may read this space but not add to it.")
             space = policy["spaces"][space_id]
             done = {k: v for k, v in space.get("done", {}).items() if v["at"] > time.time() - IDEMPOTENCY_SECONDS}
-            if idempotency_key and str(idempotency_key) in done:
-                return f"Already remembered as {done[str(idempotency_key)]['id']} (same idempotency_key)."
+            same = str(idempotency_key)[:100] if idempotency_key else ""
+            if same in done:
+                return f"Already remembered as {done[same]['id']} (same idempotency_key)."
             note = ""
             if kind == "decision" and app:
                 kind, note = "proposal", (" Kept as a proposal: a decision is confirmed by a person, on the Teams "
@@ -604,8 +649,8 @@ class Teams:
                                lambda memory: memory.remember(statement, kind, source, None, date,
                                                               _author(account, app)), writes=True)
             stored = REMEMBERED.match(answer)
-            if stored and idempotency_key:
-                done[str(idempotency_key)[:100]] = {"at": time.time(), "id": stored.group(1)}
+            if stored and same:
+                done[same] = {"at": time.time(), "id": stored.group(1)}
             space["done"] = done
             if stored:
                 self._audit(policy, account, "remember", space_id)
@@ -748,8 +793,7 @@ def add_tools(server, teams: Teams, issuer: str, Context, ToolAnnotations, meta=
             person, key, client, _ = who(ctx)
             allowed(org_id, person, client, "company_recall")
             found = teams.recall(org_id, person, key, query, space_ids, limit)
-            name = next((o["name"] for o in teams.orgs_of(person) if o["id"] == org_id), org_id)
-            lines = [RECALL_HEADER.format(org=name)]
+            lines = [RECALL_HEADER.format(org=next((space["org"] for space in found), org_id))]
             for space in found:
                 lines.append(f"## {space['name']} ({space['kind']}, space_id {space['space']})")
                 lines += [_memory_line(m) for m in space["memories"]] or ["Nothing about that here."]
