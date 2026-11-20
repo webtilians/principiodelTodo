@@ -425,14 +425,27 @@ Cada PR contiene los commits de los anteriores: se fusionan en orden.
 
 **Comprobado en local** (Python 3.11, mismas dependencias que la CI):
 - `tests/test_remote_keys_v3.py`: 11 pruebas.
-- `tests/test_remote_teams_v3.py`: 19 pruebas.
-- `tests/test_remote_teams_mcp_v3.py`: 4 pruebas.
-- `tests/test_remote_teams_page_v3.py`: 7 pruebas.
+- `tests/test_remote_teams_v3.py`: 24 pruebas.
+- `tests/test_remote_teams_mcp_v3.py`: 5 pruebas.
+- `tests/test_remote_teams_page_v3.py`: 8 pruebas.
 - Una prueba nueva en `tests/test_semantic_v3.py`.
 - Cubren A01–A08, A11, A12, A14, A16 y «denegado = sin descifrar».
 - Prueba de mutación: con `read` abierto a todos fallan 5 pruebas, y sin renovar los sobres al rotar fallan 2.
 - La página se probó a mano en un servidor local con el flag activado: crear la organización, crear un proyecto,
   guardar un recuerdo e invitar, también en ancho de móvil.
+
+**Revisión de código antes de fusionar** (20/11/2026, 10 hallazgos, todos corregidos con su prueba):
+- un nombre de cuenta borrado y registrado de nuevo por otra persona heredaba su papel; ahora cada miembro queda
+  ligado a la clave pública con la que entró;
+- una `idempotency_key` de más de 100 caracteres no se reconocía al repetir;
+- las denegaciones podían desplazar el registro de cambios; ahora van en una lista aparte y las lecturas denegadas no
+  se escriben;
+- cambiar el papel de alguien que ya estaba en un espacio le quitaba la clave;
+- un proyecto se creaba aunque fallara añadir a su responsable;
+- una invitación abierta por dos personas a la vez dejaba entrar a las dos;
+- las tools distinguían una organización inexistente de una ajena;
+- y tres de eficiencia: `accounts.json` releído decenas de veces por petición, la clave privada abierta una vez por
+  espacio, y `company_recall` leyendo todas las organizaciones del servidor.
 
 **Pendiente:**
 - Medir el AES-GCM en CI (§1.4).

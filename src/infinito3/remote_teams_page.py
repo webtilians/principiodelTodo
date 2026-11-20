@@ -14,6 +14,7 @@ Only served when the server runs with INFINITO_ENTERPRISE_ENABLED=1 (remote_team
 import hmac
 import html
 import secrets
+import threading
 from typing import Dict, List, Optional
 from urllib.parse import urlencode
 
@@ -310,6 +311,18 @@ def routes(accounts, grants, teams, limiter, secure: bool, issuer: str = "") -> 
     from starlette.routing import Route
 
     policy = f"{_HEADERS['Content-Security-Policy']}; form-action 'self'; base-uri 'none'"
+    # An invitation works once, even for two people who open it at the same moment.
+    accepting = threading.Lock()
+
+    def take_invitation(token: str, account: str, key: bytes) -> Optional[str]:
+        """The organization's name once account has joined with token, or None if the token no longer works."""
+        with accepting:
+            offer = grants.find(remote_teams.INVITE, token)
+            if offer is None:
+                return None
+            name = teams.accept(offer, account, key)
+            grants.drop(token)
+            return name
 
     def texts(request) -> dict:
         base = _texts(request)
@@ -426,12 +439,9 @@ def routes(accounts, grants, teams, limiter, secure: bool, issuer: str = "") -> 
             if action == "create_org":
                 return back_to(org=await run(teams.create_org, account, key, str(form.get("name", ""))))
             if action == "accept":
-                token = str(form.get("invite", ""))
-                offer = grants.find(remote_teams.INVITE, token)
-                if offer is None:
+                name = await run(take_invitation, str(form.get("invite", "")), account, key)
+                if name is None:
                     return view(t, t["title"], f'<p class="error">{t["invite_expired"]}</p>', status=400)
-                name = await run(teams.accept, offer, account, key)
-                grants.drop(token)
                 return await home(t, session, message=t["joined"].format(org=name))
             if action == "invite":
                 carried = {}

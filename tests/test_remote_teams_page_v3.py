@@ -131,3 +131,36 @@ def test_an_app_reaches_the_organization_only_once_the_person_chooses_it_on_the_
     assert stored.startswith("Remembered") and DECISION in recalled and "by: bea · Prueba" in recalled
     assert "Nena" not in recalled  # her own memory stays hers
     assert "Nena" not in ceo.get(f"/teams?org={org}&space={alfa}").text
+
+
+def test_an_invitation_opened_by_two_people_at_once_lets_in_only_one(on, monkeypatch):
+    import threading
+    import time
+
+    from src.infinito3.remote_teams import Teams
+
+    base, _, folder = on
+    people(folder, "ceo", "bea", "carlos")
+    ceo = browser(base, "ceo")
+    org = where(send(ceo, action="create_org", name="Acme"))["org"]
+    link = re.search(r'class="code link">([^<]+)<', send(ceo, action="invite", org=org).text).group(1)
+    token = parse_qs(urlparse(link).query)["invite"][0]
+    slow, real = [], Teams.accept
+
+    def accept_slowly(self, offer, account, key):
+        slow.append(account)
+        time.sleep(0.3)  # both requests are in at the same time
+        return real(self, offer, account, key)
+
+    monkeypatch.setattr(Teams, "accept", accept_slowly)
+    guests = [browser(base, name, invite=token) for name in ("bea", "carlos")]
+    forms = [re.search(r'name="csrf" value="([^"]+)"', g.get(f"/teams?invite={token}").text).group(1) for g in guests]
+    answers = []
+    threads = [threading.Thread(target=lambda g=g, c=c: answers.append(g.post(
+        "/teams", data={"action": "accept", "invite": token, "csrf": c}))) for g, c in zip(guests, forms)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    assert sorted(a.status_code for a in answers) == [200, 400] and len(slow) == 1
+    assert sum("Ya estás en Acme" in a.text for a in answers) == 1
