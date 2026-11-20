@@ -396,7 +396,7 @@ class Grants:
 
 
 def build_auth(accounts: Accounts, grants: Grants, issuer: str,
-               adopt: Callable[[str, bytes, str], bool], memories=None):
+               adopt: Callable[[str, bytes, str], bool], memories=None, teams=None):
     """The OAuth endpoints, the sign-in page, and a function that turns a bearer token into (name, key).
 
     adopt(name, key, old_address) moves a memory kept under a private address (remote.py's People) into
@@ -613,6 +613,11 @@ def build_auth(accounts: Accounts, grants: Grants, issuer: str,
 
     memory_page = [] if memories is None else remote_memory.routes(accounts, grants, memories, one_at_a_time,
                                                                    secure=issuer.startswith("https://"), issuer=issuer)
+    if teams is not None:  # INFINITO Teams is on (remote_teams.py): its page, /teams
+        from . import remote_teams_page
+
+        memory_page += remote_teams_page.routes(accounts, grants, teams, one_at_a_time,
+                                                secure=issuer.startswith("https://"), issuer=issuer)
     app = Starlette(routes=routes + resource_routes + remote_vault.routes(accounts, grants, one_at_a_time) + memory_page
                     + [Route("/login", sign_in_page, methods=["GET"]), Route("/login", sign_in, methods=["POST"]),
                        Route("/connect", connect, methods=["GET"]), Route("/", home, methods=["GET"])])

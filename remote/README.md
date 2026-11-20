@@ -236,6 +236,32 @@ level. A call it may not make answers that it is not allowed, says where you can
 to ask another app to do it instead. **Disconnect** signs that app out of your memory at once. Two connections of the
 same app (ChatGPT from two places, say) are two rows, each with its own level.
 
+## INFINITO Teams: an organization's memory (pilot, off by default)
+
+A team's shared memory, apart from everyone's own: the design and its reasons are in
+[docs/INFINITO_TEAMS_ADR_P0_2026-11-20.md](../docs/INFINITO_TEAMS_ADR_P0_2026-11-20.md). It is off unless the service
+runs with `INFINITO_ENTERPRISE_ENABLED=1`; without it there is no `/teams` page and no `company_*` tool.
+
+- **Spaces.** An organization has a general space, which everyone in it has, and projects. Each space is a sealed
+  memory of its own, under its own key, so a space nobody gave you cannot even be opened during your request.
+- **Who reads what.** The owner reads every space of the organization and never anyone's own memory. Org admins run it
+  (invite, make projects, add people) without reading by their role: what they add waits until the owner or a manager
+  of the space gives access. Nobody can add themselves.
+- **Apps start with nothing.** An app connected to your memory gets nothing of an organization until you choose, on
+  the Teams page, that it may read or read and add there. Then it has `company_list_orgs`, `company_list_spaces`,
+  `company_recall` and `company_remember`; what it calls a decision is kept as a proposal.
+- **Leaving.** Removing someone from a space takes their access at once, and the space gets a new key the next time a
+  member opens it. What they already read cannot be taken back from their chats.
+
+To try it on the server, with made-up data first:
+
+    sudo systemctl edit infinito-remote     # add, under [Service]: Environment=INFINITO_ENTERPRISE_ENABLED=1
+    sudo systemctl restart infinito-remote
+    sudo infinito-remote-person teams-allow <name>   # who may create organizations; joining needs only an invitation
+
+Then `<host>/teams` (https://infinitomemory.com/teams). Organizations go in the backups (`orgs/`); what a copy shows
+of one is the names of its spaces and members and their roles, never the words of a memory.
+
 ## A work queue between your AIs
 
 One AI proposes, you approve, another does it. An assistant that coordinates (ChatGPT, say) proposes tasks with

@@ -308,7 +308,7 @@ def build_app(people: People, issuer: Optional[str] = None):
         threading.Thread(target=ranker.warm, daemon=True).start()
     sealed = {"people": SealedMemories(people, ranker)}
     auth = None
-    grants = accounts = None
+    grants = accounts = teams = None
     if issuer:
         from .remote_accounts import Accounts, Grants, build_auth
 
@@ -331,7 +331,9 @@ def build_app(people: People, issuer: Optional[str] = None):
                 people.remove(person)
             return True
 
-        auth = build_auth(accounts, grants, issuer, adopt, memories=sealed["accounts"])
+        # INFINITO Teams (remote_teams.py): one instance for its page and its tools, only with the server's flag on.
+        teams = remote_teams.Teams(accounts, ranker) if remote_teams.enabled() else None
+        auth = build_auth(accounts, grants, issuer, adopt, memories=sealed["accounts"], teams=teams)
 
     def refused(ctx: Context, tool: str) -> Optional[str]:
         """Why this app may not use the tool, as its person chose (remote_apps.py); a private address may do it all."""
@@ -731,10 +733,8 @@ def build_app(people: People, issuer: Optional[str] = None):
                 return f"Task {task['id']} is back with the user, with your reason, at {page_of_tasks}."
             return on_queue(ctx, "task_return", act)
 
-        # INFINITO Teams (remote_teams.py): an organization's memory, only with the server's flag on.
-        if remote_teams.enabled():
-            remote_teams.add_tools(server, remote_teams.Teams(accounts, ranker), issuer, Context, ToolAnnotations,
-                                   signed_in)
+        if teams is not None:
+            remote_teams.add_tools(server, teams, issuer, Context, ToolAnnotations, signed_in)
 
     # DNS rebinding protection checks Host and Origin, which behind a proxy and from ChatGPT's servers are
     # neither 127.0.0.1 nor known in advance. The secret address is what keeps a memory private.
