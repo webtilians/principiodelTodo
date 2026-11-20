@@ -331,6 +331,24 @@ def test_changing_the_role_of_someone_already_in_a_space_keeps_their_access(w):
 
 def test_a_project_whose_manager_cannot_be_added_is_not_created(w):
     before = {s["id"] for s in w.teams.spaces(w.acme, "ceo")}
-    with pytest.raises(Refused, match=NOT_FOUND):
+    with pytest.raises(Refused, match="invite them first"):
         w.teams.create_space(w.acme, "ceo", w.keys["ceo"], "Proyecto Gamma", manager="beaa")
     assert {s["id"] for s in w.teams.spaces(w.acme, "ceo")} == before
+
+
+def test_the_owner_naming_themselves_manager_of_a_new_project_just_gets_the_project(w):
+    """What happened on the real server: the owner wrote their own name as manager and got "not found"."""
+    alfa2 = w.teams.create_space(w.acme, "ceo", w.keys["ceo"], "Proyecto Delta", manager="ceo")
+    assert next(s for s in w.teams.spaces(w.acme, "ceo") if s["id"] == alfa2)["manage"]
+
+
+def test_whoever_runs_a_space_is_told_why_someone_cannot_be_added(w):
+    from src.infinito3.remote_teams import NOBODY, OWNER_READS, SELF
+
+    teams, k = w.teams, w.keys
+    for target, said in (("admin", SELF), ("ceo", OWNER_READS), ("eva", NOBODY), ("nadie", NOBODY)):
+        with pytest.raises(Refused) as refused:
+            teams.add(w.acme, w.alfa, "admin", k["admin"], target)
+        assert str(refused.value) == said, target
+    with pytest.raises(Refused, match=NOT_FOUND):
+        teams.add(w.acme, w.alfa, "carlos", k["carlos"], "eva")  # outside Alfa: still nothing told
