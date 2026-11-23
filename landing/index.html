@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>INFINITO · El cerebro que conecta tu mundo</title>
+<meta name="description" content="INFINITO no es solo una memoria conectada: aprovecha sus experiencias y recapacita sobre ellas para analizar, anticipar y proponer. Para tus IA, tus dispositivos y tu empresa.">
+<meta name="theme-color" content="#030712">
+<meta property="og:title" content="INFINITO · El cerebro que conecta tu mundo">
+<meta property="og:description" content="Recoge, conecta y recuerda, analiza y propone. Recuerdos → conocimiento → acción.">
+<meta property="og:type" content="website">
+<link rel="icon" href="assets/infinito.svg" type="image/svg+xml">
+<link rel="stylesheet" href="landing.css">
+<script src="escenas.js" defer></script>
+<script src="landing.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#escenario">Saltar a la demostración</a>
+
+<header class="nav">
+  <a class="brand" href="#inicio" aria-label="INFINITO, inicio">
+    <svg class="brand-loop" viewBox="0 0 120 60" aria-hidden="true"><use href="#loop"/></svg>
+    <span>INFINITO</span>
+  </a>
+  <nav aria-label="Secciones">
+    <a href="#como-funciona">Cómo funciona</a>
+    <a href="#hoy">Hoy y mañana</a>
+    <a href="#teams">Teams</a>
+  </nav>
+  <button class="btn btn-small" type="button" data-open-demo>Solicitar demo</button>
+</header>
+
+<main>
+<section class="hero" id="inicio">
+  <canvas class="stars" aria-hidden="true"></canvas>
+  <div class="hero-text">
+    <p class="eyebrow">Memoria y motor cognitivo para tus IA, tus dispositivos y tu empresa</p>
+    <p class="wordmark" aria-hidden="true">INFINITO</p>
+    <h1><span class="sr-only">INFINITO — </span>El cerebro que conecta tu mundo</h1>
+    <p class="hook">No es solo una memoria conectada: <strong>aprovecha sus experiencias y recapacita sobre ellas para analizar, anticipar y proponer.</strong></p>
+    <ol class="flow" aria-label="Cómo trabaja INFINITO">
+      <li><span>Recoge</span></li>
+      <li><span>Conecta y recuerda</span></li>
+      <li><span>Analiza y propone</span></li>
+    </ol>
+    <div class="hero-actions">
+      <button class="btn btn-primary" type="button" id="tour" aria-pressed="false">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path class="tour-play" d="M8 5.5v13l10.5-6.5z"/><path class="tour-pause" d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg>
+        <span>Ver recorrido</span>
+      </button>
+      <a class="btn btn-ghost" href="#como-funciona">Descubre INFINITO</a>
+    </div>
+  </div>
+
+  <div class="stage" id="escenario" aria-label="Demostración interactiva: dispositivos conectados al cerebro de INFINITO">
+    <svg class="wires" aria-hidden="true"></svg>
+    <div class="col col-left" data-side="left"></div>
+    <div class="col col-core">
+      <ul class="apps" aria-label="Apps que ya comparten la misma memoria"></ul>
+      <div class="core" id="core">
+        <div class="core-halo"></div>
+        <img class="core-img" src="assets/brain.webp" width="725" height="455" alt="El cerebro de INFINITO: una red de recuerdos conectados">
+        <svg class="core-ring" viewBox="0 0 200 200" preserveAspectRatio="none" aria-hidden="true">
+          <circle class="ring ring-a" cx="100" cy="100" r="92"/>
+          <circle class="ring ring-b" cx="100" cy="100" r="80"/>
+        </svg>
+        <div class="ripples" aria-hidden="true"></div>
+        <p class="core-label"><span class="core-name">Memoria común</span> <span class="core-count" id="count">0 recuerdos</span></p>
+      </div>
+      <section class="panel" id="panel" aria-live="polite" aria-label="Qué está pasando">
+        <div class="panel-head">
+          <span class="badge" id="panel-badge" hidden></span>
+          <h2 class="panel-title" id="panel-title">Elige una escena</h2>
+        </div>
+        <p class="panel-text" id="panel-text"></p>
+        <ol class="steps" id="steps"></ol>
+        <ul class="analysis" id="analysis"></ul>
+        <p class="panel-result" id="panel-result" hidden></p>
+        <p class="panel-note" id="panel-note" hidden></p>
+      </section>
+    </div>
+    <div class="col col-right" data-side="right"></div>
+  </div>
+
+  <div class="memory-strip">
+    <p class="strip-label">Memoria común</p>
+    <ul class="memlist" id="memlist" aria-label="Recuerdos guardados en esta demostración">
+      <li class="mem-empty">Todavía vacía: pulsa una escena.</li>
+    </ul>
+    <button class="btn btn-tiny" type="button" id="reset">Reiniciar</button>
+  </div>
+  <p class="legend">
+    <span class="tag tag-hoy">Hoy</span> funciona en infinitomemory.com ·
+    <span class="tag tag-piloto">Piloto</span> activo en pruebas ·
+    <span class="tag tag-vision">Visión</span> demostración conceptual, aún no integrada
+  </p>
+</section>
+
+<section class="section" id="como-funciona">
+  <p class="kicker">Cómo funciona</p>
+  <h2>Tres pasos. Un solo cerebro.</h2>
+  <div class="how">
+    <article class="how-card">
+      <span class="how-num">1</span>
+      <h3>Recoge</h3>
+      <p>Cada IA, app o dispositivo envía lo que tú autorizas: lo que dices, decides, fotografías o mide un sensor.</p>
+    </article>
+    <article class="how-card">
+      <span class="how-num">2</span>
+      <h3>Conecta y recuerda</h3>
+      <p>Una memoria común, cifrada con tu propia clave. Guarda la historia de cada dato, sustituye lo que cambia y no admite secretos.</p>
+    </article>
+    <article class="how-card">
+      <span class="how-num">3</span>
+      <h3>Analiza y propone</h3>
+      <p>Un motor cognitivo repasa lo vivido, reflexiona sobre ello, detecta lo olvidado y propone el siguiente paso. Tú decides.</p>
+    </article>
+  </div>
+  <p class="motto">Recuerdos <span aria-hidden="true">→</span> conocimiento <span aria-hidden="true">→</span> acción</p>
+</section>
+
+<section class="section section-future" id="futuro">
+  <p class="kicker">Por qué ahora</p>
+  <h2>Cada vez más inteligencias. Ninguna comparte lo que sabe.</h2>
+  <p class="lead">Asistentes, gafas, robots, casas, coches, ropa: cada dispositivo aprende por su cuenta y lo guarda en su propia caja.
+    Mientras cada empresa construye su IA aislada, INFINITO une lo que todas aprenden: lo procesa, recapacita y propone.</p>
+  <div class="future-grid">
+    <article class="future-card">
+      <span class="tag tag-vision">Visión</span>
+      <p>Fotografías un producto con tus gafas y otro agente se encarga de conseguirlo.</p>
+    </article>
+    <article class="future-card">
+      <span class="tag tag-vision">Visión</span>
+      <p>Pides a tu robot el plato que te gustó en Tailandia, sin buscar la foto ni enviarla.</p>
+    </article>
+    <article class="future-card">
+      <span class="tag tag-vision">Visión</span>
+      <p>Tu casa riega el jardín cuando el sensor y lo que ya sabe lo piden.</p>
+    </article>
+  </div>
+</section>
+
+<section class="section" id="hoy">
+  <p class="kicker">Hoy y mañana</p>
+  <h2>Lo que ya funciona y hacia dónde vamos</h2>
+  <div class="status-grid">
+    <article class="status-col status-hoy">
+      <h3><span class="tag tag-hoy">Hoy</span> En infinitomemory.com</h3>
+      <ul>
+        <li>Una sola memoria para ChatGPT, Claude, Grok, Gemini, Cursor, VS Code y cualquier app compatible con MCP.</li>
+        <li>Sellada con AES-256-GCM y una clave que solo abre tu contraseña.</li>
+        <li>Olvida de verdad: el recuerdo y su rastro, sobrescritos en disco.</li>
+        <li>Nunca guarda secretos: las claves van a una bóveda KeePass aparte.</li>
+        <li>Te recuerda también por voz en ChatGPT, y guarda tus fotos (por invitación).</li>
+        <li>Cada recuerdo lleva la firma de la IA que lo guardó, puesta por el servidor.</li>
+      </ul>
+    </article>
+    <article class="status-col status-piloto">
+      <h3><span class="tag tag-piloto">Piloto</span> En pruebas</h3>
+      <ul>
+        <li>Motor cognitivo: cada día un observador, un investigador y un supervisor repasan lo vivido, escriben sus reflexiones y proponen pautas que tú apruebas o rechazas.</li>
+        <li>INFINITO Teams: organizaciones, espacios cifrados por proyecto, roles y permisos por app.</li>
+      </ul>
+    </article>
+    <article class="status-col status-vision">
+      <h3><span class="tag tag-vision">Visión</span> Hacia dónde vamos</h3>
+      <ul>
+        <li>Dispositivos que comparten lo que aprenden: gafas, sensores del hogar, robots y vehículos.</li>
+        <li>Un motor que anticipa: detecta lo olvidado, investiga y propone antes de que se lo pidas.</li>
+        <li>El cerebro cognitivo de cada empresa.</li>
+        <li>Agentes de seguridad que aprenden de lo que encuentran (en investigación).</li>
+      </ul>
+    </article>
+  </div>
+  <div class="proof">
+    <div class="proof-main">
+      <p class="proof-figure"><strong>45,9</strong> <span>frente a 26,3</span></p>
+      <p>En Bemula-Lite, el benchmark público de olvido a petición, frente al mejor sistema publicado, con los mismos modelos.
+        <a href="https://github.com/webtilians/principiodelTodo/actions/runs/41621190386">Ver la ejecución</a></p>
+    </div>
+    <ul class="proof-figures">
+      <li><strong>79</strong> ramas de experimentos</li>
+      <li><strong>50+</strong> protocolos preregistrados</li>
+      <li><strong>750+</strong> ejecuciones automáticas</li>
+    </ul>
+  </div>
+</section>
+
+<section class="section section-teams" id="teams">
+  <div class="teams-text">
+    <p class="kicker">INFINITO Teams</p>
+    <h2>El cerebro cognitivo de tu empresa</h2>
+    <p class="lead">No es una carpeta compartida. Es un cerebro que revisa los movimientos de la empresa, recuerda las tareas olvidadas,
+      investiga, anticipa y propone. Las personas deciden.</p>
+    <div class="teams-caps">
+      <article><h3>Revisa</h3><p>Lee lo que entra en cada espacio: decisiones, acuerdos y pendientes.</p><span class="tag tag-vision">Visión</span></article>
+      <article><h3>Recuerda</h3><p>Avisa de lo que nadie ha retomado, antes de que venza.</p><span class="tag tag-vision">Visión</span></article>
+      <article><h3>Investiga</h3><p>Cruza lo que sabe cada departamento para responder con contexto.</p><span class="tag tag-vision">Visión</span></article>
+      <article><h3>Propone</h3><p>Sugiere el siguiente paso y a quién encargarlo.</p><span class="tag tag-vision">Visión</span></article>
+    </div>
+    <div class="pilot-box">
+      <p><span class="tag tag-piloto">Piloto</span> Activo hoy en infinitomemory.com/teams</p>
+      <ul>
+        <li>Organizaciones con espacios por proyecto, cada uno cifrado con su propia clave.</li>
+        <li>Roles de propietario, administrador, responsable y miembro.</li>
+        <li>Cada app entra sin permisos y solo lee o escribe donde se la autoriza.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="teams-visual" aria-hidden="true">
+    <svg viewBox="0 0 400 400" class="org">
+      <defs>
+        <radialGradient id="orgcore" cx="50%" cy="50%" r="50%">
+          <stop offset="0" stop-color="#67e8f9" stop-opacity=".95"/>
+          <stop offset=".45" stop-color="#6366f1" stop-opacity=".55"/>
+          <stop offset="1" stop-color="#030712" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+      <path id="org-a" class="org-wire" d="M200 200 C200 140 200 110 200 70"/>
+      <path id="org-b" class="org-wire" d="M200 200 C260 200 290 200 330 200"/>
+      <path id="org-c" class="org-wire" d="M200 200 C200 260 200 290 200 330"/>
+      <path id="org-d" class="org-wire" d="M200 200 C140 200 110 200 70 200"/>
+      <circle class="org-glow" cx="200" cy="200" r="90" fill="url(#orgcore)"/>
+      <circle class="org-core" cx="200" cy="200" r="34"/>
+      <use href="#loop" x="176" y="188" width="48" height="24"/>
+      <g class="org-node"><circle cx="200" cy="56" r="30"/><text x="200" y="60">Dirección</text></g>
+      <g class="org-node"><circle cx="344" cy="200" r="30"/><text x="344" y="204">Ventas</text></g>
+      <g class="org-node"><circle cx="200" cy="344" r="30"/><text x="200" y="348">Operaciones</text></g>
+      <g class="org-node"><circle cx="56" cy="200" r="30"/><text x="56" y="204">I+D</text></g>
+      <g class="org-pulses">
+        <circle r="4"><animateMotion dur="3.2s" repeatCount="indefinite" keyPoints="1;0" keyTimes="0;1" calcMode="linear"><mpath href="#org-a"/></animateMotion></circle>
+        <circle r="4"><animateMotion dur="2.7s" begin=".8s" repeatCount="indefinite" keyPoints="1;0" keyTimes="0;1" calcMode="linear"><mpath href="#org-b"/></animateMotion></circle>
+        <circle r="4"><animateMotion dur="3.6s" begin="1.4s" repeatCount="indefinite" calcMode="linear"><mpath href="#org-c"/></animateMotion></circle>
+        <circle r="4"><animateMotion dur="3s" begin="2s" repeatCount="indefinite" keyPoints="1;0" keyTimes="0;1" calcMode="linear"><mpath href="#org-d"/></animateMotion></circle>
+      </g>
+    </svg>
+  </div>
+</section>
+
+<section class="section" id="confianza">
+  <p class="kicker">Tuya de verdad</p>
+  <h2>Privacidad primero, también cuando crezca</h2>
+  <div class="trust">
+    <article><h3>Sellada</h3><p>AES-256-GCM con una clave propia. En el disco, sin tu contraseña, es ruido.</p></article>
+    <article><h3>Sin secretos</h3><p>Contraseñas, claves y números de tarjeta se bloquean antes de llegar a ningún modelo.</p></article>
+    <article><h3>Olvida de verdad</h3><p>Dile «olvida esto» y desaparece, con su rastro. No se esconde: se borra.</p></article>
+    <article><h3>Código abierto</h3><p>AGPL-3.0 y licencia comercial. Informes y experimentos publicados.
+      <a href="https://github.com/webtilians/principiodelTodo">Compruébalo</a></p></article>
+  </div>
+</section>
+
+<section class="section cta" id="empezar">
+  <p class="wordmark wordmark-small" aria-hidden="true">INFINITO</p>
+  <h2>Recuerdos → conocimiento → acción</h2>
+  <p class="lead">Esto es solo el principio de tu agente definitivo.</p>
+  <div class="hero-actions">
+    <a class="btn btn-primary" href="https://infinitomemory.com/">Descubre INFINITO</a>
+    <button class="btn btn-ghost" type="button" data-open-demo>Solicitar demo</button>
+  </div>
+</section>
+</main>
+
+<footer class="footer">
+  <p>INFINITO · Código abierto (AGPL-3.0) y licencia comercial · <a href="https://infinitomemory.com/">infinitomemory.com</a></p>
+  <p>Las escenas marcadas como <span class="tag tag-vision">Visión</span> son demostraciones conceptuales: muestran hacia dónde va el producto, no integraciones ya disponibles.</p>
+</footer>
+
+<dialog class="demo" id="demo" aria-labelledby="demo-title">
+  <h2 id="demo-title">Te lo enseñamos en directo</h2>
+  <p>Pide la demo a nuestro equipo y te mostramos INFINITO y el piloto de Teams con datos de prueba.</p>
+  <p>¿Quieres probarlo ya? Crea tu memoria gratis y conecta tu IA en dos minutos.</p>
+  <div class="hero-actions">
+    <a class="btn btn-primary" href="https://infinitomemory.com/memory">Crear mi memoria</a>
+    <a class="btn btn-ghost" href="https://infinitomemory.com/">Cómo conectarla</a>
+  </div>
+  <form method="dialog"><button class="close" type="submit" aria-label="Cerrar">×</button></form>
+</dialog>
+
+<svg class="defs" aria-hidden="true" width="0" height="0">
+  <defs>
+    <linearGradient id="loopgrad" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#22d3ee"/><stop offset=".5" stop-color="#6366f1"/><stop offset="1" stop-color="#d8b4fe"/>
+    </linearGradient>
+    <symbol id="loop" viewBox="0 0 120 60">
+      <path fill="none" stroke="url(#loopgrad)" stroke-width="7" stroke-linecap="round" d="M60 30C50 14 38 7 26 7 13 7 5 17 5 30s8 23 21 23c12 0 24-7 34-23s22-23 34-23c13 0 21 10 21 23s-8 23-21 23c-12 0-24-7-34-23Z"/>
+    </symbol>
+  </defs>
+</svg>
+</body>
+</html>

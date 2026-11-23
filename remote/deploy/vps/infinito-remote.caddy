@@ -36,6 +36,17 @@ __HOST__ {
 		header Cache-Control "no-cache"
 		file_server
 	}
+	# Interactive landing for investors: the static page in landing/ of this repository, and nothing else of it.
+	# It loads nothing from other sites, so its policy allows only its own files.
+	redir /landing /landing/ 308
+	handle_path /landing/* {
+		root * /opt/infinito-remote/landing
+		header {
+			Cache-Control "no-cache"
+			Content-Security-Policy "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+		}
+		file_server
+	}
 	handle {
 		reverse_proxy 127.0.0.1:8500
 	}
