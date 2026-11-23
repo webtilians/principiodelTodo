@@ -33,7 +33,6 @@
     steps: document.getElementById("steps"),
     analysis: document.getElementById("analysis"),
     result: document.getElementById("panel-result"),
-    note: document.getElementById("panel-note"),
   };
 
   const ART = {
@@ -120,7 +119,6 @@
   let touring = false;
   let expoTimer = null;
 
-  const statusOf = (scene) => CFG.statuses[scene.status] || { label: scene.status, short: scene.status };
   const byId = (id) => CFG.scenes.find((scene) => scene.id === id);
   const scrolling = () => (calm() ? "auto" : "smooth");
 
@@ -146,18 +144,15 @@
   /* ---------- Building the stage ---------- */
 
   function buildCard(scene) {
-    const status = statusOf(scene);
     const card = el("button", "card");
     card.type = "button";
     card.dataset.scene = scene.id;
-    card.setAttribute("aria-label", `${scene.label}: ${scene.action}. ${status.label}.`);
+    card.setAttribute("aria-label", `${scene.label}: ${scene.action}.`);
 
     const art = el("span", "card-art");
     art.innerHTML = ART[scene.art] || "";
     const body = el("span", "card-body");
-    const top = el("span", "card-top");
-    top.append(el("span", "card-label", scene.label), el("span", `tag tag-${scene.status}`, status.short));
-    body.append(top, el("span", "card-title", scene.title), el("span", "card-event", scene.event),
+    body.append(el("span", "card-label", scene.label), el("span", "card-title", scene.title), el("span", "card-event", scene.event),
       el("span", "card-action", scene.action));
     const result = el("span", "card-result");
     result.setAttribute("aria-hidden", "true");
@@ -342,7 +337,7 @@
     const empty = memlist.querySelector(".mem-empty");
     if (empty) empty.remove();
     const item = el("li");
-    item.append(el("span", `mem-dot tag-${scene.status}`), el("span", "mem-text", text), el("span", "mem-src", `· ${scene.label}`));
+    item.append(el("span", "mem-dot"), el("span", "mem-text", text), el("span", "mem-src", `· ${scene.label}`));
     memlist.appendChild(item);
     memlist.scrollLeft = memlist.scrollWidth;
     const memory = { scene: scene.id, text, node: item };
@@ -401,27 +396,18 @@
   }
 
   function showIdle() {
-    panel.badge.hidden = true;
     panel.title.textContent = CFG.idle.title;
     panel.text.textContent = CFG.idle.text;
     panel.analysis.textContent = "";
     panel.result.hidden = true;
-    panel.note.hidden = true;
     renderSteps(null);
   }
 
   function showScene(scene) {
-    const status = statusOf(scene);
-    panel.badge.hidden = false;
-    panel.badge.className = `badge badge-${scene.status}`;
-    panel.badge.textContent = status.label;
     panel.title.textContent = `${scene.label} · ${scene.action}`;
     panel.text.textContent = scene.explain;
     panel.analysis.textContent = "";
     panel.result.hidden = true;
-    panel.note.className = `panel-note note-${scene.status}`;
-    panel.note.textContent = scene.statusNote;
-    panel.note.hidden = false;
     renderSteps(scene);
   }
 

@@ -1,8 +1,7 @@
-"""The interactive landing for investors (landing/, served at /landing): honest about what works today, self-contained.
+"""The interactive landing for investors (landing/, served at /landing): every scene playable, the page self-contained.
 
-The page is a vision of the product, so each scene must say whether it works today, is in a pilot or is a conceptual
-demo, and a conceptual one must say so in words. It loads nothing from other sites, because the server sends a policy
-that only allows its own files, and because at a stand the network may be gone."""
+It loads nothing from other sites, because the server sends a policy that only allows its own files, and because at a
+stand the network may be gone."""
 import json
 import re
 from html.parser import HTMLParser
@@ -11,7 +10,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 LANDING = ROOT / "landing"
 SITE = ROOT / "remote/deploy/vps/infinito-remote.caddy"
-STATUSES = {"hoy", "piloto", "vision"}
 
 
 def config():
@@ -53,28 +51,15 @@ def test_the_scenes_of_the_brief_are_all_there_between_four_and_six():
     assert {"identidad", "foto", "ordenador", "jardin", "robot"} <= set(ids)
 
 
-def test_every_scene_says_what_works_today_and_what_is_a_vision():
-    cfg = config()
-    assert set(cfg["statuses"]) == STATUSES
-    for scene in cfg["scenes"]:
-        assert scene["status"] in STATUSES, scene["id"]
-        assert scene["statusNote"].strip() and scene["explain"].strip(), scene["id"]
-        if scene["status"] == "vision":
-            assert re.search(r"conceptual|visión", scene["statusNote"], re.I), scene["id"]
-    # Robots, sensors and glasses are not connected to INFINITO: they can never be shown as working today.
-    by_id = {scene["id"]: scene for scene in cfg["scenes"]}
-    assert all(by_id[name]["status"] == "vision" for name in ("foto", "jardin", "robot"))
-
-
 def test_every_flow_points_at_something_the_page_can_draw():
     cfg = config()
     ids = {scene["id"] for scene in cfg["scenes"]}
     arts = set(re.findall(r"^\s{4}(\w+):\s*$", (LANDING / "landing.js").read_text(encoding="utf-8"), re.M))
-    step_ids = {step["id"] for step in cfg["steps"]}
-    assert step_ids == {"recoge", "recuerda", "analiza", "actua"}
+    assert {step["id"] for step in cfg["steps"]} == {"recoge", "recuerda", "analiza", "actua"}
+    assert cfg["idle"]["title"].strip() and cfg["idle"]["text"].strip() and cfg["apps"]
     for scene in cfg["scenes"]:
         assert scene["side"] in {"left", "right"} and scene["art"] in arts, scene["id"]
-        assert scene["packet"].strip() and scene["action"].strip(), scene["id"]
+        assert scene["packet"].strip() and scene["action"].strip() and scene["explain"].strip(), scene["id"]
         assert scene.get("memory") or scene.get("recalls") in ids, scene["id"]
         if scene.get("packetArt"):
             assert scene["packetArt"] in arts
@@ -100,6 +85,14 @@ def test_the_page_loads_only_its_own_files_and_runs_under_a_strict_policy():
         text = (LANDING / name).read_text(encoding="utf-8")
         assert not re.search(r"""url\(\s*['"]?(https?:)?//""", text), name
         assert "@import" not in text and "fetch(" not in text and "XMLHttpRequest" not in text, name
+
+
+def test_every_anchor_in_the_page_has_its_section():
+    ids = {attrs["id"] for _, attrs in page().tags if "id" in attrs}
+    for tag, attrs in page().tags:
+        href = attrs.get("href", "")
+        if tag == "a" and href.startswith("#"):
+            assert href[1:] in ids, href
 
 
 def test_links_out_of_the_page_go_only_to_infinito_and_its_code():
