@@ -20,12 +20,20 @@ def render(engine, run: str, now: datetime, inventory: dict, done: dict, *, noth
         return "\n".join(lines)
 
     cover = done["coverage"]
+    total = cover["inventory"]
     lines += ["## Cobertura", "",
-              f"- Recuerdos nuevos leídos: {cover['inventory']} "
-              f"(INFINITO informó de {inventory['reported_new']}).",
-              "- Citados por: " + ", ".join(f"{role} {n}" for role, n in cover["cited_by"].items()) + ".",
+              f"- Recuerdos nuevos: {total} (INFINITO informó de {inventory['reported_new']})."]
+    if cover.get("read_by"):  # legibles/total: what each role had in front of it whole
+        lines.append("- Leídos enteros: " + ", ".join(f"{role} {n}/{total}" for role, n in cover["read_by"].items())
+                     + ".")
+    lines += ["- Citados por: " + ", ".join(f"{role} {n}" for role, n in cover["cited_by"].items()) + ".",
               f"- Sin citar por nadie: {len(cover['cited_by_nobody'])}."]
     lines += [f"- Límite: {limit}." for limit in cover["limits"]] or ["- Sin límites: el supervisor tuvo el día entero."]
+    names = {"reflections": "sus reflexiones anteriores", "tasks": "la cola de tareas"}
+    shortened = [f"{names.get(name, name)} ({shown} de {had} caracteres)"
+                 for name, (shown, had) in (cover.get("shortened") or {}).items()]
+    if shortened:
+        lines.append("- Para que cupiera el día se acortaron " + " y ".join(shortened) + ".")
     lines.append("")
 
     if done.get("summary"):
@@ -67,7 +75,9 @@ def render(engine, run: str, now: datetime, inventory: dict, done: dict, *, noth
                   f"  - La refutaría: {hypothesis.get('falsifier', '—')}",
                   f"  - Veredicto del supervisor: **{verdict.get('verdict', 'sin juzgar')}**"
                   + (f" — {verdict.get('why')}" if verdict.get("why") else ""),
-                  f"  - Se apoya en: {_ids(hypothesis.get('evidence_ids'))}"]
+                  f"  - Se apoya en: {_ids(hypothesis.get('evidence_ids'))}"
+                  + (f" · observaciones {_ids(hypothesis['observation_ids'])}"
+                     if hypothesis.get("observation_ids") else "")]
     lines += ["", "Una hipótesis apoyada sigue siendo una hipótesis: no es un hecho hasta que la compruebes.", ""]
 
     aside = done["observations_aside"] + done["hypotheses_aside"] + done["aside"]

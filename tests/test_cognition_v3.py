@@ -599,3 +599,164 @@ def test_a_dry_run_does_not_study(tmp_path):
     run = engine(tmp_path, clock=lambda: now["t"], config=conf(night_hours=[4, 8]))
     assert run.tick().endswith("night study: only when authorized")
     assert list(run.diary.entries("study_pass")) == []
+
+
+# What fits in a role's input: the day first, then the task queue, then the oldest reflections give way
+
+class CrowdedInfinito(FakeInfinito):
+    """A server whose last weeks of reflections and whose task queue are long: with the day, they no longer fit."""
+
+    def __init__(self, reflections=40, **kwargs):
+        super().__init__(**kwargs)
+        self.count = reflections
+
+    def call(self, tool, **arguments):
+        if tool == "reflection_list":
+            self.calls.append((tool, arguments))
+            entries = [f'[{n:08x}] (2026-11-{1 + n % 20:02d}, self, historical, by: m) "Reflexión número {n}. '
+                       + "Larga. " * 150 + f'"\n    Rests on memories: {OLD}' for n in range(self.count)]
+            return "Your own reflections, oldest first.\n" + "\n".join(entries)
+        if tool == "task_list":
+            self.calls.append((tool, arguments))
+            return "4 tasks, oldest first.\n" + "\n".join(f"[t{n}] (approved) " + "Instrucciones largas. " * 200
+                                                         for n in range(4))
+        return super().call(tool, **arguments)
+
+
+def limited(chars, **extra):
+    config = conf(**extra)
+    config["roles"]["supervisor"]["max_input_chars"] = chars
+    return config
+
+
+def test_the_day_comes_first_and_the_oldest_reflections_give_way(tmp_path):
+    supervisor = Fake("supervisor", supervisor_answer())
+    run = engine(tmp_path, live=True, infinito=CrowdedInfinito(), config=limited(40000),
+                 models={"supervisor": supervisor})
+    run.review()
+    _, prompt = supervisor.calls[0]
+    assert len(prompt) <= 40000
+    assert all(f"Recuerdo completo {m[:4]}." in prompt for m in (A, B, C))  # the whole day
+    assert "Inventario íntegro del día (3 recuerdos)" in prompt
+    assert "Reflexión número 39." in prompt and "Reflexión número 0." not in prompt  # the newest stay
+    assert "reflexiones anteriores no caben en la entrada" in prompt
+    assert "Instrucciones largas." in prompt  # the task queue came before the old reflections
+    budget = run.diary.last("input_budget")
+    shown, had = budget["blocks"]["inventory"]
+    assert shown == had and budget["read"] == budget["of"] == 3
+    assert budget["blocks"]["reflections"][0] < budget["blocks"]["reflections"][1]
+    cover = run.diary.last("review_end")["coverage"]
+    assert cover["read_by"]["supervisor"] == 3 and cover["complete"]
+    report = next((tmp_path / "reports").glob("*.md")).read_text(encoding="utf-8")
+    assert "supervisor 3/3" in report and "se acortaron sus reflexiones anteriores" in report
+
+
+def test_when_not_even_the_day_fits_the_report_says_how_much_was_read(tmp_path):
+    supervisor = Fake("supervisor", supervisor_answer())
+    run = engine(tmp_path, live=True, infinito=CrowdedInfinito(), config=limited(6500),
+                 models={"supervisor": supervisor})
+    run.review()
+    _, prompt = supervisor.calls[0]
+    assert "Inventario del día, cortado: caben enteros 0 de 3" in prompt
+    assert all(f"Recuerdo completo {m[:4]}." not in prompt for m in (B, C))  # A comes only in a check's find
+    cover = run.diary.last("review_end")["coverage"]
+    assert cover["read_by"] == {"observer": 3, "investigator": 3, "baseline": 3, "supervisor": 0}
+    assert "the supervisor read 0 of 3 memories of the day whole" in cover["limits"] and not cover["complete"]
+    report = next((tmp_path / "reports").glob("*.md")).read_text(encoding="utf-8")
+    assert "supervisor 0/3" in report
+    assert run.payload(run.diary.last("review_end")["run"])["coverage"]["read"] == 0  # what the page shows
+
+
+def test_each_reflection_goes_in_once(tmp_path):
+    supervisor = Fake("supervisor", supervisor_answer())
+    engine(tmp_path, live=True, models={"supervisor": supervisor}).review()
+    _, prompt = supervisor.calls[0]
+    assert prompt.count(f"[{REFLECTION}]") == 1  # in the listing and in reflection_context, but shown once
+    assert "How to write a reflection" not in prompt
+
+
+def test_the_newest_reflections_are_kept_when_room_is_short():
+    listing = "Head.\n" + "\n".join(f"[{n:08x}] (2026-11-1{n}, self) \"R{n}.\"\n    Rests on memories: x"
+                                    for n in range(5))
+    kept = cycle_latest(listing, 130)
+    assert kept.startswith("Head.") and "R4." in kept and "R0." not in kept and "no caben" in kept
+    assert len(kept) <= 130
+    assert cycle_latest(listing, 10 ** 6) == listing
+
+
+def cycle_latest(text, room):
+    from cognition.cycle import _latest_reflections
+    return _latest_reflections(text, room)
+
+
+def test_the_night_close_reads_its_findings_before_old_reflections(tmp_path):
+    now = {"t": datetime(2026, 11, 18, 4, 5, tzinfo=MADRID)}
+    run, _, _ = night_engine(tmp_path, now, infinito=CrowdedInfinito(new=()), study_batch_chars=10 ** 6)
+    run.config["roles"]["supervisor"]["max_input_chars"] = 20000
+    run.tick()
+    budget = next(e for e in run.diary.entries("input_budget") if e.get("task") == "study_close")
+    assert budget["blocks"]["findings"][0] == budget["blocks"]["findings"][1]  # every finding whole
+    assert budget["blocks"]["reflections"][0] < budget["blocks"]["reflections"][1]
+    assert run.diary.last("study_end")["reflection"] == "abcd1234"
+
+
+# Observations are pointers, not evidence
+
+def test_a_hypothesis_that_points_at_an_observation_keeps_its_memories(tmp_path):
+    def investigator(system, prompt):
+        return json.dumps({"hypotheses": [
+            {"id": "H1", "statement": "Un recuerdo y una observación.", "evidence_ids": [A, "O1"],
+             "falsifier": "-", "check_query": ""},
+            {"id": "H2", "statement": "Solo una observación.", "evidence_ids": ["O1"], "falsifier": "-",
+             "check_query": ""},
+            {"id": "H3", "statement": "Una observación que no hubo.", "evidence_ids": [A, "O9"], "falsifier": "-",
+             "check_query": ""}]})
+    model = Fake("investigator", investigator)
+    run = engine(tmp_path, live=True, models={"investigator": model,
+                                              "supervisor": Fake("supervisor", supervisor_answer())})
+    run.review()
+    assert "observation_ids" in model.calls[0][0]  # it is told where an observation goes
+    body = run.diary.body(next(e for e in run.diary.entries("hypothesis_set") if e["arm"] == "hierarchy"))
+    [kept] = body["hypotheses"]
+    assert kept["id"] == "H1" and kept["evidence_ids"] == [A] and kept["observation_ids"] == ["O1"]
+    assert {h["id"]: h["unknown_ids"] for h in body["set_aside"]} == {"H2": ["(none cited)"], "H3": ["O9"]}
+    report = next((tmp_path / "reports").glob("*.md")).read_text(encoding="utf-8")
+    assert "observaciones O1" in report
+
+
+def test_the_referee_checks_observation_pointers_too():
+    found = [{"id": "H1", "evidence_ids": [A], "observation_ids": ["O2"]}]
+    kept, aside = validate.hypotheses(found, {A}, {"O1"})
+    assert kept == [] and aside[0]["unknown_ids"] == ["O2"]
+    kept, aside = validate.hypotheses(found, {A}, {"O1", "O2"})
+    assert kept[0]["observation_ids"] == ["O2"] and aside == []
+    kept, aside = validate.hypotheses([{"id": "H1", "evidence_ids": [GHOST, "O1"]}], {A}, {"O1"})
+    assert kept == [] and aside[0]["unknown_ids"] == [GHOST]  # an unknown memory still sinks it
+
+
+class BigDayInfinito(CrowdedInfinito):
+    """A day whose memories alone are longer than the supervisor's whole input."""
+
+    def call(self, tool, **arguments):
+        if tool == "list_memories":
+            self.calls.append((tool, arguments))
+            every = [OLD] + self.new
+            return "\n".join([f"{len(every)} memories, oldest first:"]
+                             + [f'[{m}] (2026-11-11, decision, INFINITO) "Recuerdo completo {m[:4]}. '
+                                + "Mucho texto. " * 2000 + '"' for m in every])
+        return super().call(tool, **arguments)
+
+
+def test_on_a_huge_day_the_newest_reflections_keep_their_reserve(tmp_path):
+    from cognition.cycle import REFLECTIONS_RESERVE
+
+    supervisor = Fake("supervisor", supervisor_answer())
+    run = engine(tmp_path, live=True, infinito=BigDayInfinito(), config=limited(60000),
+                 models={"supervisor": supervisor})
+    run.review()
+    _, prompt = supervisor.calls[0]
+    budget = run.diary.last("input_budget")
+    assert 0 < budget["read"] < 3  # the day did not fit whole, yet it took most of the room
+    assert "Reflexión número 39." in prompt  # the newest reflection and the person's comments kept their room
+    # At least its reserve (less what a whole reflection does not fit in), plus what the day's last line left over.
+    assert budget["blocks"]["reflections"][0] >= REFLECTIONS_RESERVE - 2000

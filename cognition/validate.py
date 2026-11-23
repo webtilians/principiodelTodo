@@ -7,9 +7,10 @@ the person's memory. The same check applies to the supervisor: its reflection ke
 not published if none is left.
 """
 import re
-from typing import Dict, Iterable, List, Sequence, Set, Tuple
+from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple
 
 MEMORY_ID = re.compile(r"\[([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]")
+OBSERVATION_ID = re.compile(r"O\d{1,3}")
 REFLECTION_ID = re.compile(r"^\[([0-9a-f]{8})\] \(", re.MULTILINE)
 OPEN_MEMORY = re.compile(r"\[([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\] "
                          r"\(\d{4}-\d{2}-\d{2}, (?:pending|to_verify)\b")
@@ -41,6 +42,32 @@ def grounded(found: Iterable[dict], key: str, known: Set[str]) -> Tuple[List[dic
             aside.append({**item, "rejected": "NOT_IN_EVIDENCE",
                           "unknown_ids": [c for c in cited if c not in known] or ["(none cited)"]})
     return kept, aside
+
+
+def hypotheses(found: Iterable[dict], known_memories: Set[str],
+               known_observations: Set[str]) -> Tuple[List[dict], List[dict]]:
+    """Hypotheses as the referee takes them. Their evidence is memories the role was shown, at least one. A pointer to
+    one of the observations it was shown (O1, O2...) is not evidence but a reference to the observer's report: it goes
+    to observation_ids instead of sinking the hypothesis, as it sank all six on 23/11/2026 though each rested on
+    memories it had seen. An observation it was not shown is unknown, like a memory it was not shown."""
+    sorted_out = []
+    for item in found:
+        cited = _cited(item, "evidence_ids")
+        pointers = [c for c in cited if OBSERVATION_ID.fullmatch(c) and c in known_observations]
+        given = _cited(item, "observation_ids")
+        item = {**item, "evidence_ids": [c for c in cited if c not in pointers]}
+        if given or pointers:
+            item["observation_ids"] = list(dict.fromkeys(given + pointers))
+        sorted_out.append(item)
+    kept, aside = grounded(sorted_out, "evidence_ids", known_memories)
+    final = []
+    for item in kept:
+        unknown = [o for o in item.get("observation_ids", []) if o not in known_observations]
+        if unknown:
+            aside.append({**item, "rejected": "NOT_IN_EVIDENCE", "unknown_ids": unknown})
+        else:
+            final.append(item)
+    return final, aside
 
 
 def open_ids(text: str) -> Set[str]:
@@ -82,15 +109,22 @@ def reflection(found, known_memories: Set[str], known_reflections: Set[str],
 
 
 def coverage(inventory: Sequence[str], cited_by: Dict[str, Iterable[str]], *, reported_new: int,
-             shown_new: int, truncated: Dict[str, bool]) -> dict:
-    """Which of the day's memories each role cited, which none did, and what could not be seen at all."""
+             shown_new: int, truncated: Dict[str, bool], read_by: Optional[Dict[str, int]] = None,
+             shortened: Optional[Dict[str, List[int]]] = None) -> dict:
+    """Which of the day's memories each role read whole and cited, which none cited, what could not be seen at all,
+    and what else (characters shown of characters it had) was shortened so that the day would fit."""
     whole = list(dict.fromkeys(inventory))
     seen = {role: sorted(set(ids) & set(whole)) for role, ids in cited_by.items()}
     anyone = set().union(*seen.values()) if seen else set()
+    read_by = dict(read_by or {})
     limits = []
     if reported_new > shown_new:
         limits.append(f"INFINITO reported {reported_new} new memories and the engine could read {shown_new}")
-    limits += [f"the {role}'s input was cut to fit its limit" for role, cut in truncated.items() if cut]
-    return {"inventory": len(whole), "cited_by": {role: len(ids) for role, ids in seen.items()},
+    for role, cut in truncated.items():
+        if role in read_by and read_by[role] < len(whole):
+            limits.append(f"the {role} read {read_by[role]} of {len(whole)} memories of the day whole")
+        elif cut and role not in read_by:
+            limits.append(f"the {role}'s input was cut to fit its limit")
+    return {"inventory": len(whole), "read_by": read_by, "cited_by": {role: len(ids) for role, ids in seen.items()},
             "cited_by_nobody": [i for i in whole if i not in anyone], "limits": limits,
-            "complete": not limits}
+            "shortened": dict(shortened or {}), "complete": not limits}
