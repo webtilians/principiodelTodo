@@ -4,6 +4,11 @@ Everything an app may not do is done here by a person, signed in with their pass
 inviting, making projects, giving or taking access, confirming what an org admin proposed, and choosing what each of
 their apps may do in the organization. The memories of a space can be read, added and taken back here too.
 
+The page explains itself, because the people who run a team are not the ones who built it: every screen says where
+you are and lets you sign out, says what you are in that organization and what you may do, walks a new owner through
+the first steps, names who sends an invitation and to what, lets people be chosen from the organization rather than
+typed, and tells the record of changes in words. It shows nobody more than the permissions in remote_teams.py allow.
+
 It has its own session, like the memory page (remote_memory.py): the password unseals the person's key, which is then
 kept for a quarter of an hour wrapped under a token the server stores only as a hash, in a cookie for /teams alone that
 scripts cannot read and other sites cannot send. Every form carries a token of its own against other sites' forms. A
@@ -15,6 +20,7 @@ import hmac
 import html
 import secrets
 import threading
+from datetime import datetime, timezone
 from typing import Dict, List, Optional
 from urllib.parse import urlencode
 
@@ -28,9 +34,15 @@ COOKIE = "infinito_teams"
 PATH = "/teams"
 
 STYLE = """
-main { max-width: 48rem; }
-h2 { font-size: 1.05rem; margin: 1.6rem 0 .5rem; color: var(--accent); }
-.row { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem .8rem; padding: .55rem 0;
+main { max-width: 50rem; }
+.card { display: flex; flex-direction: column; }
+.top { order: -1; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center;
+  gap: .4rem 1rem; margin: 0 0 1rem; padding-bottom: .7rem; border-bottom: 1px solid var(--line); font-size: .88rem; }
+.crumbs { color: var(--soft); overflow-wrap: anywhere; }
+.who { display: inline-flex; align-items: center; gap: .6rem; color: var(--soft); }
+.lead { margin: .3rem 0 0; }
+h2 { font-size: 1.05rem; margin: 1.8rem 0 .4rem; color: var(--accent); }
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem .8rem; padding: .6rem 0;
   border-top: 1px solid var(--line); }
 .row > .grow { flex: 1 1 14rem; min-width: 0; overflow-wrap: anywhere; }
 .meta { color: var(--soft); font-size: .85rem; }
@@ -43,7 +55,22 @@ select, textarea { font: inherit; color: inherit; background: var(--page); borde
 textarea { width: 100%; min-height: 4.5rem; }
 .ok { color: var(--accent); font-weight: 600; }
 .tag { font-size: .78rem; padding: .05rem .5rem; border: 1px solid var(--line); border-radius: 99px; color: var(--soft); }
-.code.link { font-size: .9rem; letter-spacing: 0; text-align: left; }
+.code.link { font-size: .9rem; letter-spacing: 0; text-align: left; user-select: all; }
+.steps { list-style: none; margin: 1rem 0 0; padding: .7rem 1rem; border: 1px solid var(--line); border-radius: 12px;
+  background: rgba(103, 232, 249, .05); }
+.steps li { display: flex; gap: .6rem; padding: .25rem 0; color: var(--soft); }
+.steps li.done { color: var(--ink); text-decoration: line-through; text-decoration-color: var(--line); }
+.steps .mark { flex: none; width: 1.4rem; text-align: center; color: var(--accent); font-weight: 700; }
+details.panel { margin-top: .9rem; padding: .6rem .9rem; border: 1px solid var(--line); border-radius: 12px; }
+details.panel > summary { color: var(--accent); font-weight: 600; font-size: .95rem; }
+details.panel[open] > summary { margin-bottom: .3rem; }
+.legend { margin: .4rem 0 0; }
+.legend dt { font-weight: 600; margin-top: .5rem; }
+.legend dd { margin: .1rem 0 0; color: var(--soft); font-size: .88rem; }
+.check { display: flex; align-items: center; gap: .5rem; margin-top: .9rem; font-weight: 400; }
+.check input { width: auto; margin: 0; }
+.notice { margin: .9rem 0 0; padding: .6rem .8rem; border: 1px solid var(--line); border-radius: 10px;
+  background: rgba(167, 139, 250, .08); }
 """
 
 TEXT = {
@@ -51,39 +78,103 @@ TEXT = {
         "title": "INFINITO Teams", "brand": "INFINITO · Teams",
         "sign_in_note": "Entra con tu cuenta de INFINITO. Tu memoria personal no aparece aquí, y nadie de tu "
                         "organización puede verla.",
+        "invited_by": "{by} te invita a {org}.",
+        "invite_sign_in": "Entra con tu cuenta de INFINITO para aceptar. Tu memoria personal no aparece aquí, y "
+                          "nadie de la organización puede verla.",
+        "no_account": '¿Aún no tienes cuenta de INFINITO? <a href="/memory">Créala gratis</a> y vuelve a abrir este '
+                      "mismo enlace.",
         "name": "Tu nombre de usuario", "password": "Contraseña", "enter": "Entrar",
         "bad_password": "Ese nombre o esa contraseña no son correctos.",
         "wait": "Demasiados intentos. Espera {n} segundos.", "session_over": "La sesión ha caducado. Vuelve a entrar.",
         "bad_form": "Este formulario ya no vale. Vuelve a la página.", "back": "Volver", "signout": "Salir",
-        "orgs": "Tus organizaciones", "no_orgs": "Aún no estás en ninguna organización. Para entrar en una, pide un "
-                                                "enlace de invitación a quien la lleve.",
-        "create_org": "Crear una organización", "org_name": "Nombre de la organización", "create": "Crear",
+        "where": "Dónde estás",
+        "orgs": "Tus organizaciones",
+        "about": "INFINITO Teams es la memoria compartida de un equipo. Cada organización tiene un espacio General, "
+                 "que ve todo el mundo, y proyectos, que solo ven las personas que se añaden. Las IA de cada persona "
+                 "(ChatGPT, Claude…) pueden consultar y guardar ahí lo que el equipo sabe, si esa persona se lo "
+                 "permite.",
+        "no_orgs": "Aún no estás en ninguna organización. Si alguien te ha invitado, abre el enlace que te mandó.",
+        "create_org": "Crear una organización", "org_name": "Nombre de la organización (tu empresa o tu equipo)",
+        "create": "Crear",
         "roles": {OWNER: "propietario", ADMIN: "administrador", MEMBER: "miembro", MANAGER: "responsable"},
+        "you_are": {OWNER: "Eres el propietario: ves todos los espacios y decides quién entra en cada uno.",
+                    ADMIN: "Eres administrador: invitas, creas proyectos y das acceso a ellos, pero no lees los "
+                           "proyectos en los que no estás.",
+                    MEMBER: "Eres miembro: aquí ves los espacios en los que estás. Para entrar en otro proyecto, "
+                            "pídeselo a {owner}, que lleva la organización."},
+        "first_steps": "Primeros pasos",
+        "steps": ["Crea un proyecto para cada tema, cliente o equipo.",
+                  "Invita a tu gente con un enlace (más abajo, en Personas).",
+                  "Entra en cada proyecto y añade a quien deba estar.",
+                  "Elige qué pueden hacer tus IA aquí (al final de esta página)."],
         "spaces": "Espacios", "kinds": {GENERAL: "general", "project": "proyecto"},
-        "access": {"write": "lees y añades", "read": "lees", PENDING: "pendiente de acceso", "none": "ves su nombre"},
-        "new_space": "Nuevo proyecto", "space_name": "Nombre del proyecto",
-        "manager": "Responsable (nombre de usuario, opcional)",
-        "invite": "Invitar a alguien", "invite_go": "Crear un enlace de invitación",
-        "invite_link": "Enlace de invitación. Sirve una vez y caduca en 7 días: mándaselo a esa persona.",
+        "kind_notes": {GENERAL: "Lo ve toda la organización.", "project": "Solo lo ven las personas añadidas."},
+        "access": {"write": "Tú: lees y añades", "read": "Tú: solo lees", PENDING: "Tú: esperando acceso",
+                   "manage_only": "Tú: das acceso, sin leer su contenido", "none": "Tú: solo ves su nombre"},
+        "people_one": "1 persona", "people_many": "{n} personas",
+        "new_space": "Nuevo proyecto",
+        "new_space_note": "Un proyecto es un espacio aparte, cifrado con su propia llave: solo lo ven las personas "
+                          "que añadas y el propietario.",
+        "space_name": "Nombre del proyecto", "manager": "Responsable (opcional)",
+        "manager_note": "El responsable lee, añade y decide quién entra en el proyecto.", "nobody": "Nadie por ahora",
+        "manager_free": "Responsable (nombre de usuario, opcional)",
+        "people": "Personas",
+        "invite": "Invitar a alguien",
+        "invite_note": "Se crea un enlace que sirve una sola vez y caduca en 7 días. Quien lo abra entra como "
+                       "miembro y ve el espacio General; a los proyectos lo añades después.",
+        "invite_go": "Crear enlace de invitación",
+        "invite_link": "Enlace listo. Cópialo y mándaselo a esa persona por correo o mensaje. Por seguridad no se "
+                       "vuelve a mostrar.",
         "invite_pending": "Como no tienes la llave del espacio general, quien entre con este enlace esperará a que "
                           "el propietario le dé acceso.",
-        "members": "Miembros", "make_admin": "Hacer administrador", "make_member": "Dejar de ser administrador",
+        "roles_help": "¿Qué puede hacer cada papel?",
+        "roles_legend": [(OWNER, "Ve y gestiona todo, también los proyectos. Hay uno por organización."),
+                         (ADMIN, "Invita, crea proyectos y da acceso, pero no lee los proyectos en los que no está."),
+                         (MANAGER, "En su proyecto: lee, añade y decide quién entra."),
+                         (MEMBER, "Lee, y si se le permite añade, en los espacios donde está.")],
+        "make_admin": "Hacer administrador", "make_member": "Dejar de ser administrador",
         "remove": "Quitar", "leave_org": "Salir de esta organización",
-        "apps": "Tus apps en esta organización",
-        "apps_note": "Una app conectada a tu memoria no recibe nada de la organización hasta que tú lo eliges aquí.",
-        "no_apps": "No tienes apps conectadas a tu memoria.",
+        "apps": "Tus IA en esta organización",
+        "apps_note": "Cada IA conectada a tu memoria (ChatGPT, Claude, Grok…) empieza sin acceso a la organización. "
+                     "Elige qué puede hacer en los espacios donde tú estás.",
+        "no_apps": 'Aún no has conectado ninguna IA a tu memoria. <a href="/">Conéctala desde la portada</a> y '
+                   "vuelve aquí para darle acceso.",
         "levels": {"none": "Nada", "read": "Solo leer", "add": "Leer y añadir"}, "save": "Guardar",
-        "audit": "Registro de cambios", "owner_reads": "El propietario de la organización puede leer este espacio.",
-        "memories": "Recuerdos", "empty": "Este espacio aún no tiene recuerdos.", "add_memory": "Añadir un recuerdo",
-        "statement": "Qué hay que recordar", "kind": "Tipo", "add": "Guardar", "forget": "Retirar",
+        "audit": "Registro de cambios",
+        "audit_lines": {"create_org": "creó la organización", "invite": "creó un enlace de invitación",
+                        "join": "entró con la invitación de {target}", "set_role": "hizo a {target} {role}",
+                        "remove_member": "quitó a {target} de la organización",
+                        "left_org": "salió de la organización",
+                        "app_level": "cambió lo que puede hacer una de sus IA: {level}",
+                        "create_space": "creó el proyecto {space}",
+                        "set_seat": "cambió el papel de {who} en {space} a {role}",
+                        "add_member": "añadió a {who} a {space} como {role}",
+                        "confirm": "dio acceso a {who} en {space}", "remove_from_space": "quitó a {who} de {space}",
+                        "left_space": "salió de {space}", "new_key": "se renovó la llave de {space}",
+                        "remember": "guardó un recuerdo en {space}", "forget": "retiró un recuerdo de {space}"},
+        "audit_refused": "intentó algo que no le estaba permitido ({action})",
+        "space_of": {GENERAL: "Espacio general de {org}: lo ve toda la organización.",
+                     "project": "Proyecto de {org}: solo lo ven las personas añadidas."},
+        "memories": "Recuerdos",
+        "memories_note": "Lo que el equipo sabe de este espacio. Las IA de cada persona lo consultan y lo amplían "
+                         "si esa persona se lo permite.",
+        "empty": "Este espacio aún no tiene recuerdos. Añade el primero o pídeselo a tu IA.",
+        "add_memory": "Añadir un recuerdo", "statement": "Qué hay que recordar", "kind": "Tipo",
+        "add": "Guardar recuerdo", "forget": "Retirar",
         "kinds_memory": {"fact": "hecho", "decision": "decisión", "agreement": "acuerdo", "proposal": "propuesta",
                          "pending": "pendiente", "assumption": "supuesto", "to_verify": "por verificar"},
-        "space_members": "Quién está en este espacio", "add_member": "Añadir a alguien", "add_person": "Añadir",
-        "account": "Nombre de usuario",
-        "role": "Papel", "can_write": "puede añadir", "read_only": "solo lee", "confirm": "Dar acceso",
-        "pending_note": "Pendiente: el propietario o un responsable tiene que darle acceso.",
-        "leave_space": "Salir de este espacio", "invited_title": "Te han invitado a una organización",
-        "invited_note": "Al aceptar entrarás en ella como miembro. Tu memoria personal sigue siendo solo tuya.",
+        "space_members": "Quién está en este espacio", "owner_row": "lee y gestiona todos los espacios",
+        "add_member": "Añadir a alguien a este espacio", "add_person": "Añadir", "account": "Persona",
+        "account_free": "Nombre de usuario",
+        "no_candidates": "Ya están aquí todos los de la organización. Para sumar a alguien nuevo, invítalo desde la "
+                         "organización.",
+        "role": "Papel en este espacio", "can_write": "puede añadir recuerdos", "read_only": "solo lee",
+        "confirm": "Dar acceso", "pending_note": "Esperando: el propietario o un responsable tiene que darle acceso.",
+        "you_pending": "Aún no tienes acceso a este espacio: el propietario o un responsable tiene que dártelo.",
+        "leave_space": "Salir de este espacio",
+        "invited_title": "Te han invitado a {org}", "invited_plain": "Te han invitado a una organización",
+        "invited_note": "Al aceptar entrarás como miembro y verás su espacio General. Tu memoria personal sigue "
+                        "siendo solo tuya.",
         "accept": "Aceptar", "invite_expired": "Este enlace de invitación ya no sirve. Pide uno nuevo.",
         "joined": "Ya estás en {org}.", "done": "Hecho.",
         "refusals": {NOT_FOUND: "No existe, o no es tuyo.",
@@ -104,39 +195,102 @@ TEXT = {
         "title": "INFINITO Teams", "brand": "INFINITO · Teams",
         "sign_in_note": "Sign in with your INFINITO account. Your own memory does not show here, and nobody in your "
                         "organization can see it.",
+        "invited_by": "{by} invites you to {org}.",
+        "invite_sign_in": "Sign in with your INFINITO account to accept. Your own memory does not show here, and "
+                          "nobody in the organization can see it.",
+        "no_account": 'No INFINITO account yet? <a href="/memory">Make one for free</a> and open this same link '
+                      "again.",
         "name": "Your username", "password": "Password", "enter": "Sign in",
         "bad_password": "That name or password is not right.",
         "wait": "Too many tries. Wait {n} seconds.", "session_over": "Your session ended. Sign in again.",
         "bad_form": "This form no longer works. Go back to the page.", "back": "Back", "signout": "Sign out",
-        "orgs": "Your organizations", "no_orgs": "You are in no organization yet. To join one, ask whoever runs it "
-                                                 "for an invitation link.",
-        "create_org": "Create an organization", "org_name": "Organization name", "create": "Create",
+        "where": "Where you are",
+        "orgs": "Your organizations",
+        "about": "INFINITO Teams is a team's shared memory. Each organization has a General space everyone sees, and "
+                 "projects only the people added to them see. Each person's AIs (ChatGPT, Claude…) can look up and "
+                 "keep there what the team knows, if that person lets them.",
+        "no_orgs": "You are in no organization yet. If someone invited you, open the link they sent.",
+        "create_org": "Create an organization", "org_name": "Organization name (your company or your team)",
+        "create": "Create",
         "roles": {OWNER: "owner", ADMIN: "admin", MEMBER: "member", MANAGER: "manager"},
+        "you_are": {OWNER: "You are the owner: you see every space and decide who goes into each.",
+                    ADMIN: "You are an admin: you invite, make projects and give access to them, but you do not "
+                           "read the projects you are not in.",
+                    MEMBER: "You are a member: here you see the spaces you are in. To join another project, ask "
+                            "{owner}, who runs the organization."},
+        "first_steps": "First steps",
+        "steps": ["Make a project for each topic, client or team.",
+                  "Invite your people with a link (below, under People).",
+                  "Open each project and add whoever should be in it.",
+                  "Choose what your AIs may do here (at the end of this page)."],
         "spaces": "Spaces", "kinds": {GENERAL: "general", "project": "project"},
-        "access": {"write": "you read and add", "read": "you read", PENDING: "waiting for access",
-                   "none": "you see its name"},
-        "new_space": "New project", "space_name": "Project name", "manager": "Manager (username, optional)",
-        "invite": "Invite someone", "invite_go": "Make an invitation link",
-        "invite_link": "Invitation link. It works once and ends in 7 days: send it to that person.",
+        "kind_notes": {GENERAL: "The whole organization sees it.", "project": "Only the people added see it."},
+        "access": {"write": "You: read and add", "read": "You: read only", PENDING: "You: waiting for access",
+                   "manage_only": "You: give access, without reading it", "none": "You: see its name only"},
+        "people_one": "1 person", "people_many": "{n} people",
+        "new_space": "New project",
+        "new_space_note": "A project is a space of its own, sealed with its own key: only the people you add and the "
+                          "owner see it.",
+        "space_name": "Project name", "manager": "Manager (optional)",
+        "manager_note": "The manager reads, adds and decides who goes into the project.", "nobody": "Nobody yet",
+        "manager_free": "Manager (username, optional)",
+        "people": "People",
+        "invite": "Invite someone",
+        "invite_note": "This makes a link that works once and ends in 7 days. Whoever opens it joins as a member and "
+                       "sees the General space; you add them to projects afterwards.",
+        "invite_go": "Make an invitation link",
+        "invite_link": "Link ready. Copy it and send it to that person by email or message. For safety it is not "
+                       "shown again.",
         "invite_pending": "As you do not hold the general space's key, whoever joins with this link waits for the "
                           "owner to give them access.",
-        "members": "Members", "make_admin": "Make admin", "make_member": "No longer admin", "remove": "Remove",
+        "roles_help": "What can each role do?",
+        "roles_legend": [(OWNER, "Sees and runs everything, projects included. One per organization."),
+                         (ADMIN, "Invites, makes projects and gives access, but does not read the projects they are "
+                                 "not in."),
+                         (MANAGER, "In their project: reads, adds and decides who goes in."),
+                         (MEMBER, "Reads, and if allowed adds, in the spaces they are in.")],
+        "make_admin": "Make admin", "make_member": "No longer admin", "remove": "Remove",
         "leave_org": "Leave this organization",
-        "apps": "Your apps in this organization",
-        "apps_note": "An app connected to your memory gets nothing of the organization until you choose it here.",
-        "no_apps": "You have no apps connected to your memory.",
+        "apps": "Your AIs in this organization",
+        "apps_note": "Each AI connected to your memory (ChatGPT, Claude, Grok…) starts with no access to the "
+                     "organization. Choose what it may do in the spaces you are in.",
+        "no_apps": 'You have not connected any AI to your memory yet. <a href="/">Connect one from the front page</a> '
+                   "and come back here to give it access.",
         "levels": {"none": "Nothing", "read": "Read only", "add": "Read and add"}, "save": "Save",
-        "audit": "Record of changes", "owner_reads": "The organization's owner can read this space.",
-        "memories": "Memories", "empty": "This space has no memories yet.", "add_memory": "Add a memory",
-        "statement": "What to remember", "kind": "Kind", "add": "Save", "forget": "Take back",
+        "audit": "Record of changes",
+        "audit_lines": {"create_org": "made the organization", "invite": "made an invitation link",
+                        "join": "joined with {target}'s invitation", "set_role": "made {target} {role}",
+                        "remove_member": "removed {target} from the organization",
+                        "left_org": "left the organization",
+                        "app_level": "changed what one of their AIs may do: {level}",
+                        "create_space": "made the project {space}",
+                        "set_seat": "changed {who}'s role in {space} to {role}",
+                        "add_member": "added {who} to {space} as {role}", "confirm": "gave {who} access to {space}",
+                        "remove_from_space": "removed {who} from {space}", "left_space": "left {space}",
+                        "new_key": "{space} got a new key", "remember": "kept a memory in {space}",
+                        "forget": "took back a memory from {space}"},
+        "audit_refused": "tried something they were not allowed to ({action})",
+        "space_of": {GENERAL: "General space of {org}: the whole organization sees it.",
+                     "project": "Project of {org}: only the people added see it."},
+        "memories": "Memories",
+        "memories_note": "What the team knows about this space. Each person's AIs look it up and add to it if that "
+                         "person lets them.",
+        "empty": "This space has no memories yet. Add the first one, or ask your AI to.",
+        "add_memory": "Add a memory", "statement": "What to remember", "kind": "Kind", "add": "Save memory",
+        "forget": "Take back",
         "kinds_memory": {"fact": "fact", "decision": "decision", "agreement": "agreement", "proposal": "proposal",
                          "pending": "pending", "assumption": "assumption", "to_verify": "to verify"},
-        "space_members": "Who is in this space", "add_member": "Add someone", "add_person": "Add", "account": "Username",
-        "role": "Role",
-        "can_write": "may add", "read_only": "reads only", "confirm": "Give access",
-        "pending_note": "Waiting: the owner or a manager has to give them access.",
-        "leave_space": "Leave this space", "invited_title": "You are invited to an organization",
-        "invited_note": "Accepting makes you a member of it. Your own memory stays yours alone.",
+        "space_members": "Who is in this space", "owner_row": "reads and runs every space",
+        "add_member": "Add someone to this space", "add_person": "Add", "account": "Person", "account_free": "Username",
+        "no_candidates": "Everyone in the organization is here already. To bring someone new, invite them from the "
+                         "organization.",
+        "role": "Role in this space", "can_write": "may add memories", "read_only": "reads only",
+        "confirm": "Give access", "pending_note": "Waiting: the owner or a manager has to give them access.",
+        "you_pending": "You have no access to this space yet: the owner or a manager has to give it to you.",
+        "leave_space": "Leave this space",
+        "invited_title": "You are invited to {org}", "invited_plain": "You are invited to an organization",
+        "invited_note": "Accepting makes you a member and shows you its General space. Your own memory stays yours "
+                        "alone.",
         "accept": "Accept", "invite_expired": "This invitation link no longer works. Ask for a new one.",
         "joined": "You are in {org} now.", "done": "Done.",
         "refusals": {NOT_FOUND: "It does not exist, or it is not yours."},
@@ -161,26 +315,82 @@ def _button(t: dict, label: str, css: str = "small", **fields) -> str:
             f'<button class="{css}" type="submit">{html.escape(label)}</button></form>')
 
 
-def sign_in_body(t: dict, *, invite: str = "", name: str = "", error: str = "") -> str:
+def _link(label: str, **where) -> str:
+    return f'<a href="{PATH}?{urlencode(where)}">{html.escape(label)}</a>' if where else \
+        f'<a href="{PATH}">{html.escape(label)}</a>'
+
+
+def _top(t: dict, account: str, csrf: str, crumbs: List[str]) -> str:
+    """Where the person is, and who they are with a way out: on every page once signed in. crumbs are ready HTML."""
+    return (f'<div class="top"><nav class="crumbs" aria-label="{t["where"]}">{" › ".join(crumbs)}</nav>'
+            f'<div class="who">{html.escape(account)}'
+            f'{_button(t, t["signout"], "small quiet", action="signout", csrf=csrf)}</div></div>')
+
+
+def _when(at: str, lang: str) -> str:
+    """A moment of the record as people read it: day and time, in Spain for the Spanish page, else in UTC."""
+    try:
+        moment = datetime.fromisoformat(at)
+    except (TypeError, ValueError):
+        return str(at)
+    if lang == "es":
+        try:
+            from zoneinfo import ZoneInfo
+
+            return moment.astimezone(ZoneInfo("Europe/Madrid")).strftime("%d/%m %H:%M")
+        except (ImportError, KeyError, ValueError):  # no time zone data on this machine
+            pass
+    return moment.astimezone(timezone.utc).strftime("%d/%m %H:%M UTC")
+
+
+def _audit_line(t: dict, item: dict, spaces: Dict[str, str]) -> str:
+    """One change in words: who did what to whom, with names instead of ids. Never the words of a memory."""
+    action, _, detail = str(item.get("action", "")).partition(":")
+    target, actor = str(item.get("target", "")), str(item.get("actor", ""))
+    space_id, _, who = target.partition("/")
+    if item.get("outcome") == "refused":
+        text = t["audit_refused"].format(action=action)
+    else:
+        key = ("left_org" if action == "remove_member" and target == actor else
+               "left_space" if action == "remove_from_space" and who == actor else action)
+        template = t["audit_lines"].get(key)
+        text = template.format(target=target, who=who, space=spaces.get(space_id, space_id),
+                               role=t["roles"].get(detail, detail), level=t["levels"].get(detail, detail)) \
+            if template else f"{item.get('action', '')} {target}".strip()
+    return f'{_when(item.get("at", ""), t["lang"])} · {actor} {text}'
+
+
+def sign_in_body(t: dict, *, invite: str = "", name: str = "", error: str = "",
+                 invitation: Optional[dict] = None) -> str:
     e = html.escape
     wrong = f'<p class="error" role="alert">{e(error)}</p>' if error else ""
-    return (f'<p class="note">{t["sign_in_note"]}</p><form method="post" action="{PATH}">'
+    if invitation:
+        intro = (f'<p class="lead">{e(t["invited_by"].format(by=invitation["by"], org=invitation["org"]))}</p>'
+                 f'<p class="note">{t["invite_sign_in"]}</p>')
+    else:
+        intro = f'<p class="note">{t["sign_in_note"]}</p>'
+    return (f'{intro}<form method="post" action="{PATH}">'
             f'{_hidden(action="signin", invite=invite or None)}'
             f'<label for="name">{t["name"]}</label><input id="name" name="name" type="text" value="{e(name)}" '
             'autocomplete="username" autocapitalize="none" spellcheck="false" required>'
             f'<label for="password">{t["password"]}</label><input id="password" name="password" type="password" '
-            f'autocomplete="current-password" required>{wrong}<button type="submit">{t["enter"]}</button></form>')
+            f'autocomplete="current-password" required>{wrong}<button type="submit">{t["enter"]}</button></form>'
+            + (f'<p class="note">{t["no_account"]}</p>' if invitation else ""))
 
 
-def home_body(t: dict, orgs: List[dict], csrf: str, *, can_create: bool, message: str = "", error: str = "") -> str:
+def home_body(t: dict, orgs: List[dict], csrf: str, *, can_create: bool, account: str = "", message: str = "",
+              error: str = "") -> str:
     e = html.escape
-    rows = "".join(f'<div class="row"><div class="grow"><a href="{PATH}?{urlencode({"org": o["id"]})}">'
-                   f'{e(o["name"])}</a></div><span class="tag">{t["roles"][o["role"]]}</span></div>' for o in orgs)
-    create = (f'<h2>{t["create_org"]}</h2><form method="post" action="{PATH}">{_hidden(action="create_org", csrf=csrf)}'
+    rows = "".join(f'<div class="row"><div class="grow">{_link(o["name"], org=o["id"])}</div>'
+                   f'<span class="tag">{t["roles"][o["role"]]}</span></div>' for o in orgs)
+    create = (f'<details class="panel"{"" if orgs else " open"}><summary>{t["create_org"]}</summary>'
+              f'<form method="post" action="{PATH}">{_hidden(action="create_org", csrf=csrf)}'
               f'<label for="org_name">{t["org_name"]}</label><input id="org_name" name="name" type="text" '
-              f'maxlength="60" required><button type="submit">{t["create"]}</button></form>') if can_create else ""
-    return (_notice(message, error) + f'<h2>{t["orgs"]}</h2>' + (rows or f'<p class="note">{t["no_orgs"]}</p>')
-            + create + _signout(t, csrf))
+              f'maxlength="60" required><button type="submit">{t["create"]}</button></form></details>'
+              ) if can_create else ""
+    return (_top(t, account, csrf, [e(t["orgs"])]) + _notice(message, error)
+            + (f'<p class="note">{t["about"]}</p>' if not orgs else "")
+            + f'<h2>{t["orgs"]}</h2>' + (rows or f'<p class="note">{t["no_orgs"]}</p>') + create)
 
 
 def _notice(message: str = "", error: str = "") -> str:
@@ -189,39 +399,77 @@ def _notice(message: str = "", error: str = "") -> str:
             + (f'<p class="error" role="alert">{e(error)}</p>' if error else ""))
 
 
-def _signout(t: dict, csrf: str) -> str:
-    return f'<div class="links">{_button(t, t["signout"], "small quiet", action="signout", csrf=csrf)}</div>'
-
-
 def _access(t: dict, space: dict) -> str:
     return t["access"]["write" if space["write"] else "read" if space["read"] else
-                       PENDING if space["state"] == PENDING else "none"]
+                       PENDING if space["state"] == PENDING else "manage_only" if space["add"] else "none"]
+
+
+def _people(t: dict, org: dict, space: dict) -> str:
+    """How many are in a space, the owner included, when this person may see who is in it."""
+    if not (space["read"] or space["add"]):
+        return ""
+    n = len(space["members"]) + (0 if org["owner"] in space["members"] else 1)
+    return " · " + (t["people_one"] if n == 1 else t["people_many"].format(n=n))
+
+
+def _first_steps(t: dict, org: dict, levels: Dict[str, str]) -> str:
+    """For whoever runs the organization, until each step is done: what to do, and in what order."""
+    projects = [s for s in org["spaces"] if s["kind"] != GENERAL]
+    done = [bool(projects), len(org["members"]) > 1, any(s["members"] for s in projects),
+            any(level != "none" for level in levels.values())]
+    if all(done):
+        return ""
+    items = "".join(f'<li class="{"done" if ok else ""}"><span class="mark">{"✓" if ok else n}</span>'
+                    f'<span>{step}</span></li>' for n, (step, ok) in enumerate(zip(t["steps"], done), 1))
+    return f'<h2>{t["first_steps"]}</h2><ol class="steps">{items}</ol>'
+
+
+def _member_choice(t: dict, field: str, label: str, candidates: Optional[List[str]], *, optional: bool) -> str:
+    """Someone of the organization, picked from a list when this person may see its members; typed otherwise."""
+    e = html.escape
+    if candidates is None:
+        return (f'<label for="{field}">{label}</label><input id="{field}" name="{field}" type="text" '
+                f'autocapitalize="none" spellcheck="false"{"" if optional else " required"}>')
+    options = (f'<option value="">{t["nobody"]}</option>' if optional else "") + "".join(
+        f'<option value="{e(name)}">{e(name)}</option>' for name in candidates)
+    return f'<label for="{field}">{label}</label><select id="{field}" name="{field}">{options}</select>'
 
 
 def org_body(t: dict, org: dict, account: str, csrf: str, apps: List[dict], levels: Dict[str, str], *,
              link: str = "", link_pending: bool = False, message: str = "", error: str = "") -> str:
     e = html.escape
     org_id, role = org["id"], org["role"]
-    out = [_notice(message, error), f'<p class="meta">{t["roles"][role]}</p>']
-    if link:
-        out.append(f'<p class="note">{t["invite_link"]}</p><div class="code link">{e(link)}</div>'
-                   + (f'<p class="note">{t["invite_pending"]}</p>' if link_pending else ""))
+    runs = role in (OWNER, ADMIN)
+    out = [_top(t, account, csrf, [_link(t["orgs"]), e(org["name"])]), _notice(message, error),
+           f'<p class="lead"><span class="tag">{t["roles"][role]}</span> '
+           f'{e(t["you_are"][role].format(owner=org["owner"]))}</p>']
+    if link:  # right at the top, where the person who just asked for it looks
+        out.append(f'<div class="notice"><p class="ok" role="status">{t["invite_link"]}</p>'
+                   f'<div class="code link">{e(link)}</div>'
+                   + (f'<p class="note">{t["invite_pending"]}</p>' if link_pending else "") + '</div>')
+    if runs:
+        out.append(_first_steps(t, org, levels))
+
     out.append(f'<h2>{t["spaces"]}</h2>')
     for space in org["spaces"]:
-        target = f'{PATH}?{urlencode({"org": org_id, "space": space["id"]})}'
-        name = f'<a href="{target}">{e(space["name"])}</a>' if space["read"] or space["add"] else e(space["name"])
+        name = _link(space["name"], org=org_id, space=space["id"]) if space["read"] or space["add"] \
+            else e(space["name"])
         out.append(f'<div class="row"><div class="grow">{name} <span class="tag">{t["kinds"][space["kind"]]}</span>'
-                   f'</div><span class="meta">{_access(t, space)}</span></div>')
-    if role in (OWNER, ADMIN):
-        out.append(f'<h2>{t["new_space"]}</h2><form method="post" action="{PATH}">'
+                   f'<div class="meta">{t["kind_notes"][space["kind"]]}{_people(t, org, space)}</div></div>'
+                   f'<span class="meta">{_access(t, space)}</span></div>')
+    if runs:
+        candidates = [name for name in org["members"] if name != org["owner"]]
+        projects = [s for s in org["spaces"] if s["kind"] != GENERAL]
+        out.append(f'<details class="panel"{"" if projects else " open"}><summary>{t["new_space"]}</summary>'
+                   f'<p class="note">{t["new_space_note"]}</p><form method="post" action="{PATH}">'
                    f'{_hidden(action="create_space", csrf=csrf, org=org_id)}<label for="space_name">{t["space_name"]}'
                    f'</label><input id="space_name" name="name" type="text" maxlength="60" required>'
-                   f'<label for="manager">{t["manager"]}</label><input id="manager" name="manager" type="text" '
-                   f'autocapitalize="none" spellcheck="false"><button type="submit">{t["create"]}</button></form>')
-        out.append(f'<h2>{t["invite"]}</h2>'
-                   + _button(t, t["invite_go"], "small quiet", action="invite", csrf=csrf, org=org_id))
+                   + _member_choice(t, "manager", t["manager"], candidates, optional=True)
+                   + f'<p class="hint">{t["manager_note"]}</p><button type="submit">{t["create"]}</button></form>'
+                   '</details>')
+
     if org["members"]:
-        out.append(f'<h2>{t["members"]}</h2>')
+        out.append(f'<h2>{t["people"]}</h2>')
         for name, their_role in org["members"].items():
             actions = ""
             if role == OWNER and their_role != OWNER:
@@ -233,6 +481,13 @@ def org_body(t: dict, org: dict, account: str, csrf: str, apps: List[dict], leve
                                    target=name)
             out.append(f'<div class="row"><div class="grow">{e(name)}</div><span class="tag">'
                        f'{t["roles"][their_role]}</span>{actions}</div>')
+    if runs:
+        out.append(f'<details class="panel"><summary>{t["invite"]}</summary><p class="note">{t["invite_note"]}</p>'
+                   + _button(t, t["invite_go"], "small quiet", action="invite", csrf=csrf, org=org_id) + '</details>')
+        legend = "".join(f'<dt>{t["roles"][r]}</dt><dd>{text}</dd>' for r, text in t["roles_legend"])
+        out.append(f'<details class="panel"><summary>{t["roles_help"]}</summary><dl class="legend">{legend}</dl>'
+                   '</details>')
+
     out.append(f'<h2>{t["apps"]}</h2><p class="note">{t["apps_note"]}</p>')
     for app in apps:
         level = levels.get(app["client_id"], "none")
@@ -245,15 +500,15 @@ def org_body(t: dict, org: dict, account: str, csrf: str, apps: List[dict], leve
                    f'<button class="small quiet" type="submit">{t["save"]}</button></form></div>')
     if not apps:
         out.append(f'<p class="note">{t["no_apps"]}</p>')
+
     if org["audit"]:
-        out.append(f'<details><summary>{t["audit"]}</summary>' + "".join(
-            f'<div class="row meta"><div class="grow">{e(item["at"])} · {e(item["actor"])} · {e(item["action"])} '
-            f'{e(item["target"])}</div><span>{e(item["outcome"])}</span></div>' for item in reversed(org["audit"]))
-                   + '</details>')
+        names = {s["id"]: s["name"] for s in org["spaces"]}
+        out.append(f'<details class="panel"><summary>{t["audit"]}</summary>' + "".join(
+            f'<div class="row meta"><div class="grow">{e(_audit_line(t, item, names))}</div></div>'
+            for item in reversed(org["audit"])) + '</details>')
     if role != OWNER:
         leave = _button(t, t["leave_org"], "small bad", action="remove_member", csrf=csrf, org=org_id, target=account)
         out.append(f'<div class="links">{leave}</div>')
-    out.append(f'<div class="links"><a href="{PATH}">{t["back"]}</a></div>')
     return "".join(out)
 
 
@@ -261,11 +516,14 @@ def space_body(t: dict, org: dict, space: dict, memories: Optional[List[dict]], 
                message: str = "", error: str = "") -> str:
     e = html.escape
     ids = {"org": org["id"], "space": space["id"]}
-    out = [_notice(message, error),
-           f'<p class="meta">{e(org["name"])} · {t["kinds"][space["kind"]]} · {_access(t, space)}</p>',
-           f'<p class="note">{t["owner_reads"]}</p>']
+    out = [_top(t, account, csrf, [_link(t["orgs"]), _link(org["name"], org=org["id"]), e(space["name"])]),
+           _notice(message, error),
+           f'<p class="lead">{e(t["space_of"][space["kind"]].format(org=org["name"]))}</p>',
+           f'<p class="meta">{_access(t, space)}</p>']
+    if space["state"] == PENDING and not space["read"]:
+        out.append(f'<p class="notice">{t["you_pending"]}</p>')
     if memories is not None:
-        out.append(f'<h2>{t["memories"]}</h2>')
+        out.append(f'<h2>{t["memories"]}</h2><p class="note">{t["memories_note"]}</p>')
         for memory in memories:
             kind = t["kinds_memory"].get(memory["kind"], memory["kind"])
             mine = memory["by"] == account or memory["by"].startswith(f"{account} · ")
@@ -277,13 +535,16 @@ def space_body(t: dict, org: dict, space: dict, memories: Optional[List[dict]], 
             out.append(f'<p class="note">{t["empty"]}</p>')
     if space["write"]:
         options = "".join(f'<option value="{k}">{t["kinds_memory"][k]}</option>' for k in _KINDS)
-        out.append(f'<h2>{t["add_memory"]}</h2><form method="post" action="{PATH}">'
-                   f'{_hidden(action="remember", csrf=csrf, **ids)}<label for="statement">{t["statement"]}</label>'
-                   f'<textarea id="statement" name="statement" maxlength="2000" required></textarea>'
-                   f'<label for="kind">{t["kind"]}</label><select id="kind" name="kind">{options}</select>'
-                   f'<button type="submit">{t["add"]}</button></form>')
-    if space["members"]:
+        out.append(f'<details class="panel" open><summary>{t["add_memory"]}</summary><form method="post" '
+                   f'action="{PATH}">{_hidden(action="remember", csrf=csrf, **ids)}<label for="statement">'
+                   f'{t["statement"]}</label><textarea id="statement" name="statement" maxlength="2000" required>'
+                   f'</textarea><label for="kind">{t["kind"]}</label><select id="kind" name="kind">{options}</select>'
+                   f'<button type="submit">{t["add"]}</button></form></details>')
+    if space["read"] or space["add"]:
         out.append(f'<h2>{t["space_members"]}</h2>')
+        if org["owner"] not in space["members"]:
+            out.append(f'<div class="row"><div class="grow">{e(org["owner"])} <span class="tag">{t["roles"][OWNER]}'
+                       f'</span><div class="meta">{t["owner_row"]}</div></div></div>')
         for name, seat in space["members"].items():
             actions = ""
             if seat["state"] == PENDING and space["manage"] and name != account:
@@ -296,17 +557,24 @@ def space_body(t: dict, org: dict, space: dict, memories: Optional[List[dict]], 
             out.append(f'<div class="row"><div class="grow">{e(name)} <span class="tag">{t["roles"][seat["role"]]}'
                        f'</span><div class="meta">{state}</div></div>{actions}</div>')
     if space["add"] and space["kind"] != GENERAL:
-        roles = "".join(f'<option value="{r}">{t["roles"][r]}</option>' for r in (MEMBER, MANAGER))
-        out.append(f'<h2>{t["add_member"]}</h2><form method="post" action="{PATH}">'
-                   f'{_hidden(action="add_member", csrf=csrf, **ids)}<label for="target">{t["account"]}</label>'
-                   f'<input id="target" name="target" type="text" autocapitalize="none" spellcheck="false" required>'
-                   f'<label for="role">{t["role"]}</label><select id="role" name="role">{roles}</select>'
-                   f'<label><input type="checkbox" name="write" value="1" checked> {t["can_write"]}</label>'
-                   f'<button type="submit">{t["add_person"]}</button></form>')
+        # From the organization's people when this person may see them (owner and admins); typed otherwise.
+        candidates = ([name for name in org["members"] if name != org["owner"] and name not in space["members"]]
+                      if org["members"] else None)
+        if candidates == []:
+            out.append(f'<details class="panel"><summary>{t["add_member"]}</summary>'
+                       f'<p class="note">{t["no_candidates"]}</p></details>')
+        else:
+            roles = "".join(f'<option value="{r}">{t["roles"][r]}</option>' for r in (MEMBER, MANAGER))
+            out.append(f'<details class="panel"><summary>{t["add_member"]}</summary><form method="post" '
+                       f'action="{PATH}">{_hidden(action="add_member", csrf=csrf, **ids)}'
+                       + _member_choice(t, "target", t["account"] if candidates is not None else t["account_free"],
+                                        candidates, optional=False)
+                       + f'<label for="role">{t["role"]}</label><select id="role" name="role">{roles}</select>'
+                       f'<label class="check"><input type="checkbox" name="write" value="1" checked> '
+                       f'{t["can_write"]}</label><button type="submit">{t["add_person"]}</button></form></details>')
     if space["kind"] != GENERAL and account in space["members"]:
         leave = _button(t, t["leave_space"], "small bad", action="remove_from_space", csrf=csrf, target=account, **ids)
         out.append(f'<div class="links">{leave}</div>')
-    out.append(f'<div class="links"><a href="{PATH}?{urlencode({"org": org["id"]})}">{t["back"]}</a></div>')
     return "".join(out)
 
 
@@ -349,13 +617,23 @@ def routes(accounts, grants, teams, limiter, secure: bool, issuer: str = "") -> 
     async def run(work, *args):
         return await anyio.to_thread.run_sync(work, *args)
 
+    async def invitation_of(token: str) -> Optional[dict]:
+        """Who invites, and to what, while the invitation still works."""
+        offer = grants.find(remote_teams.INVITE, token) if token else None
+        return await run(teams.invitation, offer) if offer else None
+
     def back_to(**where) -> RedirectResponse:
         wanted = {name: value for name, value in where.items() if value}
         return RedirectResponse(f"{PATH}?{urlencode(wanted)}" if wanted else PATH, status_code=303, headers=_HEADERS)
 
+    async def sign_in_page(t: dict, invite: str = "", status: int = 200, **fields):
+        invitation = await invitation_of(invite)
+        title = t["invited_title"].format(org=invitation["org"]) if invitation else t["title"]
+        return view(t, title, sign_in_body(t, invite=invite, invitation=invitation, **fields), status)
+
     async def home(t: dict, session: dict, **notices):
         orgs = await run(teams.orgs_of, session["account"])
-        return view(t, t["title"], home_body(t, orgs, session["data"]["csrf"],
+        return view(t, t["title"], home_body(t, orgs, session["data"]["csrf"], account=session["account"],
                                              can_create=accounts.teams_allowed(session["account"]), **notices))
 
     async def org_page(t: dict, session: dict, org_id: str, **extra):
@@ -383,16 +661,20 @@ def routes(accounts, grants, teams, limiter, secure: bool, issuer: str = "") -> 
                                                  **notices))
 
     async def invited(t: dict, session: dict, token: str):
-        if grants.find(remote_teams.INVITE, token) is None:
+        invitation = await invitation_of(token)
+        if invitation is None:
             return view(t, t["title"], f'<p class="error">{t["invite_expired"]}</p>', status=400)
-        return view(t, t["invited_title"], f'<p class="note">{t["invited_note"]}</p>' + _button(
-            t, t["accept"], "", action="accept", csrf=session["data"]["csrf"], invite=token))
+        e = html.escape
+        return view(t, t["invited_title"].format(org=invitation["org"]),
+                    f'<p class="lead">{e(t["invited_by"].format(by=invitation["by"], org=invitation["org"]))}</p>'
+                    f'<p class="note">{t["invited_note"]}</p>'
+                    + _button(t, t["accept"], "", action="accept", csrf=session["data"]["csrf"], invite=token))
 
     async def page(request):
         t, params = texts(request), request.query_params
         session = signed_in(request)
         if session is None:
-            return view(t, t["title"], sign_in_body(t, invite=params.get("invite", "")))
+            return await sign_in_page(t, invite=params.get("invite", ""))
         if params.get("invite"):
             return await invited(t, session, params["invite"])
         if params.get("org") and params.get("space"):
@@ -405,13 +687,13 @@ def routes(accounts, grants, teams, limiter, secure: bool, issuer: str = "") -> 
         name, password = str(form.get("name", "")).strip().lower(), str(form.get("password", ""))
         invite = str(form.get("invite", ""))
         if not NAME.fullmatch(name):
-            return view(t, t["title"], sign_in_body(t, invite=invite, name=name, error=t["bad_password"]), 400)
+            return await sign_in_page(t, invite=invite, status=400, name=name, error=t["bad_password"])
         if accounts.waiting(name):
             error = t["wait"].format(n=accounts.waiting(name))
-            return view(t, t["title"], sign_in_body(t, invite=invite, name=name, error=error), 429)
+            return await sign_in_page(t, invite=invite, status=429, name=name, error=error)
         key = await anyio.to_thread.run_sync(accounts.open, name, password, limiter=limiter)
         if key is None:
-            return view(t, t["title"], sign_in_body(t, invite=invite, name=name, error=t["bad_password"]), 400)
+            return await sign_in_page(t, invite=invite, status=400, name=name, error=t["bad_password"])
         # From now on this person can be handed a space's key while they are away (remote_keys.py).
         await run(accounts.key_pair, name, key)
         session = grants.issue(SESSION, client_id="", seconds=SESSION_SECONDS, account=name, key=key,
@@ -429,8 +711,7 @@ def routes(accounts, grants, teams, limiter, secure: bool, issuer: str = "") -> 
             return await sign_in(t, form)
         session = signed_in(request)
         if session is None:
-            return view(t, t["title"], sign_in_body(t, invite=str(form.get("invite", "")), error=t["session_over"]),
-                        401)
+            return await sign_in_page(t, invite=str(form.get("invite", "")), status=401, error=t["session_over"])
         if not hmac.compare_digest(str(form.get("csrf", "")), session["data"]["csrf"]):
             return view(t, t["title"], f'<p class="error">{t["bad_form"]}</p><p><a href="{PATH}">{t["back"]}</a></p>',
                         403)
