@@ -312,16 +312,10 @@ h1, h2, h3 { font-family: "Segoe UI Variable Display", "Segoe UI", system-ui, -a
 }
 
 .roadmap { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin: 30px 0 0; padding: 0; list-style: none; }
-.road { position: relative; overflow: hidden; padding: 22px 20px 20px; }
+.road { --road: var(--cyan); position: relative; overflow: hidden; padding: 22px 20px 20px; }
 .road::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 3px; background: var(--road); box-shadow: 0 0 16px var(--road); }
-.road-done { --road: var(--ok); }
-.road-live { --road: var(--cyan); }
-.road-next { --road: #60a5fa; }
-.road-goal { --road: var(--violet); }
 .road-horizon { --road: #f0abfc; grid-column: span 2; border-color: rgba(240, 171, 252, .35); background: linear-gradient(135deg, rgba(139, 92, 246, .2), rgba(34, 211, 238, .1)); }
 .road-num { display: block; font-size: 2rem; font-weight: 800; line-height: 1; background: linear-gradient(135deg, var(--cyan-2), var(--violet)); -webkit-background-clip: text; background-clip: text; color: transparent; }
-.road-state { display: inline-block; margin-top: 10px; padding: 2px 9px; border-radius: 999px; background: var(--road); color: #021018; font-size: .66rem; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; }
-.road-live .road-state { animation: halo 1.8s ease-in-out infinite; }
 .road h3 { margin: 10px 0 6px; font-size: 1.12rem; }
 .road p { margin: 0; color: var(--muted); font-size: .92rem; line-height: 1.5; }
 .road-horizon h3 { font-size: 1.35rem; }
@@ -437,7 +431,6 @@ h1, h2, h3 { font-family: "Segoe UI Variable Display", "Segoe UI", system-ui, -a
   :root:not(.expo) .ring,
   :root:not(.expo) .core:not(.pulse) .core-img,
   :root:not(.expo) .core:not(.thinking) .core-halo,
-  :root:not(.expo) .org-glow,
-  :root:not(.expo) .road-live .road-state { animation: none; }
+  :root:not(.expo) .org-glow { animation: none; }
   :root:not(.expo) .org-pulses { display: none; }
 }

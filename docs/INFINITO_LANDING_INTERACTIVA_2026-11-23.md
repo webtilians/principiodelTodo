@@ -23,9 +23,10 @@ directamente desde la copia del repositorio que ya tiene el servidor.
 
 ## Hoja de ruta que muestra
 
-01 Memoria universal (conseguido) · 02 Motor cognitivo (en marcha) · 03 INFINITO Teams (en marcha) · 04 Apps móviles
-(siguiente) · 05 Hogar y dispositivos · 06 Robots (objetivos) · 07 El agente total (horizonte). Sin fechas: si se
-quieren poner años objetivo, van en el `road-state` de cada fase en `index.html`.
+01 Memoria universal · 02 Motor cognitivo · 03 INFINITO Teams · 04 Apps móviles · 05 Hogar y dispositivos ·
+06 Robots · 07 El agente total. Sin estados ni fechas: la landing vende la visión del producto, no el estado del
+desarrollo, que se explica cuando un inversor muestra interés serio. Todas las fases llevan el mismo color; la 07
+lleva el suyo porque es el destino.
 
 Las cifras son las que publica la portada (Bemula-Lite 45,9 frente a 26,3; 79 ramas, 50+ protocolos, 750+ ejecuciones).
 

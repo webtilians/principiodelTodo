@@ -112,3 +112,14 @@ def test_the_site_serves_the_landing_folder_at_slash_landing_with_its_policy():
     assert "Content-Security-Policy" in block and "default-src 'none'" in block and "script-src 'self'" in block
     # It comes before the catch-all that hands everything else to the memory server.
     assert site.index("handle_path /landing/*") < site.index("\thandle {\n")
+
+
+def test_the_roadmap_sells_the_vision_without_development_status():
+    """The landing is a campaign: it shows where INFINITO is going, not what is finished and what is not."""
+    text = (LANDING / "index.html").read_text(encoding="utf-8")
+    roadmap = text[text.index('<ol class="roadmap">'):text.index("</ol>", text.index('<ol class="roadmap">'))]
+    for word in ("conseguido", "en marcha", "siguiente", "objetivo", "horizonte", "pendiente", "en desarrollo"):
+        assert word not in roadmap.lower(), word
+    steps = [attrs.get("class", "") for tag, attrs in page().tags if tag == "li" and "road" in attrs.get("class", "").split()]
+    assert len(steps) == 7 and set(steps) <= {"road", "road road-horizon"}, steps
+    assert "road-state" not in text and "ya en marcha" not in text.lower()
