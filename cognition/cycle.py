@@ -15,7 +15,8 @@ A review:
 2. the observer marks what matters; the investigator turns it into falsifiable hypotheses, each with a check that
    the engine runs as a read-only recall; the baseline makes one cheap pass of its own, kept blind;
 3. the supervisor reads all of it, the whole inventory included, audits its children, judges the hypotheses against
-   the checks, writes its reflection and proposes guidelines;
+   the checks, writes its reflection and proposes guidelines. When its input limit cannot hold everything, the day
+   comes first: the task queue and then its own earlier reflections give way, the oldest first (_budget);
 4. the referee (validate.py) sets aside every claim that cites something it was not shown;
 5. the reflection goes to INFINITO's reflections (only in a live run); the proposals wait for the person;
 6. a report for the person, and the diary, record all of it, costs included.
@@ -41,15 +42,61 @@ from .providers import TIMEOUT, Fake, ProviderError
 LOCK_STALE_SECONDS = 3 * 3600
 SUPERVISOR_EXTRA = 40000  # characters the children's reports, the checks and the instructions may add
 REFLECTIONS_DAYS = 21
+# However long the day, the newest reflections and the person's comments on them (how the person supervises the
+# supervisor) keep this much room; the rest of the reflections give way before the day does.
+REFLECTIONS_RESERVE = 8000
 CLOSE_RETRY_SECONDS = 10 * 60  # a failed night close is tried again only with this much of the night left
 CHECK_LIMIT = 8
 NEW_HEADER = re.compile(r"Memories saved [^\n]*?\((\d+)\)")
 EARLIER = "\nYour latest earlier reflections"
+HOW_TO_REFLECT = "\nHow to write a reflection"
 KEPT_AS = re.compile(r"Kept as your reflection ([0-9a-f]{8})")
+REFLECTION_START = re.compile(r"^\[[0-9a-f]{8}\] \(")
+CUT_MARK = "[... cortado por el límite de entrada]"
 
 
 class Busy(Exception):
     pass
+
+
+def _cut_lines(text: str, room: int) -> str:
+    """The text in room characters, cut at a line so no line is split, and saying it was cut."""
+    if len(text) <= room:
+        return text
+    return text[:max(room, 0)].rsplit("\n", 1)[0] + "\n" + CUT_MARK
+
+
+def _reflection_entries(text: str) -> Tuple[List[str], List[str]]:
+    """A listing of reflections split into its head (the lines before the first one) and one block per reflection, in
+    the order listed (oldest first), each with the indented lines that follow it."""
+    head, entries = [], []
+    for line in (text or "").splitlines():
+        if REFLECTION_START.match(line):
+            entries.append([line])
+        elif entries:
+            entries[-1].append(line)
+        else:
+            head.append(line)
+    return head, ["\n".join(entry) for entry in entries]
+
+
+def _latest_reflections(text: str, room: int) -> str:
+    """The most recent reflections that fit in room, the oldest giving way first, with a line saying how many were
+    left out. If not even the newest fits, it is cut at a line."""
+    head, entries = _reflection_entries(text)
+    if not entries:
+        return _cut_lines(text, room)
+    for start in range(len(entries) + 1):
+        note = [f"[... {start} reflexiones anteriores no caben en la entrada]"] if start else []
+        candidate = "\n".join(head + note + entries[start:])
+        if len(candidate) <= room:
+            return candidate
+    return _cut_lines("\n".join(head + entries[-1:]), room)
+
+
+def _read(ids: List[str], text: str) -> int:
+    """How many of these memories are in the text whole: a cut never splits a line, so an id shown is a line shown."""
+    return sum(1 for i in ids if f"[{i}]" in text)
 
 
 def _utc(moment: datetime) -> str:
@@ -189,7 +236,9 @@ class Engine:
             "reflection": {"id": reflection_id or "", "text": reflection.get("reflection", ""),
                            "advice": reflection.get("advice") or "", "questions": reflection.get("questions") or [],
                            "sources": reflection.get("sources") or [], "model": supervisor.get("model", "")},
-            "coverage": {"read": cover.get("inventory", 0), "reported": inventory.get("reported_new", 0),
+            # What the supervisor had in front of it whole, when the review counted it (from 23/11/2026 on).
+            "coverage": {"read": (cover.get("read_by") or {}).get("supervisor", cover.get("inventory", 0)),
+                         "reported": inventory.get("reported_new", 0),
                          "nobody": len(cover.get("cited_by_nobody", [])), "limits": cover.get("limits", [])},
             "audit": review.get("audit", []),
             "hypotheses": [{"id": h.get("id"), "statement": h.get("statement"), "falsifier": h.get("falsifier"),
@@ -262,22 +311,42 @@ class Engine:
             ids = candidates[-missing:] + ids
         short = {m: line.strip() for line in new_part.splitlines() for m in validate.memory_ids(line)[:1]}
         lines = [whole.get(m) or short.get(m, f"[{m}]") for m in ids]
-        reflections = self.infinito.call("reflection_list",
-                                         since=(now - timedelta(days=REFLECTIONS_DAYS)).date().isoformat())
+        listing = self.infinito.call("reflection_list",
+                                     since=(now - timedelta(days=REFLECTIONS_DAYS)).date().isoformat())
+        # reflection_context repeats the latest reflections, which the listing of the last weeks already has: each goes
+        # in once, and any older one it adds goes before them, so that it is the first to give way when room is short.
+        head, recent = _reflection_entries(listing)
+        listed = {validate.reflection_ids(entry)[0] for entry in recent}
+        _, context = _reflection_entries(earlier_part.split(HOW_TO_REFLECT, 1)[0])
+        older = [entry for entry in context if validate.reflection_ids(entry)[0] not in listed]
         try:
             tasks = self.infinito.call("task_list")
         except InfinitoError:
             tasks = "(the task queue could not be read)"
         return {"ids": ids, "text": "\n".join(lines), "reported_new": reported, "shown_new": len(ids),
-                "reflections": reflections + "\n" + earlier_part, "tasks": tasks}
+                "reflections": "\n".join(head + older + recent), "tasks": tasks}
 
     # Calling a model
 
     def _fit(self, role: str, text: str, other_chars: int) -> Tuple[str, bool]:
         room = int(self.config["roles"][role]["max_input_chars"]) - other_chars
-        if len(text) <= room:
-            return text, False
-        return text[:max(room, 0)].rsplit("\n", 1)[0] + "\n[... cortado por el límite de entrada]", True
+        return _cut_lines(text, room), len(text) > room
+
+    def _budget(self, role: str, blocks: List[Tuple[str, str, Callable[[str, int], str], int]],
+                fixed_chars: int) -> Tuple[Dict[str, str], Dict[str, List[int]]]:
+        """Fits a role's input into its limit in order of priority: each block takes what it needs from what the ones
+        before it left, so the last ones give way first, each in its own way (cut at a line, or the oldest reflections
+        out first). A block's reserve is set aside for it before the others take theirs. The texts as shown, and per
+        block [characters shown, characters it had]."""
+        room = int(self.config["roles"][role]["max_input_chars"]) - fixed_chars
+        room -= sum(min(len(text), reserve) for _, text, _, reserve in blocks)
+        shown, sizes = {}, {}
+        for name, text, shorten, reserve in blocks:
+            room += min(len(text), reserve)  # its own reserve is its to use now
+            kept = text if len(text) <= room else shorten(text, max(room, 0))
+            shown[name], sizes[name] = kept, [len(kept), len(text)]
+            room -= len(kept)
+        return shown, sizes
 
     def supervisor_share(self, inventory: dict) -> float:
         """What the supervisor's call may cost, held back from the children: the review needs it most. Nothing is held
@@ -447,20 +516,25 @@ class Engine:
                 earlier = ""
             # One finding per line: compact, and a cut never splits one.
             report = "\n".join(json.dumps(f, ensure_ascii=False) for f in findings)
-            report, _ = self._fit("supervisor", report, len(earlier) + 6000)
-            closed = None
+            closed, shown = None, {"findings": report, "reflections": earlier}
             for share in (1, 2):  # a failed close is tried once more on half the findings, while there is time
                 if share > 1 and (closed is not None or (end - self.clock()).total_seconds() < CLOSE_RETRY_SECONDS):
                     break
                 cap = int(self.config["study_close_chars"]) // share
                 text = report if len(report) <= cap else (
                     report[:cap].rsplit("\n", 1)[0] + "\n[... cortado: más hallazgos de los que caben]")
-                closed = self.ask(night, "supervisor", roles.section("Hallazgos de esta noche", text)
+                # The night's findings first: its earlier reflections take what is left, the oldest giving way first.
+                shown, sizes = self._budget("supervisor", [("findings", text, _cut_lines, 0),
+                                                           ("reflections", earlier, _latest_reflections,
+                                                            REFLECTIONS_RESERVE)], 6000)
+                self.diary.append("input_budget", run=night, role="supervisor", task="study_close", blocks=sizes)
+                closed = self.ask(night, "supervisor", roles.section("Hallazgos de esta noche", shown["findings"])
                                   + roles.section("Tus reflexiones recientes y los comentarios de la persona",
-                                                  earlier), task="study_close")
-            cited = {i for f in findings for i in f.get("memory_ids", [])}
+                                                  shown["reflections"]), task="study_close")
+            cited = {i for f in findings for i in f.get("memory_ids", []) if i in shown["findings"]}
             reflection, dropped = validate.reflection((closed or {}).get("reflection"), cited,
-                                                      set(validate.reflection_ids(earlier)), avoid=still_open)
+                                                      set(validate.reflection_ids(shown["reflections"])),
+                                                      avoid=still_open)
             summary = str((closed or {}).get("summary_for_owner") or "")[:1500]
             if reflection:
                 try:
@@ -518,11 +592,12 @@ class Engine:
             self.diary.append("review_end", run=run, outcome="nothing new", live=self.live)
             return self._report(run, now, inventory, {}, nothing_new=True)
 
-        cut = {}
+        cut, read = {}, {}
         hold = self.supervisor_share(inventory)
         earlier = self._observation_sets(since)
         # Observer
         text, cut["observer"] = self._fit("observer", inventory["text"], 4000)
+        read["observer"] = _read(inventory["ids"], text)
         observed = self.ask(run, "observer", roles.section("Recuerdos nuevos desde la última revisión", text),
                             hold=hold)
         observations, observations_aside = validate.grounded(roles.items(observed, "observations"), "memory_ids",
@@ -536,9 +611,12 @@ class Engine:
         # Investigator
         report = json.dumps({"observations": observations}, ensure_ascii=False, indent=1)
         text, cut["investigator"] = self._fit("investigator", inventory["text"], len(report) + 4000)
+        read["investigator"] = _read(inventory["ids"], text)
         investigated = self.ask(run, "investigator", roles.section("Recuerdos nuevos", text)
                                 + roles.section("Informe del observador", report), hold=hold)
-        hypotheses, hypotheses_aside = validate.grounded(roles.items(investigated, "hypotheses"), "evidence_ids", known)
+        observed_ids = {str(o["id"]) for o in observations if o.get("id")}
+        hypotheses, hypotheses_aside = validate.hypotheses(roles.items(investigated, "hypotheses"), known,
+                                                           observed_ids)
         self.diary.append("hypothesis_set", run=run, arm="hierarchy",
                           ids=[i for h in hypotheses for i in h.get("evidence_ids", [])],
                           body={"hypotheses": hypotheses, "set_aside": hypotheses_aside})
@@ -564,41 +642,56 @@ class Engine:
 
         # Baseline: one cheap pass over the same inventory, for the blind comparison
         text, cut["baseline"] = self._fit("baseline", inventory["text"], 2000)
+        read["baseline"] = _read(inventory["ids"], text)
         baseline = self.ask(run, "baseline", roles.section("Recuerdos nuevos", text), hold=hold)
-        baseline_hypotheses, baseline_aside = validate.grounded(roles.items(baseline, "hypotheses"), "evidence_ids",
-                                                                known)
+        # The baseline never sees the observer's report: an observation it cites is one it was not shown.
+        baseline_hypotheses, baseline_aside = validate.hypotheses(roles.items(baseline, "hypotheses"), known, set())
         self.diary.append("hypothesis_set", run=run, arm="baseline",
                           ids=[i for h in baseline_hypotheses for i in h.get("evidence_ids", [])],
                           body={"hypotheses": baseline_hypotheses, "set_aside": baseline_aside})
 
         # Supervisor
         pending = [p for p in proposals(self.diary) if p["status"] == "pending"]
-        children = (roles.section("Informe del observador (lo apartado por el árbitro va aparte)",
-                                  json.dumps({"observations": observations, "set_aside": observations_aside},
-                                             ensure_ascii=False, indent=1))
-                    + roles.section("Hipótesis del investigador",
-                                    json.dumps({"hypotheses": hypotheses, "set_aside": hypotheses_aside},
-                                               ensure_ascii=False, indent=1))
-                    + roles.section("Pruebas buscadas en la memoria para cada hipótesis",
-                                    "\n".join(f"{c['hypothesis']} · consulta «{c['query']}»:\n  "
-                                              + "\n  ".join(c.get("lines") or [c.get("error", "nada encontrado")])
-                                              for c in checks))
-                    + roles.section("Tus reflexiones recientes y los comentarios de la persona sobre ellas",
-                                    inventory["reflections"])
-                    + roles.section("Pautas que ya propusiste y esperan a la persona (no las repitas)",
-                                    "\n".join(f"[{p['id']}] {p['target_role']}: {p['guideline']}" for p in pending))
-                    + roles.section("Cola de tareas", inventory["tasks"]))
-        text, cut["supervisor"] = self._fit("supervisor", inventory["text"], len(children) + 6000)
-        judged = self.ask(run, "supervisor",
-                          roles.section(f"Inventario íntegro del día ({len(inventory['ids'])} recuerdos)", text)
-                          + children)
-        evidence = known | check_ids  # the supervisor was shown the checks too, so it may cite them
+        reports = (roles.section("Informe del observador (lo apartado por el árbitro va aparte)",
+                                 json.dumps({"observations": observations, "set_aside": observations_aside},
+                                            ensure_ascii=False, indent=1))
+                   + roles.section("Hipótesis del investigador",
+                                   json.dumps({"hypotheses": hypotheses, "set_aside": hypotheses_aside},
+                                              ensure_ascii=False, indent=1))
+                   + roles.section("Pruebas buscadas en la memoria para cada hipótesis",
+                                   "\n".join(f"{c['hypothesis']} · consulta «{c['query']}»:\n  "
+                                             + "\n  ".join(c.get("lines") or [c.get("error", "nada encontrado")])
+                                             for c in checks)))
+        waiting = roles.section("Pautas que ya propusiste y esperan a la persona (no las repitas)",
+                                "\n".join(f"[{p['id']}] {p['target_role']}: {p['guideline']}" for p in pending))
+        # The day first: it is the evidence the supervisor is there to judge. The task queue and then its own earlier
+        # reflections take what is left, the oldest giving way first, past a reserve for the newest. Fitting the day
+        # into what they left, as before, let it read 18 of 92 memories on 21/11/2026 and 0 of 5 on 23/11/2026.
+        shown, sizes = self._budget("supervisor", [("inventory", inventory["text"], _cut_lines, 0),
+                                                   ("tasks", inventory["tasks"], _cut_lines, 0),
+                                                   ("reflections", inventory["reflections"], _latest_reflections,
+                                                    REFLECTIONS_RESERVE)],
+                                    len(reports) + len(waiting) + 6000)
+        whole = len(inventory["ids"])
+        read["supervisor"] = _read(inventory["ids"], shown["inventory"])
+        cut["supervisor"] = sizes["inventory"][0] < sizes["inventory"][1]
+        self.diary.append("input_budget", run=run, role="supervisor", blocks=sizes, read=read["supervisor"], of=whole)
+        title = (f"Inventario íntegro del día ({whole} recuerdos)" if not cut["supervisor"]
+                 else f"Inventario del día, cortado: caben enteros {read['supervisor']} de {whole} recuerdos")
+        prompt = (roles.section(title, shown["inventory"]) + reports
+                  + roles.section("Tus reflexiones recientes y los comentarios de la persona sobre ellas",
+                                  shown["reflections"])
+                  + waiting + roles.section("Cola de tareas", shown["tasks"]))
+        judged = self.ask(run, "supervisor", prompt)
+        # What it may cite: the day's memories and the checks' finds that its input actually held (a memory cut out of
+        # it, and named nowhere else, is one it never saw).
+        evidence = {i for i in known | check_ids if i in prompt}
         audit, audit_aside = validate.grounded(roles.items(judged, "audit"), "ids", evidence)
         named = {h.get("id") for h in hypotheses}
         verdicts, verdicts_aside = validate.grounded(
             [v for v in roles.items(judged, "verdicts") if v.get("hypothesis") in named], "ids", evidence)
         reflection, dropped = validate.reflection((judged or {}).get("reflection"), evidence,
-                                                  set(validate.reflection_ids(inventory["reflections"])),
+                                                  set(validate.reflection_ids(shown["reflections"])),
                                                   avoid=still_open)
         self.diary.append("supervisor_review", run=run, ids=sorted(set(i for a in audit for i in a["ids"])
                                                                    | set(i for v in verdicts for i in v["ids"])),
@@ -645,7 +738,8 @@ class Engine:
             "investigator": [i for h in hypotheses for i in h.get("evidence_ids", [])],
             "supervisor": [i for a in audit for i in a["ids"]] + [i for v in verdicts for i in v["ids"]]
                           + (reflection.get("sources", []) if reflection else [])},
-            reported_new=inventory["reported_new"], shown_new=inventory["shown_new"], truncated=cut)
+            reported_new=inventory["reported_new"], shown_new=inventory["shown_new"], truncated=cut, read_by=read,
+            shortened={name: size for name, size in sizes.items() if name != "inventory" and size[0] < size[1]})
         blind = self._blind(run, now, hypotheses, baseline_hypotheses)
         self.diary.append("review_end", run=run, outcome="reviewed", live=self.live, coverage=cover,
                           proposals=made, reflection=published, spent_eur=round(self.ledger.spent(now.date()), 4),
