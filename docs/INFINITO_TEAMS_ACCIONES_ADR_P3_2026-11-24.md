@@ -1,6 +1,6 @@
 # INFINITO Teams — ADR P3: acciones del negocio, con piloto en una gestoría
 
-**Estado:** PROPUESTO el 24/11/2026. Solo documentación. No autoriza código en producción, despliegue, datos reales,
+**Estado:** PROPUESTO el 24/11/2026; respuestas del propietario el mismo día (§10). Solo documentación. No autoriza código en producción, despliegue, datos reales,
 conexiones con la Agencia Tributaria ni gasto.
 **Fecha:** 24/11/2026.
 **Base de código:** `master` en `a2e7a43` (comprobado con `git fetch` el 24/11/2026). Las referencias `archivo:línea`
@@ -251,3 +251,54 @@ y que el motor cognitivo use acciones.
 - Propietario: ____________________
 - Fecha: ____________________
 - Decisiones aceptadas, modificadas o rechazadas (A1–A9, P-1…P-7): ____________________
+
+---
+
+## 10. Adenda 1 (24/11/2026): respuestas del propietario y cambios
+
+### 10.1 Respuestas
+
+- **P-1** «Las acciones las aprueba uno mismo», y cada modelo de negocio será distinto: en un camping o un hotel la
+  misma persona hace su alta; en una empresa de carteles, alguien pide tóner o consulta proyectos.
+- **P-2** Las acciones las damos de alta **nosotros**: se estudian las necesidades de la empresa y después se crean
+  sus acciones y su modelo de negocio. Además, a Teams se le podrán añadir **disparadores (dispatch, triggers)** que
+  lancen eventos de la empresa.
+- **P-3** De cada acción se guarda un recuerdo con **quién la hizo, cuándo, y los datos de la acción o su
+  referencia**. Si los datos se pueden recuperar (por ejemplo, una fila de una base de datos), se guarda el
+  identificador, no toda la información.
+- **P-4** Sí: los adaptadores los instalamos nosotros.
+- **P-5** Es un complemento de Teams. Ahora no se configuran herramientas concretas de ninguna empresa (como mucho una
+  demo en la portada): se deja **preparado** para conectarlas cuando haga falta, y `/teams` **muestra las herramientas
+  que tiene conectadas** cada empresa.
+- **P-6** Paszoom no, de momento. En la presentación del 25/11/2026 se comentará y se ofrecerá preparar un prototipo
+  para la empresa que lo quiera.
+- **P-7** La integración de cada cliente se cobra aparte, y su precio depende de lo que cueste.
+
+### 10.2 Cambios en las decisiones
+
+- **A4 (riesgo → modo).** Cada acción lleva un **modo** que fijamos al darla de alta, según el negocio:
+  `direct` (se ejecuta al pedirla), `self` (la confirma en `/teams` quien la pidió; es el modo por defecto, por P-1) y
+  `second` (la confirma otra persona con permiso). En todos los modos sigue sin existir una herramienta para
+  confirmar: confirma una persona en la página, nunca una IA.
+- **Catálogo del servidor (A1, A6, P-2).** Las acciones y los adaptadores de cada organización viven en un archivo que
+  solo escribe el administrador del servidor (`INFINITO_TEAMS_ACTIONS_FILE`; por defecto `actions.json` junto a los
+  datos, permisos `0600`). Las organizaciones lo ven en `/teams`, pero no lo editan. No entra en las copias de
+  seguridad, porque es configuración con secretos y su original lo guardamos nosotros.
+- **Credenciales (A5).** Como el alta la hacemos nosotros sin la llave de ningún espacio, las credenciales del
+  programa de la empresa se quedan **en el adaptador**, fuera de INFINITO. INFINITO solo guarda, en el catálogo, el
+  secreto con el que se identifica ante cada adaptador. Lo que sí va sellado con la llave del espacio son los
+  **datos de cada petición** pendiente y su resultado, que la rotación de llave vuelve a sellar.
+- **Recuerdo de cada acción (A8, P-3).** Al terminar, la acción deja un recuerdo en su espacio:
+  «`persona` hizo «`acción`» con `IA`: `referencia o datos`». Si el adaptador devuelve una referencia (`ref`), se
+  guarda solo esa; si no, los argumentos en forma compacta. Una acción puede no dejar recuerdo (`remember: false`),
+  pensado para consultas repetitivas.
+- **Disparadores y eventos (P-2), en dos sentidos:**
+  - *De INFINITO a la empresa:* un disparador es una acción más cuyo adaptador lanza un evento en los sistemas de la
+    empresa (un webhook, una automatización). Entra en P3-1 sin código nuevo.
+  - *De la empresa a INFINITO:* que un sistema de la empresa avise («ha llegado un pedido») y quede en la memoria del
+    espacio. Llega cuando nadie tiene la llave abierta, así que necesita un buzón por espacio: una clave pública con la
+    que cualquiera sella el evento al llegar, y cuya mitad privada va sellada con la llave del espacio; el buzón se
+    vacía en la memoria la próxima vez que un miembro abre el espacio. Queda para **P3-2**.
+- **Alcance de P3-1 (P-5).** El marco y su vista, sin herramientas de ninguna empresa real: catálogo, `company_actions`
+  y `company_act`, modos y confirmaciones, recuerdo de cada acción, nivel de app `act` y la sección «Herramientas
+  conectadas» de `/teams`. El adaptador de la gestoría pasa a ser un ejemplo opcional para una demo, no parte del MVP.
