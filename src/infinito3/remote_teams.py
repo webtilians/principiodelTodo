@@ -421,6 +421,21 @@ class Teams:
             self._save(policy)
         return token
 
+    def invitation(self, offer: dict) -> Optional[dict]:
+        """What an invitation tells whoever holds it, before they accept: the organization's name and who sent it.
+        None when it no longer leads anywhere (the organization is gone, or the sender may no longer invite)."""
+        org_id, inviter = str(offer["data"].get("org", "")), offer["account"]
+        if not ID.fullmatch(org_id):
+            return None
+        with self._lock(org_id):
+            try:
+                policy = self._load(org_id)
+            except Refused:
+                return None
+            if not self.can(policy, inviter, "invite"):
+                return None
+            return {"org": policy["name"], "by": inviter}
+
     def accept(self, offer: dict, account: str, key: bytes) -> str:
         """account joins with an invitation (a grant from Grants.find, made by invite); the organization's name."""
         org_id, inviter = offer["data"].get("org", ""), offer["account"]

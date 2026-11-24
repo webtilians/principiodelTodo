@@ -61,6 +61,12 @@ def acme_with_alfa(base, folder):
     return ceo, bea, org, alfa
 
 
+def token_of(invited) -> str:
+    """The invitation token in the link the page shows once, right after it is made."""
+    link = re.search(r'class="code link">([^<]+)<', invited.text).group(1)
+    return parse_qs(urlparse(link).query)["invite"][0]
+
+
 def test_without_the_flag_there_is_no_teams_page(server, monkeypatch):
     monkeypatch.delenv("INFINITO_ENTERPRISE_ENABLED", raising=False)
     base, _, _ = server
@@ -164,3 +170,69 @@ def test_an_invitation_opened_by_two_people_at_once_lets_in_only_one(on, monkeyp
         thread.join()
     assert sorted(a.status_code for a in answers) == [200, 400] and len(slow) == 1
     assert sum("Ya estás en Acme" in a.text for a in answers) == 1
+
+
+# The page explains itself: who invites, where you are, what to do next, and what changed, in words.
+
+def test_an_invitation_says_who_sends_it_and_to_what_before_and_after_signing_in(on):
+    base, _, folder = on
+    people(folder, "ceo", "bea")
+    ceo = browser(base, "ceo")
+    org = where(send(ceo, action="create_org", name="Acme"))["org"]
+    token = token_of(send(ceo, action="invite", org=org))
+    outside = httpx2.get(f"{base}/teams?invite={token}", headers=SPANISH).text
+    assert "ceo te invita a Acme." in outside and 'href="/memory"' in outside  # and how to get an account
+    bea = browser(base, "bea", invite=token)
+    inside = bea.get(f"/teams?invite={token}").text
+    assert "ceo te invita a Acme." in inside and 'value="accept"' in inside
+    assert '<div class="who">bea' in inside and "Aceptarás con tu cuenta bea" in inside  # and a way out if not her
+    unknown = httpx2.get(f"{base}/teams?invite=no-existe", headers=SPANISH).text
+    assert "te invita" not in unknown and 'href="/memory"' not in unknown
+    assert "ya no sirve" in bea.get("/teams?invite=no-existe").text
+
+
+def test_the_owner_gets_first_steps_until_they_are_done_and_a_member_never_does(on):
+    base, _, folder = on
+    ceo, bea, org, alfa = acme_with_alfa(base, folder)
+    page = ceo.get(f"/teams?org={org}").text
+    assert "Primeros pasos" in page and "Eres el propietario" in page
+    assert page.count('<li class="done">') == 2  # a project and a second person; nobody in it yet, no app chosen
+    assert "2 personas" in page and "1 persona" in page  # the general space, and Alfa with its owner only
+    member = bea.get(f"/teams?org={org}").text
+    assert "Primeros pasos" not in member and "Eres miembro" in member and "pídeselo a ceo" in member
+    send(ceo, action="add_member", org=org, space=alfa, target="bea", role="member", write="1")
+    _, _, app = app_session(base, [("remember", {"statement": "Una prueba de mi app."})], name="ceo")
+    send(ceo, action="app_level", org=org, client=app.client.client_id, level="read")
+    assert "Primeros pasos" not in ceo.get(f"/teams?org={org}").text
+
+
+def test_people_are_picked_from_the_organization_and_the_owner_shows_in_every_space(on):
+    base, _, folder = on
+    ceo, bea, org, alfa = acme_with_alfa(base, folder)
+    page = ceo.get(f"/teams?org={org}&space={alfa}").text
+    assert '<select id="target" name="target">' in page and '<option value="bea">bea</option>' in page
+    assert "lee y gestiona todos los espacios" in page
+    send(ceo, action="add_member", org=org, space=alfa, target="bea", role="member", write="1")
+    assert "Ya están aquí todos los de la organización" in ceo.get(f"/teams?org={org}&space={alfa}").text
+
+
+def test_the_record_of_changes_reads_as_sentences_with_names_not_ids(on):
+    base, _, folder = on
+    ceo, bea, org, alfa = acme_with_alfa(base, folder)
+    send(ceo, action="add_member", org=org, space=alfa, target="bea", role="member", write="1")
+    page = ceo.get(f"/teams?org={org}").text
+    record = page[page.index("Registro de cambios"):]
+    for line in ("ceo creó la organización", "ceo creó el proyecto Proyecto Alfa", "bea entró con la invitación de ceo",
+                 "ceo añadió a bea a Proyecto Alfa"):
+        assert line in record, line
+    assert alfa not in record and org not in record
+
+
+def test_every_page_says_who_you_are_and_signing_out_ends_the_session(on):
+    base, _, folder = on
+    ceo, bea, org, alfa = acme_with_alfa(base, folder)
+    for path in ("/teams", f"/teams?org={org}", f"/teams?org={org}&space={alfa}"):
+        page = ceo.get(path).text
+        assert '<div class="who">ceo' in page and 'value="signout"' in page, path
+    assert send(ceo, action="signout").status_code == 303
+    assert 'name="password"' in ceo.get(f"/teams?org={org}").text
