@@ -9,7 +9,7 @@ import pytest
 
 from src.infinito3 import remote_backup
 from src.infinito3.remote_accounts import Accounts
-from src.infinito3.remote_teams import ADMIN, NOT_FOUND, PENDING, ACTIVE, Refused, Teams
+from src.infinito3.remote_teams import ADMIN, MEMBER, NOT_FOUND, PENDING, ACTIVE, Refused, Teams
 
 pytest.importorskip("cryptography")
 
@@ -352,3 +352,12 @@ def test_whoever_runs_a_space_is_told_why_someone_cannot_be_added(w):
         assert str(refused.value) == said, target
     with pytest.raises(Refused, match=NOT_FOUND):
         teams.add(w.acme, w.alfa, "carlos", k["carlos"], "eva")  # outside Alfa: still nothing told
+
+
+def test_an_invitation_names_the_organization_and_its_sender_only_while_the_sender_may_invite(w):
+    offer = offer_from(w.teams, w.acme, "admin", w.keys["admin"])
+    assert w.teams.invitation(offer) == {"org": "Acme", "by": "admin"}
+    w.teams.set_role(w.acme, "ceo", "admin", MEMBER)
+    assert w.teams.invitation(offer) is None  # the sender may no longer invite: it leads nowhere
+    assert w.teams.invitation({"data": {"org": "no es un id"}, "account": "ceo"}) is None
+    assert w.teams.invitation({"data": {"org": "0123456789abcdef"}, "account": "ceo"}) is None

@@ -175,6 +175,8 @@ TEXT = {
         "invited_title": "Te han invitado a {org}", "invited_plain": "Te han invitado a una organización",
         "invited_note": "Al aceptar entrarás como miembro y verás su espacio General. Tu memoria personal sigue "
                         "siendo solo tuya.",
+        "accept_as": "Aceptarás con tu cuenta {account}. Si quieres usar otra, pulsa Salir y vuelve a abrir el "
+                     "enlace.",
         "accept": "Aceptar", "invite_expired": "Este enlace de invitación ya no sirve. Pide uno nuevo.",
         "joined": "Ya estás en {org}.", "done": "Hecho.",
         "refusals": {NOT_FOUND: "No existe, o no es tuyo.",
@@ -291,6 +293,8 @@ TEXT = {
         "invited_title": "You are invited to {org}", "invited_plain": "You are invited to an organization",
         "invited_note": "Accepting makes you a member and shows you its General space. Your own memory stays yours "
                         "alone.",
+        "accept_as": "You will accept with your account {account}. If you want another one, sign out and open the "
+                     "link again.",
         "accept": "Accept", "invite_expired": "This invitation link no longer works. Ask for a new one.",
         "joined": "You are in {org} now.", "done": "Done.",
         "refusals": {NOT_FOUND: "It does not exist, or it is not yours."},
@@ -665,10 +669,14 @@ def routes(accounts, grants, teams, limiter, secure: bool, issuer: str = "") -> 
         if invitation is None:
             return view(t, t["title"], f'<p class="error">{t["invite_expired"]}</p>', status=400)
         e = html.escape
+        account, csrf = session["account"], session["data"]["csrf"]
+        # Who is signed in, with a way out: whoever opens the link on a shared browser must not accept as someone else.
         return view(t, t["invited_title"].format(org=invitation["org"]),
-                    f'<p class="lead">{e(t["invited_by"].format(by=invitation["by"], org=invitation["org"]))}</p>'
+                    _top(t, account, csrf, [_link(t["orgs"]), e(invitation["org"])])
+                    + f'<p class="lead">{e(t["invited_by"].format(by=invitation["by"], org=invitation["org"]))}</p>'
                     f'<p class="note">{t["invited_note"]}</p>'
-                    + _button(t, t["accept"], "", action="accept", csrf=session["data"]["csrf"], invite=token))
+                    f'<p class="note">{e(t["accept_as"].format(account=account))}</p>'
+                    + _button(t, t["accept"], "", action="accept", csrf=csrf, invite=token))
 
     async def page(request):
         t, params = texts(request), request.query_params
