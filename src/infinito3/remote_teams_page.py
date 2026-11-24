@@ -139,7 +139,8 @@ TEXT = {
                      "Elige qué puede hacer en los espacios donde tú estás.",
         "no_apps": 'Aún no has conectado ninguna IA a tu memoria. <a href="/">Conéctala desde la portada</a> y '
                    "vuelve aquí para darle acceso.",
-        "levels": {"none": "Nada", "read": "Solo leer", "add": "Leer y añadir"}, "save": "Guardar",
+        "levels": {"none": "Nada", "read": "Solo leer", "add": "Leer y añadir",
+                   "act": "Leer, añadir y pedir acciones"}, "save": "Guardar",
         "audit": "Registro de cambios",
         "audit_lines": {"create_org": "creó la organización", "invite": "creó un enlace de invitación",
                         "join": "entró con la invitación de {target}", "set_role": "hizo a {target} {role}",
@@ -151,7 +152,26 @@ TEXT = {
                         "add_member": "añadió a {who} a {space} como {role}",
                         "confirm": "dio acceso a {who} en {space}", "remove_from_space": "quitó a {who} de {space}",
                         "left_space": "salió de {space}", "new_key": "se renovó la llave de {space}",
-                        "remember": "guardó un recuerdo en {space}", "forget": "retiró un recuerdo de {space}"},
+                        "remember": "guardó un recuerdo en {space}", "forget": "retiró un recuerdo de {space}",
+                        "act_ask": "pidió la acción {detail} en {space}",
+                        "act_done": "hizo la acción {detail} en {space}",
+                        "act_failed": "la acción {detail} no salió bien en {space}",
+                        "act_rejected": "rechazó la acción {detail} en {space}"},
+        "tools": "Herramientas conectadas",
+        "tools_note": "Lo que pueden hacer los sistemas de esta organización, pedido desde vuestras IA. Las conecta "
+                      "INFINITO con la empresa; tus IA las usan si se lo permites (Leer, añadir y pedir acciones, al "
+                      "final de esta página).",
+        "no_tools": "Esta organización aún no tiene herramientas conectadas. INFINITO las conecta después de estudiar "
+                    "con vosotros qué necesitáis.",
+        "modes": {"direct": "se hace al pedirla", "self": "la confirma quien la pide",
+                  "second": "la confirma otra persona que lleva el espacio"},
+        "writes": {True: "cambia datos", False: "consulta"},
+        "tool_readonly": "en este espacio solo lees, así que no puedes pedirla",
+        "waiting": "Esperan tu confirmación",
+        "asked_by": "{by} pidió «{name}» con {app} · {when}",
+        "confirm_go": "Confirmar y hacerla", "reject_go": "Rechazar",
+        "act_done_msg": "Hecho: {name}.", "act_failed_msg": "No salió bien: {name}: {error}",
+        "act_rejected_msg": "Rechazada: {name}.",
         "audit_refused": "intentó algo que no le estaba permitido ({action})",
         "space_of": {GENERAL: "Espacio general de {org}: lo ve toda la organización.",
                      "project": "Proyecto de {org}: solo lo ven las personas añadidas."},
@@ -258,7 +278,8 @@ TEXT = {
                      "organization. Choose what it may do in the spaces you are in.",
         "no_apps": 'You have not connected any AI to your memory yet. <a href="/">Connect one from the front page</a> '
                    "and come back here to give it access.",
-        "levels": {"none": "Nothing", "read": "Read only", "add": "Read and add"}, "save": "Save",
+        "levels": {"none": "Nothing", "read": "Read only", "add": "Read and add",
+                   "act": "Read, add and ask for actions"}, "save": "Save",
         "audit": "Record of changes",
         "audit_lines": {"create_org": "made the organization", "invite": "made an invitation link",
                         "join": "joined with {target}'s invitation", "set_role": "made {target} {role}",
@@ -270,7 +291,25 @@ TEXT = {
                         "add_member": "added {who} to {space} as {role}", "confirm": "gave {who} access to {space}",
                         "remove_from_space": "removed {who} from {space}", "left_space": "left {space}",
                         "new_key": "{space} got a new key", "remember": "kept a memory in {space}",
-                        "forget": "took back a memory from {space}"},
+                        "forget": "took back a memory from {space}",
+                        "act_ask": "asked for the action {detail} in {space}",
+                        "act_done": "did the action {detail} in {space}",
+                        "act_failed": "the action {detail} did not work in {space}",
+                        "act_rejected": "turned down the action {detail} in {space}"},
+        "tools": "Connected tools", "tools_note": "What this organization's systems can do, asked for from your AIs. "
+                                                  "INFINITO connects them with the company; your AIs use them if you "
+                                                  "let them (Read, add and ask for actions, at the end of this page).",
+        "no_tools": "This organization has no tools connected yet. INFINITO connects them after studying with you what "
+                    "you need.",
+        "modes": {"direct": "runs at once", "self": "the person who asks confirms it",
+                  "second": "someone else who runs the space confirms it"},
+        "writes": {True: "changes data", False: "looks things up"},
+        "tool_readonly": "you may only read this space, so you cannot ask for it",
+        "waiting": "Waiting for your confirmation",
+        "asked_by": "{by} asked for «{name}» with {app} · {when}",
+        "confirm_go": "Confirm and do it", "reject_go": "Turn down",
+        "act_done_msg": "Done: {name}.", "act_failed_msg": "It did not work: {name}: {error}",
+        "act_rejected_msg": "Turned down: {name}.",
         "audit_refused": "tried something they were not allowed to ({action})",
         "space_of": {GENERAL: "General space of {org}: the whole organization sees it.",
                      "project": "Project of {org}: only the people added see it."},
@@ -301,7 +340,9 @@ TEXT = {
     },
 }
 
-_LEVELS = ("none", "read", "add")
+def _levels() -> tuple:
+    """What an app may be given here: asking for actions only when the server has them on (ADR P3)."""
+    return remote_teams.APP_LEVELS if remote_teams.actions_enabled() else remote_teams.APP_LEVELS[:3]
 _KINDS = ("fact", "decision", "agreement", "proposal", "pending", "to_verify")
 
 
@@ -359,7 +400,8 @@ def _audit_line(t: dict, item: dict, spaces: Dict[str, str]) -> str:
                "left_space" if action == "remove_from_space" and who == actor else action)
         template = t["audit_lines"].get(key)
         text = template.format(target=target, who=who, space=spaces.get(space_id, space_id),
-                               role=t["roles"].get(detail, detail), level=t["levels"].get(detail, detail)) \
+                               role=t["roles"].get(detail, detail), level=t["levels"].get(detail, detail),
+                               detail=detail) \
             if template else f"{item.get('action', '')} {target}".strip()
     return f'{_when(item.get("at", ""), t["lang"])} · {actor} {text}'
 
@@ -439,8 +481,37 @@ def _member_choice(t: dict, field: str, label: str, candidates: Optional[List[st
     return f'<label for="{field}">{label}</label><select id="{field}" name="{field}">{options}</select>'
 
 
+def _tools(t: dict, org_id: str, csrf: str, tools: List[dict], waiting: List[dict]) -> str:
+    """The organization's connected tools (ADR P3) and what waits for this person to confirm, with its inputs."""
+    e = html.escape
+    out = []
+    if waiting:
+        out.append(f'<h2>{t["waiting"]}</h2>')
+        for request in waiting:
+            inputs = "".join(f'<div class="meta">{e(str(name))}: {e(str(value))}</div>'
+                             for name, value in (request.get("args") or {}).items())
+            buttons = (_button(t, t["confirm_go"], "small", action="act_confirm", csrf=csrf, org=org_id,
+                               request=request["id"])
+                       + _button(t, t["reject_go"], "small bad", action="act_reject", csrf=csrf, org=org_id,
+                                 request=request["id"]))
+            out.append(f'<div class="row"><div class="grow">'
+                       f'{e(t["asked_by"].format(by=request["by"], name=request["name"], app=request["app"], when=_when(request["at"], t["lang"])))}'
+                       f' <span class="tag">{e(request["space_name"])}</span>{inputs}</div>{buttons}</div>')
+    out.append(f'<h2>{t["tools"]}</h2><p class="note">{t["tools_note"]}</p>')
+    for tool in tools:
+        note = f'{e(tool["description"])} · ' if tool["description"] else ""
+        limit = "" if tool["usable"] else f' · {t["tool_readonly"]}'
+        out.append(f'<div class="row"><div class="grow">{e(tool["name"])} <span class="tag">{e(tool["space_name"])}'
+                   f'</span><div class="meta">{note}{t["modes"][tool["mode"]]} · {t["writes"][tool["writes"]]}'
+                   f'{limit}</div></div></div>')
+    if not tools:
+        out.append(f'<p class="note">{t["no_tools"]}</p>')
+    return "".join(out)
+
+
 def org_body(t: dict, org: dict, account: str, csrf: str, apps: List[dict], levels: Dict[str, str], *,
-             link: str = "", link_pending: bool = False, message: str = "", error: str = "") -> str:
+             link: str = "", link_pending: bool = False, message: str = "", error: str = "",
+             tools: Optional[List[dict]] = None, waiting: Optional[List[dict]] = None) -> str:
     e = html.escape
     org_id, role = org["id"], org["role"]
     runs = role in (OWNER, ADMIN)
@@ -471,6 +542,8 @@ def org_body(t: dict, org: dict, account: str, csrf: str, apps: List[dict], leve
                    + _member_choice(t, "manager", t["manager"], candidates, optional=True)
                    + f'<p class="hint">{t["manager_note"]}</p><button type="submit">{t["create"]}</button></form>'
                    '</details>')
+    if tools is not None:  # actions are on (ADR P3)
+        out.append(_tools(t, org_id, csrf, tools, waiting or []))
 
     if org["members"]:
         out.append(f'<h2>{t["people"]}</h2>')
@@ -496,7 +569,7 @@ def org_body(t: dict, org: dict, account: str, csrf: str, apps: List[dict], leve
     for app in apps:
         level = levels.get(app["client_id"], "none")
         options = "".join(f'<option value="{name}"{" selected" if name == level else ""}>{t["levels"][name]}</option>'
-                          for name in _LEVELS)
+                          for name in _levels())
         out.append(f'<div class="row"><div class="grow">{e(app["name"])} <span class="meta">{e(app["host"])}</span>'
                    f'</div><form method="post" action="{PATH}" class="inline">'
                    f'{_hidden(action="app_level", csrf=csrf, org=org_id, client=app["client_id"])}'
@@ -648,6 +721,9 @@ def routes(accounts, grants, teams, limiter, secure: bool, issuer: str = "") -> 
             return await home(t, session, error=_said(t, refused))
         apps = await run(grants.apps_of, account)
         levels = {app["client_id"]: await run(teams.app_level, org_id, account, app["client_id"]) for app in apps}
+        if teams.actions is not None:  # its connected tools and what waits for this person (ADR P3)
+            extra["tools"] = await run(teams.actions.available, org_id, account)
+            extra["waiting"] = await run(teams.actions.waiting_for, org_id, account, session["key"])
         return view(t, org["name"], org_body(t, org, account, session["data"]["csrf"], apps, levels, **extra))
 
     async def space_page(t: dict, session: dict, org_id: str, space_id: str, **notices):
@@ -782,6 +858,16 @@ def routes(accounts, grants, teams, limiter, secure: bool, issuer: str = "") -> 
             if action == "forget":
                 await run(teams.forget, org_id, space_id, account, key, str(form.get("memory", "")))
                 return back_to(org=org_id, space=space_id)
+            if action in ("act_confirm", "act_reject") and teams.actions is not None:
+                # The only place a request is confirmed: a person, signed in here. No tool does it (ADR P3, A4).
+                done = await run(teams.actions.confirm, org_id, account, key, str(form.get("request", "")),
+                                 action == "act_confirm")
+                result = done.get("result") or {}
+                if done["state"] == "failed":
+                    return await org_page(t, session, org_id, error=t["act_failed_msg"].format(
+                        name=done["name"], error=result.get("error") or ""))
+                said = t["act_done_msg" if done["state"] == "done" else "act_rejected_msg"].format(name=done["name"])
+                return await org_page(t, session, org_id, message=said)
         except Refused as refused:
             if space_id:
                 return await space_page(t, session, org_id, space_id, error=_said(t, refused))

@@ -21,7 +21,7 @@ lab (`observatory/`, `lab_portal/`, `docs/`). Read [README.md](README.md) first.
   would change the plan. Prefer one larger experiment over many small follow-ups.
 - Never reuse sealed or consumed seed partitions as new confirmations.
 - `legacy/` is archived: do not build on it or revive its "consciousness" metrics.
-- INFINITO Teams (`remote_teams.py`, `remote_teams_page.py`, `remote_keys.py`) is product, not research: only
+- INFINITO Teams (`remote_teams.py`, `remote_teams_page.py`, `remote_teams_actions.py`, `remote_keys.py`) is product, not research: only
   stable, tested features go in (no cognitive engine, reflections or experiments), it stays behind
   `INFINITO_ENTERPRISE_ENABLED`, and every change keeps `tests/test_remote_teams*_v3.py` and
   `tests/test_remote_keys_v3.py` green. Design and open decisions: `docs/INFINITO_TEAMS_ADR_P0_2026-11-20.md`.
