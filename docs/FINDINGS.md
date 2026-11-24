@@ -5,7 +5,7 @@ through more than 50 protocols. Every number below comes from a preregistered
 report; follow the links for denominators, controls and limits. Reports are in
 Spanish.
 
-Last updated: 2026-11-03.
+Last updated: 2026-11-23.
 
 ## Memory for LLM assistants (product line)
 
@@ -161,6 +161,28 @@ scenarios the LLM router answered 31 correctly and searched 28% less than
 always-searching, but it needed an extra LLM call and 35% more input tokens.
 Utility: fixed rule 0.940, router 0.911.
 [Results](https://github.com/webtilians/principiodelTodo/blob/experiment/e12a-agent-memory-search-decision/docs/INFINITO_E12A_REAL_SEARCH_RESULTS_2026-11-01.md)
+
+**M1: structure discovered in memory, frozen or revised, did not beat flat
+retrieval (2026-11-20).** The test used 8 LoCoMo conversations and a 1,024-token packet. The measure was the share
+of relational questions whose packet holds all their evidence, with no LLM involved:
+
+- flat semantic RAG: 38.6%;
+- fixed time tree: 37.1%;
+- Louvain structure frozen at 60% of the sessions: 26.3%;
+- the same structure revised after each session: 33.8%.
+
+Revision recovered 18.5 points over the frozen structure on questions after the cutoff. It cost 3 to 5 points on
+three earlier question types, so that criterion fails too.
+
+Two hard gates were not met:
+
+- **Forgetting:** the time tree revealed 8 forgotten answers and flat RAG 7. The extra answer survived in other
+  turns; it was not a leak.
+- **Judge:** the maintainer's blind audit was not done. A supplementary audit by Claude agreed with the judge on
+  25 of 30, so answer accuracy is inconclusive.
+
+Flat retrieval stays.
+[Results](INFINITO_M1_FRACTAL_MEMORY_RESULTS_2026-11-23.md)
 
 ## Memory in agents (research line)
 
