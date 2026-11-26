@@ -16,7 +16,7 @@ NOON = datetime(2026, 11, 26, 11, 3, 7, tzinfo=timezone.utc)
 
 def test_an_episode_is_three_bounded_facts_and_a_nudge_is_none():
     assert read_event({"shakes": "3", "seconds": "2.4", "position": "face_up", "offset": "-60"}) == {
-        "shakes": 3, "seconds": 2, "position": "face_up", "offset": -60}
+        "shakes": 3, "seconds": 2, "position": "face_up", "offset": -60, "place": None}
     assert read_event({"shakes": "0", "seconds": "0.4", "position": "face_up"}) is None  # a nudge
     assert read_event({"shakes": "0", "seconds": "6", "position": "upright"})["seconds"] == 6
     for wrong in ({"shakes": "-1", "seconds": "2"}, {"shakes": "51", "seconds": "2"}, {"shakes": "2", "seconds": "301"},
@@ -130,3 +130,67 @@ def test_both_languages_have_every_word_the_page_and_its_script_use():
     for name in remote_devices._SCRIPT_TEXTS:
         assert f"t.{name}" in remote_devices.SCRIPT, name
     assert "</script" not in remote_devices.SCRIPT
+
+
+SEVILLA = {"lat": "37.406612", "lon": "-5.934919", "accuracy": "14.6"}
+
+
+def test_a_place_is_rounded_to_what_a_phone_can_know_and_a_wrong_one_is_refused():
+    assert remote_devices.read_place({}) == (True, None)
+    assert remote_devices.read_place(SEVILLA) == (True, {"lat": 37.4066, "lon": -5.9349, "accuracy": 15})
+    for wrong in ({**SEVILLA, "lat": "91"}, {**SEVILLA, "lon": "-181"}, {**SEVILLA, "accuracy": "-1"},
+                  {**SEVILLA, "accuracy": "200000"}, {**SEVILLA, "lat": "nan"}, {**SEVILLA, "lon": "Sevilla"},
+                  {"lat": "37.4"}):
+        assert remote_devices.read_place(wrong) == (False, None), wrong
+    episode = {"shakes": "3", "seconds": "2", "position": "face_up", "offset": "-60"}
+    assert read_event(episode)["place"] is None
+    assert read_event({**episode, **SEVILLA})["place"]["lat"] == 37.4066
+    assert read_event({**episode, "lat": "500", "lon": "1", "accuracy": "5"}) is None
+    assert remote_devices.read_where({"offset": "-60"}) is None and remote_devices.read_where({**SEVILLA, "offset": "x"}) is None
+
+
+def test_where_the_phone_was_is_said_with_its_coordinates_and_how_sure_it_was():
+    shaken = read_event({"shakes": "3", "seconds": "2", "position": "face_up", "offset": "-60", **SEVILLA})
+    assert sentence("es", shaken, NOON) == ("Mi teléfono se agitó 3 veces en 2 segundos y después quedó quieto, boca "
+                                            "arriba, en las coordenadas 37.4066, -5.9349 (precisión de unos 15 m), el "
+                                            "26/11/2026 a las 12:03:07.")
+    assert sentence("en", shaken, NOON) == ("My phone was shaken 3 times in 2 seconds and then came to rest face up at "
+                                            "coordinates 37.4066, -5.9349 (accurate to about 15 m), on 2026-11-26 at "
+                                            "12:03:07.")
+    where = remote_devices.read_where({**SEVILLA, "accuracy": "1800", "offset": "-60"})
+    assert remote_devices.place_sentence("es", where, NOON) == (
+        "Mi teléfono estaba en las coordenadas 37.4066, -5.9349 (precisión de unos 2 km) el 26/11/2026 a las 12:03:07.")
+    assert remote_devices.place_sentence("en", where, NOON) == (
+        "My phone was at coordinates 37.4066, -5.9349 (accurate to about 2 km) on 2026-11-26 at 12:03:07.")
+
+
+def test_the_button_saves_where_the_phone_is_and_an_episode_can_carry_it(server, monkeypatch):  # noqa: F811
+    base, _, _ = server
+    monkeypatch.setattr(remote_devices, "MIN_GAP_SECONDS", 0)
+    memory_of(base, "vera", ["Mi color favorito es el azul."])
+    with browser() as client:
+        page = enter(client, base, "vera")
+        csrf = csrf_of(page)
+        devices = client.get(f"{base}/memory", params={"view": "devices"})
+        assert "Guardar dónde estoy" in devices.text and 'id="dev-with-place"' in devices.text
+        place = client.post(f"{base}/memory", data={"action": "device_place", "csrf": csrf, "offset": "-60", **SEVILLA},
+                            headers={"accept": "application/json"})
+        assert place.status_code == 200
+        assert place.json()["text"].startswith("Mi teléfono estaba en las coordenadas 37.4066, -5.9349 (precisión de "
+                                               "unos 15 m) el ")
+        carried = _event(client, base, csrf, **SEVILLA)
+        assert carried.status_code == 200 and "boca arriba, en las coordenadas 37.4066, -5.9349" in carried.json()["text"]
+        nowhere = client.post(f"{base}/memory", data={"action": "device_place", "csrf": csrf, "offset": "-60"},
+                              headers={"accept": "application/json"})
+        assert nowhere.status_code == 400 and "ubicación no se ha entendido" in nowhere.json()["error"]
+        wrong = client.post(f"{base}/memory", data={"action": "device_place", "csrf": csrf, **SEVILLA, "lat": "95"},
+                            headers={"accept": "application/json"})
+        assert wrong.status_code == 400
+        forged = client.post(f"{base}/memory", data={"action": "device_place", "csrf": "otra", **SEVILLA},
+                             headers={"accept": "application/json"})
+        assert forged.status_code == 403
+    (listed, recalled), _, _ = app_session(base, [("list_memories", {}), ("recall", {"query": "dónde estaba mi teléfono"})],
+                                           name="vera")
+    line = next(line for line in listed.splitlines() if "estaba en las coordenadas" in line)
+    assert f"by: {AUTHOR}" in line and "ubicación del teléfono" in line
+    assert "37.4066, -5.9349" in recalled

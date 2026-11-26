@@ -967,20 +967,28 @@ def routes(accounts, grants, memories, limiter, secure: bool, issuer: str = "") 
         response.headers["Content-Security-Policy"] = remote_devices.policy(policy, nonce)
         return response
 
-    async def device_event(t: dict, request, form):
-        """What the phone felt in one episode, sent by the devices page; it answers the page's script in JSON."""
+    async def device_event(t: dict, request, form, action: str):
+        """What the phone felt in one episode (device_event) or where it is (device_place), sent by the devices page;
+        it answers the page's script in JSON."""
         session = signed_in(request)
         if session is None:
             return JSONResponse({"error": t["devices_session_over"]}, status_code=401, headers=_HEADERS)
         if not hmac.compare_digest(str(form.get("csrf", "")), session["data"]["csrf"]):
             return JSONResponse({"error": t["bad_form"]}, status_code=403, headers=_HEADERS)
-        event = remote_devices.read_event(form)
-        if event is None:
-            return JSONResponse({"error": t["devices_bad_event"]}, status_code=400, headers=_HEADERS)
+        now = datetime.now(timezone.utc)
+        if action == "device_place":
+            where = remote_devices.read_where(form)
+            text = where and remote_devices.place_sentence(t["lang"], where, now)
+            source, wrong = t["devices_place_source"], t["devices_bad_place"]
+        else:
+            event = remote_devices.read_event(form)
+            text = event and remote_devices.sentence(t["lang"], event, now)
+            source, wrong = t["devices_source"], t["devices_bad_event"]
+        if not text:
+            return JSONResponse({"error": wrong}, status_code=400, headers=_HEADERS)
         if not device_throttle.allow(session["account"]):
             return JSONResponse({"error": t["devices_too_soon"]}, status_code=429, headers=_HEADERS)
-        text = remote_devices.sentence(t["lang"], event, datetime.now(timezone.utc))
-        said = await use(session, lambda memory: memory.remember(text, "fact", t["devices_source"], None, None,
+        said = await use(session, lambda memory: memory.remember(text, "fact", source, None, None,
                                                                  remote_devices.AUTHOR), writes=True)
         if not said.startswith("Remembered"):
             return JSONResponse({"error": t["devices_not_saved"]}, status_code=400, headers=_HEADERS)
@@ -1129,8 +1137,8 @@ def routes(accounts, grants, memories, limiter, secure: bool, issuer: str = "") 
             return await invite_signup(t, request, form)
         if action == "signup":
             return await web_signup(t, request, form)
-        if action == "device_event":
-            return await device_event(t, request, form)
+        if action in ("device_event", "device_place"):
+            return await device_event(t, request, form, action)
         session = signed_in(request)
         if session is None:
             if form.get("invite"):
