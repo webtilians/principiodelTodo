@@ -172,7 +172,7 @@ def test_the_button_saves_where_the_phone_is_and_an_episode_can_carry_it(server,
         page = enter(client, base, "vera")
         csrf = csrf_of(page)
         devices = client.get(f"{base}/memory", params={"view": "devices"})
-        assert "Guardar dónde estoy" in devices.text and 'id="dev-with-place"' in devices.text
+        assert "Guardar dónde estoy" in devices.text and 'id="dev-gps"' in devices.text
         place = client.post(f"{base}/memory", data={"action": "device_place", "csrf": csrf, "offset": "-60", **SEVILLA},
                             headers={"accept": "application/json"})
         assert place.status_code == 200
@@ -194,3 +194,104 @@ def test_the_button_saves_where_the_phone_is_and_an_episode_can_carry_it(server,
     line = next(line for line in listed.splitlines() if "estaba en las coordenadas" in line)
     assert f"by: {AUTHOR}" in line and "ubicación del teléfono" in line
     assert "37.4066, -5.9349" in recalled
+
+
+def _walk(start, steps, every=5.0, accuracy=8):
+    """A track with a walk northwards of steps points, about 11 m apart, every so many seconds."""
+    track = {"started": None, "points": []}
+    remote_devices.start_trip(track, start)
+    for step in range(steps):
+        remote_devices.add_point(track, {"lat": 37.40661 + step * 0.0001, "lon": -5.93492, "accuracy": accuracy},
+                                 start + step * every)
+    return track
+
+
+def test_a_trip_says_how_far_how_long_and_from_where_to_where():
+    trip = remote_devices.finish_trip(_walk(1_764_158_712.0, 30), 1_764_158_712.0 + 160)
+    assert trip["count"] == 30 and 315 < trip["metres"] < 330
+    assert remote_devices.trip_sentence("es", trip, -60) == (
+        "Con el GPS activado, mi teléfono recorrió 322 m en 3 minutos, desde las coordenadas 37.4066, -5.9349 hasta "
+        "las coordenadas 37.4095, -5.9349, el 26/11/2025 entre las 13:05:12 y las 13:07:52.")
+    assert remote_devices.trip_sentence("en", trip, -60).startswith(
+        "With the GPS on, my phone travelled 322 m in 3 minutes, from coordinates 37.4066, -5.9349 to coordinates")
+    long_way = dict(trip, metres=1234.0, ended=float(trip["started"]) + 3 * 3600 + 600)
+    assert "recorrió 1,2 km en 3 h y 10 min" in remote_devices.trip_sentence("es", long_way, 0)
+    assert "travelled 1.2 km in 3 h 10 min" in remote_devices.trip_sentence("en", long_way, 0)
+
+
+def test_a_phone_standing_still_stayed_and_no_trip_without_the_gps_on():
+    still = {"started": None, "points": []}
+    remote_devices.start_trip(still, 0.0)
+    for step in range(20):  # the GPS of a phone on a table wanders a few metres
+        remote_devices.add_point(still, {"lat": 37.40661 + (step % 2) * 0.00003, "lon": -5.93492, "accuracy": 10}, step * 5.0)
+    trip = remote_devices.finish_trip(still, 840.0)
+    assert trip["metres"] == 0 and still["started"] is None
+    assert remote_devices.trip_sentence("es", trip, 0).startswith(
+        "Con el GPS activado, mi teléfono se quedó en las coordenadas 37.4066, -5.9349 (precisión de unos 10 m) durante "
+        "14 minutos, el ")
+    assert remote_devices.finish_trip(still, 900.0) is None  # it was already ended
+    assert remote_devices.finish_trip({"started": 100.0, "points": [[10.0, 37.4, -5.9, 5]]}, 200.0) is None
+
+
+def test_the_route_is_sealed_kept_a_day_and_never_in_a_backup(tmp_path):
+    import os
+
+    from src.infinito3 import remote_backup
+
+    key, other = os.urandom(32), os.urandom(32)
+    now = 1_764_158_712.0
+    remote_devices.track_change(tmp_path, key, "ana", lambda track: track["points"].extend(
+        [[now - 2 * 86400, 37.0, -5.0, 9], [now - 60, 37.40661, -5.93492, 9]]), now=now)
+    sealed = (tmp_path / remote_devices.TRACK_FILE).read_bytes()
+    assert sealed.startswith(remote_devices.TRACK_MAGIC) and b"37.40661" not in sealed
+    assert remote_devices.track_read(tmp_path, key, "ana", now=now)["points"] == [[now - 60, 37.40661, -5.93492, 9]]
+    assert remote_devices.track_read(tmp_path, other, "ana", now=now)["points"] == []  # another key opens nothing
+    assert remote_devices.track_read(tmp_path, key, "bea", now=now)["points"] == []  # nor another memory's label
+    remote_devices.track_change(tmp_path, key, "ana", lambda track: track["points"].extend(
+        [[now + i, 37.4, -5.9, 5] for i in range(remote_devices.TRACK_MAX_POINTS + 10)]), now=now)
+    assert len(remote_devices.track_read(tmp_path, key, "ana", now=now)["points"]) == remote_devices.TRACK_MAX_POINTS
+    remote_devices.track_clear(tmp_path)
+    assert not (tmp_path / remote_devices.TRACK_FILE).exists()
+    assert not any("track" in name for name in remote_backup.PERSON_FILES)
+    assert not remote_backup.MEMBER.fullmatch("accounts/ana/track.sealed")
+
+
+def _ask(client, base, csrf, action, **fields):
+    return client.post(f"{base}/memory", data={"action": action, "csrf": csrf, **fields},
+                       headers={"accept": "application/json"})
+
+
+def test_with_the_gps_on_the_route_is_kept_drawn_and_its_trip_remembered(server, monkeypatch):  # noqa: F811
+    base, _, folder = server
+    memory_of(base, "wanda", ["Mi color favorito es el azul."])
+    with browser() as client:
+        csrf = csrf_of(enter(client, base, "wanda"))
+        devices = client.get(f"{base}/memory", params={"view": "devices"})
+        assert 'id="dev-gps" aria-pressed="false"' in devices.text and "Ver mi recorrido" in devices.text
+        assert 'value="300">últimos 5 minutos' in devices.text and "dev-with-place" not in devices.text
+        assert _ask(client, base, csrf, "device_track_start").json() == {"ok": True}
+        first = _ask(client, base, csrf, "device_track_point", lat="37.406612", lon="-5.934919", accuracy="8")
+        assert first.status_code == 200
+        assert _ask(client, base, csrf, "device_track_point", lat="37.4067", lon="-5.9349", accuracy="8").status_code == 429
+        monkeypatch.setattr(remote_devices.Throttle, "allow", lambda self, account: True)
+        for step in range(1, 6):
+            assert _ask(client, base, csrf, "device_track_point", lat=f"{37.406612 + step * 0.0003:.6f}",
+                        lon="-5.934919", accuracy="8").status_code == 200
+        assert _ask(client, base, csrf, "device_track_point", lat="91", lon="0", accuracy="8").status_code == 400
+        assert _ask(client, base, csrf, "device_track_get", seconds="42").status_code == 400
+        drawn = _ask(client, base, csrf, "device_track_get", seconds="300").json()
+        assert len(drawn["points"]) == 6 and drawn["points"][0][1:] == [37.40661, -5.93492, 8]
+        assert (folder / "accounts" / "wanda" / remote_devices.TRACK_FILE).exists()
+        ended = _ask(client, base, csrf, "device_track_end", offset="-60").json()
+        assert ended["saved"] is True
+        assert ended["text"].startswith("Con el GPS activado, mi teléfono recorrió 167 m en ")
+        assert "desde las coordenadas 37.4066, -5.9349 hasta las coordenadas 37.4081, -5.9349" in ended["text"]
+        assert _ask(client, base, csrf, "device_track_end", offset="-60").json() == {"saved": False}
+        assert _ask(client, base, csrf, "device_track_clear").json() == {"ok": True}
+        assert _ask(client, base, csrf, "device_track_get", seconds="3600").json()["points"] == []
+        assert _ask(client, base, "otra", "device_track_get", seconds="300").status_code == 403
+    assert httpx2.post(f"{base}/memory", data={"action": "device_track_get", "csrf": "x", "seconds": "300"},
+                       headers=SPANISH).status_code == 401
+    (listed,), _, _ = app_session(base, [("list_memories", {})], name="wanda")
+    line = next(line for line in listed.splitlines() if "Con el GPS activado" in line)
+    assert f"by: {AUTHOR}" in line and "GPS del teléfono" in line

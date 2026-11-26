@@ -554,8 +554,11 @@ def routes(accounts, grants, memories, limiter, secure: bool, issuer: str = "") 
 
     # A photo waits in memory until it is sealed: past this the parser would put it in a plain temporary file.
     MultiPartParser.spool_max_size = remote_photos.MAX_FORM
-    # What a phone's sensors send (remote_devices.py): one memory per episode, never a flood.
+    # What a phone's sensors send (remote_devices.py): one memory per episode, never a flood; the GPS route at its own
+    # pace, and at most so many trips an hour.
     device_throttle = remote_devices.Throttle()
+    point_throttle = remote_devices.Throttle(min_gap=remote_devices.POINT_GAP_SECONDS, per_hour=3600)
+    trip_throttle = remote_devices.Throttle(min_gap=1, per_hour=remote_devices.TRIPS_PER_HOUR)
 
     # Only here: the sign-in page's form has to be able to send the browser on to the app that asked.
     policy = f"{_HEADERS['Content-Security-Policy']}; img-src 'self'; form-action 'self'; base-uri 'none'"
@@ -968,14 +971,16 @@ def routes(accounts, grants, memories, limiter, secure: bool, issuer: str = "") 
         return response
 
     async def device_event(t: dict, request, form, action: str):
-        """What the phone felt in one episode (device_event) or where it is (device_place), sent by the devices page;
-        it answers the page's script in JSON."""
+        """What the phone felt in one episode (device_event), where it is (device_place) or its GPS route
+        (device_track_*), sent by the devices page; it answers the page's script in JSON."""
         session = signed_in(request)
         if session is None:
             return JSONResponse({"error": t["devices_session_over"]}, status_code=401, headers=_HEADERS)
         if not hmac.compare_digest(str(form.get("csrf", "")), session["data"]["csrf"]):
             return JSONResponse({"error": t["bad_form"]}, status_code=403, headers=_HEADERS)
         now = datetime.now(timezone.utc)
+        if action.startswith("device_track_"):
+            return await device_track(t, session, form, action, now.timestamp())
         if action == "device_place":
             where = remote_devices.read_where(form)
             text = where and remote_devices.place_sentence(t["lang"], where, now)
@@ -993,6 +998,45 @@ def routes(accounts, grants, memories, limiter, secure: bool, issuer: str = "") 
         if not said.startswith("Remembered"):
             return JSONResponse({"error": t["devices_not_saved"]}, status_code=400, headers=_HEADERS)
         return JSONResponse({"saved": True, "text": text}, headers=_HEADERS)
+
+    async def device_track(t: dict, session: dict, form, action: str, now: float):
+        """The GPS route: sealed with the memory's key, a day long, and one memory of each trip when it ends."""
+        where = (accounts.memory_folder(session["account"]), session["key"], session["account"])
+
+        def answer(data: dict, status: int = 200):
+            return JSONResponse(data, status_code=status, headers=_HEADERS)
+
+        async def change(step):
+            return await anyio.to_thread.run_sync(lambda: remote_devices.track_change(*where, step, now=now))
+
+        if action == "device_track_point":
+            good, place = remote_devices.read_place(form, decimals=remote_devices.TRACK_DECIMALS)
+            if not good or place is None:
+                return answer({"error": t["devices_bad_place"]}, 400)
+            if not point_throttle.allow(session["account"]):
+                return answer({"error": t["devices_too_soon"]}, 429)
+            await change(lambda track: remote_devices.add_point(track, place, now))
+            return answer({"ok": True})
+        if action == "device_track_start":
+            await change(lambda track: remote_devices.start_trip(track, now))
+            return answer({"ok": True})
+        if action == "device_track_get":
+            seconds = str(form.get("seconds", ""))
+            if seconds not in {str(window) for window in remote_devices.TRACK_WINDOWS}:
+                return answer({"error": t["devices_bad_window"]}, 400)
+            track = await anyio.to_thread.run_sync(lambda: remote_devices.track_read(*where, now=now))
+            return answer({"now": now, "points": remote_devices.points_since(track, int(seconds), now)})
+        if action == "device_track_clear":
+            await anyio.to_thread.run_sync(lambda: remote_devices.track_clear(where[0]))
+            return answer({"ok": True})
+        offset = remote_devices.read_offset(form)  # device_track_end
+        trip = await change(lambda track: remote_devices.finish_trip(track, now))
+        if trip is None or offset is None or not trip_throttle.allow(session["account"]):
+            return answer({"saved": False})
+        text = remote_devices.trip_sentence(t["lang"], trip, offset)
+        said = await use(session, lambda memory: memory.remember(text, "fact", t["devices_track_source"], None, None,
+                                                                 remote_devices.AUTHOR), writes=True)
+        return answer({"saved": said.startswith("Remembered"), "text": text})
 
     async def projects(t: dict, session: dict):
         found = await use(session, _projects, writes=False)
@@ -1137,7 +1181,7 @@ def routes(accounts, grants, memories, limiter, secure: bool, issuer: str = "") 
             return await invite_signup(t, request, form)
         if action == "signup":
             return await web_signup(t, request, form)
-        if action in ("device_event", "device_place"):
+        if action in remote_devices.ACTIONS:
             return await device_event(t, request, form, action)
         session = signed_in(request)
         if session is None:
