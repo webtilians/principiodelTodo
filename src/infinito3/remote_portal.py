@@ -72,6 +72,7 @@ _ICONS = {
     "layers": '<path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="m3 12.5 9 5 9-5"/><path d="m3 17 9 4.5 9-4.5" opacity=".7"/>',
     "folder": '<path d="M3 7a2 2 0 0 1 2-2h4.5l2 2.5H19a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/>',
     "search": '<circle cx="10.5" cy="10.5" r="6.5"/><path d="m20.5 20.5-5.3-5.3"/>',
+    "phone": '<rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M10.5 18h3"/>',
     "gear": '<circle cx="12" cy="12" r="3.2"/><path d="M12 2.8v2.6M12 18.6v2.6M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M2.8 12h2.6M18.6 12h2.6M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/>',
     "bell": '<path d="M6 10a6 6 0 0 1 12 0c0 6 2.2 7.5 2.2 7.5H3.8S6 16 6 10Z"/><path d="M10 20.5a2.2 2.2 0 0 0 4 0"/>',
     "help": '<circle cx="12" cy="12" r="9"/><path d="M9.4 9.4a2.7 2.7 0 1 1 3.9 2.4c-.9.5-1.3 1-1.3 2"/><path d="M12 17v.2"/>',
@@ -320,6 +321,7 @@ def shell(t: dict, active: str, account: str, csrf: str, body: str, hidden_field
              ("cognition", "/memory?view=cognition", "nav_cognition", "spark"),
              ("search", "/memory?view=search", "nav_search", "search"),
              ("apps", "/memory?view=apps", "nav_apps", "network"),
+             ("devices", "/memory?view=devices", "nav_devices", "phone"),
              ("settings", "/memory?view=settings", "nav_settings", "gear"))
 
     waiting = {"tasks": to_approve, "guidelines": proposed, "cognition": engine}
