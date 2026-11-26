@@ -7,7 +7,8 @@ keeps about them, which no chat can show as plainly.
 A link opens nothing by itself, because chat apps may fetch one first: it only names which memories to confirm, and
 holds no key. The page always asks for the password, which is what unseals the memory. That key is then kept for a
 quarter of an hour the same way an app's sign-in keeps it: wrapped under a token of which the server stores only a
-hash, in a cookie that scripts cannot read and other sites cannot send. There are no scripts on the page.
+hash, in a cookie that scripts cannot read and other sites cannot send. There are no scripts on the page, but for
+the devices view, whose own script reads the phone's motion sensors (remote_devices.py).
 
 Whatever a person types to correct a memory goes through the same checks as what an agent sends (remember), so a
 secret cannot reach the memory this way either, and what was typed is not sent back. The same goes for the words of a
@@ -22,8 +23,8 @@ from datetime import datetime, timezone
 from typing import Dict, List, Optional, Sequence
 from urllib.parse import urlencode
 
-from . import (remote_apps, remote_cognition, remote_guidelines, remote_photos, remote_portal, remote_reflections,
-               remote_shares, remote_tasks, remote_vault)
+from . import (remote_apps, remote_cognition, remote_devices, remote_guidelines, remote_photos, remote_portal,
+               remote_reflections, remote_shares, remote_tasks, remote_vault)
 from .mcp_server import BY_THE_USER, KINDS, OPEN_KINDS, OVERVIEW_OPEN_ITEMS, STALE_DAYS, AgentMemory, _day
 from .remote_accounts import (_HEADERS, MIN_PASSWORD, NAME, _STYLE as _BASE_STYLE, _page, _texts, client_address,
                               signup_guard_fields)
@@ -548,11 +549,13 @@ def routes(accounts, grants, memories, limiter, secure: bool, issuer: str = "") 
     from starlette.datastructures import UploadFile
     from starlette.formparsers import MultiPartParser
     from starlette.requests import ClientDisconnect
-    from starlette.responses import HTMLResponse, RedirectResponse, Response
+    from starlette.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
     from starlette.routing import Route
 
     # A photo waits in memory until it is sealed: past this the parser would put it in a plain temporary file.
     MultiPartParser.spool_max_size = remote_photos.MAX_FORM
+    # What a phone's sensors send (remote_devices.py): one memory per episode, never a flood.
+    device_throttle = remote_devices.Throttle()
 
     # Only here: the sign-in page's form has to be able to send the browser on to the app that asked.
     policy = f"{_HEADERS['Content-Security-Policy']}; img-src 'self'; form-action 'self'; base-uri 'none'"
@@ -562,7 +565,7 @@ def routes(accounts, grants, memories, limiter, secure: bool, issuer: str = "") 
         return {**base, **TEXT[base["lang"]], **remote_portal.TEXT[base["lang"]], **remote_apps.TEXT[base["lang"]],
                 **remote_tasks.TEXT[base["lang"]], **remote_guidelines.TEXT[base["lang"]],
                 **remote_reflections.TEXT[base["lang"]], **remote_shares.TEXT[base["lang"]],
-                **remote_cognition.TEXT[base["lang"]]}
+                **remote_cognition.TEXT[base["lang"]], **remote_devices.TEXT[base["lang"]]}
 
     def view(t: dict, title: str, body: str, status: int = 200):
         response = _page(t, title, body, status, style=_STYLE)
@@ -586,7 +589,8 @@ def routes(accounts, grants, memories, limiter, secure: bool, issuer: str = "") 
         response = HTMLResponse(
             f'<!doctype html><html lang="{t["lang"]}"><head><meta charset="utf-8"><meta name="viewport" '
             f'content="width=device-width, initial-scale=1"><title>{html.escape(title)} · INFINITO</title>'
-            f'<style>{_BASE_STYLE}{_STYLE}{remote_portal.STYLE}</style></head><body class="app">{page_html}</body></html>',
+            f'<style>{_BASE_STYLE}{_STYLE}{remote_portal.STYLE}{remote_devices.STYLE}</style></head>'
+            f'<body class="app">{page_html}</body></html>',
             status_code=status, headers=_HEADERS)
         response.headers["Content-Security-Policy"] = policy
         return response
@@ -954,6 +958,34 @@ def routes(accounts, grants, memories, limiter, secure: bool, issuer: str = "") 
         body = remote_portal.dashboard(t, data, session["data"]["csrf"], _hidden)
         return await shown(t, session, t["nav_vault"], body, active="vault", whole=True)
 
+    async def devices_page(t: dict, session: dict):
+        """The one page with a script: its own, allowed by a nonce for this answer only (remote_devices.py)."""
+        saved = await use(session, remote_devices.recent, writes=False)
+        nonce = secrets.token_urlsafe(16)
+        response = await shown(t, session, t["devices_title"],
+                               remote_devices.body(t, saved, session["data"]["csrf"], nonce), active="devices")
+        response.headers["Content-Security-Policy"] = remote_devices.policy(policy, nonce)
+        return response
+
+    async def device_event(t: dict, request, form):
+        """What the phone felt in one episode, sent by the devices page; it answers the page's script in JSON."""
+        session = signed_in(request)
+        if session is None:
+            return JSONResponse({"error": t["devices_session_over"]}, status_code=401, headers=_HEADERS)
+        if not hmac.compare_digest(str(form.get("csrf", "")), session["data"]["csrf"]):
+            return JSONResponse({"error": t["bad_form"]}, status_code=403, headers=_HEADERS)
+        event = remote_devices.read_event(form)
+        if event is None:
+            return JSONResponse({"error": t["devices_bad_event"]}, status_code=400, headers=_HEADERS)
+        if not device_throttle.allow(session["account"]):
+            return JSONResponse({"error": t["devices_too_soon"]}, status_code=429, headers=_HEADERS)
+        text = remote_devices.sentence(t["lang"], event, datetime.now(timezone.utc))
+        said = await use(session, lambda memory: memory.remember(text, "fact", t["devices_source"], None, None,
+                                                                 remote_devices.AUTHOR), writes=True)
+        if not said.startswith("Remembered"):
+            return JSONResponse({"error": t["devices_not_saved"]}, status_code=400, headers=_HEADERS)
+        return JSONResponse({"saved": True, "text": text}, headers=_HEADERS)
+
     async def projects(t: dict, session: dict):
         found = await use(session, _projects, writes=False)
         return await shown(t, session, t["projects_title"], remote_portal.projects_body(t, found), active="projects")
@@ -1019,6 +1051,8 @@ def routes(accounts, grants, memories, limiter, secure: bool, issuer: str = "") 
             return await reflections_page(t, session)
         if wanted == "cognition":
             return await cognition_page(t, session, seen=True)
+        if wanted == "devices":
+            return await devices_page(t, session)
         if wanted == "settings":
             return await shown(t, session, t["settings_title"], remote_portal.settings_body(t, session["account"]),
                                active="settings")
@@ -1095,6 +1129,8 @@ def routes(accounts, grants, memories, limiter, secure: bool, issuer: str = "") 
             return await invite_signup(t, request, form)
         if action == "signup":
             return await web_signup(t, request, form)
+        if action == "device_event":
+            return await device_event(t, request, form)
         session = signed_in(request)
         if session is None:
             if form.get("invite"):
