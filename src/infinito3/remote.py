@@ -55,8 +55,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple
 
-from . import (remote_apps, remote_cognition, remote_guidelines, remote_photos, remote_reflections, remote_shares,
-               remote_tasks, remote_teams)
+from . import (remote_apps, remote_cognition, remote_device_api, remote_guidelines, remote_photos, remote_reflections,
+               remote_shares, remote_tasks, remote_teams)
 from .mcp_server import INSTRUCTIONS, TOOL_DESCRIPTIONS, TOOL_HINTS, AgentMemory, MemoryItem, _line
 from .persistent_memory import HashEmbeddingProvider, SQLiteCognitiveMemoryStore
 
@@ -259,7 +259,10 @@ class _Router:
                 await send(message)
 
             await self.auth_app(scope, receive, noted)
-            if not (path == "/" and scope["method"] == "GET"):  # visits to the front page are not sign-in steps
+            # Visits to the front page are not sign-in steps, nor is each event a device sends that is taken.
+            quiet = (path == "/" and scope["method"] == "GET") or (path == remote_device_api.PATH
+                                                                   and status.get("code") == 200)
+            if not quiet:
                 print(f"sign-in: {scope['method']} {path} {status.get('code')}", flush=True)
             return
         if path in ("/mcp", "/mcp/") and self.bearer:
@@ -271,7 +274,14 @@ class _Router:
                 challenge = f'Bearer error="invalid_token", resource_metadata="{self.metadata_url}"'
                 return await _plain(send, 401, "Sign in to your INFINITO memory.",
                                     [(b"www-authenticate", challenge.encode())])
-            (name, key, app, client), memories = opened, "accounts"
+            (name, key, app, client, scopes), memories = opened, "accounts"
+            if remote_device_api.is_device(scopes):
+                # A device's sign-in only sends its events (remote_device_api.py): it never reads or changes the
+                # memory here, whatever its level on the Apps page.
+                print(f"sign-in: {scope['method']} /mcp 403 (a device's token)", flush=True)
+                challenge = 'Bearer error="insufficient_scope", scope="memory"'
+                return await _plain(send, 403, remote_apps.device_refusal(),
+                                    [(b"www-authenticate", challenge.encode())])
         else:
             match = PERSONAL_PATH.fullmatch(path)
             name = self.people.who(match.group(1)) if match else None

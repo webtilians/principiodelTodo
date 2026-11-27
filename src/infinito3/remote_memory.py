@@ -23,8 +23,8 @@ from datetime import datetime, timezone
 from typing import Dict, List, Optional, Sequence
 from urllib.parse import urlencode
 
-from . import (remote_apps, remote_cognition, remote_devices, remote_guidelines, remote_photos, remote_portal,
-               remote_reflections, remote_shares, remote_tasks, remote_vault)
+from . import (remote_apps, remote_cognition, remote_device_api, remote_devices, remote_guidelines, remote_photos,
+               remote_portal, remote_reflections, remote_shares, remote_tasks, remote_vault)
 from .mcp_server import BY_THE_USER, KINDS, OPEN_KINDS, OVERVIEW_OPEN_ITEMS, STALE_DAYS, AgentMemory, _day
 from .remote_accounts import (_HEADERS, MIN_PASSWORD, NAME, _STYLE as _BASE_STYLE, _page, _texts, client_address,
                               signup_guard_fields)
@@ -543,8 +543,9 @@ def set_session_cookie(response, token: str, *, secure: bool) -> None:
                         samesite="strict")
 
 
-def routes(accounts, grants, memories, limiter, secure: bool, issuer: str = "") -> list:
-    """The page; memories opens each person's sealed memory, and limiter keeps one heavy password check at a time."""
+def routes(accounts, grants, memories, limiter, secure: bool, issuer: str = "", pace=None) -> list:
+    """The page; memories opens each person's sealed memory, and limiter keeps one heavy password check at a time.
+    pace is the devices' pace (remote_devices.Pace), shared with the devices' own apps (remote_device_api.py)."""
     import anyio
     from starlette.datastructures import UploadFile
     from starlette.formparsers import MultiPartParser
@@ -555,10 +556,9 @@ def routes(accounts, grants, memories, limiter, secure: bool, issuer: str = "") 
     # A photo waits in memory until it is sealed: past this the parser would put it in a plain temporary file.
     MultiPartParser.spool_max_size = remote_photos.MAX_FORM
     # What a phone's sensors send (remote_devices.py): one memory per episode, never a flood; the GPS route at its own
-    # pace, and at most so many trips an hour.
-    device_throttle = remote_devices.Throttle()
-    point_throttle = remote_devices.Throttle(min_gap=remote_devices.POINT_GAP_SECONDS, per_hour=3600)
-    trip_throttle = remote_devices.Throttle(min_gap=1, per_hour=remote_devices.TRIPS_PER_HOUR)
+    # pace, and at most so many trips an hour. The same pace as the devices' own apps.
+    pace = pace or remote_devices.Pace()
+    device_throttle, point_throttle, trip_throttle = pace.event, pace.point, pace.trip
 
     # Only here: the sign-in page's form has to be able to send the browser on to the app that asked.
     policy = f"{_HEADERS['Content-Security-Policy']}; img-src 'self'; form-action 'self'; base-uri 'none'"
@@ -744,10 +744,31 @@ def routes(accounts, grants, memories, limiter, secure: bool, issuer: str = "") 
             return await cognition_page(t, session, error=error, status=400)
         return await cognition_page(t, session, message=t["cognition_done"][status])
 
+    def device_registry(session: dict):
+        """The memory's devices (remote_device_api.py), sealed with its key: where and what to read or change."""
+        return accounts.memory_folder(session["account"]), session["key"], session["account"]
+
     async def apps_page(t: dict, session: dict, message: str = ""):
+        devices = await anyio.to_thread.run_sync(lambda: remote_device_api.read(*device_registry(session)))
         body = remote_apps.apps_body(t, grants.apps_of(session["account"]), accounts.app_levels(session["account"]),
-                                     session["data"]["csrf"], _hidden, message=message)
+                                     session["data"]["csrf"], _hidden, message=message, devices=devices["devices"])
         return await shown(t, session, t["apps_title"], body, active="apps")
+
+    async def on_device(t: dict, session: dict, form):
+        """What the person lets one of their devices send, or disconnecting it: only here, signed in."""
+        client_id = str(form.get("client", ""))
+        app = next((app for app in grants.apps_of(session["account"]) if app["client_id"] == client_id), None)
+        if app is None or not remote_device_api.is_device(app["scopes"]):
+            return await apps_page(t, session)
+        if str(form.get("what", "")) == "disconnect":
+            grants.drop_client(session["account"], client_id)
+            accounts.set_app_level(session["account"], client_id, None)
+            await anyio.to_thread.run_sync(lambda: remote_device_api.forget_device(*device_registry(session), client_id))
+            return await apps_page(t, session, message=remote_device_api.TEXT[t["lang"]]["apps_device_disconnected"])
+        on = {str(value) for value in form.getlist("on")}
+        off = [name for name in remote_device_api.capabilities(app["scopes"]) if name not in on]
+        await anyio.to_thread.run_sync(lambda: remote_device_api.switch_off(*device_registry(session), client_id, off))
+        return await apps_page(t, session, message=t["apps_saved"])
 
     async def on_tasks(t: dict, session: dict, form, action: str):
         """What the person decides about their tasks. Only here, signed in with their password, is a task approved."""
@@ -1244,6 +1265,8 @@ def routes(accounts, grants, memories, limiter, secure: bool, issuer: str = "") 
             return await on_cognition(t, session, form, action)
         if action in ("share_invite", "share_send", "share_stop", "share_remove_review", "share_remove", "share_accept"):
             return await on_shares(t, session, form, action)
+        if action == "device_capabilities":
+            return await on_device(t, session, form)
         if action == "app_level":
             client_id, level = str(form.get("client", "")), str(form.get("level", ""))
             if client_id not in {app["client_id"] for app in grants.apps_of(session["account"])}:

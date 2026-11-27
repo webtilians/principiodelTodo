@@ -1,6 +1,7 @@
 # INFINITO para iPhone: dossier de implementación del MVP
 
-27/11/2026 · Hilo (Claude Code), a petición de Enrique · Estado: **propuesta, nada implementado**.
+27/11/2026 · Hilo (Claude Code), a petición de Enrique · Estado: **propuesta. La fase 0 (servidor) está construida en
+la rama `feat/device-api-v1-20261127` (28/11/2026), sin fusionar; la app, sin empezar.**
 
 **Revisión 1 (27/11/2026).** Enrique pidió que este dossier adopte el contrato común de dispositivos, **INFINITO Device
 API v1**, definido en la §5 del dossier de INFINITO Desktop (`docs/INFINITO_DESKTOP_DOSSIER_2026-11-27.md`, PR #198,
@@ -140,6 +141,33 @@ Recomendación: **Capacitor 7 como DH Trails**, que corrige la recomendación an
 ## 5. Fases
 
 ### Fase 0: INFINITO Device API v1 (servidor, `src/infinito3`)
+
+**Estado (28/11/2026): construida en la rama `feat/device-api-v1-20261127`, sin fusionar.** Enrique eligió el
+27/11/2026 empezar por aquí (P-8). Archivos:
+
+- `src/infinito3/remote_device_api.py`, nuevo;
+- los cambios pequeños en `remote_accounts.py`, `remote.py`, `remote_memory.py`, `remote_apps.py`,
+  `remote_devices.py` y `mcp_server.py`;
+- 15 pruebas en `tests/test_remote_devices_api_v3.py`;
+- la documentación en `remote/README.md`.
+
+Lo que cambió respecto a lo escrito abajo:
+
+- **La ruta** no pasa por la rama `/mcp` del router. Es una ruta más de la app de inicio de sesión, que comprueba el
+  token ella misma.
+- **Las capacidades** se declaran como ámbitos OAuth, `infinito:device:<capacidad>`, en el registro y en `/authorize`
+  (§5.2 del dossier de Desktop). La página de inicio de sesión las enumera. La app debe registrarse con
+  `scope = "infinito:device infinito:device:phone.motion …"`.
+- **El texto libre** de otras capacidades se ignora, como cualquier campo de más, y nunca llega a un recuerdo.
+- **`received_at`** es la hora de creación del recuerdo. `observed_to` queda como `said_at` del recuerdo y es la hora
+  que dicen sus palabras.
+- **P-6:** el servidor acepta puntos con la hora del teléfono hasta 24 h después (`remote_devices.TRACK_SECONDS`, lo
+  que guarda el trayecto), y los demás eventos hasta 7 días (`MAX_AGE_SECONDS`). Si Enrique decide descartar los
+  puntos sin cobertura, la app simplemente no los manda. El ritmo de los puntos sigue siendo uno cada 2 s por llegada:
+  una cola atrasada se reenvía a ese paso.
+- **`[verificar]` resuelto:** el registro acepta `com.infinitomemory.app:/oauth` y el flujo completo funciona con él
+  (lo prueba `device_sign_in` en las pruebas). La página de inicio de sesión muestra «INFINITO para iPhone
+  (com.infinitomemory.app:/oauth)», porque `_asking` solo acorta las direcciones `esquema://host`.
 
 **Alcance.** Construir el contrato de la §5 del dossier de Desktop, con las capacidades del teléfono. Si la fase 3 de
 Desktop ya lo construyó, solo se añaden las capacidades (decisión P-8).
@@ -324,10 +352,11 @@ teléfono real.
 - **P-7. Prioridad.** Esto es ampliación del producto, y el hito del núcleo sigue siendo cerrar la distancia con la
   base de referencia RAG (AGENTS.md). Hay que decidir también si sigue en pie la decisión del 7/11 de empezar por
   Home Assistant.
-- **P-8. Quién construye primero la Device API v1:** esta fase 0 o la fase 3 de Desktop. Recomendado: la del producto
-  que vaya antes según P-7; el otro solo añade sus capacidades.
+- **P-8. Quién construye primero la Device API v1:** esta fase 0 o la fase 3 de Desktop. **Decidida el 27/11/2026:**
+  esta fase 0, ya construida en la rama `feat/device-api-v1-20261127`.
 - **P-9. Ámbito de dispositivo.** Es la decisión P-8 del dossier de Desktop: el nombre (`infinito:device`) y qué
-  permite. Se decide una vez para los dos.
+  permite. Se decide una vez para los dos. Construido como propuesta: `infinito:device` más un ámbito por capacidad, y
+  con él solo la ruta de eventos. Se puede cambiar antes de fusionar.
 
 ## 10. Qué cambiaría el plan
 
