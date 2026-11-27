@@ -1,7 +1,8 @@
 name: Claude Desktop extension
 
 # Builds dist/infinito-memory.mcpb, checks it with the official mcpb CLI and attaches it to every
-# published release, so the README's download link always points at the latest one.
+# published release, so the README's download link always points at the latest one. Since 0.8.0 the
+# extension serves only the vault (INFINITO Vault): the memory comes from the person's account.
 on:
   pull_request:
     paths: ["mcpb/**", "src/infinito3/**", "pyproject.toml", ".github/workflows/desktop-extension.yml"]
@@ -37,7 +38,7 @@ jobs:
         run: |
           python -m pip install -q uv "mcp>=2,<3" anyio
           mkdir -p /tmp/bundle && python -m zipfile -e dist/infinito-memory.mcpb /tmp/bundle
-          python mcpb/check_bundle.py "$(which uv)" /tmp/bundle /tmp/memory
+          python mcpb/check_bundle.py "$(which uv)" /tmp/bundle /tmp/vault
       - uses: actions/upload-artifact@v4
         with:
           name: infinito-memory-mcpb
