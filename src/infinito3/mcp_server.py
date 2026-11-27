@@ -268,10 +268,11 @@ class AgentMemory:
 
     def remember(self, statement: str, kind: Optional[str] = None, source: Optional[str] = None,
                  project: Optional[str] = None, date: Optional[str] = None, author: Optional[str] = None,
-                 photo: Optional[str] = None) -> str:
+                 photo: Optional[str] = None, origin: Optional[str] = None) -> str:
         """author is which app saved it, as the server knows from its sign-in: never a tool argument, so a model
         cannot say another app wrote something. photo is the id of a picture these words describe (remote_photos.py),
-        which is its own memory even if another one has the same words."""
+        which is its own memory even if another one has the same words. origin is how a device knew it (observed,
+        declared or inferred, remote_device_api.py), kept with the memory as the server's word, never a model's."""
         text = (statement or "").strip()
         if not text:
             return "Nothing to remember."
@@ -291,8 +292,8 @@ class AgentMemory:
         if self.engine.forget_detector.is_request(text):
             return ("Not stored: this asks to forget something. Call list_memories or recall to find every "
                     "memory it names, then forget them by id.")
-        if kind or source or project or date or photo:
-            return self._remember_for_work(text, kind, source, project, date, author, photo)
+        if kind or source or project or date or photo or origin:
+            return self._remember_for_work(text, kind, source, project, date, author, photo, origin)
         decision = self.engine.process(text, build_context=False, said_at=datetime.now(timezone.utc),
                                        keep_contact_details=True, metadata={"author": author} if author else None)
         if not decision.stored_memory_ids:
@@ -302,7 +303,8 @@ class AgentMemory:
         return f"Remembered as {decision.stored_memory_ids[0]}.{note}{self._disagreement_note(record)}"
 
     def _remember_for_work(self, text: str, kind: Optional[str], source: Optional[str], project: Optional[str],
-                           date: Optional[str], author: Optional[str] = None, photo: Optional[str] = None) -> str:
+                           date: Optional[str], author: Optional[str] = None, photo: Optional[str] = None,
+                           origin: Optional[str] = None) -> str:
         """A memory the agent says what it is. "Reclamar a Marta los textos" is a request to the gate that
         keeps chat out of memory, and a pending item here, so only a pure question is refused."""
         if kind and kind not in KINDS:
@@ -320,7 +322,7 @@ class AgentMemory:
         content = text if project.casefold() in text.casefold() else f"{project}: {text}"
         gate = self.engine.memory_gate.evaluate(content)
         metadata = {"said_at": said_at.isoformat(), "kind": kind, "source": (source or "").strip(), "project": project,
-                    "author": author, "photo": photo}
+                    "author": author, "photo": photo, "origin": origin}
         # A client's facts are not the user's: only the user's own can replace each other (name, city...).
         record = MemoryRecord(content=content, kind=MemoryKind.SEMANTIC if project else gate.kind,
                               importance=max(gate.importance, 0.6),

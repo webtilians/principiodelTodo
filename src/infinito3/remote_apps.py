@@ -72,15 +72,63 @@ def refusal(level: Optional[str], tool: str, issuer: str) -> Optional[str]:
             f"it on their memory page, under Apps ({issuer}/memory?view=apps). Do not ask another app to do it instead.")
 
 
-def apps_body(t: dict, apps: list, levels: Dict[str, str], csrf: str, hidden_fields, message: str = "") -> str:
-    """One row per connected app: its name and where it signs in from, its level, and a way to disconnect it."""
+def device_refusal() -> str:
+    """What a device's sign-in is told on /mcp (remote_device_api.py), whatever its level."""
+    from .remote_device_api import PATH, SCOPE
+
+    return (f"Not allowed: this is a device's sign-in ({SCOPE}). It only sends its events to {PATH}; it never reads "
+            "or changes the memory over MCP. Do not ask another app to do it instead.")
+
+
+def _device_row(t: dict, app: dict, device: dict, csrf: str, hidden_fields) -> str:
+    """A device: what it is, when it was last heard from, and a switch for each capability it signed in with."""
     import html
+    from datetime import datetime, timezone
+
+    from . import remote_device_api
 
     e = html.escape
-    if not apps:
-        return f'<p>{t["apps_empty"]}</p>'
+    d = remote_device_api.TEXT[t.get("lang", "es")]
+    last = device.get("last")
+    heard = (d["apps_device_last"].format(when=datetime.fromtimestamp(float(last), timezone.utc).strftime(
+        "%Y-%m-%d %H:%M UTC")) if last else d["apps_device_never"])
+    off = set(device.get("off") or [])
+    switches = []
+    for name in remote_device_api.capabilities(app.get("scopes")):
+        known = name in remote_device_api.CAPABILITIES
+        label = d["device_caps"].get(name, name) if known else f'{name} ({d["apps_device_unknown"]})'
+        checked = " checked" if name not in off else ""
+        switches.append(f'<label class="meta" style="display:block"><input type="checkbox" name="on" value="{e(name)}"'
+                        f'{checked}> {e(label)}</label>')
+    return (f'<div class="memo"><div><div><strong>{e(app["name"])}</strong></div>'
+            f'<p class="meta">{e(app["host"])} · {t["apps_since"].format(day=e(app["since"]))} · {e(heard)}</p>'
+            f'<p class="meta">{d["apps_device"]}</p>'
+            f'<form method="post" action="/memory" class="actions">'
+            f'{hidden_fields(action="device_capabilities", csrf=csrf, client=app["client_id"])}'
+            f'<fieldset style="flex:1 1 16rem;border:0;margin:0;padding:0"><legend class="meta">{d["apps_device_caps"]}'
+            f'</legend>{"".join(switches)}</fieldset>'
+            f'<button class="quiet" type="submit">{t["apps_save"]}</button>'
+            f'<button class="bad-quiet" type="submit" name="what" value="disconnect">{t["apps_disconnect"]}</button>'
+            f'</form></div></div>')
+
+
+def apps_body(t: dict, apps: list, levels: Dict[str, str], csrf: str, hidden_fields, message: str = "",
+              devices: Optional[Dict[str, dict]] = None) -> str:
+    """One row per connected app: its name and where it signs in from, its level, and a way to disconnect it. A device
+    (remote_device_api.py) has no level: it shows its last activity and a switch for each of its capabilities."""
+    import html
+
+    from .remote_device_api import is_device
+
+    e = html.escape
+    notice = f'<p class="ok" role="status">{e(message)}</p>' if message else ""
+    if not apps:  # the last one may have just been disconnected: the page still says so
+        return f'{notice}<p>{t["apps_empty"]}</p>'
     rows = []
     for app in apps:
+        if is_device(app.get("scopes")):
+            rows.append(_device_row(t, app, (devices or {}).get(app["client_id"]) or {}, csrf, hidden_fields))
+            continue
         level = levels.get(app["client_id"], DEFAULT)
         options = "".join(f'<option value="{name}"{" selected" if name == level else ""}>{t["apps_levels"][name]} — '
                           f'{t["apps_about"][name]}</option>' for name in LEVELS)
@@ -95,5 +143,4 @@ def apps_body(t: dict, apps: list, levels: Dict[str, str], csrf: str, hidden_fie
             f'</form></div></div>')
     names = [app["name"] for app in apps]
     twice = f'<p class="note">{t["apps_same_name"]}</p>' if len(set(names)) < len(names) else ""
-    notice = f'<p class="ok" role="status">{e(message)}</p>' if message else ""
     return f'{notice}<p class="note">{t["apps_note"]}</p>{"".join(rows)}{twice}'

@@ -226,8 +226,13 @@ el motor. Cambiar `remote_client.py` exige sus pruebas en verde.
 
 En vez de una integración por aparato, un solo contrato que reutilizan el PC, el teléfono, el reloj y la domótica
 (Home Assistant, decisión `25977129`), y después el coche, las gafas, las cámaras o los robots, sin rediseñar el
-núcleo. El dossier del iPhone (PR #197) lo adopta en su fase 0. **Es una propuesta, no una
-implementación.**
+núcleo. El dossier del iPhone (PR #197) lo adopta en su fase 0.
+
+**Estado (28/11/2026).** El servidor ya está construido en la rama `feat/device-api-v1-20261127` (fase 0 del iPhone,
+decisión P-8 del iPhone: la API va primero). Tiene la ruta, el ámbito, las capacidades `phone.motion`, `phone.place`,
+`phone.track` y `note`, la idempotencia, la procedencia, el ritmo compartido y el registro en la página Apps
+(`src/infinito3/remote_device_api.py`, documentado en `remote/README.md`). Falta que Enrique lo fusione y se despliegue.
+Las capacidades del PC (`pc.*`) y el pulso del reloj siguen en propuesta. Lo que cambió al construirlo está en §5.2.
 
 ### 5.1 Identidad y registro
 
@@ -244,13 +249,23 @@ implementación.**
 
 - El dispositivo pide en el registro y en `/authorize` un ámbito propio, `infinito:device` **(propuesta)**. Hoy
   `remote_accounts.py` ya acepta cualquier ámbito y lo guarda en el token, así que pedir menos no rompe nada.
-- Un token con ese ámbito **solo** puede llamar a `POST /api/devices/v1/events` y, hasta la F3, a `remember` por `/mcp`.
+- Un token con ese ámbito **solo** puede llamar a `POST /api/devices/v1/events`. En `/mcp` recibe `403` con el texto de
+  `remote_apps.device_refusal`. La excepción temporal de `remember` por `/mcp` ya no hace falta, porque la API existe:
+  la captura rápida de la F2 es un evento `note`.
   Nada de lectura de la memoria, bóveda, `forget`, cola de tareas, pautas, reflexiones ni `photo_save`. El servidor lo
   comprueba en cada llamada, sea cual sea el nivel de la app en Apps.
 - **Capacidades:** el dispositivo declara las suyas (por ejemplo `note`, `photo`, `pc.activity`, `pc.resources`,
   `pc.power`, `pc.errors`, `pc.repo`, `phone.motion`, `phone.place`, `phone.track`, `watch.pulse`). La persona puede
-  apagar cada una en el registro. Un evento de una capacidad no declarada o apagada se rechaza con `403`. Cómo
-  se declaran (en el registro del cliente o en un primer evento) se fija al construir la API.
+  apagar cada una en el registro. Un evento de una capacidad no declarada o apagada se rechaza con `403`.
+- **Cómo se declaran (fijado al construirla):** como ámbitos OAuth, uno por capacidad, en el registro del cliente y en
+  `/authorize`: `infinito:device infinito:device:phone.motion infinito:device:note`… Así:
+  - la página de inicio de sesión dice qué podrá añadir el dispositivo;
+  - un refresco no puede añadir ninguna (el SDK de MCP rechaza un ámbito que no dio el primer inicio);
+  - un dispositivo que no pide ámbito en `/authorize` recibe los de su registro, nunca `memory`.
+
+  Añadir una capacidad en una versión nueva de una app obliga a registrarse e iniciar sesión otra vez, y eso es un
+  consentimiento nuevo. Los metadatos del servidor no anuncian estos ámbitos, para que una app que pide todos los que
+  ve no se convierta en dispositivo.
 - Ningún dispositivo ve los eventos de otro ni tiene acceso a él por defecto.
 
 ### 5.3 Formato del evento (v1)
@@ -325,7 +340,9 @@ y comprueba que `vault_status` responde por la extensión y `recall` por el cone
 
 **Servidor (pequeño): el ámbito de dispositivo desde el registro** (§5.2, invariante 5)
 
-- `infinito:device` en el registro y en los tokens. Con ese ámbito, `/mcp` solo deja `remember` y responde con el texto
+- **Ya hecho en la rama `feat/device-api-v1-20261127`, con la Device API (§5): con el ámbito, `/mcp` responde `403` a
+  todo, también a `remember`.** El plan original era este: `infinito:device` en el registro y en los tokens. Con ese
+  ámbito, `/mcp` solo deja `remember` y responde con el texto
   de `remote_apps.refusal` a todo lo demás.
 - Pruebas en `tests/test_remote_apps_v3.py` o en un archivo nuevo: un token con el ámbito no puede llamar a la bóveda,
   `forget`, `recall`, `task_*` ni `guideline_propose`, sea cual sea su nivel; un token sin el ámbito se comporta como
@@ -400,13 +417,12 @@ y comprueba que `vault_status` responde por la extensión y `recall` por el cone
   de texto **[verificar en `tkinter`]**.
 - **Campos:** el texto; el tipo (dato, decisión, pendiente, propuesta…, los `kind` que ya acepta `remember`); y el
   proyecto, opcional, elegido de una lista que Enrique guarda en la app (el ámbito de dispositivo no lee la memoria).
-- **Guardar** llama a `remember` por `/mcp`, con `source` = «dicho por Enrique en INFINITO Desktop» (origen
-  declarado) y la fecha de hoy. La ventana muestra la respuesta del servidor tal cual: «Remembered as …» o el rechazo
+- **Guardar** manda un evento `note` (origen `declared`) a la Device API (§5), que ya existe. El servidor pone la
+  fuente «dicho por la persona en INFINITO Desktop en <equipo> (nota)» y la hora del evento. Antes de construir la API
+  el plan era llamar a `remember` por `/mcp`, y eso ya no vale: un token de dispositivo recibe `403` en `/mcp`. La ventana muestra la respuesta del servidor tal cual: «Remembered as …» o el rechazo
   del filtro.
-- **Sin red:** la nota va a la cola cifrada y se reenvía sola cuando vuelve la red, solo si la petición no llegó al
-  servidor (fallo de conexión). Si el resultado es dudoso (se mandó y no llegó respuesta), no se reenvía sola: el panel
-  la marca como «¿se guardó?» y Enrique decide. Desde la F3, la nota viaja como evento `note` con `event_id`, y el caso
-  dudoso desaparece.
+- **Sin red:** la nota va a la cola cifrada con su `event_id` y se reenvía sola cuando vuelve la red. El servidor
+  responde `duplicate` a lo que ya guardó, así que no hay casos dudosos.
 
 **Puerta**
 
@@ -416,7 +432,9 @@ y comprueba que `vault_status` responde por la extensión y `recall` por el cone
 
 ### Fase 3: INFINITO Device API v1, compartida con el iPhone
 
-**Servidor** (`src/infinito3`): el contrato de la §5.
+**Servidor** (`src/infinito3`): el contrato de la §5. **Ya construido, con las capacidades del teléfono y `note`, en la
+rama `feat/device-api-v1-20261127`** (fase 0 del iPhone). A esta fase le queda añadir las capacidades del PC
+(`pc.*`) con sus lectores y frases, y sus pruebas. Esto era lo previsto:
 
 - `POST /api/devices/v1/events`, con el ámbito, las capacidades, la validación, la idempotencia, la procedencia y el
   ritmo.

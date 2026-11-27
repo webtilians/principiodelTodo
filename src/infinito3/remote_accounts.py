@@ -371,21 +371,33 @@ class Grants:
 
     def apps_of(self, account: str) -> List[dict]:
         """The apps that hold a live sign-in to this memory, first connected first: their client id, the name they
-        registered with, the host they sign in from and the day they first connected."""
+        registered with, the host they sign in from, the day they first connected and the scopes they signed in with
+        (a device's say what it can send, remote_device_api.py)."""
         with self._lock:
             rows = self._db.execute(
-                "SELECT g.client_id, c.info, c.since FROM grants g JOIN clients c ON c.id = g.client_id "
+                "SELECT g.client_id, c.info, c.since, g.data FROM grants g JOIN clients c ON c.id = g.client_id "
                 "WHERE g.account = ? AND g.kind IN ('access', 'refresh') AND g.expires > ? "
-                "GROUP BY g.client_id ORDER BY c.since", (account, time.time())).fetchall()
+                "ORDER BY c.since", (account, time.time())).fetchall()
+        scopes: Dict[str, set] = {}
+        firsts = []
+        for client_id, info, since, data in rows:
+            if client_id not in scopes:
+                scopes[client_id] = set()
+                firsts.append((client_id, info, since))
+            try:
+                scopes[client_id].update(str(scope) for scope in json.loads(data).get("scopes") or [])
+            except (ValueError, AttributeError, TypeError):
+                pass
         apps = []
-        for client_id, info, since in rows:
+        for client_id, info, since in firsts:
             try:
                 uris = json.loads(info).get("redirect_uris") or [""]
             except (ValueError, AttributeError):
                 uris = [""]
             host = re.sub(r"^[a-z]+://([^/:]+).*$", r"\1", str(uris[0]))
             apps.append({"client_id": client_id, "name": _app_name(info) or host or "?", "host": host,
-                         "since": datetime.fromtimestamp(since, timezone.utc).date().isoformat()})
+                         "since": datetime.fromtimestamp(since, timezone.utc).date().isoformat(),
+                         "scopes": sorted(scopes[client_id])})
         return apps
 
     def drop_client(self, account: str, client_id: str) -> None:
@@ -415,6 +427,8 @@ def build_auth(accounts: Accounts, grants: Grants, issuer: str,
                                         create_protected_resource_routes)
     from mcp.server.auth.settings import AuthSettings, ClientRegistrationOptions, RevocationOptions
     from mcp.shared.auth import OAuthClientInformationFull, OAuthToken
+
+    from . import remote_device_api, remote_devices
 
     class Code(AuthorizationCode):
         key: bytes
@@ -446,8 +460,10 @@ def build_auth(accounts: Accounts, grants: Grants, issuer: str,
             grants.add_client(client_info.client_id, client_info.model_dump_json())
 
         async def authorize(self, client: OAuthClientInformationFull, params: AuthorizationParams) -> str:
+            # A device that asks for no scope gets the ones it registered with, never the whole memory's.
+            scopes = params.scopes or remote_device_api.registered(client.scope) or [SCOPE]
             request = grants.issue("request", client_id=client.client_id, seconds=SIGN_IN_SECONDS, data={
-                "state": params.state, "scopes": params.scopes or [SCOPE], "code_challenge": params.code_challenge,
+                "state": params.state, "scopes": scopes, "code_challenge": params.code_challenge,
                 "redirect_uri": str(params.redirect_uri), "explicit": params.redirect_uri_provided_explicitly,
                 "resource": params.resource})
             return f"{issuer}/login?r={request}"
@@ -596,11 +612,14 @@ def build_auth(accounts: Accounts, grants: Grants, issuer: str,
         target = construct_redirect_uri(data["redirect_uri"], code=code, state=data["state"])
         return RedirectResponse(target, status_code=303, headers=_HEADERS)
 
-    def _asking(pending: dict) -> str:
+    def _asking(pending: dict):
+        """Who asks to sign in; for a device, also what it will be able to add (remote_device_api.py)."""
         info = grants.client(pending["client_id"])
         client = json.loads(info) if info else {}
         host = re.sub(r"^[a-z]+://([^/:]+).*$", r"\1", pending["data"]["redirect_uri"])
-        return f"{client.get('client_name') or host} ({host})"
+        who = f"{client.get('client_name') or host} ({host})"
+        scopes = pending["data"].get("scopes") or []
+        return (who, remote_device_api.capabilities(scopes)) if remote_device_api.is_device(scopes) else who
 
     async def home(request: Request):
         return remote_home.home_page(_texts(request)["lang"], f"{issuer}/mcp", _STYLE, _HOME_HEADERS)
@@ -611,8 +630,13 @@ def build_auth(accounts: Accounts, grants: Grants, issuer: str,
 
     from . import remote_home, remote_memory, remote_vault
 
+    # The devices page and the devices' own apps (remote_device_api.py) go at one pace.
+    pace = remote_devices.Pace()
     memory_page = [] if memories is None else remote_memory.routes(accounts, grants, memories, one_at_a_time,
-                                                                   secure=issuer.startswith("https://"), issuer=issuer)
+                                                                   secure=issuer.startswith("https://"), issuer=issuer,
+                                                                   pace=pace)
+    if memories is not None:
+        memory_page += remote_device_api.routes(accounts, grants, memories, pace)
     if teams is not None:  # INFINITO Teams is on (remote_teams.py): its page, /teams
         from . import remote_teams_page
 
@@ -622,12 +646,14 @@ def build_auth(accounts: Accounts, grants: Grants, issuer: str,
                     + [Route("/login", sign_in_page, methods=["GET"]), Route("/login", sign_in, methods=["POST"]),
                        Route("/connect", connect, methods=["GET"]), Route("/", home, methods=["GET"])])
 
-    def bearer(token: str) -> Optional[Tuple[str, bytes, Optional[str], str]]:
-        """Whose memory a token opens: the account, its key, the app's name and the app's client id."""
+    def bearer(token: str) -> Optional[Tuple[str, bytes, Optional[str], str, List[str]]]:
+        """Whose memory a token opens: the account, its key, the app's name, the app's client id and the scopes it
+        signed in with (a device's open only its own route, remote_device_api.py)."""
         found = grants.find("access", token)
         if not found or not accounts.exists(found["account"]):
             return None
-        return found["account"], found["key"], _app_name(grants.client(found["client_id"])), found["client_id"]
+        return (found["account"], found["key"], _app_name(grants.client(found["client_id"])), found["client_id"],
+                list((found["data"] or {}).get("scopes") or []))
 
     paths = {route.path for route in app.routes}
     metadata_url = f"{issuer}/.well-known/oauth-protected-resource/mcp"
@@ -794,9 +820,13 @@ def signup_guard_fields(t: dict, stamp: str) -> str:
             'tabindex="-1" autocomplete="off"></div>')
 
 
-def _form(t: dict, request_token: str, mode: str, who: str, name: str = "", error: str = "", status: int = 200,
+def _form(t: dict, request_token: str, mode: str, who, name: str = "", error: str = "", status: int = 200,
           stamp: str = ""):
+    """who is the app that asks, or (who, capabilities) for a device, which is told apart (remote_device_api.py)."""
+    from .remote_device_api import asking as device_asking
+
     e = html.escape
+    asking = device_asking(t["lang"], *who) if isinstance(who, tuple) else t["asking"].format(who=e(who))
     fields = []
     for field in _FORMS[mode]:
         if field == "name":
@@ -823,7 +853,7 @@ def _form(t: dict, request_token: str, mode: str, who: str, name: str = "", erro
     r = e(request_token)
     links = {"signin": [("signup", "to_signup"), ("recover", "to_recover")],
              "signup": [("signin", "to_signin")], "recover": [("signin", "to_signin")]}[mode]
-    body = (f'<p class="note">{t["asking"].format(who=e(who))}</p>'
+    body = (f'<p class="note">{asking}</p>'
             f'<form method="post" action="/login"><input type="hidden" name="r" value="{r}">'
             f'<input type="hidden" name="action" value="{mode}">'
             f'{signup_guard_fields(t, stamp) if mode == "signup" else ""}{"".join(fields)}'

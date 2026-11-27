@@ -236,6 +236,45 @@ level. A call it may not make answers that it is not allowed, says where you can
 to ask another app to do it instead. **Disconnect** signs that app out of your memory at once. Two connections of the
 same app (ChatGPT from two places, say) are two rows, each with its own level.
 
+## Devices: INFINITO Device API v1
+
+A device (the phone app, the PC app, a watch, a house) tells the memory what it saw with one contract, the INFINITO
+Device API v1 (`src/infinito3/remote_device_api.py`, designed in §5 of
+[the INFINITO Desktop dossier](../docs/INFINITO_DESKTOP_DOSSIER_2026-11-27.md)):
+
+- **Sign-in.** The device registers and signs the person in with OAuth and PKCE, like any app, asking for the scope
+  `infinito:device` and one scope per capability: `infinito:device:phone.motion`, `infinito:device:phone.place`,
+  `infinito:device:phone.track` or `infinito:device:note`. The sign-in page says it is a device and what it will be
+  able to add. A refresh cannot add a capability, and the server metadata does not advertise these scopes, so an app
+  that asks for everything it is offered never becomes a device.
+- **Only events.** Its token opens `POST /api/devices/v1/events` and nothing else: on `/mcp` it gets `403`, whatever
+  its level, so it cannot read, forget or reach the vault.
+- **One event per request**, as JSON: `v` (1), `event_id` and `device_id` (UUIDs), `capability`, `type`, `origin`
+  (`observed`, or `declared` for a note), `observed_from` and `observed_to` (ISO 8601 with their offset) and
+  `payload`. Extra fields are ignored. The server writes the words of each memory itself, with the devices page's own
+  readers, at the time the event happened, and keeps one memory per episode. Only a note carries free text, and the
+  memory's filter refuses a secret in it.
+
+  | Capability | Types | Payload |
+  |---|---|---|
+  | `phone.motion` | `episode` | `shakes`, `position`; optionally `lat`, `lon`, `accuracy`. The time between `observed_from` and `observed_to` is how long it moved |
+  | `phone.place` | `place` | `lat`, `lon`, `accuracy` |
+  | `phone.track` | `start`, `point`, `end` | a point has `lat`, `lon`, `accuracy`; `end` keeps one memory of the trip |
+  | `note` | `text` | `text`, optionally `kind` |
+
+- **Sent again, saved once.** An `event_id` already taken is answered `200 {"saved": true, "duplicate": true,
+  "memory_id": …}` for 30 days, so a device may resend whatever it is not sure arrived. A route point is one per moment.
+- **Answers:** `200`; `400` with `error` and `detail` when the event is not valid; `401` with
+  `WWW-Authenticate: Bearer error="invalid_token"` (refresh the token); `403` for a token that is not a device's, a
+  capability it did not sign in with (`not_declared`) or one the person switched off (`switched_off`); `413` past 16 KB;
+  `429` with `Retry-After`. The pace is the devices page's, shared with it. No CORS.
+- **Late events.** An event is taken up to 7 days after it happened, and a route point up to a day, which is all the
+  route keeps.
+- **On the Apps page**, a device shows its last activity and a switch for each capability, and **Disconnect** signs it
+  out and forgets it. What the server keeps of each device and the ids it has seen are sealed with the memory's key in
+  `devices.sealed`, left out of the backups like the route: a restore signs every app out, so every device signs in
+  again.
+
 ## INFINITO Teams: an organization's memory (pilot, off by default)
 
 A team's shared memory, apart from everyone's own: the design and its reasons are in

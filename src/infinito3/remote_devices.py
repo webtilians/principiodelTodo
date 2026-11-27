@@ -23,6 +23,7 @@ The page is the one in the portal with a script: its own, inline, allowed by a n
 can only talk back to this server (connect-src 'self'). It sends with the session and the form token of the page,
 like any other form of the portal.
 """
+import bisect
 import html
 import json
 import math
@@ -308,6 +309,19 @@ class Throttle:
             return True
 
 
+class Pace:
+    """The pace of each memory's devices, one for the whole server: the devices page and the devices' own apps
+    (remote_device_api.py) share it, so a second way in is not a second allowance."""
+
+    NOTES_PER_HOUR = 120
+
+    def __init__(self, clock=time.monotonic):
+        self.event = Throttle(clock)
+        self.point = Throttle(clock, min_gap=POINT_GAP_SECONDS, per_hour=3600)
+        self.trip = Throttle(clock, min_gap=1, per_hour=TRIPS_PER_HOUR)
+        self.note = Throttle(clock, min_gap=1, per_hour=self.NOTES_PER_HOUR)
+
+
 _track_guard = threading.Lock()
 _track_locks: Dict[str, threading.Lock] = {}
 
@@ -378,6 +392,18 @@ def track_clear(folder: Path) -> None:
 
 def add_point(track: dict, place: Dict[str, float], now: float) -> None:
     track["points"].append([round(now, 1), place["lat"], place["lon"], place["accuracy"]])
+
+
+def add_point_at(track: dict, place: Dict[str, float], at: float) -> bool:
+    """A point at the time the device took it, which may come late (it waited for coverage): it goes where its time
+    puts it, so the route stays in order. The same moment sent twice is one point; False says it was there already."""
+    point = [round(at, 1), place["lat"], place["lon"], place["accuracy"]]
+    points = track["points"]
+    where = bisect.bisect_left([kept[0] for kept in points], point[0])
+    if where < len(points) and points[where][0] == point[0]:
+        return False
+    points.insert(where, point)
+    return True
 
 
 def start_trip(track: dict, now: float) -> None:
