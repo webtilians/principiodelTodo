@@ -105,15 +105,20 @@ def _load() -> Optional[dict]:
         return None
 
 
-def _keep(session: dict, tokens: dict) -> dict:
-    session.update(access_token=tokens["access_token"], expires_at=time.time() + int(tokens.get("expires_in", 3600)),
-                   refresh_token=tokens.get("refresh_token") or session.get("refresh_token"))
-    _save(session)
-    return session
-
-
 def login(server: str, open_page: Callable[[str], object] = webbrowser.open, wait_seconds: float = 300) -> str:
     """Sign this computer in: the person types their name and password on the server's own page."""
+    session = sign_in(server, client_name=f"INFINITO on {socket.gethostname()}", scope="memory", open_page=open_page,
+                      wait_seconds=wait_seconds)
+    _save(session)
+    return f"This computer is signed in to {session['server']}. Its session is in {_session_path()}."
+
+
+def sign_in(server: str, *, client_name: str, scope: str, open_page: Callable[[str], object] = webbrowser.open,
+            wait_seconds: float = 300) -> dict:
+    """The sign-in every app on this computer shares (the hooks, INFINITO Desktop): it registers as client_name with
+    scope, sends the person to the server's own page through the browser, and comes back to 127.0.0.1 with the code
+    (PKCE). It returns the session (server, client id, token endpoint and tokens) for the caller to keep as it keeps
+    secrets; it writes nothing itself."""
     server = server.rstrip("/")
     if server.endswith("/mcp"):
         server = server[:-4]
@@ -135,14 +140,14 @@ def login(server: str, open_page: Callable[[str], object] = webbrowser.open, wai
     listener = http.server.HTTPServer(("127.0.0.1", 0), Callback)
     redirect = f"http://127.0.0.1:{listener.server_address[1]}/callback"
     client = _post(metadata["registration_endpoint"], {
-        "client_name": f"INFINITO on {socket.gethostname()}", "redirect_uris": [redirect],
+        "client_name": client_name, "redirect_uris": [redirect],
         "token_endpoint_auth_method": "none", "grant_types": ["authorization_code", "refresh_token"],
-        "response_types": ["code"], "scope": "memory"})
+        "response_types": ["code"], "scope": scope})
     verifier = secrets.token_urlsafe(48)
     challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b"=").decode()
     state = secrets.token_urlsafe(16)
     page = metadata["authorization_endpoint"] + "?" + urllib.parse.urlencode({
-        "response_type": "code", "client_id": client["client_id"], "redirect_uri": redirect, "scope": "memory",
+        "response_type": "code", "client_id": client["client_id"], "redirect_uri": redirect, "scope": scope,
         "code_challenge": challenge, "code_challenge_method": "S256", "state": state, "resource": f"{server}/mcp"})
     deadline = time.time() + wait_seconds
 
@@ -161,8 +166,22 @@ def login(server: str, open_page: Callable[[str], object] = webbrowser.open, wai
     tokens = _post(metadata["token_endpoint"], {
         "grant_type": "authorization_code", "code": arrived["code"][0], "redirect_uri": redirect,
         "client_id": client["client_id"], "code_verifier": verifier, "resource": f"{server}/mcp"}, form=True)
-    _keep({"server": server, "client_id": client["client_id"], "token_endpoint": metadata["token_endpoint"]}, tokens)
-    return f"This computer is signed in to {server}. Its session is in {_session_path()}."
+    return renewed({"server": server, "client_id": client["client_id"], "token_endpoint": metadata["token_endpoint"]},
+                   tokens)
+
+
+def renewed(session: dict, tokens: dict) -> dict:
+    """The session with the tokens the server just gave: the refresh token rotates, so the new one replaces it."""
+    session.update(access_token=tokens["access_token"], expires_at=time.time() + int(tokens.get("expires_in", 3600)),
+                   refresh_token=tokens.get("refresh_token") or session.get("refresh_token"))
+    return session
+
+
+def refresh(session: dict, timeout: float = 15) -> dict:
+    """A new access token for a session, from its refresh token; the caller keeps the session it returns."""
+    tokens = _post(session["token_endpoint"], {"grant_type": "refresh_token", "client_id": session["client_id"],
+                                               "refresh_token": session["refresh_token"]}, form=True, timeout=timeout)
+    return renewed(session, tokens)
 
 
 def logout() -> str:
@@ -176,9 +195,9 @@ def logout() -> str:
 def _access(session: dict, timeout: float) -> str:
     if session.get("access_token") and session.get("expires_at", 0) > time.time() + 30:
         return session["access_token"]
-    tokens = _post(session["token_endpoint"], {"grant_type": "refresh_token", "client_id": session["client_id"],
-                                               "refresh_token": session["refresh_token"]}, form=True, timeout=timeout)
-    return _keep(session, tokens)["access_token"]
+    session = refresh(session, timeout)
+    _save(session)
+    return session["access_token"]
 
 
 def recall(query: str, timeout: float = HOOK_SECONDS, limit: int = HOOK_MEMORIES, **filters) -> Optional[str]:

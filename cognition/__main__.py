@@ -9,7 +9,7 @@
                           (with night_hours in config.json: only inside them, the review and then a study of older
                           memories until they end)
     review                a review now, whatever the hour
-    status                where it stands: last review, today's spending, proposals waiting, paused or not
+    status [--json]       where it stands: last review, today's spending, proposals waiting, paused or not
     proposals             the guidelines the supervisor proposed, with their status
     publish               send to your memory page the live reviews that have not reached it yet
     approve ID | reject ID | revoke ID     your word on a proposal that never reached your page (a published one
@@ -70,7 +70,8 @@ def main(argv=None) -> int:
     commands.add_parser("deauthorize")
     commands.add_parser("tick")
     commands.add_parser("review")
-    commands.add_parser("status")
+    commands.add_parser("status").add_argument("--json", action="store_true",
+                                               help="as data, for INFINITO Desktop (cognition/status.py)")
     commands.add_parser("proposals")
     for word in ("approve", "reject", "revoke"):
         decide = commands.add_parser(word)
@@ -166,6 +167,10 @@ def main(argv=None) -> int:
             return 1
         _say(f"Enviadas a tu página: {sent} revisión(es). Están en {conf['server']}/memory?view=cognition"
              if sent else "No había ninguna revisión pendiente de enviar, o el servidor aún no la acepta.")
+    elif args.command == "status" and args.json:
+        from .status import summary
+
+        _say(json.dumps(summary(folder, conf), ensure_ascii=False, indent=1))
     elif args.command == "status":
         ledger, today = Ledger(folder, conf), datetime.now().date()
         last = diary.last("review_end")

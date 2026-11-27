@@ -1,0 +1,50 @@
+name: INFINITO Desktop
+
+# Phase 1 of docs/INFINITO_DESKTOP_DOSSIER_2026-11-27.md: the app's tests on Windows (DPAPI included), one look with
+# --check, and the executable built with PyInstaller, kept as an artifact with its SHA-256 so it can be checked before
+# it is opened. The pure checks also run in the core CI, on Linux.
+on:
+  pull_request:
+    branches: ["master"]
+    paths: ["desktop/**", "cognition/**", "src/infinito3/remote_client.py", "tests/test_desktop_v3.py",
+            ".github/workflows/desktop.yml"]
+  push:
+    branches: ["master"]
+    paths: ["desktop/**", "cognition/**", "src/infinito3/remote_client.py", "tests/test_desktop_v3.py",
+            ".github/workflows/desktop.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-2022
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Tests, on Windows
+        run: |
+          python -m pip install -q pytest
+          python -m pytest -q tests/test_desktop_v3.py tests/test_cognition_v3.py
+      - name: One look, as the person would run it (no session, nothing sent to a memory)
+        run: python desktop/infinito-desktop.pyw --check
+      - name: Build the executable
+        run: |
+          python -m pip install -q pyinstaller==6.16.0
+          python -m PyInstaller --noconfirm --onedir --windowed --name "INFINITO Desktop" --paths desktop --paths src --paths . --hidden-import cognition.status --hidden-import cognition.notify --hidden-import infinito3.remote_client desktop/infinito-desktop.pyw
+      - name: Zip it and publish its SHA-256
+        shell: pwsh
+        run: |
+          Compress-Archive -Path "dist/INFINITO Desktop/*" -DestinationPath dist/INFINITO-Desktop.zip
+          $hash = (Get-FileHash dist/INFINITO-Desktop.zip -Algorithm SHA256).Hash
+          Set-Content -Path dist/INFINITO-Desktop.zip.sha256 -Value $hash -Encoding ascii
+          "SHA-256 of INFINITO-Desktop.zip: $hash" | Tee-Object -Append -FilePath $env:GITHUB_STEP_SUMMARY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: infinito-desktop-windows
+          path: |
+            dist/INFINITO-Desktop.zip
+            dist/INFINITO-Desktop.zip.sha256

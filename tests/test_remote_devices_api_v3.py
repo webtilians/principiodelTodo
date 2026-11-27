@@ -358,3 +358,33 @@ def test_a_device_scope_is_a_device_even_next_to_others():
     assert remote_device_api.capabilities(scope_of().split() + ["infinito:device:<b>x</b>"]) == sorted(PHONE)
     assert remote_device_api.registered("memory infinito:device") == ["infinito:device"]
     assert remote_device_api.registered("memory openid") is None and remote_device_api.registered(None) is None
+
+
+def test_infinito_desktop_signs_in_as_a_device_that_opens_no_part_of_the_memory(server):
+    """The PC app (desktop/) signs in with the sign-in every app on the PC shares, coming back to 127.0.0.1."""
+    from desktop.infinito_desktop import server as desktop
+
+    base, _, _ = server
+    device_sign_in(base, name="ana")  # the memory, made from another device
+    seen = {}
+
+    def person_signs_in(page):  # what the person does in the browser the app opens
+        with httpx2.Client() as person:
+            login = person.get(page).headers["location"]
+            request = parse_qs(urlparse(login).query)["r"][0]
+            seen["page"] = person.get(login, headers=SPANISH).text
+            back = person.post(f"{base}/login", data={"r": request, "action": "signin", "name": "ana",
+                                                       "password": PASSWORD})
+            person.get(back.headers["location"])
+
+    session = desktop.sign_in(base, open_page=person_signs_in, wait_seconds=20)
+    assert "INFINITO Desktop en " in seen["page"] and "un dispositivo" in seen["page"]
+    assert "podrá añadir a tu memoria nada todavía" in seen["page"]  # phase 1 sends nothing
+    assert mcp_call(base, session["access_token"]).status_code == 403
+    assert send(base, session["access_token"], event()).json()["error"] == "not_declared"
+    renewed = desktop.refresh(dict(session))
+    assert renewed["refresh_token"] != session["refresh_token"]  # it rotates: one renewal at a time
+    desktop.revoke(renewed)
+    assert send(base, renewed["access_token"], event()).status_code == 401
+    with pytest.raises(desktop.Expired):
+        desktop.refresh(renewed)

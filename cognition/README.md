@@ -55,6 +55,7 @@ python -m cognition review                      # a dry run until you authorize:
 python -m cognition authorize                   # let it spend, within the daily budget
 powershell -File scripts/install_cognition_task.ps1   # every hour, with no end date
 python -m cognition status | proposals | approve ID | reject ID | revoke ID | rate LABEL util|no | pause | resume
+python -m cognition status --json               # the same state as data (cognition/status.py), as INFINITO Desktop reads it
 ```
 
 Its folder is `~/.infinito/cognition` (or `INFINITO_COGNITION_HOME`): `config.json`, `session.json`,
