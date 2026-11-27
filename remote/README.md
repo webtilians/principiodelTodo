@@ -262,6 +262,43 @@ To try it on the server, with made-up data first:
 Then `<host>/teams` (https://infinitomemory.com/teams). Organizations go in the backups (`orgs/`); what a copy shows
 of one is the names of its spaces and members and their roles, never the words of a memory.
 
+### Actions: a company's own tools (add-on, off by default)
+
+What a company's systems can do (look up deadlines, register an invoice, book a room…), asked for from the AIs its
+people already use. Design: [docs/INFINITO_TEAMS_ACCIONES_ADR_P3_2026-11-24.md](../docs/INFINITO_TEAMS_ACCIONES_ADR_P3_2026-11-24.md).
+It needs `INFINITO_TEAMS_ACTIONS_ENABLED=1` as well as Teams.
+
+- **We connect them, not the company.** After studying what a company needs, the server's administrator writes a
+  catalogue: each adapter (an HTTP service that talks to the company's program, with the secret INFINITO shows it) and
+  each action (its space, name, inputs, adapter operation and mode). The company sees them on `/teams`, under
+  *Connected tools*, and cannot edit them. The company's own credentials stay in its adapter.
+- **The server runs them, never the model.** An app the person set to *Read, add and ask for actions* gets
+  `company_actions` and `company_act`. Each action's mode says when it runs: `direct` at once, `self` once the person
+  who asked confirms it on `/teams`, `second` once someone else who runs the space does. No tool confirms.
+- **What is left.** The inputs and the result are sealed with the space's key; the record of changes says who asked
+  for what, never the inputs; an action that ends well leaves a memory in its space with who did it, with which app,
+  and the reference the adapter gave back.
+
+The catalogue (no example company is shipped):
+
+    {"adapters": {"gestoria-demo": {"url": "http://127.0.0.1:8610", "secret": "<16+ characters>",
+                                    "operations": ["vencimientos", "registrar_factura"]}},
+     "orgs": {"<org_id>": [
+       {"id": "registrar_factura", "space": "<space_id>", "name": "Registrar factura recibida",
+        "adapter": "gestoria-demo", "operation": "registrar_factura", "mode": "self",
+        "input": {"cliente": "text<=60", "fecha": "date", "base": "number", "nota": "text<=100?"}}]}}
+
+Inputs are `text<=N`, `int`, `number`, `date`, `bool` or `enum:a|b`, with `?` when optional; `writes` and `remember`
+default to true. Adapter addresses are https, or http only on this machine. An adapter receives
+`POST <url>/<operation>` with `Authorization: Bearer <secret>` and `{"request", "org", "action", "by", "app",
+"inputs"}`, and answers `{"result": …, "ref": "short reference"}` or `{"ok": false, "error": "…"}`.
+
+    sudo systemctl edit infinito-remote     # add: Environment=INFINITO_TEAMS_ACTIONS_ENABLED=1
+    sudo systemctl restart infinito-remote
+    sudo infinito-remote-person actions-install /root/catalogue.json   # checked, then written 0600 where the server reads it
+
+The catalogue holds secrets, so it stays out of the backups: keep its original yourself.
+
 ## A work queue between your AIs
 
 One AI proposes, you approve, another does it. An assistant that coordinates (ChatGPT, say) proposes tasks with

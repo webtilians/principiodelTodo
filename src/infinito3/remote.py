@@ -333,6 +333,11 @@ def build_app(people: People, issuer: Optional[str] = None):
 
         # INFINITO Teams (remote_teams.py): one instance for its page and its tools, only with the server's flag on.
         teams = remote_teams.Teams(accounts, ranker) if remote_teams.enabled() else None
+        if teams is not None and remote_teams.actions_enabled():  # its actions (ADR P3), with a flag of their own
+            from . import remote_teams_actions
+
+            teams.actions = remote_teams_actions.Actions(teams, remote_teams_actions.Catalogue(
+                remote_teams_actions.catalogue_path(accounts.folder)))
         auth = build_auth(accounts, grants, issuer, adopt, memories=sealed["accounts"], teams=teams)
 
     def refused(ctx: Context, tool: str) -> Optional[str]:
@@ -788,6 +793,9 @@ def main(argv: Optional[List[str]] = None) -> None:
     commands.add_parser("vault-deny", help="stop an account from using the vault on this server").add_argument("name")
     commands.add_parser("teams-allow", help="let an account create organizations in INFINITO Teams").add_argument("name")
     commands.add_parser("teams-deny", help="stop an account from creating organizations").add_argument("name")
+    commands.add_parser("actions-install", help="check a catalogue of company actions (INFINITO Teams, ADR P3) and put "
+                                                "it where the server reads it; run it as the service's user"
+                        ).add_argument("file")
     commands.add_parser("copy-local", help="copy this computer's memory into an address's memory")
     backup = commands.add_parser("backup", help="write one more copy of the sealed memories into a folder")
     backup.add_argument("folder")
@@ -847,6 +855,12 @@ def main(argv: Optional[List[str]] = None) -> None:
         done = Accounts(people.folder).allow_teams(args.name, allowed)
         print((f"{args.name} can now create organizations in INFINITO Teams." if allowed
                else f"{args.name} can no longer create organizations.") if done else f"No account called {args.name}.")
+    elif args.command == "actions-install":
+        from . import remote_teams_actions
+
+        found = remote_teams_actions.install(args.file, people.folder)
+        print("\n".join(found) if found else
+              f"Installed in {remote_teams_actions.catalogue_path(people.folder)}. The server reads it as it changes.")
     elif args.command == "list":
         from .remote_accounts import Accounts
 
