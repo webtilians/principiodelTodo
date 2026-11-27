@@ -11,7 +11,7 @@ from cognition.diary import Diary, approved_guidelines, check, proposals
 from cognition.ledger import Ledger, UnknownPrice, estimate_eur
 from cognition.infinito import InfinitoError
 from cognition.notify import _toast_xml
-from cognition.providers import Anthropic, Fake, OpenAICompatible, ProviderError, Usage, make
+from cognition.providers import Anthropic, Fake, OpenAICompatible, ProviderError, Reply, Usage, make
 
 MADRID = timezone(timedelta(hours=1))
 A = "11111111-1111-4111-8111-111111111111"
@@ -760,3 +760,123 @@ def test_on_a_huge_day_the_newest_reflections_keep_their_reserve(tmp_path):
     assert "Reflexión número 39." in prompt  # the newest reflection and the person's comments kept their room
     # At least its reserve (less what a whole reflection does not fit in), plus what the day's last line left over.
     assert budget["blocks"]["reflections"][0] >= REFLECTIONS_RESERVE - 2000
+
+
+# A day the supervisor could not judge (24 to 27/11/2026: answers cut at the output limit, then no quota left) is
+# read again, and the person is told why
+
+class Refused:
+    """A model its provider turns away, as qwen4-max once its free quota ran out on 25/11/2026."""
+
+    def __init__(self):
+        self.calls = 0
+
+    def complete(self, system, prompt, max_output):
+        self.calls += 1
+        raise ProviderError("http_403", "insufficient_quota")
+
+
+class CutShort:
+    """A model that spends its whole output allowance thinking and answers nothing."""
+
+    def complete(self, system, prompt, max_output):
+        return Reply("", Usage(100, 0, max_output), finished=False)
+
+
+def test_an_http_error_keeps_the_providers_code_never_its_message(monkeypatch):
+    import io
+    import urllib.error
+
+    from cognition import providers
+
+    def refusing(body):
+        class Opener:
+            def open(self, request, timeout=None):
+                raise urllib.error.HTTPError(request.full_url, 403, "Forbidden", {}, io.BytesIO(body))
+        return lambda *handlers: Opener()
+
+    for body, detail in [(b'{"error": {"code": "insufficient_quota", "message": "lo que enviaste: secreto"}}',
+                          "insufficient_quota"),
+                         (b'{"type": "error", "error": {"type": "rate_limit_error", "message": "secreto"}}',
+                          "rate_limit_error"),
+                         (b'{"error": {"code": "una frase con lo que se envio"}}', None),
+                         (b'{"error": "secreto en texto"}', None), (b"<html>secreto</html>", None)]:
+        monkeypatch.setattr(providers.urllib.request, "build_opener", refusing(body))
+        with pytest.raises(ProviderError) as raised:
+            providers.post_json("https://x.test/v1/chat/completions", {}, {"model": "m"})
+        assert str(raised.value) == "http_403" and raised.value.detail == detail
+        assert "secreto" not in repr(vars(raised.value))
+
+
+def test_a_day_the_supervisor_could_not_judge_is_read_again_and_the_person_told(tmp_path, monkeypatch):
+    from cognition import notify
+
+    told = []
+    monkeypatch.setattr(notify, "review_waiting", lambda server, proposals, reflection, problem=None:
+                        told.append(notify.review_text(proposals, reflection, problem)))
+    now = {"t": datetime(2026, 11, 25, 21, 30, tzinfo=MADRID)}
+    first, refused = now["t"], Refused()
+    run = engine(tmp_path, live=True, clock=lambda: now["t"], config=conf(notify=True),
+                 models={"supervisor": refused})
+    said = run.review()
+    assert refused.calls == 1 and "did not judge it (http_403 insufficient_quota)" in said
+    assert run.diary.last("review_end")["judged"] is False
+    assert run.diary.last("error")["detail"] == "insufficient_quota"
+    report = next((tmp_path / "reports").glob("*.md")).read_text(encoding="utf-8")
+    assert "**El supervisor no pudo revisar el día: http_403 insufficient_quota.**" in report
+    assert "- supervisor: error http_403 (insufficient_quota)" in report
+    assert told == ["El supervisor no pudo revisar el día (http_403 insufficient_quota). "
+                    "La próxima revisión volverá a leerlo."]
+    assert not run.review_due(now["t"] + timedelta(hours=1))  # not again the same day
+
+    now["t"] = datetime(2026, 11, 26, 21, 30, tzinfo=MADRID)
+    assert run._since(now["t"]) == first - timedelta(days=1)  # from where it started reading, not where it ended
+    run.make_model = lambda role, chosen: Fake(role)  # the quota is back
+    assert "did not judge" not in run.review()
+    judged = run.diary.last("review_end")
+    assert judged["judged"] is True and told[-1] == "El supervisor ha dejado su reflexión."
+    now["t"] = datetime(2026, 11, 27, 21, 30, tzinfo=MADRID)
+    assert run._since(now["t"]) == datetime.fromisoformat(judged["at"])  # judged: the next one goes on from there
+
+
+def test_an_answer_cut_at_the_output_limit_leaves_the_day_unjudged(tmp_path):
+    run = engine(tmp_path, live=True, models={"supervisor": CutShort()})
+    assert "se cortó en el tope de salida" in run.review()
+    assert run.diary.last("review_end")["judged"] is False
+    report = next((tmp_path / "reports").glob("*.md")).read_text(encoding="utf-8")
+    assert "respuesta no utilizable (se cortó en el tope de salida, razonamiento incluido)" in report
+
+
+def test_reviews_from_before_the_judged_field_count_by_their_supervisor_review(tmp_path):
+    now = datetime(2026, 11, 27, 21, 30, tzinfo=MADRID)
+    run = engine(tmp_path, live=True, clock=lambda: now)
+    run.diary.append("review_end", run="r202611230400", outcome="reviewed", live=True, at="2026-11-23T03:08:08+00:00")
+    for day in ("24", "25"):  # as the diary holds them: understood false, and a review_end with no judged field
+        at = f"2026-11-{day}T03:08:55+00:00"
+        run.diary.append("supervisor_review", run=f"r202611{day}0400", understood=False, at=at)
+        run.diary.append("review_end", run=f"r202611{day}0400", outcome="reviewed", live=True, at=at)
+    assert run._since(now) == datetime(2026, 11, 23, 3, 8, 8, tzinfo=timezone.utc)
+    assert run.supervisor_problem("r202611240400") == "no dio una respuesta utilizable"
+    assert run.supervisor_problem("r202611230400") is None
+    later = datetime(2026, 12, 10, 4, 0, tzinfo=MADRID)
+    assert run._since(later) == later - timedelta(days=7)  # never more than a week back
+
+
+def test_a_night_whose_supervisor_is_refused_says_why(tmp_path):
+    now = {"t": datetime(2026, 11, 26, 4, 5, tzinfo=MADRID)}
+    run = Engine(tmp_path, conf(night_hours=[4, 8]), FakeInfinito(),
+                 lambda role, chosen: Refused() if role == "supervisor" else Fake(role), live=True,
+                 clock=lambda: now["t"])
+    said = run.tick()
+    assert "did not judge it (http_403 insufficient_quota)" in said and "night study n20261126: 0 passes" in said
+    night = (tmp_path / "reports" / "2026-11-26-noche.md").read_text(encoding="utf-8")
+    assert "## Errores" in night and "- study: error http_403 (insufficient_quota)" in night
+
+
+def test_the_notification_says_when_the_supervisor_could_not_judge():
+    from cognition.notify import review_text
+
+    assert review_text(0, False, "http_403 insufficient_quota") == (
+        "El supervisor no pudo revisar el día (http_403 insufficient_quota). La próxima revisión volverá a leerlo.")
+    assert review_text(0, False) == "El supervisor ha terminado la revisión del día."
+    assert review_text(2, True) == "El supervisor ha dejado su reflexión y propone 2 pautas que esperan tu decisión."

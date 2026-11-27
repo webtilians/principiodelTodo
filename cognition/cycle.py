@@ -2,7 +2,9 @@
 
 tick() is what the scheduled task runs every hour. It does nothing while the engine is paused or another run holds
 the lock. Once the local clock passes review_hour, the day's review is due; a day the computer was off is caught up
-the next time it runs, from where the last review left off, so nothing new is skipped. Between reviews, enough new
+the next time it runs, from where the last review left off, so nothing new is skipped. A review its supervisor did not
+judge (no answer, an answer cut at the output limit, no quota or budget) leaves nothing read: the next one reads from
+where the last judged review ended, up to CATCH_UP_DAYS back, and the person is told. Between reviews, enough new
 memories wake the observer for a pass of its own, which the supervisor then reads with the rest.
 
 With night_hours set (say 4 to 8), no model is called outside them: the review runs at the first tick inside, and
@@ -46,6 +48,9 @@ REFLECTIONS_DAYS = 21
 # supervisor) keep this much room; the rest of the reflections give way before the day does.
 REFLECTIONS_RESERVE = 8000
 CLOSE_RETRY_SECONDS = 10 * 60  # a failed night close is tried again only with this much of the night left
+# How far back a review reads again what reviews its supervisor did not judge left unread. From 24 to 27/11/2026, 99
+# memories were marked as reviewed while the supervisor's answers were cut at the output limit or refused for quota.
+CATCH_UP_DAYS = 7
 CHECK_LIMIT = 8
 NEW_HEADER = re.compile(r"Memories saved [^\n]*?\((\d+)\)")
 EARLIER = "\nYour latest earlier reflections"
@@ -147,6 +152,38 @@ class Engine:
     def last_review(self) -> Optional[dict]:
         """The last review of this mode: a dry run never moves where a live review starts reading from."""
         return self.diary.last("review_end", live=self.live)
+
+    def _judged(self, end: dict) -> bool:
+        """Whether the supervisor judged a review. A review_end from before the judged field counts as unjudged when
+        its supervisor_review says it did not understand; one with nothing new had nothing to judge."""
+        if "judged" in end:
+            return bool(end["judged"])
+        review = self.diary.last("supervisor_review", run=end.get("run"))
+        return not (review and review.get("understood") is False)
+
+    def last_judged_review(self) -> Optional[dict]:
+        """The last review of this mode whose supervisor answered."""
+        found = None
+        for end in self.diary.entries("review_end"):
+            if end.get("live") == self.live and self._judged(end):
+                found = end
+        return found
+
+    def supervisor_problem(self, run: str) -> Optional[str]:
+        """Why the supervisor of a run left it unjudged, in a few words for the person; None if it judged it."""
+        end = self.diary.last("review_end", run=run)
+        if end is None or self._judged(end):
+            return None
+        error = next((e for e in reversed(list(self.diary.entries("error")))
+                      if e.get("run") == run and e.get("role") == "supervisor" and not e.get("task")), None)
+        if error:
+            return error["code"] + (f" {error['detail']}" if error.get("detail") else "")
+        if self.diary.last("budget_skip", run=run, role="supervisor"):
+            return "no le quedaba presupuesto"
+        call = self.diary.last("call", run=run, role="supervisor")
+        if call and not call.get("finished", True):
+            return "su respuesta se cortó en el tope de salida, razonamiento incluido"
+        return "no dio una respuesta utilizable"
 
     def _observation_sets(self, since: datetime) -> List[dict]:
         return [self.diary.body(e) or {} for e in self.diary.entries("observation_set")
@@ -270,7 +307,8 @@ class Engine:
         if self.config.get("notify", True):
             from .notify import review_waiting
 
-            review_waiting(self.config["server"], len(review["proposals"]), bool(review["reflection"]["text"]))
+            review_waiting(self.config["server"], len(review["proposals"]), bool(review["reflection"]["text"]),
+                           problem=self.supervisor_problem(run))
         return answer
 
     def publish_unreported(self) -> int:
@@ -287,8 +325,17 @@ class Engine:
     # Reading INFINITO
 
     def _since(self, now: datetime) -> datetime:
-        last = self.last_review()
-        return _parse_at(last["at"]) if last else now - timedelta(days=1)
+        """Where a review starts reading: where the last judged review ended, so what unjudged ones read is read
+        again, but never more than CATCH_UP_DAYS back. With no review yet, the last day."""
+        if not self.last_review():
+            return now - timedelta(days=1)
+        judged = self.last_judged_review()
+        if judged:
+            start = _parse_at(judged["at"])
+        else:  # none judged yet: from where the first review started
+            first = next((e for e in self.diary.entries("review_start") if e.get("live") == self.live), None)
+            start = _parse_at(first["since"]) if first and first.get("since") else now - timedelta(days=1)
+        return max(start, now - timedelta(days=CATCH_UP_DAYS))
 
     def inventory(self, since: datetime, now: datetime) -> dict:
         context = self.infinito.call("reflection_context", since=_utc(since))
@@ -401,14 +448,14 @@ class Engine:
             try:
                 model = self.make_model(role, settings)
             except ProviderError as error:
-                self.diary.append("error", **header, code=str(error))
+                self._failed(header, error)
                 return None
         else:
             model = Fake(role)
         try:
             reply = model.complete(system, prompt, int(settings["max_output"]))
         except ProviderError as error:
-            self.diary.append("error", **header, code=str(error))
+            self._failed(header, error)
             return None
         cost = cost_eur(self.config, settings["model"], reply.usage.as_dict()) if self.live else 0.0
         if self.live:
@@ -417,6 +464,10 @@ class Engine:
         self.diary.append("call", **header, usage=reply.usage.as_dict(), cost_eur=round(cost, 5),
                           finished=reply.finished, understood=data is not None)
         return data
+
+    def _failed(self, header: dict, error: ProviderError) -> None:
+        detail = getattr(error, "detail", None)
+        self.diary.append("error", **header, code=str(error), **({"detail": detail} if detail else {}))
 
     # Between reviews
 
@@ -569,6 +620,10 @@ class Engine:
         out += ["## Hallazgos", ""]
         out += [f"- **{f.get('kind', '')}** · {f.get('note', '')} ({', '.join(f.get('memory_ids', []))})"
                 for f in findings] or ["Ninguno."]
+        errors = [e for e in self.diary.entries("error") if e.get("run") == night]
+        if errors:  # a night that stopped early says why, not only that it found nothing
+            out += ["", "## Errores", ""] + [f"- {e.get('task') or e.get('role')}: error {e['code']}"
+                                             + (f" ({e['detail']})" if e.get("detail") else "") for e in errors]
         path.write_text("\n".join(out) + "\n", encoding="utf-8")
         return f"night study {night}: {len(passes)} passes, {len(findings)} findings; report in {path}"
 
@@ -741,17 +796,21 @@ class Engine:
             reported_new=inventory["reported_new"], shown_new=inventory["shown_new"], truncated=cut, read_by=read,
             shortened={name: size for name, size in sizes.items() if name != "inventory" and size[0] < size[1]})
         blind = self._blind(run, now, hypotheses, baseline_hypotheses)
-        self.diary.append("review_end", run=run, outcome="reviewed", live=self.live, coverage=cover,
-                          proposals=made, reflection=published, spent_eur=round(self.ledger.spent(now.date()), 4),
-                          cap_eur=self.ledger.cap(now.date()))
+        # Unjudged, the day was read for nobody: the next review starts from the last judged one (_since).
+        self.diary.append("review_end", run=run, outcome="reviewed", judged=judged is not None, live=self.live,
+                          coverage=cover, proposals=made, reflection=published,
+                          spent_eur=round(self.ledger.spent(now.date()), 4), cap_eur=self.ledger.cap(now.date()))
+        problem = self.supervisor_problem(run)
         if self.live:  # to the person's page, where they read it all and decide on the guidelines
             self.publish(run)
-        return self._report(run, now, inventory, {
+        said = self._report(run, now, inventory, {
             "observations": observations, "observations_aside": observations_aside, "hypotheses": hypotheses,
             "hypotheses_aside": hypotheses_aside, "checks": checks, "verdicts": verdicts, "audit": audit,
             "aside": audit_aside + verdicts_aside + baseline_aside, "reflection": reflection, "dropped": dropped,
             "published": published, "proposals": made, "coverage": cover, "blind": blind,
-            "summary": str((judged or {}).get("summary_for_owner") or "")})
+            "summary": str((judged or {}).get("summary_for_owner") or ""), "problem": problem})
+        return said + (f"; the supervisor did not judge it ({problem}): the next review reads it again"
+                       if problem else "")
 
     def _blind(self, run: str, now: datetime, hierarchy: List[dict], baseline: List[dict]) -> List[dict]:
         """Both arms' hypotheses under neutral labels, shuffled, for the person to rate without knowing whose is

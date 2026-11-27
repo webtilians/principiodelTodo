@@ -19,6 +19,9 @@ def render(engine, run: str, now: datetime, inventory: dict, done: dict, *, noth
         lines += ["No hay recuerdos nuevos desde la última revisión: no se llamó a ningún modelo.", ""]
         return "\n".join(lines)
 
+    if done.get("problem"):
+        lines += [f"**El supervisor no pudo revisar el día: {done['problem']}.** Nadie ha juzgado estos recuerdos: la "
+                  "próxima revisión los volverá a leer.", ""]
     cover = done["coverage"]
     total = cover["inventory"]
     lines += ["## Cobertura", "",
@@ -117,9 +120,12 @@ def render(engine, run: str, now: datetime, inventory: dict, done: dict, *, noth
               "(precios que configuraste, redondeados al alza; el cambio de dólar a euro es aproximado).", ""]
     lines += [f"- {c['role']} ({c['model']}): {c['usage']['input']} tokens de entrada, {c['usage']['output']} de "
               f"salida, {c['usage']['thinking']} de razonamiento · {c['cost_eur']:.4f} €"
-              + ("" if c["understood"] else " · respuesta no utilizable") for c in calls]
+              + ("" if c["understood"] else " · respuesta no utilizable")
+              + ("" if c.get("finished", True) else " (se cortó en el tope de salida, razonamiento incluido)")
+              for c in calls]
     lines += [f"- {s['role']}: no se llamó, el presupuesto no daba ({s['estimate_eur']} € estimados, "
               f"{s['remaining_eur']} € libres)" for s in skipped]
-    lines += [f"- {e.get('role') or e.get('where')}: error {e['code']}" for e in errors]
+    lines += [f"- {e.get('role') or e.get('where')}: error {e['code']}"
+              + (f" ({e['detail']})" if e.get("detail") else "") for e in errors]
     lines.append("")
     return "\n".join(lines)
