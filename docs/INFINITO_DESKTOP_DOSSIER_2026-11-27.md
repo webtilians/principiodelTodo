@@ -226,7 +226,7 @@ el motor. Cambiar `remote_client.py` exige sus pruebas en verde.
 
 En vez de una integración por aparato, un solo contrato que reutilizan el PC, el teléfono, el reloj y la domótica
 (Home Assistant, decisión `25977129`), y después el coche, las gafas, las cámaras o los robots, sin rediseñar el
-núcleo. Es la base de la fase 0 del iPhone: la decisión P-6 es que ese dossier lo adopte. **Es una propuesta, no una
+núcleo. El dossier del iPhone (PR #197) lo adopta en su fase 0. **Es una propuesta, no una
 implementación.**
 
 ### 5.1 Identidad y registro
@@ -249,7 +249,8 @@ implementación.**
   comprueba en cada llamada, sea cual sea el nivel de la app en Apps.
 - **Capacidades:** el dispositivo declara las suyas (por ejemplo `note`, `photo`, `pc.activity`, `pc.resources`,
   `pc.power`, `pc.errors`, `pc.repo`, `phone.motion`, `phone.place`, `phone.track`, `watch.pulse`). La persona puede
-  apagar cada una en el registro. Un evento de una capacidad no declarada o apagada se rechaza con `403`.
+  apagar cada una en el registro. Un evento de una capacidad no declarada o apagada se rechaza con `403`. Cómo
+  se declaran (en el registro del cliente o en un primer evento) se fija al construir la API.
 - Ningún dispositivo ve los eventos de otro ni tiene acceso a él por defecto.
 
 ### 5.3 Formato del evento (v1)
@@ -272,8 +273,8 @@ implementación.**
 - `origin`: `observed` (lo midió el dispositivo), `declared` (lo dijo la persona) o `inferred` (lo dedujo un modelo,
   con `payload.model`).
 - `observed_from` y `observed_to`: cuándo pasó. El servidor añade `received_at`: cuándo llegó.
-- `payload`: campos tipados por capacidad. Los que sobran se ignoran. Solo admiten texto libre los tipos `declared`
-  (una nota), y ese texto pasa por `SensitiveInformationFilter`.
+- `payload`: campos tipados por capacidad. Los que sobran se ignoran. Solo admiten texto libre los eventos con origen
+  `declared` (una nota), y ese texto pasa por `SensitiveInformationFilter`.
 
 ### 5.4 Lo que hace el servidor
 
@@ -434,8 +435,8 @@ y comprueba que `vault_status` responde por la extensión y `recall` por el cone
 
 **App:** la captura rápida pasa a ser un evento `note` con `event_id`, y la cola lo reenvía sin miedo a duplicar.
 
-**iPhone:** su fase 0 adopta este contrato en vez de las rutas por acción (P-6). Quien llegue antes lo construye y el
-otro lo reutiliza.
+**iPhone:** su fase 0 ya adopta este contrato en vez de las rutas por acción (revisión 1 de su dossier). Quien llegue
+antes lo construye y el otro lo reutiliza (P-6).
 
 **Puerta:** la CI en verde, Enrique fusiona y se despliega. Con la red cortada a mitad de un envío, la nota acaba
 guardada una sola vez. El portal muestra el PC con sus capacidades y su última actividad.
@@ -613,8 +614,8 @@ Mac y sin la revisión de una tienda.
   Tauri o Electron.
 - **P-4. Atajo de la captura rápida.** Propuesta: `Ctrl+Alt+I` **[verificar que no choca con nada en su PC]**.
 - **P-5. Capturas visuales a mano (F7):** si se hacen, y cuándo.
-- **P-6. Contrato común con el iPhone.** Que el dossier del iPhone (PR #197) adopte la Device API v1 en su fase 0, y
-  quién la construye primero.
+- **P-6. Contrato común con el iPhone.** El dossier del iPhone (PR #197) ya adopta la Device API v1 en su fase 0, a
+  petición de Enrique el 27/11/2026. Queda quién la construye primero (es también la P-8 de ese dossier).
 - **P-7. Prioridad** frente al hito RAG, la app del iPhone (PR #197) y las acciones de Teams (PR #190).
 - **P-8. Ámbito de dispositivo.** El nombre (`infinito:device`) y qué permite. Aparte: si el `DEFAULT = "all"` de las
   apps nuevas debe cambiar para todas.
