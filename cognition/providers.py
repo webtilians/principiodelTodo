@@ -4,10 +4,12 @@ Two kinds of API: Anthropic's (Claude) and OpenAI's chat completions, which Open
 Qwen on DashScope, OpenRouter...: base_url and key_name in the role's settings). Keys come from the environment
 (ANTHROPIC_API_KEY, OPENAI_API_KEY or the key_name given) and go only into the request header: never into the diary,
 a report or an error. An error carries one of a few fixed codes, never the provider's own message, which can echo
-what was sent.
+what was sent. An HTTP error also keeps the provider's own error code when it is one short word (insufficient_quota,
+rate_limit_error...): without it, a 403 for an exhausted quota looked like any other 403 for three nights.
 """
 import json
 import os
+import re
 import urllib.error
 import urllib.request
 from dataclasses import dataclass, field
@@ -16,10 +18,28 @@ from typing import Callable, Optional
 KEYS = {"anthropic": "ANTHROPIC_API_KEY", "openai": "OPENAI_API_KEY"}
 TIMEOUT = 300
 MAX_BYTES = 4_000_000
+ERROR_BODY_BYTES = 8192
+DETAIL = re.compile(r"[A-Za-z][A-Za-z0-9_.\-]{0,63}")  # a code, not a sentence: nothing sent can ride in it
 
 
 class ProviderError(Exception):
-    """A fixed code: missing_api_key, http_<status>, transport_error, invalid_response."""
+    """A fixed code: missing_api_key, http_<status>, transport_error, invalid_response. detail is the provider's own
+    error code for an HTTP error, when it gave one that is a short word."""
+
+    def __init__(self, code: str, detail: Optional[str] = None):
+        super().__init__(code)
+        self.detail = detail
+
+
+def _error_code(error: urllib.error.HTTPError) -> Optional[str]:
+    """The provider's own code in an error body shaped {"error": {"code": ...}} (OpenAI and those that speak its API)
+    or {"error": {"type": ...}} (Anthropic), if it is a short word. Never the message."""
+    try:
+        found = json.loads(error.read(ERROR_BODY_BYTES)).get("error") or {}
+        code = found.get("code") or found.get("type")
+    except Exception:  # noqa: BLE001  # no body, not JSON, another shape: the status alone
+        return None
+    return code if isinstance(code, str) and DETAIL.fullmatch(code) else None
 
 
 @dataclass
@@ -51,7 +71,7 @@ def post_json(url: str, headers: dict, body: dict, timeout: float = TIMEOUT) -> 
         with urllib.request.build_opener(_NoRedirect).open(request, timeout=timeout) as response:
             raw = response.read(MAX_BYTES + 1)
     except urllib.error.HTTPError as error:
-        raise ProviderError(f"http_{error.code}") from None
+        raise ProviderError(f"http_{error.code}", _error_code(error)) from None
     except ProviderError:
         raise
     except Exception:  # noqa: BLE001  # its message may hold the URL or what was sent

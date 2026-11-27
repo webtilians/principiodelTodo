@@ -6,6 +6,7 @@ or if anything fails, nothing happens: the memory page shows its own notice anyw
 import base64
 import os
 import subprocess
+from typing import Optional
 from xml.sax.saxutils import escape, quoteattr
 
 # PowerShell's own identity, which Windows lets any script show toasts under.
@@ -39,11 +40,19 @@ def toast(title: str, text: str, url: str, button: str = "Leer y decidir") -> bo
         return False
 
 
-def review_waiting(server: str, proposals: int, reflection: bool) -> bool:
+def review_text(proposals: int, reflection: bool, problem: Optional[str] = None) -> str:
+    """What the notification says. A review the supervisor could not judge says so: from 24 to 27/11/2026 it said
+    «ha terminado la revisión del día» while every answer was cut or refused."""
+    if problem:
+        return f"El supervisor no pudo revisar el día ({problem}). La próxima revisión volverá a leerlo."
     parts = []
     if reflection:
         parts.append("ha dejado su reflexión")
     if proposals:
         parts.append(f"propone {proposals} pauta{'s' if proposals != 1 else ''} que esperan tu decisión")
-    text = "El supervisor " + (" y ".join(parts) if parts else "ha terminado la revisión del día") + "."
-    return toast("Motor cognitivo de INFINITO", text, f"{server.rstrip('/')}/memory?view=cognition")
+    return "El supervisor " + (" y ".join(parts) if parts else "ha terminado la revisión del día") + "."
+
+
+def review_waiting(server: str, proposals: int, reflection: bool, problem: Optional[str] = None) -> bool:
+    return toast("Motor cognitivo de INFINITO", review_text(proposals, reflection, problem),
+                 f"{server.rstrip('/')}/memory?view=cognition", "Ver" if problem else "Leer y decidir")
