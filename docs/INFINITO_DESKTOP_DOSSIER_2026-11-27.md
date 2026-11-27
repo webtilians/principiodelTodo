@@ -312,6 +312,14 @@ fase. El orden es una recomendación: no sustituye las decisiones de la §10 ni 
 
 ### Fase 0: poner al día la extensión de Claude Desktop
 
+**Estado (28/11/2026): hecha en la rama `feat/desktop-f0-vault-extension-20261128`, opción A (decisión de Enrique del
+28/11/2026).** Se queda con el mismo `name` (`infinito-memory`) y el mismo archivo (`infinito-memory.mcpb`), para que
+Claude Desktop la actualice en su sitio y el enlace del README siga valiendo. Ahora se muestra como «INFINITO Vault»,
+con la versión 0.8.0 en el manifiesto, `mcpb/pyproject.toml` y `pyproject.toml` (`build.py` exige que coincidan). La
+carpeta configurable pasa a ser `vault_folder`. Lo que guardaba la 0.7.0 se queda en `~/.infinito/memory.db`; no hay
+una forma automática de pasarlo a la cuenta, porque `copy-local` solo sirve para las direcciones privadas. Falta
+publicar la release v0.8.0 después de fusionar: hasta entonces, el enlace del README sigue dando la 0.7.0.
+
 Es independiente del resto y pequeña. Se puede hacer antes que las demás o a la vez.
 
 **Problema.** La sección «Claude Desktop, one click» del README enlaza el `infinito-memory.mcpb` de la release v0.7.0

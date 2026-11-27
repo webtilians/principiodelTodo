@@ -357,6 +357,13 @@ claude mcp add --scope user --env INFINITO_LOCAL_MEMORY=off infinito-vault -- in
 and in Claude Desktop's `claude_desktop_config.json`, `"env": {"INFINITO_LOCAL_MEMORY": "off"}` in the
 server's entry (edit it with Claude Desktop closed; it rewrites the file while it runs).
 
+**In Claude Desktop, in one click:** the extension
+[infinito-memory.mcpb](https://github.com/webtilians/principiodelTodo/releases/latest/download/infinito-memory.mcpb)
+is this vault-only server since 0.8.0 (**INFINITO Vault**, `mcpb/`). Connect Claude to `https://<host>/mcp` for
+the memory, then add the extension for the vault (Settings → Extensions). It keeps the vault in
+`~/.infinito/boveda.kdbx`, or in the folder chosen in its settings, and keeps no memory of its own. Version 0.7.0
+of the extension did keep one, in `~/.infinito/memory.db`: updating leaves that file where it was.
+
 ## Private addresses, the older way
 
 Before sign-in, each person got a private address, `https://<host>/u/<secret>/mcp`, whose secret was

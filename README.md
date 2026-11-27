@@ -123,10 +123,16 @@ for real when you ask. Seven tools: `remember`, `remember_many`, `recall`, `list
 `overview`, `briefing` and `forget`. The memory is a local SQLite file (`~/.infinito/memory.db`, or `INFINITO_MEMORY_DB`);
 the server itself sends nothing anywhere.
 
-**Claude Desktop, one click:** download
-[infinito-memory.mcpb](https://github.com/webtilians/principiodelTodo/releases/latest/download/infinito-memory.mcpb)
-and open it, or drag it into Settings → Extensions. Nothing else to install. Keep the
-default memory folder to share one memory with Claude Code and other apps.
+**Claude Desktop:** connect it to your INFINITO account, so it shares one memory with
+ChatGPT, Claude Code and your other apps: add a custom connector with the address
+`https://infinitomemory.com/mcp` (the button for Claude at
+[infinitomemory.com/connect](https://infinitomemory.com/connect) fills it in) and sign in.
+To keep your secrets on this computer, add the extension
+[infinito-memory.mcpb](https://github.com/webtilians/principiodelTodo/releases/latest/download/infinito-memory.mcpb):
+open it, or drag it into Settings → Extensions. Since 0.8.0 it is **INFINITO Vault** and
+serves only your vault, so your memory is the account's and no second one is made on the
+computer. If you used version 0.7.0, which kept a memory of its own, that file stays in
+`~/.infinito/memory.db`: updating deletes nothing.
 
 The other clients need [uv](https://docs.astral.sh/uv/). Claude Code:
 
