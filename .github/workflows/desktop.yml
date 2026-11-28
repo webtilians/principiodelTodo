@@ -34,7 +34,7 @@ jobs:
       - name: Build the executable
         run: |
           python -m pip install -q pyinstaller==6.16.0
-          python -m PyInstaller --noconfirm --onedir --windowed --name "INFINITO Desktop" --paths desktop --paths src --paths . --hidden-import cognition.status --hidden-import cognition.notify --hidden-import infinito3.remote_client desktop/infinito-desktop.pyw
+          python -m PyInstaller --noconfirm --onedir --windowed --name "INFINITO Desktop" --paths desktop --paths src --paths . --hidden-import cognition.status --hidden-import cognition.notify --hidden-import infinito3.remote_client --hidden-import infinito3.safety desktop/infinito-desktop.pyw
       - name: Zip it and publish its SHA-256
         shell: pwsh
         run: |

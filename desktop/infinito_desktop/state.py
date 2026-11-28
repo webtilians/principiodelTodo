@@ -12,6 +12,11 @@ DEFAULTS = {
     "budget": {"cpu_percent": 25, "ram_gb": 4, "gpu_percent": 50, "never_on_battery": True},
     "seen": {},
     "told": {},
+    # The quick capture (phase 2): Ctrl+Alt and this letter (P-4), and the projects the person picks from. The app
+    # cannot read the memory, so the list is the person's, kept here.
+    "hotkey": "I",
+    "projects": [],
+    "last_sent": "Nada todavía.",
 }
 
 

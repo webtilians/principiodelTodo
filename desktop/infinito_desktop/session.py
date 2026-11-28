@@ -8,7 +8,7 @@ import os
 import threading
 import time
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Callable, Optional, Tuple
 
 from . import dpapi, server
 
@@ -41,26 +41,48 @@ class Store:
         session = self.load()
         return session.get("server") if session else None
 
+    def may_send_notes(self) -> bool:
+        return server.may_send(self.load())
+
     def sign_in(self, address: str, open_page=None) -> None:
+        """A new sign-in; the one before it, if any, is ended on the server, so the Apps page lists this one only."""
         kept = server.sign_in(address, **({"open_page": open_page} if open_page else {}))
         with self.lock:
+            old = self.load()
             self.save(kept)
+        if old:
+            server.revoke(old)
+
+    def _fresh(self) -> Tuple[str, Optional[dict]]:
+        """The session with a live access token, renewed if needed: ok, none, old, expired or offline. Under the lock."""
+        session = self.load()
+        if not session:
+            return "none", None
+        if not (session.get("access_token") and session.get("expires_at", 0) > time.time() + 300):
+            try:
+                session = server.refresh(session)
+                self.save(session)
+            except server.Expired:
+                return "expired", None
+            except (OSError, ValueError, KeyError):
+                return "offline", None
+        return ("ok" if server.may_send(session) else "old"), session
 
     def renew(self) -> str:
-        """ok, none (never signed in), expired (the server no longer takes it) or offline."""
+        """ok, none (never signed in), old (signed in before it could send notes), expired or offline."""
         with self.lock:
-            session = self.load()
-            if not session:
-                return "none"
-            if session.get("access_token") and session.get("expires_at", 0) > time.time() + 300:
-                return "ok"
-            try:
-                self.save(server.refresh(session))
-            except server.Expired:
-                return "expired"
-            except (OSError, ValueError, KeyError):
-                return "offline"
-            return "ok"
+            return self._fresh()[0]
+
+    def send(self, event: dict) -> Tuple[int, dict]:
+        """One event with a live token: (status, answer). No session, an old one or no network raise OSError, so the
+        event stays in the queue; a session the server no longer takes is a 401."""
+        with self.lock:
+            outcome, session = self._fresh()
+        if outcome == "expired":
+            return 401, {"error": "invalid_token"}
+        if session is None or outcome == "old":
+            raise OSError(outcome)
+        return server.send(session, event)
 
     def sign_out(self) -> None:
         """Ends the session on the server and here: the sealed file goes, with whatever the app kept."""

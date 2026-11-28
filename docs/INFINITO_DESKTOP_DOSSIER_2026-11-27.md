@@ -438,6 +438,23 @@ y comprueba que `vault_status` responde por la extensión y `recall` por el cone
 
 ### Fase 2: captura rápida
 
+**Estado (28/11/2026): construida en la rama `feat/desktop-f2-quick-capture-20261128`.**
+
+- **Atajo:** `Ctrl+Alt+I`, la propuesta de la P-4. En el PC de Enrique está libre. Se puede cambiar la letra en
+  Ajustes, y si otro programa tiene el atajo la app lo dice.
+- **Ventana:** texto, tipo y proyecto. La lista de proyectos la guarda la app.
+- **Filtro de secretos** (`safety.py`) en el PC antes de encolar.
+- **Cola cifrada con DPAPI:** 200 notas, 7 días y reintentos de 1 minuto a 1 hora.
+- **Envío** como evento `note` de la Device API (#199), con `event_id`: un reenvío nunca duplica.
+- **Servidor:** la nota admite ahora `project`.
+- **Sesión:** la app pide `infinito:device:note` al entrar. Una sesión de la F1 pide volver a entrar, y la nueva
+  revoca la anterior.
+- **Icono:** las ventanas llevan el de INFINITO en vez de la pluma de Tk.
+- **La cola cifrada**, que el dossier ponía en la F1, entra aquí.
+- **Pendiente** de la auditoría del #199 (`faa9947f`): entre guardar el recuerdo y apuntar el `event_id` en el
+  servidor no hay una transacción. Si el servidor cae justo entre las dos, un reintento podría duplicar la nota. Es
+  raro, pero es la garantía de esta fase y hay que arreglarlo en el servidor.
+
 **Alcance**
 
 - **Atajo global** (P-4), que abre una ventana pequeña. Con `Win+H`, el dictado de Windows debería funcionar en el campo

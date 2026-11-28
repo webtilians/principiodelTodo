@@ -65,6 +65,8 @@ SKEW_SECONDS = 300
 # A route point says the device is alive, but its last activity is written at most once a minute.
 LAST_SEEN_STEP = 60
 DEFAULT_DEVICE = "INFINITO device"
+# The project a note may name, as the person types it in the app (INFINITO Desktop's quick capture).
+MAX_PROJECT = 80
 
 TEXT = {
     "es": {
@@ -298,10 +300,11 @@ def _act(event: dict, *, folder: Path, key: bytes, account: str, device: str, la
     capability, kind, payload = event["capability"], event["type"], event["payload"]
     begin, end = event["from"], event["to"]
     said_at = end.isoformat()
+    project: Optional[str] = None
 
     def remember(text: str, kind_: Optional[str]) -> Callable:
         """Kept as the device's: its name is the author, and the source and the origin say how it knew."""
-        return lambda memory: memory.remember(text, kind_, _source(lang, event, device), None, said_at, device,
+        return lambda memory: memory.remember(text, kind_, _source(lang, event, device), project, said_at, device,
                                               origin=event["origin"])
 
     if capability == "phone.track":
@@ -340,6 +343,11 @@ def _act(event: dict, *, folder: Path, key: bytes, account: str, device: str, la
             raise Refused(400, "bad_payload", f"a note has text, 1 to {MAX_STATEMENT} characters")
         if kind_ is not None and kind_ not in KINDS:
             raise Refused(400, "bad_payload", f"a note's kind is one of {', '.join(KINDS)}")
+        named = payload.get("project")
+        if named is not None and (not isinstance(named, str) or not named.strip() or len(named.strip()) > MAX_PROJECT
+                                  or not named.strip().isprintable()):
+            raise Refused(400, "bad_payload", f"a note's project is a name, 1 to {MAX_PROJECT} characters")
+        project = named.strip() if named else None
         text, throttle, gap = text.strip(), pace.note, 1
     else:
         place = {name: payload[name] for name in ("lat", "lon", "accuracy") if name in payload}
