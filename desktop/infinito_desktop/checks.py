@@ -221,12 +221,16 @@ def server(answer: Callable[[], Optional[int]], address: str) -> Check:
 
 
 def session(outcome: str, address: str) -> Check:
-    """outcome is what renewing this app's session gave: ok, none (never signed in), expired or offline."""
+    """outcome is what renewing this app's session gave: ok, none (never signed in), old (signed in before it could
+    send notes), expired or offline."""
     title = "Sesión de la app"
     if outcome == "ok":
         return Check("session", OK, title, f"La app tiene sesión en {address}.", f"{address}/memory?view=apps")
     if outcome == "none":
-        return Check("session", WARN, title, "La app no ha entrado en tu cuenta: menú «Entrar en mi cuenta».")
+        return Check("session", WARN, title, "La app no ha entrado en tu cuenta: Ajustes → «Entrar en mi cuenta».")
+    if outcome == "old":
+        return Check("session", WARN, title, "Entró antes de poder guardar notas: Ajustes → «Volver a entrar», y la "
+                                             "página te pedirá permiso para las notas.", f"{address}/memory?view=apps")
     if outcome == "expired":
         return Check("session", FAIL, title, "Su sesión caducó o se desconectó desde el portal: vuelve a entrar.",
                      f"{address}/memory?view=apps")

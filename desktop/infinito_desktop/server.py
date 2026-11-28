@@ -1,24 +1,28 @@
 """Everything this app says to the server, in one place and from a closed list: whether it answers, signing in as a
-device, renewing that sign-in and ending it. Nothing else leaves the PC in phase 1; a test fails if another module
-reaches the network or this one reaches another path.
+device, renewing that sign-in and ending it, and since phase 2 the notes of the quick capture, as Device API events.
+Nothing else leaves the PC; a test fails if another module reaches the network or this one reaches another path.
 
 The sign-in is the one every app on this PC shares (src/infinito3/remote_client.py), with this app's name and the
-device scope (src/infinito3/remote_device_api.py): the sign-in page says it is a device, and its token opens no part
-of the memory, not even reading it.
+device scope (src/infinito3/remote_device_api.py): the sign-in page says it is a device and what it may add, and its
+token opens no part of the memory, not even reading it.
 """
+import json
 import socket
 import urllib.error
 import urllib.parse
 import urllib.request
 import webbrowser
-from typing import Callable, Optional
+from typing import Callable, Optional, Tuple
 
 from . import NAME
 
 DEVICE_SCOPE = "infinito:device"
-# In phase 1 the app sends nothing, so it asks for no capability; each later phase asks for its own (a new sign-in).
-SCOPE = DEVICE_SCOPE
-PATHS = ("/.well-known/oauth-authorization-server", "/register", "/authorize", "/token", "/revoke")
+NOTE = "note"
+# What the app may send, asked for when it signs in: since phase 2, the notes of the quick capture. A capability added
+# later needs a new sign-in, which the sign-in page shows the person.
+SCOPE = f"{DEVICE_SCOPE} {DEVICE_SCOPE}:{NOTE}"
+EVENTS = "/api/devices/v1/events"
+PATHS = ("/.well-known/oauth-authorization-server", "/register", "/authorize", "/token", "/revoke", EVENTS)
 TIMEOUT = 10
 
 
@@ -46,8 +50,15 @@ def answers(address: str) -> Optional[int]:
 def sign_in(address: str, open_page: Callable[[str], object] = webbrowser.open, wait_seconds: float = 300) -> dict:
     from infinito3 import remote_client
 
-    return remote_client.sign_in(address, client_name=client_name(), scope=SCOPE, open_page=open_page,
-                                 wait_seconds=wait_seconds)
+    session = remote_client.sign_in(address, client_name=client_name(), scope=SCOPE, open_page=open_page,
+                                    wait_seconds=wait_seconds)
+    session["scope"] = SCOPE  # what it signed in for: an older session, without notes, asks to sign in again
+    return session
+
+
+def may_send(session: Optional[dict], capability: str = NOTE) -> bool:
+    """Whether a session signed in for a capability (the server checks it again on every event)."""
+    return bool(session) and f"{DEVICE_SCOPE}:{capability}" in str(session.get("scope") or "").split()
 
 
 class Expired(Exception):
@@ -64,6 +75,26 @@ def refresh(session: dict) -> dict:
         if error.code in (400, 401):
             raise Expired() from None
         raise
+
+
+def send(session: dict, event: dict) -> Tuple[int, dict]:
+    """One event to the Device API: its status and the server's answer. A network failure raises OSError, and the
+    event waits in the queue (outbox.py)."""
+    url = _allowed(session["server"], f"{session['server'].rstrip('/')}{EVENTS}")
+    request = urllib.request.Request(url, json.dumps(event).encode("utf-8"), {
+        "Content-Type": "application/json", "Accept": "application/json", "Accept-Language": "es-ES",
+        "Authorization": f"Bearer {session['access_token']}"})
+    try:
+        with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
+            return response.status, json.loads(response.read() or b"{}")
+    except urllib.error.HTTPError as error:
+        try:
+            body = json.loads(error.read() or b"{}")
+        except ValueError:
+            body = {}
+        if error.code == 429:
+            body.setdefault("retry_after", error.headers.get("Retry-After"))
+        return error.code, body if isinstance(body, dict) else {}
 
 
 def revoke(session: dict) -> None:

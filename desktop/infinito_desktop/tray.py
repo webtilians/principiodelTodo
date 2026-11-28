@@ -17,6 +17,9 @@ NIM_ADD, NIM_MODIFY, NIM_DELETE = 0, 1, 2
 NIF_MESSAGE, NIF_ICON, NIF_TIP = 0x1, 0x2, 0x4
 MF_STRING, MF_GRAYED, MF_CHECKED, MF_SEPARATOR = 0x0, 0x1, 0x8, 0x800
 TPM_RIGHTBUTTON, TPM_RETURNCMD, TPM_NONOTIFY = 0x2, 0x100, 0x80
+# The quick capture's shortcut (P-4): Ctrl+Alt and a letter, I unless the person chooses another.
+WM_HOTKEY, HOTKEY_ID = 0x0312, 0x494E  # «IN»
+MOD_ALT, MOD_CONTROL, MOD_NOREPEAT = 0x1, 0x2, 0x4000
 SIZE = 32
 # The dot's colour for each state: green, amber, red, and grey while nothing has been looked at yet.
 COLOURS = {"ok": (52, 199, 89), "warn": (255, 176, 32), "fail": (230, 57, 70), "unknown": (150, 150, 160)}
@@ -44,6 +47,8 @@ _types(user32.SetForegroundWindow, wintypes.BOOL, wintypes.HWND)
 _types(user32.GetCursorPos, wintypes.BOOL, ctypes.POINTER(wintypes.POINT))
 _types(user32.TrackPopupMenu, wintypes.BOOL, wintypes.HMENU, wintypes.UINT, ctypes.c_int, ctypes.c_int, ctypes.c_int,
        wintypes.HWND, ctypes.c_void_p)
+_types(user32.RegisterHotKey, wintypes.BOOL, wintypes.HWND, ctypes.c_int, wintypes.UINT, wintypes.UINT)
+_types(user32.UnregisterHotKey, wintypes.BOOL, wintypes.HWND, ctypes.c_int)
 
 
 class WNDCLASSW(ctypes.Structure):
@@ -92,6 +97,7 @@ class Tray:
     def __init__(self, tip: str, menu: Callable[[], List[Optional[Tuple[str, Optional[Callable]]]]],
                  on_click: Callable[[], None]):
         self.menu, self.on_click = menu, on_click
+        self.on_hotkey: Optional[Callable[[], None]] = None
         self.icons: Dict[str, int] = {state: dot(colour) for state, colour in COLOURS.items()}
         self._procedure = WNDPROC(self._message)  # kept, or Windows would call freed memory
         instance = kernel32.GetModuleHandleW(None)
@@ -108,7 +114,16 @@ class Tray:
         self.data.hIcon, self.data.szTip = self.icons.get(state, self.icons["unknown"]), tip[:127]
         shell32.Shell_NotifyIconW(NIM_MODIFY, ctypes.byref(self.data))
 
+    def hotkey(self, key: str, action: Callable[[], None]) -> bool:
+        """Ctrl+Alt+key anywhere in Windows runs action. False when another program already has it: then the app
+        says so and the person chooses another letter in the settings."""
+        user32.UnregisterHotKey(self.window, HOTKEY_ID)
+        self.on_hotkey = action
+        return bool(user32.RegisterHotKey(self.window, HOTKEY_ID, MOD_CONTROL | MOD_ALT | MOD_NOREPEAT,
+                                          ord(key.upper()[:1] or "I")))
+
     def close(self) -> None:
+        user32.UnregisterHotKey(self.window, HOTKEY_ID)
         shell32.Shell_NotifyIconW(NIM_DELETE, ctypes.byref(self.data))
         user32.DestroyWindow(self.window)
         for icon in self.icons.values():
@@ -136,6 +151,9 @@ class Tray:
             actions[chosen]()
 
     def _message(self, window, message, wparam, lparam):
+        if message == WM_HOTKEY and wparam == HOTKEY_ID and self.on_hotkey:
+            self.on_hotkey()
+            return 0
         if message == WM_TRAY:
             if lparam in (WM_RBUTTONUP, WM_CONTEXTMENU):
                 self._popup()

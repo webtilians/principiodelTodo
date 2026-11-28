@@ -260,7 +260,7 @@ Device API v1 (`src/infinito3/remote_device_api.py`, designed in §5 of
   | `phone.motion` | `episode` | `shakes`, `position`; optionally `lat`, `lon`, `accuracy`. The time between `observed_from` and `observed_to` is how long it moved |
   | `phone.place` | `place` | `lat`, `lon`, `accuracy` |
   | `phone.track` | `start`, `point`, `end` | a point has `lat`, `lon`, `accuracy`; `end` keeps one memory of the trip |
-  | `note` | `text` | `text`, optionally `kind` |
+  | `note` | `text` | `text`, optionally `kind` and `project` (a name, up to 80 characters) |
 
 - **Sent again, saved once.** An `event_id` already taken is answered `200 {"saved": true, "duplicate": true,
   "memory_id": …}` for 30 days, so a device may resend whatever it is not sure arrived. A route point is one per moment.

@@ -192,13 +192,15 @@ def fake_seal(data: bytes) -> bytes:
 def test_the_session_is_never_kept_in_plain_text_and_a_broken_one_is_no_session(tmp_path, monkeypatch):
     store = Store(tmp_path, fake_seal, fake_seal)
     assert store.renew() == "none" and store.load() is None
-    session = {"server": "https://x", "client_id": "c", "token_endpoint": "https://x/token",
+    session = {"server": "https://x", "client_id": "c", "token_endpoint": "https://x/token", "scope": server.SCOPE,
                "access_token": "secret-access-xyz", "refresh_token": "secret-refresh-xyz", "expires_at": 0}
     store.save(session)
     sealed = (tmp_path / "session.dpapi").read_bytes()
     assert b"secret" not in sealed and store.load() == session
     monkeypatch.setattr(server, "refresh", lambda kept: {**kept, "access_token": "new", "expires_at": 9e12})
     assert store.renew() == "ok" and store.load()["access_token"] == "new"
+    store.save({**session, "scope": "infinito:device"})  # signed in with phase 1: no notes yet
+    assert store.renew() == "old" and not store.may_send_notes()
     store.save({**session, "expires_at": 0})
 
     def expired(kept):
@@ -233,11 +235,14 @@ def test_dpapi_opens_only_what_it_sealed():
 
 def test_the_app_talks_only_to_its_own_paths_and_from_one_module():
     for refused in ("https://infinitomemory.com/mcp", "https://infinitomemory.com/memory",
-                    "https://infinitomemory.com/api/devices/v1/events", "https://elsewhere.example/token"):
+                    "https://infinitomemory.com/api/devices/v2/events", "https://elsewhere.example/token",
+                    "https://elsewhere.example/api/devices/v1/events"):
         with pytest.raises(PermissionError):
             server._allowed("https://infinitomemory.com", refused)
     assert server._allowed("https://infinitomemory.com", "https://infinitomemory.com/token")
-    assert server.SCOPE == "infinito:device"  # a device's sign-in: no part of the memory, not even reading it
+    assert server._allowed("https://infinitomemory.com", "https://infinitomemory.com/api/devices/v1/events")
+    # A device's sign-in that may add notes and nothing else: no part of the memory, not even reading it.
+    assert server.SCOPE.split() == ["infinito:device", "infinito:device:note"]
     reaching = [path.name for path in PACKAGE.glob("*.py")
                 if any(word in path.read_text(encoding="utf-8") for word in ("urllib", "http.client", "urlopen"))]
     assert reaching == ["server.py"]
@@ -251,7 +256,7 @@ def test_the_check_command_never_shows_the_session(tmp_path, monkeypatch, capsys
 
     monkeypatch.setenv("INFINITO_HOME", str(tmp_path))
     store = Store(places.home(), fake_seal, fake_seal)
-    store.save({"server": "https://x", "client_id": "c", "token_endpoint": "https://x/token",
+    store.save({"server": "https://x", "client_id": "c", "token_endpoint": "https://x/token", "scope": server.SCOPE,
                 "access_token": "secret-access-xyz", "refresh_token": "secret-refresh-xyz", "expires_at": 9e12})
     monkeypatch.setattr(command, "Store", lambda folder: Store(folder, fake_seal, fake_seal))
     monkeypatch.setattr(server, "answers", lambda address: 200)
@@ -282,3 +287,109 @@ def test_the_engine_also_says_its_state_as_data_from_its_command(tmp_path, monke
     assert cognition(["status", "--json"]) in (None, 0)
     said = json.loads(capsys.readouterr().out)
     assert said["paused"] and said["paused_since"] == "2026-11-27T19:26:32" and said["signed_in"] is False
+
+
+# Phase 2: the quick capture.
+
+from desktop.infinito_desktop import capture, outbox  # noqa: E402
+from desktop.infinito_desktop.waiting import FIRST_WAIT, MAX_DAYS, MAX_ITEMS, Full, Queue  # noqa: E402
+
+DEVICE = "3b1e2f60-1c2d-4e5f-8a9b-0c1d2e3f4a5b"
+
+
+def test_a_note_is_the_persons_words_with_its_kind_and_project():
+    event, why = capture.note("  Llamar a Juanma por la reunión del viernes  ", "pending", " INFINITO ", DEVICE, NOW)
+    assert why is None
+    assert event["capability"] == "note" and event["type"] == "text" and event["origin"] == "declared"
+    assert event["payload"] == {"text": "Llamar a Juanma por la reunión del viernes", "kind": "pending",
+                                "project": "INFINITO"}
+    assert event["observed_to"] == "2026-11-28T01:00:00+01:00" and event["device_id"] == DEVICE
+    plain, _ = capture.note("Una idea", None, "", DEVICE, NOW)
+    assert plain["payload"] == {"text": "Una idea"} and plain["event_id"] != event["event_id"]
+
+
+def test_a_secret_never_leaves_the_pc_and_the_window_says_why():
+    for secret, said in (("Mi tarjeta es 4111 1111 1111 1111", "un número de tarjeta"),
+                         ("La contraseña del router es limonero-secreto-77", "una contraseña")):
+        event, why = capture.note(secret, None, "", DEVICE, NOW)
+        assert event is None and said in why and "1111" not in why and "limonero" not in why
+    assert capture.note("   ", None, "", DEVICE, NOW)[1] == "No hay nada que guardar."
+    assert "2000" in capture.note("x" * 2001, None, "", DEVICE, NOW)[1]
+
+
+def test_the_queue_is_sealed_bounded_and_waits_longer_each_time(tmp_path):
+    queue = Queue(tmp_path, fake_seal, fake_seal)
+    event, _ = capture.note("Comprar pilas para el reloj", None, "", DEVICE, NOW)
+    queue.add(event, now=1000)
+    assert b"pilas" not in (tmp_path / "queue.dpapi").read_bytes()
+    assert [item["event"]["event_id"] for item in queue.due(1000)] == [event["event_id"]]
+    queue.later(event["event_id"], now=1000)
+    assert queue.due(1000 + FIRST_WAIT - 1) == [] and len(queue.due(1000 + FIRST_WAIT)) == 1
+    queue.later(event["event_id"], now=1000)
+    assert queue.due(1000 + FIRST_WAIT) == [] and len(queue.due(1000 + 2 * FIRST_WAIT)) == 1  # it doubles
+    assert queue.items(1000 + MAX_DAYS * 86400) == []  # a week later, it has gone
+    queue.clear()
+    for number in range(MAX_ITEMS):
+        queue.add(capture.note(f"Nota {number}", None, "", DEVICE, NOW)[0], now=1000)
+    with pytest.raises(Full):
+        queue.add(event, now=1000)
+    queue.clear()
+    assert queue.items(1000) == [] and not (tmp_path / "queue.dpapi").exists()
+
+
+def test_each_note_leaves_the_queue_only_when_the_server_has_said_its_last_word(tmp_path):
+    queue = Queue(tmp_path, fake_seal, fake_seal)
+    notes = [capture.note(f"Nota {n}", None, "", DEVICE, NOW)[0] for n in range(4)]
+    for note in notes:
+        queue.add(note, now=1000)
+    answers = iter([(200, {"saved": True, "memory_id": "m1"}), (200, {"saved": True, "duplicate": True}),
+                    (400, {"error": "not_saved", "detail": "Not stored: it looks like a password, and secrets..."}),
+                    (429, {"error": "too_fast", "retry_after": "3"})])
+    happened = outbox.deliver(queue, lambda event: next(answers), now=1000)
+    assert [item["outcome"] for item in happened] == ["kept", "kept", "refused", "later"]
+    assert happened[1]["said"] == "Ya estaba en tu memoria." and "contraseña" not in happened[2]["said"]
+    assert "tu memoria no lo guarda" in happened[2]["said"]
+    assert [item["event"]["event_id"] for item in queue.items(1000)] == [notes[3]["event_id"]]
+    assert queue.due(1002) == [] and len(queue.due(1003)) == 1  # it waits what the server asked
+
+    def offline(event):
+        raise OSError("no network")
+
+    assert outbox.deliver(queue, offline, now=1003)[0]["outcome"] == "later"
+    assert len(queue.items(1003)) == 1  # it stays, to go when the network is back
+    assert outbox.deliver(queue, lambda event: (401, {"error": "invalid_token"}), now=2000)[0]["outcome"] == "later"
+
+
+def test_a_note_waits_while_the_app_cannot_send_it(tmp_path, monkeypatch):
+    store = Store(tmp_path, fake_seal, fake_seal)
+    with pytest.raises(OSError):
+        store.send({"event_id": "x"})  # never signed in
+    session = {"server": "https://x", "client_id": "c", "token_endpoint": "https://x/token", "scope": "infinito:device",
+               "access_token": "a", "refresh_token": "r", "expires_at": 9e12}
+    store.save(session)
+    with pytest.raises(OSError):
+        store.send({"event_id": "x"})  # signed in before it could send notes
+    store.save({**session, "scope": server.SCOPE, "expires_at": 0})
+
+    def expired(kept):
+        raise server.Expired()
+
+    monkeypatch.setattr(server, "refresh", expired)
+    assert store.send({"event_id": "x"}) == (401, {"error": "invalid_token"})
+    sent = []
+    monkeypatch.setattr(server, "refresh", lambda kept: {**kept, "access_token": "fresh", "expires_at": 9e12})
+    monkeypatch.setattr(server, "send", lambda kept, event: sent.append((kept["access_token"], event)) or (200, {}))
+    assert store.send({"event_id": "x"}) == (200, {}) and sent == [("fresh", {"event_id": "x"})]
+
+
+def test_signing_in_again_ends_the_session_before(tmp_path, monkeypatch):
+    store = Store(tmp_path, fake_seal, fake_seal)
+    old = {"server": "https://x", "client_id": "old", "token_endpoint": "https://x/token", "scope": "infinito:device",
+           "access_token": "a", "refresh_token": "r", "expires_at": 9e12}
+    store.save(old)
+    revoked = []
+    monkeypatch.setattr(server, "revoke", revoked.append)
+    monkeypatch.setattr(server, "sign_in", lambda address, **kw: {**old, "client_id": "new", "scope": server.SCOPE})
+    store.sign_in("https://x")
+    assert store.load()["client_id"] == "new" and [s["client_id"] for s in revoked] == ["old"]
+    assert store.may_send_notes()

@@ -361,10 +361,12 @@ def test_a_device_scope_is_a_device_even_next_to_others():
 
 
 def test_infinito_desktop_signs_in_as_a_device_that_opens_no_part_of_the_memory(server):
-    """The PC app (desktop/) signs in with the sign-in every app on the PC shares, coming back to 127.0.0.1."""
+    """The PC app (desktop/) signs in with the sign-in every app on the PC shares, coming back to 127.0.0.1, and its
+    quick capture keeps each note once, as the person's words, with its project."""
+    from desktop.infinito_desktop import capture
     from desktop.infinito_desktop import server as desktop
 
-    base, _, _ = server
+    base, _, folder = server
     device_sign_in(base, name="ana")  # the memory, made from another device
     seen = {}
 
@@ -379,9 +381,24 @@ def test_infinito_desktop_signs_in_as_a_device_that_opens_no_part_of_the_memory(
 
     session = desktop.sign_in(base, open_page=person_signs_in, wait_seconds=20)
     assert "INFINITO Desktop en " in seen["page"] and "un dispositivo" in seen["page"]
-    assert "podrá añadir a tu memoria nada todavía" in seen["page"]  # phase 1 sends nothing
-    assert mcp_call(base, session["access_token"]).status_code == 403
-    assert send(base, session["access_token"], event()).json()["error"] == "not_declared"
+    assert "podrá añadir a tu memoria las notas que le escribas o le dictes" in seen["page"]
+    assert desktop.may_send(session) and mcp_call(base, session["access_token"]).status_code == 403
+    assert send(base, session["access_token"], event()).json()["error"] == "not_declared"  # notes, nothing else
+
+    note, _ = capture.note("Llamar a Juanma por la reunión con el director financiero", "pending", "INFINITO",
+                           DEVICE_ID)
+    status, answer = desktop.send(session, note)
+    assert status == 200 and answer["saved"] and answer["memory_id"]
+    assert desktop.send(session, note) == (200, {"saved": True, "duplicate": True, "memory_id": answer["memory_id"]})
+    [(words, metadata)] = kept(folder)
+    assert words == "INFINITO: Llamar a Juanma por la reunión con el director financiero"
+    assert metadata["author"].startswith("INFINITO Desktop en ") and metadata["origin"] == "declared"
+    assert metadata["kind"] == "pending" and metadata["project"] == "INFINITO"
+    time.sleep(1.05)  # notes come at most one a second
+    named = {**capture.note("Otra", None, "", DEVICE_ID)[0]}
+    named["payload"]["project"] = "x" * 81
+    assert desktop.send(session, named)[1]["error"] == "bad_payload"
+
     renewed = desktop.refresh(dict(session))
     assert renewed["refresh_token"] != session["refresh_token"]  # it rotates: one renewal at a time
     desktop.revoke(renewed)
