@@ -346,6 +346,25 @@ y comprueba que `vault_status` responde por la extensión y `recall` por el cone
 
 ### Fase 1: app base, estado y avisos
 
+**Estado (28/11/2026): construida en la rama `feat/desktop-f1-tray-status-20261128`, con P-2 (`desktop/`) y P-3
+(Python solo con la biblioteca estándar) decididas por Enrique.**
+
+- **Archivos.** El paquete `desktop/infinito_desktop`, el lanzador `desktop/infinito-desktop.pyw`, `desktop/README.md`
+  (con la tabla de qué lee y qué envía), 15 pruebas en `tests/test_desktop_v3.py` y una de integración en
+  `tests/test_remote_devices_api_v3.py`, y `.github/workflows/desktop.yml`.
+- **Sesión.** El inicio de sesión común ya está en `src/infinito3/remote_client.py`: `sign_in` y `refresh`, que usan los
+  hooks y la app. El motor da su estado como datos en `cognition/status.py` y en `python -m cognition status --json`.
+- **Probado en el PC de Enrique** el 28/11/2026, con `--check`: «Copias» en rojo (la última buena es del 07/11/2026),
+  «Motor» en ámbar (en pausa desde el 27/11 a las 19:26), servidor, hooks y tareas bien, y «Sesión de la app» en ámbar
+  hasta que entre.
+- **Cambia respecto a lo escrito abajo:**
+  - la parte del servidor ya la hizo la Device API (#199): un token de dispositivo recibe 403 en todo `/mcp`;
+  - la app pide solo `infinito:device`, sin capacidades, porque en la F1 no envía nada; la F2 pedirá `note`, con un
+    inicio de sesión nuevo;
+  - el menú separa «Salir de INFINITO Desktop», que cierra la app, de «Cerrar sesión» en Ajustes, que borra el token y
+    lo revoca en el servidor.
+- **Queda para la F2:** la cola cifrada, porque nadie la usa antes de la captura rápida.
+
 **Servidor (pequeño): el ámbito de dispositivo desde el registro** (§5.2, invariante 5)
 
 - **Ya hecho en la rama `feat/device-api-v1-20261127`, con la Device API (§5): con el ámbito, `/mcp` responde `403` a
